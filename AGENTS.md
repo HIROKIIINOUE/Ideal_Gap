@@ -161,3 +161,10 @@ When working on this project:
 2. **Understand before implementing**: Read the relevant docs section before writing code
 
 3. **Follow existing patterns**: Look at existing components and screens for patterns to follow
+
+## コラボレーション方針
+
+- 本プロジェクトはプロダクト開発と学習を同時に進めるため、変更はフェーズごとに最小限・シンプルな単位で実施する
+- プラン提示や会話は可能な限り日本語で行い、コマンドやファイル名などは英語のままでよい
+- コード変更時はアプリ開発初学者にも理解しやすいように意図や手順を丁寧に説明する
+- 長期運用とリリースを見据え、完成度と品質を重視して進める
