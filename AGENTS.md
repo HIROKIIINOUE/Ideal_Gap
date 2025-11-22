@@ -125,6 +125,11 @@ Developers can configure the Expo MCP server with the following doc: https://doc
 - **Interaction Testing**: Use MCP `automation_tap_by_testid` to simulate user interactions
 - **View Verification**: Use MCP `automation_find_view_by_testid` to validate component rendering
 
+### 必須チェック
+
+- 何らかの変更を加えた後は必ず `npm run typecheck` で型チェックを実行する
+- 型チェック後に `npm run lint` でESLintを実行し、警告・エラーを解消する
+
 ## EAS Workflows CI/CD
 
 This project is pre-configured with **EAS Workflows** for automating development and release processes. Workflows are defined in `.eas/workflows/` directory.
