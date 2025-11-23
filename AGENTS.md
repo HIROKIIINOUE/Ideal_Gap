@@ -132,6 +132,11 @@ Developers can configure the Expo MCP server with the following doc: https://doc
 - 何らかの変更を加えた後は必ず `npm run typecheck` で型チェックを実行する
 - 型チェック後に `npm run lint` でESLintを実行し、警告・エラーを解消する
 
+### 要件・データ設計の厳守
+
+- 作業時は `docs/requierements.md` と `docs/data-structure.md` を適宜参照し、記載内容と矛盾しない実装とする
+- もし要件やデータ構造と矛盾が生じる場合は必ず報告し、両ドキュメントを再確認した上で調整方針を相談する
+
 ## EAS Workflows CI/CD
 
 This project is pre-configured with **EAS Workflows** for automating development and release processes. Workflows are defined in `.eas/workflows/` directory.
