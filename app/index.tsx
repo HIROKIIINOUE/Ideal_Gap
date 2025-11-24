@@ -3,6 +3,7 @@ import { Link } from "expo-router";
 import { ReactNode, useEffect, useMemo, useRef } from "react";
 import {
   Animated,
+  Easing,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -15,17 +16,48 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 
 export default function Index() {
   const scrollY = useRef(new Animated.Value(0)).current;
-  const heroAnim = useRef(new Animated.Value(0)).current;
+
+  // CTAボタンの強調アニメーション
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const shimmerRan = useRef(false);
+  const shimmerStyle = useMemo(
+    () => ({
+      transform: [
+        {
+          translateX: shimmerAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [-220, 220],
+          }),
+        },
+      ],
+    }),
+    [shimmerAnim],
+  );
 
   // ヒーロー画面のフェードイン
+  const heroAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(heroAnim, {
       toValue: 1,
       duration: 800,
       delay: 320,
       useNativeDriver: true,
-    }).start();
-  }, [heroAnim]);
+    }).start(({ finished }) => {
+      if (finished && !shimmerRan.current) {
+        shimmerRan.current = true;
+        shimmerAnim.setValue(0);
+        Animated.sequence([
+          Animated.delay(1000),
+          Animated.timing(shimmerAnim, {
+            toValue: 1,
+            duration: 1200,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    });
+  }, [heroAnim, shimmerAnim]);
 
   // スクロール時のカードフェードイン
   const fadeUp = (inputStart: number, inputEnd: number) => ({
@@ -137,6 +169,14 @@ export default function Index() {
                     end={{ x: 1, y: 1 }}
                     style={styles.buttonInner}
                   >
+                    <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
+                      <LinearGradient
+                        colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.shimmerFill}
+                      />
+                    </Animated.View>
                     <Text style={styles.primaryLabel}>無料で始める</Text>
                   </LinearGradient>
                 </Pressable>
@@ -156,6 +196,14 @@ export default function Index() {
                     end={{ x: 1, y: 1 }}
                     style={[styles.buttonInner, styles.secondaryInner]}
                   >
+                    <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
+                      <LinearGradient
+                        colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.35)", "rgba(255,255,255,0)"]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.shimmerFill}
+                      />
+                    </Animated.View>
                     <Text style={styles.secondaryLabel}>サインイン</Text>
                   </LinearGradient>
                 </Pressable>
@@ -239,6 +287,14 @@ export default function Index() {
                     end={{ x: 1, y: 1 }}
                     style={styles.buttonInner}
                   >
+                    <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
+                      <LinearGradient
+                        colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.shimmerFill}
+                      />
+                    </Animated.View>
                     <Text style={styles.primaryLabel}>無料で始める</Text>
                   </LinearGradient>
                 </Pressable>
@@ -258,6 +314,14 @@ export default function Index() {
                     end={{ x: 1, y: 1 }}
                     style={styles.buttonInner}
                   >
+                    <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
+                      <LinearGradient
+                        colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.35)", "rgba(255,255,255,0)"]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.shimmerFill}
+                      />
+                    </Animated.View>
                     <Text style={styles.primaryLabel}>サインイン</Text>
                   </LinearGradient>
                 </Pressable>
@@ -386,6 +450,16 @@ const styles = StyleSheet.create({
   },
   buttonGlass: {
     ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.lg,
+  },
+  shimmerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    left: -80,
+    right: -80,
+    opacity: 0.85,
+  },
+  shimmerFill: {
+    flex: 1,
     borderRadius: radius.lg,
   },
   cardGradient: {
