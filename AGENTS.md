@@ -179,6 +179,11 @@ When working on this project:
 
 3. **Follow existing patterns**: Look at existing components and screens for patterns to follow
 
+## Design System
+
+- アプリ全体のUI/UXは `docs/design-system.md` を参照し、Apple HIG に沿った黒×ダークブルー基調の高級感あるスタイルを順守する
+- 配色・タイポグラフィ・スペーシング・モーションの基準から外れる要素を追加する場合は、目的と理由を明示して合意を得る
+
 ## コラボレーション方針
 
 - 本プロジェクトはプロダクト開発と学習を同時に進めるため、変更はフェーズごとに最小限・シンプルな単位で実施する
