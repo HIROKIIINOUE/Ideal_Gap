@@ -22,6 +22,11 @@ These documentation files are specifically formatted for AI agents and should be
 - Expo SDK modules and their usage
 - Development and deployment processes
 
+## Tech Stack Reference
+
+- 常に `docs/tech-stack.md` を参照し、記載済みの技術スタック・依存モジュールは必要に応じて積極的に導入する
+- リスト外のツールやモジュールを検討・追加する場合は、(1)どの機能に必要か (2)なぜ必要か を事前に説明して合意を取る
+
 ## Project Structure
 
 ```
