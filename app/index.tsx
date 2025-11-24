@@ -232,7 +232,7 @@ export default function Index() {
           </Card>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(220, 360)]}>
+        <Animated.View style={[styles.section, fadeUp(280, 420)]}>
           <Text style={styles.sectionLabel}>Membership</Text>
           <Text style={styles.sectionTitle}>シンプルな定額プラン</Text>
           <View style={styles.cardRow}>
@@ -251,20 +251,10 @@ export default function Index() {
                 ))}
               </View>
             </Card>
-            <Card style={styles.planCard}>
-              <Text style={styles.cardHeading}>安心の運用</Text>
-              <Text style={styles.cardBody}>
-                支払い失敗時はステータスを明示し、再開もスムーズ。
-                無料プランは初回のみ適用。再サインアップ時は有料プランから開始。
-              </Text>
-              <Text style={styles.caption}>
-                アプリ内決済や詳細フローは今後の実装で追加予定です。
-              </Text>
-            </Card>
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(360, 520)]}>
+        <Animated.View style={[styles.section, fadeUp(660, 820)]}>
           <Text style={styles.sectionLabel}>Get Started</Text>
           <Text style={styles.sectionTitle}>まずはサインアップから</Text>
           <Card>
