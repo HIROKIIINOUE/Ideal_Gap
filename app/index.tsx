@@ -14,6 +14,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Footer from "../components/Footer";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 
 export default function Index() {
@@ -60,7 +61,7 @@ export default function Index() {
         return;
       }
       const y = event.nativeEvent.contentOffset.y;
-      const reachedFadeZone = y >= 970;  //ここで下部CTAアニメーション発火地点をコントロール
+      const reachedFadeZone = y >= 1080;  //ここで下部CTAアニメーション発火地点をコントロール
       if (reachedFadeZone) {
         bottomShimmerRan.current = true;
         bottomShimmerAnim.setValue(0);
@@ -236,9 +237,6 @@ export default function Index() {
             <Text style={styles.subtitle}>
               Apple HIG に沿ったシンプルで高級感のある体験で、続けやすさをデザイン。
             </Text>
-            <View style={styles.pricePill}>
-              <Text style={styles.priceText}>初月無料・次月以降 8.5 CAD/月 (30日)</Text>
-            </View>
             <View style={styles.actions}>
               <Link href="/signup" asChild>
                 <Pressable
@@ -304,7 +302,7 @@ export default function Index() {
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(60, 200)]}>
+        <Animated.View style={[styles.section, fadeUp(60, 220)]}>
           <Text style={styles.sectionLabel}>Why Ideal Gap</Text>
           <Text style={styles.sectionTitle}>理想と日常を結ぶ、6 つの柱</Text>
           <Card>
@@ -324,7 +322,7 @@ export default function Index() {
           </Card>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(380, 520)]}>
+        <Animated.View style={[styles.section, fadeUp(440, 600)]}>
           <Text style={styles.sectionLabel}>Membership</Text>
           <Text style={styles.sectionTitle}>シンプルな定額プラン</Text>
           <View style={styles.cardRow}>
@@ -346,7 +344,7 @@ export default function Index() {
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(760, 920)]}>
+        <Animated.View style={[styles.section, fadeUp(820, 980)]}>
           <Text style={styles.sectionLabel}>Get Started</Text>
           <Text style={styles.sectionTitle}>まずはサインアップから</Text>
           <Card>
@@ -412,6 +410,7 @@ export default function Index() {
           </Card>
         </Animated.View>
       </Animated.ScrollView>
+      <Footer isAuthenticated={false} />
     </SafeAreaView>
   );
 }
@@ -431,6 +430,7 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.xl,
+    paddingBottom: spacing.xl * 2,
   },
   heroCard: {
     backgroundColor: colors.surface,
@@ -458,6 +458,7 @@ const styles = StyleSheet.create({
     fontSize: typography.md,
     color: colors.textSecondary,
     lineHeight: typography.md * 1.5,
+    marginVertical: spacing.md,
   },
   pricePill: {
     alignSelf: "flex-start",
