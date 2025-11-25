@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
@@ -59,7 +60,7 @@ export default function Index() {
         return;
       }
       const y = event.nativeEvent.contentOffset.y;
-      const reachedFadeZone = y >= 870;  //ここで下部CTAアニメーション発火地点をコントロール
+      const reachedFadeZone = y >= 970;  //ここで下部CTAアニメーション発火地点をコントロール
       if (reachedFadeZone) {
         bottomShimmerRan.current = true;
         bottomShimmerAnim.setValue(0);
@@ -76,6 +77,44 @@ export default function Index() {
     },
     [bottomShimmerAnim],
   );
+
+  // ヒーロー直下のスクロールインジケーター
+  const scrollHintAnim = useRef(new Animated.Value(0)).current;
+  const scrollHintStyle = useMemo(
+    () => ({
+      transform: [
+        {
+          translateY: scrollHintAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 8],
+          }),
+        },
+      ],
+      opacity: scrollHintAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.7, 1],
+      }),
+    }),
+    [scrollHintAnim],
+  );
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scrollHintAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scrollHintAnim, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [scrollHintAnim]);
 
   // ヒーロー画面のフェードイン
   const heroAnim = useRef(new Animated.Value(0)).current;
@@ -241,7 +280,7 @@ export default function Index() {
                     colors={["rgba(255,255,255,0.18)", "rgba(255,255,255,0.06)"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={[styles.buttonInner, styles.secondaryInner]}
+                    style={[styles.buttonInner]}
                   >
                     <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
                       <LinearGradient
@@ -251,11 +290,17 @@ export default function Index() {
                         style={styles.shimmerFill}
                       />
                     </Animated.View>
-                    <Text style={styles.secondaryLabel}>サインイン</Text>
+                    <Text style={styles.primaryLabel}>サインイン</Text>
                   </LinearGradient>
                 </Pressable>
               </Link>
             </View>
+          </View>
+          <View style={styles.scrollHint} pointerEvents="none">
+            <Animated.View style={[styles.scrollHintIcon, scrollHintStyle]}>
+              <MaterialCommunityIcons name="chevron-down" size={22} color="rgba(255,255,255,0.8)" />
+            </Animated.View>
+            <Text style={styles.scrollHintText}>スクロール</Text>
           </View>
         </Animated.View>
 
@@ -279,7 +324,7 @@ export default function Index() {
           </Card>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(280, 420)]}>
+        <Animated.View style={[styles.section, fadeUp(380, 520)]}>
           <Text style={styles.sectionLabel}>Membership</Text>
           <Text style={styles.sectionTitle}>シンプルな定額プラン</Text>
           <View style={styles.cardRow}>
@@ -301,7 +346,7 @@ export default function Index() {
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(660, 820)]}>
+        <Animated.View style={[styles.section, fadeUp(760, 920)]}>
           <Text style={styles.sectionLabel}>Get Started</Text>
           <Text style={styles.sectionTitle}>まずはサインアップから</Text>
           <Card>
@@ -391,6 +436,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     padding: spacing.xl,
+    marginBottom: spacing.xl,
     gap: spacing.md,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
@@ -601,5 +647,24 @@ const styles = StyleSheet.create({
   },
   radiusLg: {
     borderRadius: radius.lg,
+  },
+  scrollHint: {
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
+  },
+  scrollHintIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scrollHintText: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    letterSpacing: 0.4,
+    marginTop: spacing.md
   },
 });
