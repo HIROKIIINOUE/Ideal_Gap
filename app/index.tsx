@@ -1,9 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
-import { ReactNode, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Animated,
   Easing,
+  LayoutChangeEvent,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -17,7 +18,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 export default function Index() {
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // CTAボタンの強調アニメーション
+  // ヒーロー画面CTAボタンの光沢アニメーション
   const shimmerAnim = useRef(new Animated.Value(0)).current;
   const shimmerRan = useRef(false);
   const shimmerStyle = useMemo(
@@ -34,12 +35,54 @@ export default function Index() {
     [shimmerAnim],
   );
 
+  // 最下部CTA向けの光沢アニメーション
+  const bottomShimmerAnim = useRef(new Animated.Value(0)).current;
+  const bottomShimmerRan = useRef(false);
+  const bottomShimmerStyle = useMemo(
+    () => ({
+      transform: [
+        {
+          translateX: bottomShimmerAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [-220, 220],
+          }),
+        },
+      ],
+    }),
+    [bottomShimmerAnim],
+  );
+
+  // スクロールで指定地点到達時1秒後にCTAボタンの光沢を1度だけ発火
+  const handleScroll = useCallback(
+    (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+      if (bottomShimmerRan.current) {
+        return;
+      }
+      const y = event.nativeEvent.contentOffset.y;
+      const reachedFadeZone = y >= 870;  //ここで下部CTAアニメーション発火地点をコントロール
+      if (reachedFadeZone) {
+        bottomShimmerRan.current = true;
+        bottomShimmerAnim.setValue(0);
+        Animated.sequence([
+          Animated.delay(1000),
+          Animated.timing(bottomShimmerAnim, {
+            toValue: 1,
+            duration: 1200,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    },
+    [bottomShimmerAnim],
+  );
+
   // ヒーロー画面のフェードイン
   const heroAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(heroAnim, {
       toValue: 1,
-      duration: 800,
+      duration: 800,  //ヒーロー画面とそのCTAボタン設定
       delay: 320,
       useNativeDriver: true,
     }).start(({ finished }) => {
@@ -47,7 +90,7 @@ export default function Index() {
         shimmerRan.current = true;
         shimmerAnim.setValue(0);
         Animated.sequence([
-          Animated.delay(1000),
+          Animated.delay(500),
           Animated.timing(shimmerAnim, {
             toValue: 1,
             duration: 1200,
@@ -87,8 +130,12 @@ export default function Index() {
   );
 
   // カード共通コンポーネント
-  const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => (
-    <View style={[styles.cardShell, style]}>
+  const Card = ({
+    children,
+    style,
+    onLayout,
+  }: { children: ReactNode; style?: StyleProp<ViewStyle>; onLayout?: (event: LayoutChangeEvent) => void }) => (
+    <View style={[styles.cardShell, style]} onLayout={onLayout}>
       <View style={styles.card}>
         <LinearGradient
           colors={["rgba(30,94,255,0.18)", "rgba(15,28,47,0.8)"]}
@@ -115,10 +162,10 @@ export default function Index() {
       <Animated.ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true },
-        )}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+          listener: handleScroll,
+        })}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
@@ -277,7 +324,7 @@ export default function Index() {
                     end={{ x: 1, y: 1 }}
                     style={styles.buttonInner}
                   >
-                    <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
+                    <Animated.View style={[styles.shimmerOverlay, bottomShimmerStyle]} pointerEvents="none">
                       <LinearGradient
                         colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"]}
                         start={{ x: 0, y: 0.5 }}
@@ -304,7 +351,7 @@ export default function Index() {
                     end={{ x: 1, y: 1 }}
                     style={styles.buttonInner}
                   >
-                    <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
+                    <Animated.View style={[styles.shimmerOverlay, bottomShimmerStyle]} pointerEvents="none">
                       <LinearGradient
                         colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.35)", "rgba(255,255,255,0)"]}
                         start={{ x: 0, y: 0.5 }}
