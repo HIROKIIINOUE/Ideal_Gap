@@ -1,10 +1,16 @@
 import { Link } from "expo-router";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import Footer from "../components/Footer";
+import LanguageSheet, { LanguageKey } from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 
 export default function Signup() {
+  const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageKey>("ja");
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -118,6 +124,15 @@ export default function Signup() {
         </Link>
         </View>
       </ScrollView>
+      <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <LanguageSheet
+        visible={languageSheetVisible}
+        selectedLanguage={selectedLanguage}
+        onClose={() => setLanguageSheetVisible(false)}
+        onSelect={(lang) => {
+          setSelectedLanguage(lang);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -130,6 +145,7 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.xl,
     gap: spacing.lg,
+    paddingBottom: spacing.xl * 2,
   },
   headerRow: {
     flexDirection: "row",

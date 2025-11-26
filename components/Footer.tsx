@@ -6,63 +6,69 @@ import { colors, radius, spacing, typography } from "../constants/theme";
 
 type FooterProps = {
   isAuthenticated?: boolean;
+  onLanguagePress?: () => void;
+  onDashboardPress?: () => void;
+  onMorePress?: () => void;
 };
 
-const Footer = memo(({ isAuthenticated = false }: FooterProps) => {
-  const actions = useMemo(
-    () =>
-      [
-        {
-          key: "language",
-          label: "Language",
-          icon: "earth",
-          onPress: () => { },
-        },
-        {
-          key: "dashboard",
-          label: "ダッシュボード",
-          icon: "view-dashboard-outline",
-          onPress: () => { },
-        },
-        {
-          key: "more",
-          label: "その他",
-          icon: "menu",
-          onPress: () => { },
-        },
-      ].filter((item) => isAuthenticated || item.key === "language"),
-    [isAuthenticated],
-  );
+const Footer = memo(
+  ({ isAuthenticated = false, onLanguagePress, onDashboardPress, onMorePress }: FooterProps) => {
+    const noop = () => { };
+    const actions = useMemo(
+      () =>
+        [
+          {
+            key: "language",
+            label: "Language",
+            icon: "earth",
+            onPress: onLanguagePress ?? noop,
+          },
+          {
+            key: "dashboard",
+            label: "ダッシュボード",
+            icon: "view-dashboard-outline",
+            onPress: onDashboardPress ?? noop,
+          },
+          {
+            key: "more",
+            label: "その他",
+            icon: "menu",
+            onPress: onMorePress ?? noop,
+          },
+        ].filter((item) => isAuthenticated || item.key === "language"),
+      [isAuthenticated, onLanguagePress, onDashboardPress, onMorePress],
+    );
 
-  return (
-    <View style={styles.wrapper}>
-      <LinearGradient
-        colors={["rgba(12,18,32,0.95)", "rgba(12,18,32,0.9)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.content}>
-        {actions.map((action) => (
-          <Pressable
-            key={action.key}
-            accessibilityRole="button"
-            accessibilityLabel={action.label}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.actionPressed]}
-            onPress={action.onPress}
-          >
-            <MaterialCommunityIcons
-              name={action.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-              size={20}
-              color={colors.textPrimary}
-            />
-            <Text style={styles.actionLabel}>{action.label}</Text>
-          </Pressable>
-        ))}
+    return (
+      <View style={styles.wrapper}>
+        <LinearGradient
+          colors={["rgba(12,18,32,0.95)", "rgba(12,18,32,0.9)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.content}>
+          {actions.map((action) => (
+            <Pressable
+              key={action.key}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
+              style={({ pressed }) => [styles.actionButton, pressed && styles.actionPressed]}
+              onPress={action.onPress}
+            >
+              <MaterialCommunityIcons
+                name={action.icon as keyof typeof MaterialCommunityIcons.glyphMap}
+                size={20}
+                color={colors.textPrimary}
+              />
+              <Text style={styles.actionLabel}>{action.label}</Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
-    </View>
-  );
-});
+    );
+  },
+);
 
 Footer.displayName = "Footer";
 

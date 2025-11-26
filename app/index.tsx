@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -14,11 +14,14 @@ import {
   ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Footer from "../components/Footer";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import Footer from "../components/Footer";
+import LanguageSheet, { LanguageKey } from "../components/LanguageSheet";
 
 export default function Index() {
   const scrollY = useRef(new Animated.Value(0)).current;
+  const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageKey>("ja");
 
   // ヒーロー画面CTAボタンの光沢アニメーション
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -410,7 +413,15 @@ export default function Index() {
           </Card>
         </Animated.View>
       </Animated.ScrollView>
-      <Footer isAuthenticated={false} />
+      <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <LanguageSheet
+        visible={languageSheetVisible}
+        selectedLanguage={selectedLanguage}
+        onClose={() => setLanguageSheetVisible(false)}
+        onSelect={(lang) => {
+          setSelectedLanguage(lang);
+        }}
+      />
     </SafeAreaView>
   );
 }
