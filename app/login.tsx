@@ -3,35 +3,33 @@ import { Link } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
-import { loginTranslations } from "../content/loginTranslations";
-import { LanguageKey } from "../types/i18n";
 
 export default function Login() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<LanguageKey>("ja");
-  const translations = loginTranslations[selectedLanguage] ?? loginTranslations.ja;
+  const { t } = useTranslation("login");
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <Text style={styles.label}>{translations.pageLabel}</Text>
+          <Text style={styles.label}>{t("pageLabel")}</Text>
           <Link href="/" style={styles.link}>
-            {translations.backToHome}
+            {t("backToHome")}
           </Link>
         </View>
 
         <View style={[styles.card, shadows.card]}>
-          <Text style={styles.title}>{translations.welcomeTitle}</Text>
-          <Text style={styles.body}>{translations.welcomeBody}</Text>
+          <Text style={styles.title}>{t("welcomeTitle")}</Text>
+          <Text style={styles.body}>{t("welcomeBody")}</Text>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{translations.emailLabel}</Text>
+            <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
             <TextInput
-              placeholder={translations.emailPlaceholder}
+              placeholder={t("emailPlaceholder")}
               placeholderTextColor={colors.textSecondary}
               style={styles.input}
               keyboardAppearance="dark"
@@ -41,9 +39,9 @@ export default function Login() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{translations.passwordLabel}</Text>
+            <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
             <TextInput
-              placeholder={translations.passwordPlaceholder}
+              placeholder={t("passwordPlaceholder")}
               placeholderTextColor={colors.textSecondary}
               style={styles.input}
               secureTextEntry
@@ -66,17 +64,17 @@ export default function Login() {
               end={{ x: 1, y: 1 }}
               style={styles.buttonGlass}
             />
-            <Text style={styles.primaryLabel}>{translations.loginCta}</Text>
+            <Text style={styles.primaryLabel}>{t("loginCta")}</Text>
           </Pressable>
 
           <Pressable accessibilityRole="button" style={styles.subtleButton}>
-            <Text style={styles.subtleLabel}>{translations.forgotPassword}</Text>
+            <Text style={styles.subtleLabel}>{t("forgotPassword")}</Text>
           </Pressable>
         </View>
 
         <View style={[styles.card, shadows.card]}>
-          <Text style={styles.cardHeading}>{translations.firstTimeHeading}</Text>
-          <Text style={styles.body}>{translations.firstTimeBody}</Text>
+          <Text style={styles.cardHeading}>{t("firstTimeHeading")}</Text>
+          <Text style={styles.body}>{t("firstTimeBody")}</Text>
           <Link href="/signup" asChild>
             <Pressable
               accessibilityRole="button"
@@ -93,7 +91,7 @@ export default function Login() {
               end={{ x: 1, y: 1 }}
               style={styles.buttonGlass}
             />
-              <Text style={styles.secondaryLabel}>{translations.signupCta}</Text>
+              <Text style={styles.secondaryLabel}>{t("signupCta")}</Text>
             </Pressable>
           </Link>
         </View>
@@ -101,11 +99,7 @@ export default function Login() {
       <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
       <LanguageSheet
         visible={languageSheetVisible}
-        selectedLanguage={selectedLanguage}
         onClose={() => setLanguageSheetVisible(false)}
-        onSelect={(lang) => {
-          setSelectedLanguage(lang);
-        }}
       />
     </SafeAreaView>
   );

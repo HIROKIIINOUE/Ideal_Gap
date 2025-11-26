@@ -1,34 +1,29 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { memo, useEffect, useRef, useState } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { LanguageKey } from "../types/i18n";
 import { colors, radius, spacing, typography } from "../constants/theme";
+import { useLanguage } from "../providers/LanguageProvider";
 
 type LanguageSheetProps = {
   visible: boolean;
-  selectedLanguage?: LanguageKey;
   onClose: () => void;
-  onSelect: (lang: LanguageKey) => void;
 };
-
-const languages: { key: LanguageKey; label: string; helper: string }[] = [
-  { key: "ja", label: "日本語", helper: "Japanese" },
-  { key: "en", label: "English", helper: "English" },
-  { key: "fr", label: "Français", helper: "French" },
-];
 
 type LanguageOptionProps = {
-  option: (typeof languages)[number];
+  option: { key: LanguageKey; label: string; helper: string };
   active: boolean;
   onPress: () => void;
+  accessibilityLabel: string;
 };
 
-const LanguageOption = ({ option, active, onPress }: LanguageOptionProps) => (
+const LanguageOption = ({ option, active, onPress, accessibilityLabel }: LanguageOptionProps) => (
   <Pressable
     key={option.key}
     accessibilityRole="button"
-    accessibilityLabel={`${option.label}を選択`}
+    accessibilityLabel={accessibilityLabel}
     style={({ pressed }) => [styles.option, active && styles.optionActive, pressed && styles.optionPressed]}
     onPress={onPress}
   >
@@ -44,9 +39,20 @@ const LanguageOption = ({ option, active, onPress }: LanguageOptionProps) => (
   </Pressable>
 );
 
-const LanguageSheet = memo(({ visible, selectedLanguage = "ja", onClose, onSelect }: LanguageSheetProps) => {
+const LanguageSheet = memo(({ visible, onClose }: LanguageSheetProps) => {
   const progress = useRef(new Animated.Value(0)).current;
   const [rendered, setRendered] = useState(visible);
+  const { language: currentLanguage, setLanguage } = useLanguage();
+  const { t } = useTranslation("common");
+
+  const languages = useMemo(
+    () => [
+      { key: "ja" as LanguageKey, label: t("languageNames.ja"), helper: t("languageHelpers.ja") },
+      { key: "en" as LanguageKey, label: t("languageNames.en"), helper: t("languageHelpers.en") },
+      { key: "fr" as LanguageKey, label: t("languageNames.fr"), helper: t("languageHelpers.fr") },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     if (visible) {
@@ -75,6 +81,8 @@ const LanguageSheet = memo(({ visible, selectedLanguage = "ja", onClose, onSelec
   if (!rendered) {
     return null;
   }
+
+  const activeLanguage = currentLanguage ?? "en";
 
   const backdropStyle = {
     opacity: progress.interpolate({
@@ -121,15 +129,16 @@ const LanguageSheet = memo(({ visible, selectedLanguage = "ja", onClose, onSelec
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.handle} />
-          <Text style={styles.sheetTitle}>言語を選択</Text>
+          <Text style={styles.sheetTitle}>{t("languageSheet.title")}</Text>
           <View style={styles.optionList}>
             {languages.map((option) => (
               <LanguageOption
                 key={option.key}
                 option={option}
-                active={option.key === selectedLanguage}
+                active={option.key === activeLanguage}
+                accessibilityLabel={`${t("languageSheet.title")} ${option.label}`}
                 onPress={() => {
-                  onSelect(option.key);
+                  setLanguage(option.key);
                   onClose();
                 }}
               />
@@ -138,11 +147,11 @@ const LanguageSheet = memo(({ visible, selectedLanguage = "ja", onClose, onSelec
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="閉じる"
+            accessibilityLabel={t("languageSheet.close")}
             style={({ pressed }) => [styles.dismissButton, pressed && styles.dismissPressed]}
             onPress={onClose}
           >
-            <Text style={styles.dismissLabel}>閉じる</Text>
+            <Text style={styles.dismissLabel}>{t("languageSheet.close")}</Text>
           </Pressable>
         </Animated.View>
       </View>

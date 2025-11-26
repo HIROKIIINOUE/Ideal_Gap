@@ -14,6 +14,7 @@ export type LandingSections = {
     title: string;
     highlights: string[];
     description: string;
+    overviewCardTitle: string;
   };
   membership: {
     label: string;
@@ -45,20 +46,21 @@ export const landingTranslations: LandingTranslations = {
       scrollHint: "スクロール",
     },
     overview: {
-      label: "Why Ideal Gap",
-      title: "理想と日常を結ぶ、6 つの柱",
-      description:
-        "理想の自分を定義し、年間・月間・週間の目標、集中できるタスクタイマー、タスク集中音楽、休憩通知で習慣化を支える。すべてのデータはシンプルな UI に整理され、毎日の進捗が明確に見える。",
-      highlights: [
-        "理想の自分を可視化し、年間・月間・週間の目標を一本の線でつなぐ",
-        "タスク集中音楽と休憩通知で、集中と回復のリズムを整える",
-        "マルチデバイス・マルチ言語対応（日本語/英語/フランス語）",
-      ],
-    },
-    membership: {
-      label: "Membership",
-      title: "シンプルな定額プラン",
-      price: "8.5 CAD",
+    label: "Why Ideal Gap",
+    title: "理想と日常を結ぶ、6 つの柱",
+    description:
+      "理想の自分を定義し、年間・月間・週間の目標、集中できるタスクタイマー、タスク集中音楽、休憩通知で習慣化を支える。すべてのデータはシンプルな UI に整理され、毎日の進捗が明確に見える。",
+    highlights: [
+      "理想の自分を可視化し、年間・月間・週間の目標を一本の線でつなぐ",
+      "タスク集中音楽と休憩通知で、集中と回復のリズムを整える",
+      "マルチデバイス・マルチ言語対応（日本語/英語/フランス語）",
+    ],
+    overviewCardTitle: "アプリの概要",
+  },
+  membership: {
+    label: "Membership",
+    title: "シンプルな定額プラン",
+    price: "8.5 CAD",
       period: "/月 (30日ごと)",
       description: "初月無料。登録日を起点に 30 日ごとに自動更新。いつでもキャンセル予約が可能。",
       bulletPoints: [
@@ -85,20 +87,21 @@ export const landingTranslations: LandingTranslations = {
       scrollHint: "Scroll",
     },
     overview: {
-      label: "Why Ideal Gap",
-      title: "Six pillars that connect your ideals and daily life",
-      description:
-        "Define your ideal self and link yearly, monthly, and weekly goals with focus timer, focus music, and break reminders. A clear UI keeps every bit of progress visible.",
-      highlights: [
-        "Visualize your ideal self and align yearly / monthly / weekly goals",
-        "Focus music and break reminders keep your rhythm balanced",
-        "Multi-device, multilingual support (Japanese / English / French)",
-      ],
-    },
-    membership: {
-      label: "Membership",
-      title: "Simple flat plan",
-      price: "8.5 CAD",
+    label: "Why Ideal Gap",
+    title: "Six pillars that connect your ideals and daily life",
+    description:
+      "Define your ideal self and link yearly, monthly, and weekly goals with focus timer, focus music, and break reminders. A clear UI keeps every bit of progress visible.",
+    highlights: [
+      "Visualize your ideal self and align yearly / monthly / weekly goals",
+      "Focus music and break reminders keep your rhythm balanced",
+      "Multi-device, multilingual support (Japanese / English / French)",
+    ],
+    overviewCardTitle: "App overview",
+  },
+  membership: {
+    label: "Membership",
+    title: "Simple flat plan",
+    price: "8.5 CAD",
       period: "/mo (every 30 days)",
       description: "First month free, then auto-renews every 30 days. Cancel anytime.",
       bulletPoints: [
@@ -125,16 +128,17 @@ export const landingTranslations: LandingTranslations = {
       scrollHint: "Faites défiler",
     },
     overview: {
-      label: "Pourquoi Ideal Gap",
-      title: "Six piliers pour relier idéal et quotidien",
-      description:
-        "Définissez votre idéal et reliez vos objectifs annuels, mensuels et hebdomadaires avec minuteur, musique de concentration et rappels de pause. Une interface claire pour voir vos progrès.",
-      highlights: [
-        "Visualisez votre idéal et alignez objectifs annuels / mensuels / hebdomadaires",
-        "Musique de concentration et rappels de pause pour garder le rythme",
-        "Compatibilité multi-appareils et multilingue (japonais / anglais / français)",
-      ],
-    },
+    label: "Pourquoi Ideal Gap",
+    title: "Six piliers pour relier idéal et quotidien",
+    description:
+      "Définissez votre idéal et reliez vos objectifs annuels, mensuels et hebdomadaires avec minuteur, musique de concentration et rappels de pause. Une interface claire pour voir vos progrès.",
+    highlights: [
+      "Visualisez votre idéal et alignez objectifs annuels / mensuels / hebdomadaires",
+      "Musique de concentration et rappels de pause pour garder le rythme",
+      "Compatibilité multi-appareils et multilingue (japonais / anglais / français)",
+    ],
+    overviewCardTitle: "Présentation de l’app",
+  },
     membership: {
       label: "Abonnement",
       title: "Forfait simple",

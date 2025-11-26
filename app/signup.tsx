@@ -3,35 +3,33 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { useTranslation } from "react-i18next";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
-import { LanguageKey } from "../types/i18n";
 
 export default function Signup() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<LanguageKey>("ja");
+  const { t } = useTranslation("signup");
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <Text style={styles.label}>Sign Up</Text>
+          <Text style={styles.label}>{t("pageLabel")}</Text>
           <Link href="/" style={styles.link}>
-            ホームへ戻る
+            {t("backToHome")}
           </Link>
         </View>
 
         <View style={[styles.card, shadows.card]}>
-          <Text style={styles.title}>無料で始める</Text>
-          <Text style={styles.body}>
-            初月無料・次月以降 8.5 CAD/月 (30日)。登録日から自動更新。再サインアップ時は無料プランが適用されません。
-          </Text>
+          <Text style={styles.title}>{t("heroTitle")}</Text>
+          <Text style={styles.body}>{t("heroBody")}</Text>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>ユーザ名</Text>
+            <Text style={styles.fieldLabel}>{t("usernameLabel")}</Text>
             <TextInput
-              placeholder="Your name"
+              placeholder={t("usernamePlaceholder")}
               placeholderTextColor={colors.textSecondary}
               style={styles.input}
               keyboardAppearance="dark"
@@ -40,9 +38,9 @@ export default function Signup() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>メールアドレス</Text>
+            <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
             <TextInput
-              placeholder="you@example.com"
+              placeholder={t("emailPlaceholder")}
               placeholderTextColor={colors.textSecondary}
               style={styles.input}
               keyboardAppearance="dark"
@@ -52,9 +50,9 @@ export default function Signup() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>パスワード</Text>
+            <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
             <TextInput
-              placeholder="8文字以上"
+              placeholder={t("passwordPlaceholder")}
               placeholderTextColor={colors.textSecondary}
               style={styles.input}
               secureTextEntry
@@ -63,9 +61,9 @@ export default function Signup() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>支払い方法</Text>
+            <Text style={styles.fieldLabel}>{t("paymentLabel")}</Text>
             <Pressable style={styles.placeholderButton}>
-              <Text style={styles.placeholderText}>決済連携は後続ステップで設定</Text>
+              <Text style={styles.placeholderText}>{t("paymentPlaceholder")}</Text>
             </Pressable>
           </View>
 
@@ -84,26 +82,22 @@ export default function Signup() {
               end={{ x: 1, y: 1 }}
               style={styles.buttonGlass}
             />
-            <Text style={styles.primaryLabel}>サインアップを続ける</Text>
+            <Text style={styles.primaryLabel}>{t("primaryCta")}</Text>
           </Pressable>
 
           <View style={styles.noteBox}>
-            <Text style={styles.noteText}>
-              使用中の言語設定とタイムゾーンをサインアップ完了時に自動検出します（手動変更も対応予定）。
-            </Text>
+            <Text style={styles.noteText}>{t("noteText")}</Text>
           </View>
         </View>
 
         <View style={[styles.card, shadows.card]}>
-          <Text style={styles.cardHeading}>プランとステータス</Text>
-          <Text style={styles.body}>
-            支払いステータスは「有効 / 支払い失敗 / キャンセル予約」で表示。初回無料は一度のみ適用され、解約後の再登録は有料プランから開始します。
-          </Text>
-          <Text style={styles.caption}>実際の課金処理とステータス更新は今後の実装で追加予定。</Text>
+          <Text style={styles.cardHeading}>{t("planHeading")}</Text>
+          <Text style={styles.body}>{t("planBody")}</Text>
+          <Text style={styles.caption}>{t("planCaption")}</Text>
         </View>
 
         <View style={[styles.card, shadows.card]}>
-          <Text style={styles.cardHeading}>すでにアカウントをお持ちですか？</Text>
+          <Text style={styles.cardHeading}>{t("existingAccountHeading")}</Text>
           <Link href="/login" asChild>
             <Pressable
             accessibilityRole="button"
@@ -120,7 +114,7 @@ export default function Signup() {
               end={{ x: 1, y: 1 }}
               style={styles.buttonGlass}
             />
-            <Text style={styles.secondaryLabel}>ログインへ</Text>
+            <Text style={styles.secondaryLabel}>{t("goToLogin")}</Text>
           </Pressable>
         </Link>
         </View>
@@ -128,11 +122,7 @@ export default function Signup() {
       <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
       <LanguageSheet
         visible={languageSheetVisible}
-        selectedLanguage={selectedLanguage}
         onClose={() => setLanguageSheetVisible(false)}
-        onSelect={(lang) => {
-          setSelectedLanguage(lang);
-        }}
       />
     </SafeAreaView>
   );

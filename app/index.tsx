@@ -4,11 +4,11 @@ import { Href, Link } from "expo-router";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
-import { landingTranslations, LandingSections } from "../content/landingTranslations";
-import { LanguageKey } from "../types/i18n";
+import { LandingSections } from "../content/landingTranslations";
 
 type GradientPair = readonly [string, string];
 
@@ -84,8 +84,17 @@ const CTAButtonsRow = ({ shimmerStyle, primary, secondary }: CTAButtonsRowProps)
 export default function Index() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<LanguageKey>("ja");
-  const translations: LandingSections = landingTranslations[selectedLanguage] ?? landingTranslations.ja;
+  const { t } = useTranslation("landing");
+
+  const translations: LandingSections = useMemo(
+    () => ({
+      hero: t("hero", { returnObjects: true }) as LandingSections["hero"],
+      overview: t("overview", { returnObjects: true }) as LandingSections["overview"],
+      membership: t("membership", { returnObjects: true }) as LandingSections["membership"],
+      getStarted: t("getStarted", { returnObjects: true }) as LandingSections["getStarted"],
+    }),
+    [t],
+  );
 
   // ヒーロー画面CTAボタンの光沢アニメーション
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -283,7 +292,7 @@ export default function Index() {
           <Text style={styles.sectionLabel}>{translations.overview.label}</Text>
           <Text style={styles.sectionTitle}>{translations.overview.title}</Text>
           <Card>
-            <Text style={styles.cardHeading}>アプリの概要</Text>
+            <Text style={styles.cardHeading}>{translations.overview.overviewCardTitle}</Text>
             <Text style={styles.cardBody}>{translations.overview.description}</Text>
             <View style={styles.bulletList}>
               {translations.overview.highlights.map((item) => (
@@ -336,11 +345,7 @@ export default function Index() {
       <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
       <LanguageSheet
         visible={languageSheetVisible}
-        selectedLanguage={selectedLanguage}
         onClose={() => setLanguageSheetVisible(false)}
-        onSelect={(lang) => {
-          setSelectedLanguage(lang);
-        }}
       />
     </SafeAreaView>
   );

@@ -11,6 +11,7 @@
 - Supabase → データベース、ユーザ認証周り
 - victory-native + react-native-svg → アプリ内のグラフ作成
 - day.js
+- react-i18next → 多言語対応
 - expo-localization → 端末の言語・地域を取得
 - expo-av (expo-audio) → BGM をループ再生(ユーザがダウンロードした曲をローカルファイルとして再生する予定)
 - expo-file-system → 事前に用意した mp3 を Supabase Storage に置き、アプリから URL 叩いて端末に保存

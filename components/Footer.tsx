@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { memo, useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { colors, radius, spacing, typography } from "../constants/theme";
 
 type FooterProps = {
@@ -17,30 +18,30 @@ type FooterAction = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
 
-const ACTION_CONFIG: FooterAction[] = [
-  { key: "language", label: "Language", icon: "earth" },
-  { key: "dashboard", label: "ダッシュボード", icon: "view-dashboard-outline" },
-  { key: "more", label: "その他", icon: "menu" },
-];
-
 const Footer = memo(
   ({ isAuthenticated = false, onLanguagePress, onDashboardPress, onMorePress }: FooterProps) => {
+    const { t } = useTranslation("common");
     const noop = useCallback(() => {}, []);
 
     const actions = useMemo(
       () => {
+        const actionConfig: FooterAction[] = [
+          { key: "language", label: "Language", icon: "earth" },
+          { key: "dashboard", label: t("footer.dashboard"), icon: "view-dashboard-outline" },
+          { key: "more", label: t("footer.more"), icon: "menu" },
+        ];
         const handlers: Record<FooterAction["key"], () => void> = {
           language: onLanguagePress ?? noop,
           dashboard: onDashboardPress ?? noop,
           more: onMorePress ?? noop,
         };
 
-        return ACTION_CONFIG.filter((action) => isAuthenticated || action.key === "language").map((action) => ({
+        return actionConfig.filter((action) => isAuthenticated || action.key === "language").map((action) => ({
           ...action,
           onPress: handlers[action.key],
         }));
       },
-      [isAuthenticated, onLanguagePress, onDashboardPress, onMorePress, noop],
+      [isAuthenticated, onLanguagePress, onDashboardPress, onMorePress, noop, t],
     );
 
     return (
