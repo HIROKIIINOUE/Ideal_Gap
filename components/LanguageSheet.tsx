@@ -2,9 +2,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useEffect, useRef, useState } from "react";
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { LanguageKey } from "../types/i18n";
 import { colors, radius, spacing, typography } from "../constants/theme";
-
-export type LanguageKey = "ja" | "en" | "fr";
 
 type LanguageSheetProps = {
   visible: boolean;
@@ -18,6 +17,32 @@ const languages: { key: LanguageKey; label: string; helper: string }[] = [
   { key: "en", label: "English", helper: "English" },
   { key: "fr", label: "Français", helper: "French" },
 ];
+
+type LanguageOptionProps = {
+  option: (typeof languages)[number];
+  active: boolean;
+  onPress: () => void;
+};
+
+const LanguageOption = ({ option, active, onPress }: LanguageOptionProps) => (
+  <Pressable
+    key={option.key}
+    accessibilityRole="button"
+    accessibilityLabel={`${option.label}を選択`}
+    style={({ pressed }) => [styles.option, active && styles.optionActive, pressed && styles.optionPressed]}
+    onPress={onPress}
+  >
+    <View style={styles.optionTextCol}>
+      <Text style={styles.optionLabel}>{option.label}</Text>
+      <Text style={styles.optionHelper}>{option.helper}</Text>
+    </View>
+    {active ? (
+      <MaterialCommunityIcons name="check-circle" size={22} color={colors.accentPrimary} />
+    ) : (
+      <MaterialCommunityIcons name="circle-outline" size={22} color={colors.textSecondary} />
+    )}
+  </Pressable>
+);
 
 const LanguageSheet = memo(({ visible, selectedLanguage = "ja", onClose, onSelect }: LanguageSheetProps) => {
   const progress = useRef(new Animated.Value(0)).current;
@@ -98,35 +123,17 @@ const LanguageSheet = memo(({ visible, selectedLanguage = "ja", onClose, onSelec
           <View style={styles.handle} />
           <Text style={styles.sheetTitle}>言語を選択</Text>
           <View style={styles.optionList}>
-            {languages.map((option) => {
-              const active = option.key === selectedLanguage;
-              return (
-                <Pressable
-                  key={option.key}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${option.label}を選択`}
-                  style={({ pressed }) => [
-                    styles.option,
-                    active && styles.optionActive,
-                    pressed && styles.optionPressed,
-                  ]}
-                  onPress={() => {
-                    onSelect(option.key);
-                    onClose();
-                  }}
-                >
-                  <View style={styles.optionTextCol}>
-                    <Text style={styles.optionLabel}>{option.label}</Text>
-                    <Text style={styles.optionHelper}>{option.helper}</Text>
-                  </View>
-                  {active ? (
-                    <MaterialCommunityIcons name="check-circle" size={22} color={colors.accentPrimary} />
-                  ) : (
-                    <MaterialCommunityIcons name="circle-outline" size={22} color={colors.textSecondary} />
-                  )}
-                </Pressable>
-              );
-            })}
+            {languages.map((option) => (
+              <LanguageOption
+                key={option.key}
+                option={option}
+                active={option.key === selectedLanguage}
+                onPress={() => {
+                  onSelect(option.key);
+                  onClose();
+                }}
+              />
+            ))}
           </View>
 
           <Pressable

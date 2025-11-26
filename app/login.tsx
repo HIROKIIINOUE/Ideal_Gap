@@ -1,34 +1,37 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import Footer from "../components/Footer";
-import LanguageSheet, { LanguageKey } from "../components/LanguageSheet";
+import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { loginTranslations } from "../content/loginTranslations";
+import { LanguageKey } from "../types/i18n";
 
 export default function Login() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageKey>("ja");
+  const translations = loginTranslations[selectedLanguage] ?? loginTranslations.ja;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <Text style={styles.label}>Log In</Text>
+          <Text style={styles.label}>{translations.pageLabel}</Text>
           <Link href="/" style={styles.link}>
-            ホームへ戻る
+            {translations.backToHome}
           </Link>
         </View>
 
         <View style={[styles.card, shadows.card]}>
-          <Text style={styles.title}>おかえりなさい</Text>
-          <Text style={styles.body}>メールアドレスとパスワードでログイン。初月無料の適用は初回サインアップのみです。</Text>
+          <Text style={styles.title}>{translations.welcomeTitle}</Text>
+          <Text style={styles.body}>{translations.welcomeBody}</Text>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>メールアドレス</Text>
+            <Text style={styles.fieldLabel}>{translations.emailLabel}</Text>
             <TextInput
-              placeholder="you@example.com"
+              placeholder={translations.emailPlaceholder}
               placeholderTextColor={colors.textSecondary}
               style={styles.input}
               keyboardAppearance="dark"
@@ -38,9 +41,9 @@ export default function Login() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>パスワード</Text>
+            <Text style={styles.fieldLabel}>{translations.passwordLabel}</Text>
             <TextInput
-              placeholder="Password"
+              placeholder={translations.passwordPlaceholder}
               placeholderTextColor={colors.textSecondary}
               style={styles.input}
               secureTextEntry
@@ -63,36 +66,36 @@ export default function Login() {
               end={{ x: 1, y: 1 }}
               style={styles.buttonGlass}
             />
-            <Text style={styles.primaryLabel}>ログイン</Text>
+            <Text style={styles.primaryLabel}>{translations.loginCta}</Text>
           </Pressable>
 
           <Pressable accessibilityRole="button" style={styles.subtleButton}>
-            <Text style={styles.subtleLabel}>パスワードをお忘れの方（後で実装）</Text>
+            <Text style={styles.subtleLabel}>{translations.forgotPassword}</Text>
           </Pressable>
         </View>
 
         <View style={[styles.card, shadows.card]}>
-          <Text style={styles.cardHeading}>はじめての方はこちら</Text>
-          <Text style={styles.body}>無料体験後は 8.5 CAD/月 (30日) で自動更新。キャンセルはいつでも設定可能。</Text>
+          <Text style={styles.cardHeading}>{translations.firstTimeHeading}</Text>
+          <Text style={styles.body}>{translations.firstTimeBody}</Text>
           <Link href="/signup" asChild>
             <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.ctaButton,
-              styles.secondaryButton,
-              styles.buttonShadow,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <LinearGradient
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.ctaButton,
+                styles.secondaryButton,
+                styles.buttonShadow,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <LinearGradient
               colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.buttonGlass}
             />
-            <Text style={styles.secondaryLabel}>サインアップへ</Text>
-          </Pressable>
-        </Link>
+              <Text style={styles.secondaryLabel}>{translations.signupCta}</Text>
+            </Pressable>
+          </Link>
         </View>
       </ScrollView>
       <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />

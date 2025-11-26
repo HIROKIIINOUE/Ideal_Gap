@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing, typography } from "../constants/theme";
 
@@ -11,32 +11,36 @@ type FooterProps = {
   onMorePress?: () => void;
 };
 
+type FooterAction = {
+  key: "language" | "dashboard" | "more";
+  label: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+};
+
+const ACTION_CONFIG: FooterAction[] = [
+  { key: "language", label: "Language", icon: "earth" },
+  { key: "dashboard", label: "ダッシュボード", icon: "view-dashboard-outline" },
+  { key: "more", label: "その他", icon: "menu" },
+];
+
 const Footer = memo(
   ({ isAuthenticated = false, onLanguagePress, onDashboardPress, onMorePress }: FooterProps) => {
-    const noop = () => { };
+    const noop = useCallback(() => {}, []);
+
     const actions = useMemo(
-      () =>
-        [
-          {
-            key: "language",
-            label: "Language",
-            icon: "earth",
-            onPress: onLanguagePress ?? noop,
-          },
-          {
-            key: "dashboard",
-            label: "ダッシュボード",
-            icon: "view-dashboard-outline",
-            onPress: onDashboardPress ?? noop,
-          },
-          {
-            key: "more",
-            label: "その他",
-            icon: "menu",
-            onPress: onMorePress ?? noop,
-          },
-        ].filter((item) => isAuthenticated || item.key === "language"),
-      [isAuthenticated, onLanguagePress, onDashboardPress, onMorePress],
+      () => {
+        const handlers: Record<FooterAction["key"], () => void> = {
+          language: onLanguagePress ?? noop,
+          dashboard: onDashboardPress ?? noop,
+          more: onMorePress ?? noop,
+        };
+
+        return ACTION_CONFIG.filter((action) => isAuthenticated || action.key === "language").map((action) => ({
+          ...action,
+          onPress: handlers[action.key],
+        }));
+      },
+      [isAuthenticated, onLanguagePress, onDashboardPress, onMorePress, noop],
     );
 
     return (

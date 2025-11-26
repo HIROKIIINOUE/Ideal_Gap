@@ -1,27 +1,91 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
+import { Href, Link } from "expo-router";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Animated,
-  Easing,
-  LayoutChangeEvent,
-  Pressable,
-  StyleProp,
-  StyleSheet,
-  Text,
-  View,
-  ViewStyle,
-} from "react-native";
+import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import Footer from "../components/Footer";
-import LanguageSheet, { LanguageKey } from "../components/LanguageSheet";
+import LanguageSheet from "../components/LanguageSheet";
+import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { landingTranslations, LandingSections } from "../content/landingTranslations";
+import { LanguageKey } from "../types/i18n";
+
+type GradientPair = readonly [string, string];
+
+const CTA_PRIMARY_GRADIENT: GradientPair = ["rgba(255,255,255,0.22)", "rgba(255,255,255,0.08)"];
+const CTA_SECONDARY_GRADIENT: GradientPair = ["rgba(255,255,255,0.18)", "rgba(255,255,255,0.06)"];
+const CTA_SECONDARY_ALT_GRADIENT: GradientPair = ["rgba(255,255,255,0.22)", "rgba(255,255,255,0.08)"];
+
+const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => (
+  <View style={[styles.cardShell, style]}>
+    <View style={styles.card}>
+      <LinearGradient
+        colors={["rgba(30,94,255,0.18)", "rgba(15,28,47,0.8)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      {children}
+    </View>
+  </View>
+);
+
+type CTAButtonProps = {
+  href: Href;
+  label: string;
+  gradient: GradientPair;
+  shimmerStyle: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+};
+
+const CTAButton = ({ href, label, gradient, shimmerStyle }: CTAButtonProps) => (
+  <Link href={href} asChild>
+    <Pressable
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.buttonShell, styles.buttonShadow, pressed && styles.buttonPressed]}
+    >
+      <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.buttonInner}>
+        <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
+          <LinearGradient
+            colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.shimmerFill}
+          />
+        </Animated.View>
+        <Text style={styles.primaryLabel}>{label}</Text>
+      </LinearGradient>
+    </Pressable>
+  </Link>
+);
+
+type CTAButtonsRowProps = {
+  shimmerStyle: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+  primary: { href: Href; label: string; gradient?: GradientPair };
+  secondary: { href: Href; label: string; gradient?: GradientPair };
+};
+
+const CTAButtonsRow = ({ shimmerStyle, primary, secondary }: CTAButtonsRowProps) => (
+  <View style={styles.actions}>
+    <CTAButton
+      href={primary.href}
+      label={primary.label}
+      gradient={primary.gradient ?? CTA_PRIMARY_GRADIENT}
+      shimmerStyle={shimmerStyle}
+    />
+    <CTAButton
+      href={secondary.href}
+      label={secondary.label}
+      gradient={secondary.gradient ?? CTA_SECONDARY_GRADIENT}
+      shimmerStyle={shimmerStyle}
+    />
+  </View>
+);
 
 export default function Index() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageKey>("ja");
+  const translations: LandingSections = landingTranslations[selectedLanguage] ?? landingTranslations.ja;
 
   // ヒーロー画面CTAボタンの光沢アニメーション
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -163,43 +227,6 @@ export default function Index() {
     ],
   });
 
-  const overviewHighlights = useMemo(
-    () => [
-      "理想の自分を可視化し、年間・月間・週間の目標を一本の線でつなぐ",
-      "タスク集中音楽と休憩通知で、集中と回復のリズムを整える",
-      "マルチデバイス・マルチ言語対応（日本語/英語/フランス語）",
-    ],
-    [],
-  );
-
-  // カード共通コンポーネント
-  const Card = ({
-    children,
-    style,
-    onLayout,
-  }: { children: ReactNode; style?: StyleProp<ViewStyle>; onLayout?: (event: LayoutChangeEvent) => void }) => (
-    <View style={[styles.cardShell, style]} onLayout={onLayout}>
-      <View style={styles.card}>
-        <LinearGradient
-          colors={["rgba(30,94,255,0.18)", "rgba(15,28,47,0.8)"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {children}
-      </View>
-    </View>
-  );
-
-  const billingDetails = useMemo(
-    () => [
-      "初月無料・次月以降 8.5 CAD/月 (30日ごと課金)",
-      "支払いステータス: 有効 / 支払い失敗 / キャンセル予約",
-      "再サインアップ時は無料プラン適用なし",
-    ],
-    [],
-  );
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <Animated.ScrollView
@@ -235,87 +262,31 @@ export default function Index() {
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.logo}>Ideal Gap</Text>
-            <Text style={styles.title}>理想に向けた最初の一歩を。</Text>
-            <Text style={styles.subtitle}>
-              Apple HIG に沿ったシンプルで高級感のある体験で、続けやすさをデザイン。
-            </Text>
-            <View style={styles.actions}>
-              <Link href="/signup" asChild>
-                <Pressable
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.buttonShell,
-                    styles.buttonShadow,
-                    pressed && styles.buttonPressed,
-                  ]}
-                >
-                  <LinearGradient
-                    colors={["rgba(255,255,255,0.22)", "rgba(255,255,255,0.08)"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.buttonInner}
-                  >
-                    <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
-                      <LinearGradient
-                        colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"]}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.shimmerFill}
-                      />
-                    </Animated.View>
-                    <Text style={styles.primaryLabel}>無料で始める</Text>
-                  </LinearGradient>
-                </Pressable>
-              </Link>
-              <Link href="/login" asChild>
-                <Pressable
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.buttonShell,
-                    styles.buttonShadow,
-                    pressed && styles.buttonPressed,
-                  ]}
-                >
-                  <LinearGradient
-                    colors={["rgba(255,255,255,0.18)", "rgba(255,255,255,0.06)"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.buttonInner]}
-                  >
-                    <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
-                      <LinearGradient
-                        colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.35)", "rgba(255,255,255,0)"]}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.shimmerFill}
-                      />
-                    </Animated.View>
-                    <Text style={styles.primaryLabel}>サインイン</Text>
-                  </LinearGradient>
-                </Pressable>
-              </Link>
-            </View>
+            <Text style={styles.logo}>{translations.hero.logo}</Text>
+            <Text style={styles.title}>{translations.hero.title}</Text>
+            <Text style={styles.subtitle}>{translations.hero.subtitle}</Text>
+            <CTAButtonsRow
+              shimmerStyle={shimmerStyle}
+              primary={{ href: "/signup", label: translations.hero.ctaPrimary, gradient: CTA_PRIMARY_GRADIENT }}
+              secondary={{ href: "/login", label: translations.hero.ctaSecondary, gradient: CTA_SECONDARY_GRADIENT }}
+            />
           </View>
           <View style={styles.scrollHint} pointerEvents="none">
             <Animated.View style={[styles.scrollHintIcon, scrollHintStyle]}>
               <MaterialCommunityIcons name="chevron-down" size={22} color="rgba(255,255,255,0.8)" />
             </Animated.View>
-            <Text style={styles.scrollHintText}>スクロール</Text>
+            <Text style={styles.scrollHintText}>{translations.hero.scrollHint}</Text>
           </View>
         </Animated.View>
 
         <Animated.View style={[styles.section, fadeUp(60, 220)]}>
-          <Text style={styles.sectionLabel}>Why Ideal Gap</Text>
-          <Text style={styles.sectionTitle}>理想と日常を結ぶ、6 つの柱</Text>
+          <Text style={styles.sectionLabel}>{translations.overview.label}</Text>
+          <Text style={styles.sectionTitle}>{translations.overview.title}</Text>
           <Card>
             <Text style={styles.cardHeading}>アプリの概要</Text>
-            <Text style={styles.cardBody}>
-              理想の自分を定義し、年間・月間・週間の目標、集中できるタスクタイマー、タスク集中音楽、休憩通知で習慣化を支える。
-              すべてのデータはシンプルな UI に整理され、毎日の進捗が明確に見える。
-            </Text>
+            <Text style={styles.cardBody}>{translations.overview.description}</Text>
             <View style={styles.bulletList}>
-              {overviewHighlights.map((item) => (
+              {translations.overview.highlights.map((item) => (
                 <View key={item} style={styles.bulletRow}>
                   <View style={styles.bulletDot} />
                   <Text style={styles.bulletText}>{item}</Text>
@@ -326,17 +297,15 @@ export default function Index() {
         </Animated.View>
 
         <Animated.View style={[styles.section, fadeUp(440, 600)]}>
-          <Text style={styles.sectionLabel}>Membership</Text>
-          <Text style={styles.sectionTitle}>シンプルな定額プラン</Text>
+          <Text style={styles.sectionLabel}>{translations.membership.label}</Text>
+          <Text style={styles.sectionTitle}>{translations.membership.title}</Text>
           <View style={styles.cardRow}>
             <Card style={styles.planCard}>
-              <Text style={styles.planPrice}>8.5 CAD</Text>
-              <Text style={styles.planPeriod}>/月 (30日ごと)</Text>
-              <Text style={styles.cardBody}>
-                初月無料。登録日を起点に 30 日ごとに自動更新。いつでもキャンセル予約が可能。
-              </Text>
+              <Text style={styles.planPrice}>{translations.membership.price}</Text>
+              <Text style={styles.planPeriod}>{translations.membership.period}</Text>
+              <Text style={styles.cardBody}>{translations.membership.description}</Text>
               <View style={styles.bulletList}>
-                {billingDetails.map((item) => (
+                {translations.membership.bulletPoints.map((item) => (
                   <View key={item} style={styles.bulletRow}>
                     <View style={styles.bulletDotAccent} />
                     <Text style={styles.bulletText}>{item}</Text>
@@ -348,68 +317,19 @@ export default function Index() {
         </Animated.View>
 
         <Animated.View style={[styles.section, fadeUp(820, 980)]}>
-          <Text style={styles.sectionLabel}>Get Started</Text>
-          <Text style={styles.sectionTitle}>まずはサインアップから</Text>
+          <Text style={styles.sectionLabel}>{translations.getStarted.label}</Text>
+          <Text style={styles.sectionTitle}>{translations.getStarted.title}</Text>
           <Card>
-            <Text style={styles.cardBody}>
-              目標設定・タスク集中音楽・休憩通知をまとめて体験。無料期間終了後も 8.5 CAD/月で継続できます。
-            </Text>
-            <View style={styles.actions}>
-              <Link href="/signup" asChild>
-                <Pressable
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.buttonShell,
-                    styles.buttonShadow,
-                    pressed && styles.buttonPressed,
-                  ]}
-                >
-                  <LinearGradient
-                    colors={["rgba(255,255,255,0.22)", "rgba(255,255,255,0.08)"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.buttonInner}
-                  >
-                    <Animated.View style={[styles.shimmerOverlay, bottomShimmerStyle]} pointerEvents="none">
-                      <LinearGradient
-                        colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"]}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.shimmerFill}
-                      />
-                    </Animated.View>
-                    <Text style={styles.primaryLabel}>無料で始める</Text>
-                  </LinearGradient>
-                </Pressable>
-              </Link>
-              <Link href="/login" asChild>
-                <Pressable
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.buttonShell,
-                    styles.buttonShadow,
-                    pressed && styles.buttonPressed,
-                  ]}
-                >
-                  <LinearGradient
-                    colors={["rgba(255,255,255,0.22)", "rgba(255,255,255,0.08)"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.buttonInner}
-                  >
-                    <Animated.View style={[styles.shimmerOverlay, bottomShimmerStyle]} pointerEvents="none">
-                      <LinearGradient
-                        colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.35)", "rgba(255,255,255,0)"]}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.shimmerFill}
-                      />
-                    </Animated.View>
-                    <Text style={styles.primaryLabel}>サインイン</Text>
-                  </LinearGradient>
-                </Pressable>
-              </Link>
-            </View>
+            <Text style={styles.cardBody}>{translations.getStarted.description}</Text>
+            <CTAButtonsRow
+              shimmerStyle={bottomShimmerStyle}
+              primary={{ href: "/signup", label: translations.getStarted.ctaPrimary, gradient: CTA_PRIMARY_GRADIENT }}
+              secondary={{
+                href: "/login",
+                label: translations.getStarted.ctaSecondary,
+                gradient: CTA_SECONDARY_ALT_GRADIENT,
+              }}
+            />
           </Card>
         </Animated.View>
       </Animated.ScrollView>
@@ -471,21 +391,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.md * 1.5,
     marginVertical: spacing.md,
   },
-  pricePill: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.overlay,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
-    marginVertical: spacing.sm,
-  },
-  priceText: {
-    color: colors.textPrimary,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
   actions: {
     flexDirection: "row",
     gap: spacing.xs,
@@ -512,28 +417,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)", // primary の場合
     borderColor: "rgba(155,193,255,0.9)",
   },
-
-  // secondary 用にバリエーション作るなら
-  secondaryInner: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderColor: "rgba(255,255,255,0.28)",
-  },
-  primaryButton: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(155,193,255,0.9)",
-  },
-  secondaryButton: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderColor: "rgba(255,255,255,0.28)",
-  },
   primaryLabel: {
     color: colors.textPrimary,
     fontWeight: "700",
-    fontSize: typography.md,
-  },
-  secondaryLabel: {
-    color: colors.textPrimary,
-    fontWeight: "600",
     fontSize: typography.md,
   },
   buttonShadow: {
@@ -542,10 +428,6 @@ const styles = StyleSheet.create({
   buttonPressed: {
     transform: [{ translateY: 1 }],
     opacity: 0.9,
-  },
-  buttonGlass: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: radius.lg,
   },
   shimmerOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -651,15 +533,6 @@ const styles = StyleSheet.create({
     fontSize: typography.md,
     marginBottom: spacing.sm,
   },
-  primaryBackground: {
-    backgroundColor: colors.accentPrimary,
-  },
-  radiusSm: {
-    borderRadius: radius.md,
-  },
-  radiusLg: {
-    borderRadius: radius.lg,
-  },
   scrollHint: {
     alignItems: "center",
     gap: spacing.xs,
@@ -677,6 +550,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sm,
     letterSpacing: 0.4,
-    marginTop: spacing.md
+    marginTop: spacing.md,
   },
 });

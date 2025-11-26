@@ -4,8 +4,9 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Footer from "../components/Footer";
-import LanguageSheet, { LanguageKey } from "../components/LanguageSheet";
+import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { LanguageKey } from "../types/i18n";
 
 export default function Signup() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
