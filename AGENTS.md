@@ -179,6 +179,11 @@ When working on this project:
 
 3. **Follow existing patterns**: Look at existing components and screens for patterns to follow
 
+4. **Localization rules**:
+   - 新規ダミー文言や UI 文言を追加する際は、今回構築した `react-i18next` + `expo-localization` + `AsyncStorage` ベースの仕組みに厳格に従うこと。
+   - 言語キーは `types/i18n.ts` のサポート言語を使用し、翻訳は各名前空間の翻訳ファイルに自前で追加する。機械翻訳は禁止。
+   - 言語切替は `LanguageProvider`/`useLanguage` と `LanguageSheet`/Footer の既存フローに統一し、ページ個別の state で保持しない。
+
 ## Design System
 
 - アプリ全体のUI/UXは `docs/design-system.md` を参照し、Apple HIG に沿った黒×ダークブルー基調の高級感あるスタイルを順守する
