@@ -22,3 +22,50 @@ jest.mock('react-native-reanimated', () => {
 
 // Silence useNativeDriver warnings.
 jest.mock('react-native/src/private/animated/NativeAnimatedHelper');
+
+// Mock AsyncStorage for Jest environment.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
+// Mock Localization to provide deterministic device language in tests.
+jest.mock('expo-localization', () => ({
+  getLocales: () => [{ languageCode: 'ja' }],
+}));
+
+// Mock Animated timing/loop to avoid async timers during tests.
+jest.mock('react-native/Libraries/Animated/Animated', () => {
+  const ActualAnimated = jest.requireActual('react-native/Libraries/Animated/Animated');
+  const immediate = { start: (callback) => callback?.({ finished: true }) };
+  ActualAnimated.timing = () => immediate;
+  ActualAnimated.spring = () => immediate;
+  ActualAnimated.sequence = () => immediate;
+  ActualAnimated.loop = () => immediate;
+  ActualAnimated.delay = () => immediate;
+  return ActualAnimated;
+});
+
+// Silence noisy act() and teardown warnings originating from mocked animations.
+const originalConsoleError = console.error;
+const suppressedMessages = [/not wrapped in act/, /Jest environment after it has been torn down/];
+console.error = (...args) => {
+  if (typeof args[0] === 'string' && suppressedMessages.some((pattern) => pattern.test(args[0]))) {
+    return;
+  }
+  originalConsoleError(...args);
+};
+
+// Ensure pending timers flush within act to avoid teardown reference errors.
+const { act } = require('react-test-renderer');
+beforeAll(() => {
+  jest.useFakeTimers();
+});
+afterEach(() => {
+  act(() => {
+    jest.runOnlyPendingTimers();
+  });
+  jest.clearAllTimers();
+});
+afterAll(() => {
+  jest.useRealTimers();
+});
