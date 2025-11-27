@@ -39,6 +39,7 @@
     created_at timestamptz
     updated_at timestamptz
     had_account_before boolean
+    is_canceled boolean
   }
 
   enum language {
