@@ -44,3 +44,6 @@ app-example
 
 # For myself
 todo.txt
+
+#environment
+.env

@@ -1,0 +1,44 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const mockCreateClient = jest.fn();
+
+jest.mock("@supabase/supabase-js", () => ({
+  createClient: (...args: unknown[]) => mockCreateClient(...args),
+}));
+
+describe("supabase client", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetModules();
+    process.env = {
+      ...originalEnv,
+      EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+    };
+
+    mockCreateClient.mockReturnValue({ auth: {} });
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  test("creates client with AsyncStorage and auth settings", () => {
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require("../lib/supabaseClient");
+    });
+
+    expect(mockCreateClient).toHaveBeenCalledTimes(1);
+    const [url, key, options] = mockCreateClient.mock.calls[0];
+
+    expect(url).toBe("https://example.supabase.co");
+    expect(key).toBe("anon-key");
+
+    expect(options?.auth?.storage).toBeDefined();
+    expect(options?.auth?.autoRefreshToken).toBe(true);
+    expect(options?.auth?.persistSession).toBe(true);
+    expect(options?.auth?.detectSessionInUrl).toBe(false);
+  });
+});
