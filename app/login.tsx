@@ -1,9 +1,9 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
@@ -79,19 +79,19 @@ export default function Login() {
             <Pressable
               accessibilityRole="button"
               style={({ pressed }) => [
-                styles.ctaButton,
-                styles.secondaryButton,
-                styles.buttonShadow,
                 pressed && styles.buttonPressed,
               ]}
             >
               <LinearGradient
-              colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.buttonGlass}
-            />
-              <Text style={styles.secondaryLabel}>{t("signupCta")}</Text>
+                colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.buttonGlass, styles.ctaButton,
+                styles.secondaryButton,
+                styles.buttonShadow]}
+              >
+                <Text style={styles.secondaryLabel}>{t("signupCta")}</Text>
+              </LinearGradient>
             </Pressable>
           </Link>
         </View>
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
   },
   ctaButton: {
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl * 1.35,
     borderRadius: radius.lg,
     alignItems: "center",

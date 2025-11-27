@@ -139,7 +139,7 @@ export default function Signup() {
                 colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.altCtaGradient, styles.altCtaPressable,]}
+                style={[styles.altCtaGradient, styles.altCtaPressable, styles.secondaryButton]}
               >
                 <Text style={styles.primaryLabel}>{t("goToLogin")}</Text>
               </LinearGradient>
