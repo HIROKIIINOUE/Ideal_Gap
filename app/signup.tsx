@@ -1,9 +1,9 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { useTranslation } from "react-i18next";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
@@ -11,6 +11,18 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 export default function Signup() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const { t } = useTranslation("signup");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [paymentSet, setPaymentSet] = useState(false);
+  const [usernameTouched, setUsernameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
+  const isUsernameValid = username.trim().length > 0;
+  const isEmailValid = useMemo(() => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email), [email]);
+  const isPasswordValid = password.length >= 6;
+  const isFormValid = isUsernameValid && isEmailValid && isPasswordValid && paymentSet;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -34,7 +46,11 @@ export default function Signup() {
               style={styles.input}
               keyboardAppearance="dark"
               autoCapitalize="none"
+              value={username}
+              onChangeText={setUsername}
+              onBlur={() => setUsernameTouched(true)}
             />
+            {!isUsernameValid && usernameTouched && <Text style={styles.errorText}>{t("usernameInvalid")}</Text>}
           </View>
 
           <View style={styles.fieldGroup}>
@@ -46,7 +62,11 @@ export default function Signup() {
               keyboardAppearance="dark"
               autoCapitalize="none"
               keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+              onBlur={() => setEmailTouched(true)}
             />
+            {!isEmailValid && emailTouched && <Text style={styles.errorText}>{t("emailInvalid")}</Text>}
           </View>
 
           <View style={styles.fieldGroup}>
@@ -57,14 +77,34 @@ export default function Signup() {
               style={styles.input}
               secureTextEntry
               keyboardAppearance="dark"
+              value={password}
+              onChangeText={setPassword}
+              onBlur={() => setPasswordTouched(true)}
             />
+            {!isPasswordValid && passwordTouched && (
+              <Text style={styles.errorText}>{t("passwordInvalid")}</Text>
+            )}
           </View>
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>{t("paymentLabel")}</Text>
-            <Pressable style={styles.placeholderButton}>
-              <Text style={styles.placeholderText}>{t("paymentPlaceholder")}</Text>
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.placeholderButton,
+                paymentSet && styles.placeholderActive,
+                pressed && styles.placeholderPressed,
+              ]}
+              onPress={() => setPaymentSet((prev) => !prev)}
+            >
+              <Text style={styles.placeholderText}>
+                {paymentSet ? t("paymentStatusSet") : t("paymentStatusUnset")}
+              </Text>
+              <Text style={styles.placeholderSub}>
+                {paymentSet ? t("paymentToggleUnset") : t("paymentToggleSet")}
+              </Text>
             </Pressable>
+            <Text style={styles.helperText}>{t("paymentHelper")}</Text>
           </View>
 
           <Pressable
@@ -73,8 +113,10 @@ export default function Signup() {
               styles.ctaButton,
               styles.primaryButton,
               styles.buttonShadow,
-              pressed && styles.buttonPressed,
+              !isFormValid && styles.buttonDisabled,
+              pressed && isFormValid && styles.buttonPressed,
             ]}
+            disabled={!isFormValid}
           >
             <LinearGradient
               colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
@@ -89,34 +131,20 @@ export default function Signup() {
             <Text style={styles.noteText}>{t("noteText")}</Text>
           </View>
         </View>
-
-        <View style={[styles.card, shadows.card]}>
-          <Text style={styles.cardHeading}>{t("planHeading")}</Text>
-          <Text style={styles.body}>{t("planBody")}</Text>
-          <Text style={styles.caption}>{t("planCaption")}</Text>
-        </View>
-
         <View style={[styles.card, shadows.card]}>
           <Text style={styles.cardHeading}>{t("existingAccountHeading")}</Text>
           <Link href="/login" asChild>
-            <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.ctaButton,
-              styles.secondaryButton,
-              styles.buttonShadow,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <LinearGradient
-              colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.buttonGlass}
-            />
-            <Text style={styles.secondaryLabel}>{t("goToLogin")}</Text>
-          </Pressable>
-        </Link>
+            <Pressable accessibilityRole="button" style={({ pressed }) => [pressed && styles.buttonPressed]}>
+              <LinearGradient
+                colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.altCtaGradient, styles.altCtaPressable,]}
+              >
+                <Text style={styles.primaryLabel}>{t("goToLogin")}</Text>
+              </LinearGradient>
+            </Pressable>
+          </Link>
         </View>
       </ScrollView>
       <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
@@ -197,6 +225,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
   },
+  helperText: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    marginTop: spacing.xs / 2,
+  },
+  errorText: {
+    color: "#ff8a8a",
+    fontSize: typography.sm,
+    marginTop: spacing.xs / 2,
+  },
   placeholderButton: {
     borderRadius: radius.md,
     paddingVertical: spacing.md,
@@ -210,8 +248,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sm,
   },
+  placeholderSub: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    marginTop: spacing.xs / 2,
+  },
+  placeholderActive: {
+    borderColor: colors.accentPrimary,
+  },
+  placeholderPressed: {
+    opacity: 0.9,
+    transform: [{ translateY: 1 }],
+  },
   ctaButton: {
-    paddingVertical: spacing.xl,
+    width: "100%",
+    alignSelf: "stretch",
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl * 1.35,
     borderRadius: radius.lg,
     alignItems: "center",
@@ -219,10 +271,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
     position: "relative",
+    overflow: "hidden",
   },
   primaryButton: {
     backgroundColor: "rgba(255,255,255,0.08)",
     borderColor: "rgba(155,193,255,0.9)",
+  },
+  altCtaGradient: {
+    width: "100%",
+    alignSelf: "stretch",
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(155,193,255,0.9)",
+    overflow: "hidden",
+  },
+  altCtaPressable: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl * 1.35,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   secondaryButton: {
     backgroundColor: "rgba(255,255,255,0.06)",

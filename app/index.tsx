@@ -2,9 +2,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Href, Link } from "expo-router";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
@@ -20,7 +20,7 @@ const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<View
   <View style={[styles.cardShell, style]}>
     <View style={styles.card}>
       <LinearGradient
-        colors={["rgba(30,94,255,0.18)", "rgba(15,28,47,0.8)"]}
+        colors={["rgba(24, 25, 28, 0.18)", "rgba(15,28,47,0.8)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -41,7 +41,7 @@ const CTAButton = ({ href, label, gradient, shimmerStyle }: CTAButtonProps) => (
   <Link href={href} asChild>
     <Pressable
       accessibilityRole="button"
-      style={({ pressed }) => [styles.buttonShell, styles.buttonShadow, pressed && styles.buttonPressed]}
+      style={({ pressed }) => [pressed && styles.buttonPressed]}
     >
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.buttonInner}>
         <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
