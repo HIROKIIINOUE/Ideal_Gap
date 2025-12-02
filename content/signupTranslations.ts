@@ -22,9 +22,14 @@ export type SignupTranslations = {
   paymentToggleUnset: string;
   paymentHelper: string;
   primaryCta: string;
+  primaryCtaLoading: string;
   noteText: string;
   existingAccountHeading: string;
   goToLogin: string;
+  emailExistsError: string;
+  unknownError: string;
+  verificationTitle: string;
+  verificationBody: string;
 };
 
 export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
@@ -41,7 +46,7 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     emailPlaceholder: "you@example.com",
     emailInvalid: "メールアドレスの形式が正しくありません",
     passwordLabel: "パスワード",
-    passwordPlaceholder: "8文字以上",
+    passwordPlaceholder: "6文字以上",
     passwordInvalid: "パスワードは6文字以上で入力してください",
     paymentLabel: "支払い方法",
     paymentPlaceholder: "決済連携は後続ステップで設定",
@@ -52,11 +57,18 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     paymentHelper:
       "今は簡易的にトグルで設定状態を切り替えています（本実装時に決済連携を追加）。",
     primaryCta: "サインアップを続ける",
+    primaryCtaLoading: "送信中...",
     noteText:
       "使用中の言語設定とタイムゾーンをサインアップ完了時に自動検出します（手動変更も対応予定）。",
-
     existingAccountHeading: "すでにアカウントをお持ちですか？",
     goToLogin: "ログインへ",
+    emailExistsError:
+      "このメールアドレスは既に登録されています。ログインしてください。",
+    unknownError:
+      "サインアップに失敗しました。時間をおいて再度お試しください。",
+    verificationTitle: "メールを確認してください",
+    verificationBody:
+      "確認メールを{{email}}に送信しました。リンクを開いてサインアップを完了してください。",
   },
   en: {
     pageLabel: "Sign Up",
@@ -71,7 +83,7 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     emailPlaceholder: "you@example.com",
     emailInvalid: "Invalid email format",
     passwordLabel: "Password",
-    passwordPlaceholder: "8+ characters",
+    passwordPlaceholder: "6+ characters",
     passwordInvalid: "Password must be at least 6 characters",
     paymentLabel: "Payment method",
     paymentPlaceholder: "Set up payment in a later step",
@@ -82,10 +94,17 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     paymentHelper:
       "For now, toggle the state here; real payment linking will be added later.",
     primaryCta: "Continue to sign up",
+    primaryCtaLoading: "Sending...",
     noteText:
       "We detect your current language and time zone when you finish sign-up (manual edits planned).",
     existingAccountHeading: "Already have an account?",
     goToLogin: "Go to Log In",
+    emailExistsError:
+      "An account with this email already exists. Please log in instead.",
+    unknownError: "Sign up failed. Please try again.",
+    verificationTitle: "Check your inbox",
+    verificationBody:
+      "We sent a verification link to {{email}}. Confirm to finish sign-up.",
   },
   fr: {
     pageLabel: "Inscription",
@@ -100,7 +119,7 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     emailPlaceholder: "vous@example.com",
     emailInvalid: "Format d’e-mail invalide",
     passwordLabel: "Mot de passe",
-    passwordPlaceholder: "8 caractères ou plus",
+    passwordPlaceholder: "6 caractères ou plus",
     passwordInvalid: "Le mot de passe doit comporter au moins 6 caractères",
     paymentLabel: "Moyen de paiement",
     paymentPlaceholder: "Configurer le paiement dans une étape ultérieure",
@@ -111,9 +130,16 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     paymentHelper:
       "Pour l’instant, basculez l’état ici ; le lien de paiement réel sera ajouté plus tard.",
     primaryCta: "Continuer l’inscription",
+    primaryCtaLoading: "Envoi...",
     noteText:
       "Nous détectons la langue et le fuseau horaire utilisés lorsque vous terminez l’inscription (modification manuelle prévue).",
     existingAccountHeading: "Vous avez déjà un compte ?",
     goToLogin: "Aller à la connexion",
+    emailExistsError:
+      "Un compte avec cet e-mail existe déjà. Veuillez vous connecter.",
+    unknownError: "Échec de l'inscription. Veuillez réessayer.",
+    verificationTitle: "Vérifiez votre boîte mail",
+    verificationBody:
+      "Nous avons envoyé un lien de vérification à {{email}}. Confirmez pour terminer l'inscription.",
   },
 };

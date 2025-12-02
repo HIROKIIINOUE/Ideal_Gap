@@ -1,28 +1,70 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { signUpWithEmailConfirmation } from "../lib/auth";
+import { useLanguage } from "../providers/LanguageProvider";
 
 export default function Signup() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const { t } = useTranslation("signup");
+  const { language } = useLanguage();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [paymentSet, setPaymentSet] = useState(false);
+  // touched状態変数群でinputに1度でもFocusしたかどうかを判定しエラーメッセージ出力の有無に利用
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
-
+  const [submissionState, setSubmissionState] = useState<"idle" | "success">("idle");
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // valid状態変数群でinputの値を適切かどうか判定
   const isUsernameValid = username.trim().length > 0;
   const isEmailValid = useMemo(() => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email), [email]);
   const isPasswordValid = password.length >= 6;
   const isFormValid = isUsernameValid && isEmailValid && isPasswordValid && paymentSet;
+
+  const handleSubmit = useCallback(async () => {
+    //ユーザがinputを触らずに送信した場合も各inputを検証しエラーを出力する
+    setUsernameTouched(true);
+    setEmailTouched(true);
+    setPasswordTouched(true);
+
+    if (!isFormValid || isSubmitting) {
+      return;
+    }
+
+    setSubmissionError(null);
+    setSubmissionState("idle");
+    setIsSubmitting(true);
+
+    const result = await signUpWithEmailConfirmation({
+      email: email.trim(),
+      password,
+      username: username.trim(),
+      language,
+    });
+
+    setIsSubmitting(false);
+
+    if (!result.ok) {
+      if (result.reason === "email_exists") {
+        setSubmissionError(t("emailExistsError"));
+      } else {
+        setSubmissionError(t("unknownError"));
+      }
+      return;
+    }
+
+    setSubmissionState("success");
+  }, [email, isFormValid, isSubmitting, language, password, t, username]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -113,10 +155,11 @@ export default function Signup() {
               styles.ctaButton,
               styles.primaryButton,
               styles.buttonShadow,
-              !isFormValid && styles.buttonDisabled,
-              pressed && isFormValid && styles.buttonPressed,
+              (!isFormValid || isSubmitting) && styles.buttonDisabled,
+              pressed && isFormValid && !isSubmitting && styles.buttonPressed,
             ]}
-            disabled={!isFormValid}
+            disabled={!isFormValid || isSubmitting}
+            onPress={handleSubmit}
           >
             <LinearGradient
               colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
@@ -124,9 +167,21 @@ export default function Signup() {
               end={{ x: 1, y: 1 }}
               style={styles.buttonGlass}
             />
-            <Text style={styles.primaryLabel}>{t("primaryCta")}</Text>
+            <Text style={styles.primaryLabel}>
+              {isSubmitting ? t("primaryCtaLoading") : t("primaryCta")}
+            </Text>
           </Pressable>
-
+          {submissionState === "success" && (
+            <View style={[styles.alertBox, styles.successBox]}>
+              <Text style={styles.alertTitle}>{t("verificationTitle")}</Text>
+              <Text style={styles.alertBody}>{t("verificationBody", { email })}</Text>
+            </View>
+          )}
+          {submissionError && (
+            <View style={[styles.alertBox, styles.errorBox]}>
+              <Text style={styles.alertBody}>{submissionError}</Text>
+            </View>
+          )}
           <View style={styles.noteBox}>
             <Text style={styles.noteText}>{t("noteText")}</Text>
           </View>
@@ -229,6 +284,30 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sm,
     marginTop: spacing.xs / 2,
+  },
+  alertBox: {
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    gap: spacing.xs,
+  },
+  successBox: {
+    borderColor: "rgba(56,217,150,0.9)",
+    backgroundColor: "rgba(56,217,150,0.12)",
+  },
+  errorBox: {
+    borderColor: "#ff8a8a",
+    backgroundColor: "rgba(255,138,138,0.08)",
+  },
+  alertTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+  },
+  alertBody: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
   },
   errorText: {
     color: "#ff8a8a",

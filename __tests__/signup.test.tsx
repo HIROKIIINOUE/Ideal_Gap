@@ -1,0 +1,80 @@
+import React from "react";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { I18nextProvider } from "react-i18next";
+import Signup from "../app/signup";
+import i18n from "../i18n";
+
+jest.mock("expo-router", () => {
+  const React = require("react");
+  return {
+    Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
+    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+    useLocalSearchParams: () => ({}),
+  };
+});
+
+const mockSignUpWithEmailConfirmation = jest.fn();
+
+jest.mock("../lib/auth", () => ({
+  signUpWithEmailConfirmation: (...args: unknown[]) => mockSignUpWithEmailConfirmation(...args),
+}));
+
+jest.mock("../components/LanguageSheet", () => () => null);
+
+jest.mock("../providers/LanguageProvider", () => ({
+  useLanguage: () => ({ language: "en", setLanguage: jest.fn(), ready: true }),
+  LanguageProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+describe("Signup screen", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const renderScreen = () =>
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Signup />
+      </I18nextProvider>,
+    );
+
+  test("submits and shows verification prompt on success", async () => {
+    mockSignUpWithEmailConfirmation.mockResolvedValue({ ok: true });
+
+    const { getByPlaceholderText, getByText, queryByText } = renderScreen();
+
+    fireEvent.changeText(getByPlaceholderText("Your name"), "Hiro");
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "hiro@example.com");
+    fireEvent.changeText(getByPlaceholderText("8+ characters"), "password123");
+    fireEvent.press(getByText("Mark payment method as set"));
+
+    fireEvent.press(getByText("Continue to sign up"));
+
+    await waitFor(() => expect(mockSignUpWithEmailConfirmation).toHaveBeenCalledTimes(1));
+
+    expect(queryByText("An account with this email already exists. Please log in instead.")).toBeNull();
+    expect(getByText("Check your inbox")).toBeTruthy();
+  });
+
+  test("shows email exists error when Supabase reports duplicate", async () => {
+    mockSignUpWithEmailConfirmation.mockResolvedValue({
+      ok: false,
+      reason: "email_exists",
+      message: "User already registered",
+    });
+
+    const { getByPlaceholderText, getByText } = renderScreen();
+
+    fireEvent.changeText(getByPlaceholderText("Your name"), "Hiro");
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "hiro@example.com");
+    fireEvent.changeText(getByPlaceholderText("8+ characters"), "password123");
+    fireEvent.press(getByText("Mark payment method as set"));
+
+    fireEvent.press(getByText("Continue to sign up"));
+
+    await waitFor(() => expect(mockSignUpWithEmailConfirmation).toHaveBeenCalledTimes(1));
+
+    expect(getByText("An account with this email already exists. Please log in instead.")).toBeTruthy();
+  });
+});
