@@ -1,3 +1,10 @@
+# 環境構築手順
+
+- git clone
+- リポジトリ直下で npm install
+- 環境変数設定(雛形は.env.example)
+- npm run typecheck / npm run lint でクリーンな状態を確認
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
@@ -38,7 +45,6 @@ Run `npm run deploy` to [deploy to production](https://docs.expo.dev/eas/workflo
 ## Hosting
 
 Expo offers hosting for websites and API functions via EAS Hosting. See the [Getting Started](https://docs.expo.dev/eas/hosting/get-started/) guide to learn more.
-
 
 ## Get a fresh project
 
