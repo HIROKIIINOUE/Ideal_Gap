@@ -14,6 +14,10 @@ export type LoginTranslations = {
   firstTimeHeading: string;
   firstTimeBody: string;
   signupCta: string;
+  errorUserNotFound: string;
+  errorWrongPassword: string;
+  loginSuccess: string;
+  loggingIn: string;
 };
 
 export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
@@ -31,6 +35,10 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     firstTimeHeading: "はじめての方はこちら",
     firstTimeBody: "無料体験後は 8.5 CAD/月 (30日) で自動更新。キャンセルはいつでも設定可能。",
     signupCta: "サインアップへ",
+    errorUserNotFound: "アカウントが見つかりません。サインアップしてください。",
+    errorWrongPassword: "パスワードが間違っています。再入力してください。",
+    loginSuccess: "ログインに成功しました。",
+    loggingIn: "ログイン中…",
   },
   en: {
     pageLabel: "Log In",
@@ -46,6 +54,10 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     firstTimeHeading: "New here?",
     firstTimeBody: "After your free trial, it renews at 8.5 CAD/month every 30 days. You can cancel anytime.",
     signupCta: "Go to Sign Up",
+    errorUserNotFound: "No account found. Please sign up.",
+    errorWrongPassword: "Incorrect password. Please try again.",
+    loginSuccess: "Logged in successfully",
+    loggingIn: "Logging in…",
   },
   fr: {
     pageLabel: "Connexion",
@@ -63,5 +75,9 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     firstTimeBody:
       "Après l’essai gratuit, le renouvellement est de 8.5 CAD/mois tous les 30 jours. Vous pouvez annuler à tout moment.",
     signupCta: "Aller à l’inscription",
+    errorUserNotFound: "Aucun compte trouvé. Veuillez vous inscrire.",
+    errorWrongPassword: "Mot de passe incorrect. Veuillez réessayer.",
+    loginSuccess: "Connexion réussie",
+    loggingIn: "Connexion…",
   },
 };

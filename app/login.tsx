@@ -1,16 +1,68 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  ToastAndroid,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { signInWithEmailPassword } from "../lib/auth";
 
 export default function Login() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation("login");
+  const isLoginDisabled = email.trim() === "" || password.trim() === "";
+  const disabled = isLoginDisabled || isSubmitting;
+
+  const showToast = useCallback((message: string) => {
+    if (Platform.OS === "android") {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+      return;
+    }
+    Alert.alert(message);
+  }, []);
+
+  const handleLogin = useCallback(async () => {
+    if (disabled) return;
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    const result = await signInWithEmailPassword({
+      email: email.trim(),
+      password,
+    });
+    setIsSubmitting(false);
+
+    if (!result.ok) {
+      const message =
+        result.reason === "user_not_found"
+          ? t("errorUserNotFound")
+          : result.reason === "invalid_password"
+            ? t("errorWrongPassword")
+            : result.message ?? t("errorWrongPassword");
+      setErrorMessage(message);
+      return;
+    }
+
+    setErrorMessage(null);
+    showToast(t("loginSuccess"));
+  }, [disabled, email, password, showToast, t]);
+
+  const errorLabel = useMemo(() => errorMessage, [errorMessage]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -35,6 +87,8 @@ export default function Login() {
               keyboardAppearance="dark"
               autoCapitalize="none"
               keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
             />
           </View>
 
@@ -46,16 +100,22 @@ export default function Login() {
               style={styles.input}
               secureTextEntry
               keyboardAppearance="dark"
+              value={password}
+              onChangeText={setPassword}
             />
           </View>
 
           <Pressable
             accessibilityRole="button"
+            onPress={handleLogin}
+            accessibilityState={{ disabled }}
+            disabled={disabled}
             style={({ pressed }) => [
               styles.ctaButton,
               styles.primaryButton,
               styles.buttonShadow,
               pressed && styles.buttonPressed,
+              disabled && styles.buttonDisabled,
             ]}
           >
             <LinearGradient
@@ -64,8 +124,14 @@ export default function Login() {
               end={{ x: 1, y: 1 }}
               style={styles.buttonGlass}
             />
-            <Text style={styles.primaryLabel}>{t("loginCta")}</Text>
+            <Text style={styles.primaryLabel}>{isSubmitting ? t("loggingIn") : t("loginCta")}</Text>
           </Pressable>
+
+          {!!errorLabel && (
+            <View style={[styles.alertBox, styles.errorBox]}>
+              <Text style={styles.alertBody}>{errorLabel}</Text>
+            </View>
+          )}
 
           <Pressable accessibilityRole="button" style={styles.subtleButton}>
             <Text style={styles.subtleLabel}>{t("forgotPassword")}</Text>
@@ -193,6 +259,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: typography.md,
   },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
   secondaryLabel: {
     color: colors.textPrimary,
     fontWeight: "700",
@@ -208,6 +277,22 @@ const styles = StyleSheet.create({
   buttonGlass: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: radius.lg,
+  },
+  alertBox: {
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    gap: spacing.xs,
+    backgroundColor: "rgba(255,138,138,0.08)",
+    borderColor: "#ff8a8a",
+  },
+  alertBody: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  errorBox: {
+    borderColor: "#ff8a8a",
   },
   subtleButton: {
     alignItems: "center",
