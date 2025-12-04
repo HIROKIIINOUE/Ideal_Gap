@@ -4,6 +4,7 @@ import { initReactI18next } from "react-i18next";
 import { commonTranslations } from "../content/commonTranslations";
 import { landingTranslations } from "../content/landingTranslations";
 import { loginTranslations } from "../content/loginTranslations";
+import { resetPasswordTranslations } from "../content/resetPasswordTranslations";
 import { signupTranslations } from "../content/signupTranslations";
 import { LanguageKey, SUPPORTED_LANGUAGES } from "../types/i18n";
 
@@ -13,6 +14,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     common: commonTranslations[lang],
     landing: landingTranslations[lang],
     login: loginTranslations[lang],
+    resetPassword: resetPasswordTranslations[lang],
     signup: signupTranslations[lang],
   };
   return acc;
@@ -26,7 +28,7 @@ if (!i18n.isInitialized) {
     supportedLngs: SUPPORTED_LANGUAGES,
     lng: "en",
     defaultNS: "common",
-    ns: ["common", "landing", "login", "signup"],
+    ns: ["common", "landing", "login", "resetPassword", "signup"],
     interpolation: {
       escapeValue: false,
     },

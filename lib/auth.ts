@@ -30,6 +30,22 @@ type SignInResult =
       message: string;
     };
 
+type ResetPasswordRequestResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "user_not_found" | "unknown";
+      message: string;
+    };
+
+type CompletePasswordResetResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "missing_session" | "unknown";
+      message: string;
+    };
+
 const resolveTimeZone = () =>
   Localization.getCalendars?.()[0]?.timeZone ?? "UTC";
 
@@ -91,12 +107,107 @@ export const signUpWithEmailConfirmation = async ({
   }
 };
 
+// パスワードリセットメール送信
+export const requestPasswordResetEmail = async (
+  email: string
+): Promise<ResetPasswordRequestResult> => {
+  try {
+    const userExistsResult = await checkUserExists(email);
+    if (!userExistsResult.ok) {
+      return {
+        ok: false,
+        reason: "unknown",
+        message: userExistsResult.message,
+      };
+    }
+    if (!userExistsResult.exists) {
+      return { ok: false, reason: "user_not_found", message: "User not found" };
+    }
+
+    const redirectTo = Linking.createURL("/reset-password");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+
+    if (error) {
+      return { ok: false, reason: "unknown", message: error.message };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    return { ok: false, reason: "unknown", message };
+  }
+};
+
+// supabaseが生成したリカバリートークンを解析
+const parseRecoveryTokens = (url?: string | null) => {
+  if (!url) return null;
+  const hashIndex = url.indexOf("#");
+  if (hashIndex === -1) return null;
+  const params = new URLSearchParams(url.slice(hashIndex + 1));
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+  const type = params.get("type");
+  if (!accessToken || !refreshToken || type !== "recovery") {
+    return null;
+  }
+  return { accessToken, refreshToken };
+};
+
+// リカバリメールリンクが有効かどうかbooleanで返す
+export const setSessionFromRecoveryLink = async (url?: string | null) => {
+  const tokens = parseRecoveryTokens(url);
+  if (!tokens) return false;
+
+  const { error } = await supabase.auth.setSession({
+    access_token: tokens.accessToken,
+    refresh_token: tokens.refreshToken,
+  });
+
+  return !error;
+};
+
+// セッションが復元されている前提でパスワードを更新
+export const completePasswordReset = async (
+  newPassword: string
+): Promise<CompletePasswordResetResult> => {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      return { ok: false, reason: "unknown", message: error.message };
+    }
+    if (!data.session) {
+      return {
+        ok: false,
+        reason: "missing_session",
+        message: "Session not ready",
+      };
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (updateError) {
+      return { ok: false, reason: "unknown", message: updateError.message };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    return { ok: false, reason: "unknown", message };
+  }
+};
+
+// ユーザが存在しないエラーメッセージを小文字で返す
 const isUserNotFoundError = (error: AuthError) => {
   const message = error.message?.toLowerCase() ?? "";
   return message.includes("not found") || message.includes("no user");
 };
 
+// ユーザー存在チェック
 const checkUserExists = async (email: string) => {
+  // 以下のクエリ文は行データを返さずHTTPヘッダーで件数のみ取得しcountにより条件に合致する件数を返している。idはダミーで実際にデータは返されていない。eqの条件に合ったデータの件数のみが拾える。(最小限の送信量にできる)
   const { count, error } = await supabase
     .from("users")
     .select("id", { count: "exact", head: true })

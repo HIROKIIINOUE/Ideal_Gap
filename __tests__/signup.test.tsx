@@ -46,7 +46,7 @@ describe("Signup screen", () => {
 
     fireEvent.changeText(getByPlaceholderText("Your name"), "Hiro");
     fireEvent.changeText(getByPlaceholderText("you@example.com"), "hiro@example.com");
-    fireEvent.changeText(getByPlaceholderText("8+ characters"), "password123");
+    fireEvent.changeText(getByPlaceholderText("6+ characters"), "password123");
     fireEvent.press(getByText("Mark payment method as set"));
 
     fireEvent.press(getByText("Continue to sign up"));
@@ -68,7 +68,7 @@ describe("Signup screen", () => {
 
     fireEvent.changeText(getByPlaceholderText("Your name"), "Hiro");
     fireEvent.changeText(getByPlaceholderText("you@example.com"), "hiro@example.com");
-    fireEvent.changeText(getByPlaceholderText("8+ characters"), "password123");
+    fireEvent.changeText(getByPlaceholderText("6+ characters"), "password123");
     fireEvent.press(getByText("Mark payment method as set"));
 
     fireEvent.press(getByText("Continue to sign up"));

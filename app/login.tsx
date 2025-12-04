@@ -133,9 +133,11 @@ export default function Login() {
             </View>
           )}
 
-          <Pressable accessibilityRole="button" style={styles.subtleButton}>
-            <Text style={styles.subtleLabel}>{t("forgotPassword")}</Text>
-          </Pressable>
+          <Link href="/reset-password" asChild>
+            <Pressable accessibilityRole="button" style={styles.subtleButton}>
+              <Text style={styles.subtleLabel}>{t("forgotPassword")}</Text>
+            </Pressable>
+          </Link>
         </View>
 
         <View style={[styles.card, shadows.card]}>

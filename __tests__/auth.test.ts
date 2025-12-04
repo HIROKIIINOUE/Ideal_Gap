@@ -1,25 +1,48 @@
 import { AuthError } from "@supabase/supabase-js";
-import { signInWithEmailPassword, signUpWithEmailConfirmation } from "../lib/auth";
+import {
+  completePasswordReset,
+  requestPasswordResetEmail,
+  setSessionFromRecoveryLink,
+  signInWithEmailPassword,
+  signUpWithEmailConfirmation,
+} from "../lib/auth";
 import { supabase } from "../lib/supabaseClient";
+
+const mockCreateURL = jest.fn(
+  (path?: string) => `idealgap://${(path ?? "").replace(/^\//, "").replace(/\//g, "-")}`,
+);
 
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
       signUp: jest.fn(),
       signInWithPassword: jest.fn(),
+      resetPasswordForEmail: jest.fn(),
+      updateUser: jest.fn(),
+      getSession: jest.fn(),
+      setSession: jest.fn(),
     },
     from: jest.fn(),
   },
 }));
 
 jest.mock("expo-linking", () => ({
-  createURL: jest.fn(() => "idealgap://auth-callback"),
+  createURL: (path?: string) => mockCreateURL(path),
 }));
 
 jest.mock("expo-localization", () => ({
   timeZone: "Asia/Tokyo",
   getCalendars: () => [{ timeZone: "Asia/Tokyo" }],
 }));
+
+const selectMock = jest.fn();
+const eqMock = jest.fn();
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  (supabase.from as jest.Mock).mockReturnValue({ select: selectMock });
+  selectMock.mockReturnValue({ eq: eqMock });
+});
 
 describe("signUpWithEmailConfirmation", () => {
   const baseParams = {
@@ -84,13 +107,7 @@ describe("signUpWithEmailConfirmation", () => {
 });
 
 describe("signInWithEmailPassword", () => {
-  const selectMock = jest.fn();
-  const eqMock = jest.fn();
-
   beforeEach(() => {
-    jest.clearAllMocks();
-    (supabase.from as jest.Mock).mockReturnValue({ select: selectMock });
-    selectMock.mockReturnValue({ eq: eqMock });
     (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({ error: null });
   });
 
@@ -138,5 +155,124 @@ describe("signInWithEmailPassword", () => {
     });
 
     expect(result).toEqual({ ok: true });
+  });
+});
+
+describe("requestPasswordResetEmail", () => {
+  beforeEach(() => {
+    eqMock.mockResolvedValue({ count: 1, error: null });
+    mockCreateURL.mockReturnValue("idealgap://reset-password");
+  });
+
+  test("returns user_not_found when email is missing", async () => {
+    eqMock.mockResolvedValue({ count: 0, error: null });
+
+    const result = await requestPasswordResetEmail("missing@example.com");
+
+    expect(supabase.auth.resetPasswordForEmail).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      reason: "user_not_found",
+      message: "User not found",
+    });
+  });
+
+  test("sends reset email when user exists", async () => {
+    (supabase.auth.resetPasswordForEmail as jest.Mock).mockResolvedValue({
+      data: {},
+      error: null,
+    });
+
+    const result = await requestPasswordResetEmail("user@example.com");
+
+    expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith("user@example.com", {
+      redirectTo: "idealgap://reset-password",
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  test("returns unknown when Supabase returns an error", async () => {
+    (supabase.auth.resetPasswordForEmail as jest.Mock).mockResolvedValue({
+      data: null,
+      error: { message: "Rate limited", status: 429 } as AuthError,
+    });
+
+    const result = await requestPasswordResetEmail("user@example.com");
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "unknown",
+      message: "Rate limited",
+    });
+  });
+});
+
+describe("setSessionFromRecoveryLink", () => {
+  test("returns false when tokens are missing", async () => {
+    const result = await setSessionFromRecoveryLink("idealgap://reset-password");
+    expect(result).toBe(false);
+    expect(supabase.auth.setSession).not.toHaveBeenCalled();
+  });
+
+  test("sets session when tokens are present", async () => {
+    (supabase.auth.setSession as jest.Mock).mockResolvedValue({ data: {}, error: null });
+
+    const url =
+      "idealgap://reset-password#access_token=access123&refresh_token=refresh456&type=recovery";
+    const result = await setSessionFromRecoveryLink(url);
+
+    expect(supabase.auth.setSession).toHaveBeenCalledWith({
+      access_token: "access123",
+      refresh_token: "refresh456",
+    });
+    expect(result).toBe(true);
+  });
+});
+
+describe("completePasswordReset", () => {
+  beforeEach(() => {
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { access_token: "token" } },
+      error: null,
+    });
+  });
+
+  test("returns missing_session when no active session exists", async () => {
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+
+    const result = await completePasswordReset("new-password");
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "missing_session",
+      message: "Session not ready",
+    });
+  });
+
+  test("updates password when session exists", async () => {
+    (supabase.auth.updateUser as jest.Mock).mockResolvedValue({ data: {}, error: null });
+
+    const result = await completePasswordReset("new-password");
+
+    expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: "new-password" });
+    expect(result).toEqual({ ok: true });
+  });
+
+  test("returns unknown when Supabase returns an error", async () => {
+    (supabase.auth.updateUser as jest.Mock).mockResolvedValue({
+      data: null,
+      error: { message: "Password too weak", status: 400 } as AuthError,
+    });
+
+    const result = await completePasswordReset("short");
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "unknown",
+      message: "Password too weak",
+    });
   });
 });
