@@ -8,9 +8,14 @@ import {
 } from "../lib/auth";
 import { supabase } from "../lib/supabaseClient";
 
-const mockCreateURL = jest.fn(
-  (path?: string) => `idealgap://${(path ?? "").replace(/^\//, "").replace(/\//g, "-")}`,
-);
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      scheme: "idealgap",
+    },
+  },
+}));
 
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
@@ -27,7 +32,7 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 jest.mock("expo-linking", () => ({
-  createURL: (path?: string) => mockCreateURL(path),
+  createURL: jest.fn((path?: string) => `idealgap://${(path ?? "").replace(/^\//, "")}`),
 }));
 
 jest.mock("expo-localization", () => ({
@@ -69,7 +74,7 @@ describe("signUpWithEmailConfirmation", () => {
       password: "password123",
       options: {
         data: { name: "New User", language: "en", time_zone: "Asia/Tokyo" },
-        emailRedirectTo: "idealgap://auth-callback",
+        emailRedirectTo: "idealgap://dashboard",
       },
     });
     expect(result).toEqual({ ok: true });
@@ -161,7 +166,6 @@ describe("signInWithEmailPassword", () => {
 describe("requestPasswordResetEmail", () => {
   beforeEach(() => {
     eqMock.mockResolvedValue({ count: 1, error: null });
-    mockCreateURL.mockReturnValue("idealgap://reset-password");
   });
 
   test("returns user_not_found when email is missing", async () => {
