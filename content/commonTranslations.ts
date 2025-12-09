@@ -13,6 +13,11 @@ export type CommonTranslations = {
   moreSheet: {
     title: string;
     close: string;
+    confirmTitle: string;
+    confirmBody: string;
+    confirmYes: string;
+    confirmNo: string;
+    logoutSuccess: string;
     items: {
       logout: { title: string; subtitle: string };
       toggleFunPlan: { title: string; subtitle: string };
@@ -40,6 +45,11 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
     moreSheet: {
       title: "その他のメニュー",
       close: "閉じる",
+      confirmTitle: "ログアウトしますか？",
+      confirmBody: "セッションが終了します。続行しますか？",
+      confirmYes: "ログアウト",
+      confirmNo: "キャンセル",
+      logoutSuccess: "ログアウトが完了しました",
       items: {
         logout: { title: "ログアウト", subtitle: "セッションを終了します" },
         toggleFunPlan: { title: "次回の楽しい予定の表示", subtitle: "カードの表示を切り替えます（後で設定）" },
@@ -73,6 +83,11 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
     moreSheet: {
       title: "More",
       close: "Close",
+      confirmTitle: "Sign out?",
+      confirmBody: "Your session will end. Do you want to continue?",
+      confirmYes: "Sign out",
+      confirmNo: "Cancel",
+      logoutSuccess: "Signed out successfully",
       items: {
         logout: { title: "Log out", subtitle: "End your current session" },
         toggleFunPlan: { title: "Toggle Next Fun Plan", subtitle: "Show or hide the card (coming soon)" },
@@ -106,6 +121,11 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
     moreSheet: {
       title: "Plus",
       close: "Fermer",
+      confirmTitle: "Se déconnecter ?",
+      confirmBody: "Votre session va se terminer. Voulez-vous continuer ?",
+      confirmYes: "Déconnexion",
+      confirmNo: "Annuler",
+      logoutSuccess: "Déconnexion réussie",
       items: {
         logout: { title: "Déconnexion", subtitle: "Terminer la session en cours" },
         toggleFunPlan: {

@@ -2,12 +2,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Href, router } from "expo-router";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { supabase } from "../lib/supabaseClient";
 
 type CardKey =
   | "idealSelf"
@@ -30,8 +31,40 @@ const alternatingGradients: readonly [readonly [string, string], readonly [strin
 
 export default function Dashboard() {
   const { t } = useTranslation("dashboard");
+  const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
+
+  const showLogoutToast = () => {
+    const message = tCommon("logoutSuccess");
+    if (Platform.OS === "android") {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+    } else {
+      Alert.alert(message);
+    }
+  };
+
+  const handleMoreSelect = async (key: string) => {
+    if (key === "logout") {
+      Alert.alert(
+        tCommon("confirmTitle"),
+        tCommon("confirmBody"),
+        [
+          { text: tCommon("confirmNo"), style: "cancel" },
+          {
+            text: tCommon("confirmYes"),
+            style: "destructive",
+            onPress: async () => {
+              await supabase.auth.signOut();
+              showLogoutToast();
+              router.replace("/");
+            },
+          },
+        ],
+        { cancelable: true },
+      );
+    }
+  };
 
   const cards: DashboardCard[] = useMemo(
     () => [
@@ -120,7 +153,11 @@ export default function Dashboard() {
         onMorePress={() => setMoreSheetVisible(true)}
       />
       <LanguageSheet visible={languageSheetVisible} onClose={() => setLanguageSheetVisible(false)} />
-      <MoreSheet visible={moreSheetVisible} onClose={() => setMoreSheetVisible(false)} />
+      <MoreSheet
+        visible={moreSheetVisible}
+        onClose={() => setMoreSheetVisible(false)}
+        onSelect={handleMoreSelect}
+      />
     </SafeAreaView>
   );
 }
