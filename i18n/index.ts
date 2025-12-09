@@ -2,6 +2,7 @@
 import i18n, { Resource } from "i18next";
 import { initReactI18next } from "react-i18next";
 import { commonTranslations } from "../content/commonTranslations";
+import { dashboardTranslations } from "../content/dashboardTranslations";
 import { landingTranslations } from "../content/landingTranslations";
 import { loginTranslations } from "../content/loginTranslations";
 import { purchasesTranslations } from "../content/purchasesTranslations";
@@ -13,6 +14,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
   // useTranslationの参照先をコントロール
   acc[lang] = {
     common: commonTranslations[lang],
+    dashboard: dashboardTranslations[lang],
     landing: landingTranslations[lang],
     login: loginTranslations[lang],
     purchases: purchasesTranslations[lang],
@@ -30,7 +32,7 @@ if (!i18n.isInitialized) {
     supportedLngs: SUPPORTED_LANGUAGES,
     lng: "en",
     defaultNS: "common",
-    ns: ["common", "landing", "login", "resetPassword", "signup", "purchases"],
+    ns: ["common", "dashboard", "landing", "login", "resetPassword", "signup", "purchases"],
     interpolation: {
       escapeValue: false,
     },

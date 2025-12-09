@@ -1,34 +1,102 @@
-import { Link } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Href, router } from "expo-router";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 
-// 仮置きのダッシュボード画面。今後、認証済みユーザーのみがアクセスできるようにガードを追加予定。
+type CardKey =
+  | "idealSelf"
+  | "annualGoals"
+  | "monthlyGoals"
+  | "weeklyGoals"
+  | "focusMusic"
+  | "breakReminders"
+  | "nextFunPlan";
+
+type DashboardCard = {
+  key: CardKey;
+  href: Href;
+};
+
 export default function Dashboard() {
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <View style={[styles.card, shadows.card]}>
-          <Text style={styles.title}>Dashboard (仮)</Text>
-          <Text style={styles.body}>
-            サインアップ後にメールリンクから遷移するダッシュボードの仮ページです。認証ガードは今後実装します。
-          </Text>
+  const { t } = useTranslation("dashboard");
+  const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Next steps</Text>
-            <Text style={styles.body}>・ユーザーデータや進捗をここに表示する予定です。</Text>
-            <Text style={styles.body}>・必要に応じてメトリクスカードを追加してください。</Text>
-          </View>
+  const cards: DashboardCard[] = useMemo(
+    () => [
+      { key: "idealSelf", href: { pathname: "/feature/[feature]", params: { feature: "ideal-self" } } },
+      { key: "annualGoals", href: { pathname: "/feature/[feature]", params: { feature: "annual-goals" } } },
+      { key: "monthlyGoals", href: { pathname: "/feature/[feature]", params: { feature: "monthly-goals" } } },
+      { key: "weeklyGoals", href: { pathname: "/feature/[feature]", params: { feature: "weekly-goals" } } },
+      { key: "focusMusic", href: { pathname: "/feature/[feature]", params: { feature: "focus-music" } } },
+      { key: "breakReminders", href: { pathname: "/feature/[feature]", params: { feature: "break-reminders" } } },
+    ],
+    [],
+  );
 
-          <Link href="/" style={styles.link}>
-            ホームへ戻る
-          </Link>
-        </View>
+  const renderCard = (card: DashboardCard) => (
+    <Pressable
+      key={card.key}
+      accessibilityRole="button"
+      onPress={() => router.push(card.href)}
+      style={({ pressed }) => [
+        styles.tile,
+        shadows.card,
+        pressed && styles.tilePressed,
+      ]}
+    >
+      <View style={styles.tileHeader}>
+        <Text style={styles.tileTitle}>{t(`cards.${card.key}.title`)}</Text>
+        <Text style={styles.tileSubtitle}>{t(`cards.${card.key}.subtitle`)}</Text>
       </View>
-      <Footer isAuthenticated={true} onLanguagePress={() => { }} />
-      <LanguageSheet visible={false} onClose={() => { }} />
+      <View style={styles.pill}>
+        <Text style={styles.pillText}>{t("pageTitle")}</Text>
+      </View>
+    </Pressable>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View style={styles.headerTextGroup}>
+            <Text style={styles.title}>{t("pageTitle")}</Text>
+          </View>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: "/feature/[feature]", params: { feature: "next-fun-plan" } })}
+          style={({ pressed }) => [styles.heroCard, pressed && styles.heroPressed]}
+        >
+          <LinearGradient
+            colors={["rgba(30,94,255,0.28)", "rgba(12,18,32,0.92)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.heroContent}>
+            <Text style={styles.heroLabel}>{t("nextFunPlan.title")}</Text>
+            <Text style={styles.heroBody}>{t("nextFunPlan.subtitle")}</Text>
+            <View style={styles.heroFooter}>
+              <Text style={styles.heroCta}>{t("nextFunPlan.cta")}</Text>
+              <Text style={styles.heroHelper}>{t("nextFunPlan.emptyLabel")}</Text>
+            </View>
+          </View>
+        </Pressable>
+
+        <View style={styles.grid}>
+          {cards.map(renderCard)}
+        </View>
+
+      </ScrollView>
+
+      <Footer isAuthenticated onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <LanguageSheet visible={languageSheetVisible} onClose={() => setLanguageSheetVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -37,46 +105,142 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingVertical: spacing.xl,
   },
   content: {
-    flex: 1,
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 0,
+    gap: spacing.lg,
+    paddingBottom: spacing.xl * 1.25,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     gap: spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.18)",
-    overflow: "hidden",
+  },
+  headerTextGroup: {
+    flex: 1,
+    gap: spacing.xs,
   },
   title: {
     color: colors.textPrimary,
     fontSize: typography.xl,
-    fontWeight: "700",
+    fontWeight: "800",
   },
-  body: {
+  subtitle: {
     color: colors.textSecondary,
     fontSize: typography.md,
-    lineHeight: typography.md * 1.5,
+    lineHeight: typography.md * 1.4,
   },
-  section: {
-    marginTop: spacing.md,
+  languageButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  languageLabel: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    fontWeight: "700",
+  },
+  heroCard: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  heroContent: {
+    padding: spacing.xl,
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: colors.accentSubtle,
+    fontSize: typography.sm,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  heroBody: {
+    color: colors.textPrimary,
+    fontSize: typography.lg,
+    fontWeight: "700",
+    lineHeight: typography.lg * 1.3,
+  },
+  heroFooter: {
+    marginTop: spacing.sm,
     gap: spacing.xs,
   },
-  sectionTitle: {
+  heroCta: {
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "700",
   },
+  heroHelper: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  tile: {
+    width: "48%",
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  tileHeader: {
+    gap: spacing.xs,
+  },
+  tileTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.lg,
+    fontWeight: "700",
+  },
+  tileSubtitle: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  pill: {
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  pillText: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  tilePressed: {
+    opacity: 0.9,
+    transform: [{ translateY: 1 }],
+  },
+  heroPressed: {
+    opacity: 0.94,
+  },
+  buttonPressed: {
+    opacity: 0.9,
+  },
   link: {
-    marginTop: spacing.md,
     color: colors.accentPrimary,
     fontSize: typography.md,
+    fontWeight: "600",
   },
-  gradientOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: radius.lg,
+  extraLinkRow: {
+    alignItems: "flex-start",
   },
 });
