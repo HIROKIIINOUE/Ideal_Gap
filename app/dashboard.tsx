@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
+import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 
 type CardKey =
@@ -30,6 +31,7 @@ const alternatingGradients: readonly [readonly [string, string], readonly [strin
 export default function Dashboard() {
   const { t } = useTranslation("dashboard");
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
+  const [moreSheetVisible, setMoreSheetVisible] = useState(false);
 
   const cards: DashboardCard[] = useMemo(
     () => [
@@ -112,8 +114,13 @@ export default function Dashboard() {
 
       </ScrollView>
 
-      <Footer isAuthenticated onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <Footer
+        isAuthenticated
+        onLanguagePress={() => setLanguageSheetVisible(true)}
+        onMorePress={() => setMoreSheetVisible(true)}
+      />
       <LanguageSheet visible={languageSheetVisible} onClose={() => setLanguageSheetVisible(false)} />
+      <MoreSheet visible={moreSheetVisible} onClose={() => setMoreSheetVisible(false)} />
     </SafeAreaView>
   );
 }

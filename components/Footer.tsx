@@ -4,6 +4,7 @@ import { memo, useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { colors, radius, spacing, typography } from "../constants/theme";
+import { router } from "expo-router";
 
 type FooterProps = {
   isAuthenticated?: boolean;
@@ -16,6 +17,8 @@ type FooterAction = {
   key: "language" | "dashboard" | "more";
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  showLabel: boolean;
+  flex: number;
 };
 
 const Footer = memo(
@@ -26,13 +29,31 @@ const Footer = memo(
     const actions = useMemo(
       () => {
         const actionConfig: FooterAction[] = [
-          { key: "language", label: "Language", icon: "earth" },
-          { key: "dashboard", label: t("footer.dashboard"), icon: "view-dashboard-outline" },
-          { key: "more", label: t("footer.more"), icon: "menu" },
+          {
+            key: "language",
+            label: "Language",
+            icon: "earth",
+            showLabel: !isAuthenticated,
+            flex: isAuthenticated ? 0.6 : 1,
+          },
+          {
+            key: "dashboard",
+            label: t("footer.dashboard"),
+            icon: "view-dashboard-outline",
+            showLabel: true,
+            flex: 1.4,
+          },
+          {
+            key: "more",
+            label: t("footer.more"),
+            icon: "menu",
+            showLabel: !isAuthenticated,
+            flex: isAuthenticated ? 0.6 : 1,
+          },
         ];
         const handlers: Record<FooterAction["key"], () => void> = {
           language: onLanguagePress ?? noop,
-          dashboard: onDashboardPress ?? noop,
+          dashboard: onDashboardPress ?? (() => router.replace("/dashboard")),
           more: onMorePress ?? noop,
         };
 
@@ -58,7 +79,11 @@ const Footer = memo(
               key={action.key}
               accessibilityRole="button"
               accessibilityLabel={action.label}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.actionPressed]}
+              style={({ pressed }) => [
+                styles.actionButton,
+                { flexGrow: action.flex, flexShrink: 1, flexBasis: 0 },
+                pressed && styles.actionPressed,
+              ]}
               onPress={action.onPress}
             >
               <MaterialCommunityIcons
@@ -66,7 +91,7 @@ const Footer = memo(
                 size={20}
                 color={colors.textPrimary}
               />
-              <Text style={styles.actionLabel}>{action.label}</Text>
+              {action.showLabel && <Text style={styles.actionLabel}>{action.label}</Text>}
             </Pressable>
           ))}
         </View>
@@ -94,7 +119,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   actionButton: {
-    flex: 1,
+    flexGrow: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
