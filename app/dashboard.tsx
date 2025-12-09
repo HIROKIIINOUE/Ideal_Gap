@@ -22,6 +22,11 @@ type DashboardCard = {
   href: Href;
 };
 
+const alternatingGradients: readonly [readonly [string, string], readonly [string, string]] = [
+  ["rgba(77,125,255,0.16)", "rgba(15,28,47,0.92)"],
+  ["rgba(160,195,255,0.12)", "rgba(15,28,47,0.9)"],
+];
+
 export default function Dashboard() {
   const { t } = useTranslation("dashboard");
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
@@ -38,26 +43,39 @@ export default function Dashboard() {
     [],
   );
 
-  const renderCard = (card: DashboardCard) => (
-    <Pressable
-      key={card.key}
-      accessibilityRole="button"
-      onPress={() => router.push(card.href)}
-      style={({ pressed }) => [
-        styles.tile,
-        shadows.card,
-        pressed && styles.tilePressed,
-      ]}
-    >
-      <View style={styles.tileHeader}>
-        <Text style={styles.tileTitle}>{t(`cards.${card.key}.title`)}</Text>
-        <Text style={styles.tileSubtitle}>{t(`cards.${card.key}.subtitle`)}</Text>
-      </View>
-      <View style={styles.pill}>
-        <Text style={styles.pillText}>{t("pageTitle")}</Text>
-      </View>
-    </Pressable>
-  );
+  const renderCard = (card: DashboardCard, index: number) => {
+    const rowIndex = Math.floor(index / 2);
+    const isEvenRow = rowIndex % 2 === 0;
+    const pair = isEvenRow ? alternatingGradients : [alternatingGradients[1], alternatingGradients[0]];
+    const gradient = pair[index % 2];
+
+    return (
+      <Pressable
+        key={card.key}
+        accessibilityRole="button"
+        onPress={() => router.push(card.href)}
+        style={({ pressed }) => [
+          styles.tile,
+          shadows.card,
+          pressed && styles.tilePressed,
+        ]}
+      >
+        <LinearGradient
+          colors={gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.tileGradient}
+        />
+        <View style={styles.tileHeader}>
+          <Text style={styles.tileTitle}>{t(`cards.${card.key}.title`)}</Text>
+          <Text style={styles.tileSubtitle}>{t(`cards.${card.key}.subtitle`)}</Text>
+        </View>
+        <View style={styles.pill}>
+          <Text style={styles.pillText}>{t("pageTitle")}</Text>
+        </View>
+      </Pressable>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
@@ -81,7 +99,6 @@ export default function Dashboard() {
           />
           <View style={styles.heroContent}>
             <Text style={styles.heroLabel}>{t("nextFunPlan.title")}</Text>
-            <Text style={styles.heroBody}>{t("nextFunPlan.subtitle")}</Text>
             <View style={styles.heroFooter}>
               <Text style={styles.heroCta}>{t("nextFunPlan.cta")}</Text>
               <Text style={styles.heroHelper}>{t("nextFunPlan.emptyLabel")}</Text>
@@ -90,7 +107,7 @@ export default function Dashboard() {
         </Pressable>
 
         <View style={styles.grid}>
-          {cards.map(renderCard)}
+          {cards.map((card, index) => renderCard(card, index))}
         </View>
 
       </ScrollView>
@@ -196,6 +213,12 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     padding: spacing.lg,
     gap: spacing.sm,
+    overflow: "hidden",
+    position: "relative",
+  },
+  tileGradient: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.9,
   },
   tileHeader: {
     gap: spacing.xs,
