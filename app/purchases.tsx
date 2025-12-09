@@ -210,7 +210,7 @@ export default function Purchases() {
           </Pressable>
         </View>
       </ScrollView>
-      <Footer isAuthenticated={true} onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
       <LanguageSheet
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}
