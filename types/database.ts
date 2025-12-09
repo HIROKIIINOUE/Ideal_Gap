@@ -52,7 +52,13 @@ export type Database = {
           current_period_end: string | null;
           id: string;
           plan: string | null;
-          status: "trial" | "active" | "canceled" | "expired" | null;
+          status:
+            | "trial"
+            | "active"
+            | "canceled"
+            | "expired"
+            | "signupAwait"
+            | null;
           trial_ends_at: string | null;
           updated_at: string | null;
           user_id: string;
@@ -63,7 +69,13 @@ export type Database = {
           current_period_end?: string | null;
           id?: string;
           plan?: string | null;
-          status?: "trial" | "active" | "canceled" | "expired" | null;
+          status?:
+            | "trial"
+            | "active"
+            | "canceled"
+            | "expired"
+            | "signupAwait"
+            | null;
           trial_ends_at?: string | null;
           updated_at?: string | null;
           user_id: string;
@@ -74,7 +86,13 @@ export type Database = {
           current_period_end?: string | null;
           id?: string;
           plan?: string | null;
-          status?: "trial" | "active" | "canceled" | "expired" | null;
+          status?:
+            | "trial"
+            | "active"
+            | "canceled"
+            | "expired"
+            | "signupAwait"
+            | null;
           trial_ends_at?: string | null;
           updated_at?: string | null;
           user_id?: string;
@@ -93,7 +111,7 @@ export type Database = {
     Functions: {};
     Enums: {
       language: "ja" | "en" | "fr";
-      status: "trial" | "active" | "canceled" | "expired";
+      status: "trial" | "active" | "canceled" | "expired" | "signupAwait";
     };
     CompositeTypes: {};
   };

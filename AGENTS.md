@@ -136,6 +136,7 @@ Developers can configure the Expo MCP server with the following doc: https://doc
 - 実装後は `npm run test`（開発中は `npm run test:watch`）でテストを通す
 - 何らかの変更を加えた後は必ず `npm run typecheck` で型チェックを実行する
 - 型チェック後に `npm run lint` でESLintを実行し、警告・エラーを解消する
+- コードを編集した際は `npm run typecheck` → `npm run lint` → `npm run test` を必ず実行し、結果を共有する
 
 ### 要件・データ設計の厳守
 

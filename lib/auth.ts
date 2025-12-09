@@ -84,7 +84,7 @@ export const signUpWithEmailConfirmation = async ({
 }: SignUpParams): Promise<SignUpResult> => {
   try {
     // Eメールのサインアップリンククリック時の遷移先指定
-    const emailRedirectTo = buildRedirect("/dashboard");
+    const emailRedirectTo = buildRedirect("/purchases?signup=1");
     // ユーザサインアップ時のユーザの端末からタイムゾーンを取得
     const timeZone = resolveTimeZone();
 

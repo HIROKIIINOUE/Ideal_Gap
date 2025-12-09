@@ -68,6 +68,7 @@
     "active"
     "canceled"
     "expired"
+    "signupAwait"
   }
 
   Table user_settings {

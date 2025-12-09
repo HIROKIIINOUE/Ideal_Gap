@@ -47,6 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         data: [
           { scheme, host: "auth", pathPrefix: "/callback" },
           { scheme, host: "reset-password" },
+          { scheme, host: "purchases" },
         ],
       },
     ],
@@ -77,6 +78,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     router: {},
+    appEnv: APP_ENV,
     eas: {
       projectId: "78f7c6f5-d71f-41aa-a777-ff3b7dd7abe7",
     },

@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Href, Link } from "expo-router";
+import { Href, Link, router } from "expo-router";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
@@ -9,6 +9,7 @@ import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { LandingSections } from "../content/landingTranslations";
+import { supabase } from "../lib/supabaseClient";
 
 type GradientPair = readonly [string, string];
 
@@ -35,12 +36,14 @@ type CTAButtonProps = {
   label: string;
   gradient: GradientPair;
   shimmerStyle: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+  onPress?: () => void | Promise<void>;
 };
 
-const CTAButton = ({ href, label, gradient, shimmerStyle }: CTAButtonProps) => (
-  <Link href={href} asChild>
+const CTAButton = ({ href, label, gradient, shimmerStyle, onPress }: CTAButtonProps) => {
+  const content = (
     <Pressable
       accessibilityRole="button"
+      onPress={onPress}
       style={({ pressed }) => [pressed && styles.buttonPressed]}
     >
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.buttonInner}>
@@ -55,22 +58,27 @@ const CTAButton = ({ href, label, gradient, shimmerStyle }: CTAButtonProps) => (
         <Text style={styles.primaryLabel}>{label}</Text>
       </LinearGradient>
     </Pressable>
-  </Link>
-);
+  );
+
+  if (onPress) return content;
+  return <Link href={href} asChild>{content}</Link>;
+};
 
 type CTAButtonsRowProps = {
   shimmerStyle: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   primary: { href: Href; label: string; gradient?: GradientPair };
   secondary: { href: Href; label: string; gradient?: GradientPair };
+  onPrimaryPress?: () => void | Promise<void>;
 };
 
-const CTAButtonsRow = ({ shimmerStyle, primary, secondary }: CTAButtonsRowProps) => (
+const CTAButtonsRow = ({ shimmerStyle, primary, secondary, onPrimaryPress }: CTAButtonsRowProps) => (
   <View style={styles.actions}>
     <CTAButton
       href={primary.href}
       label={primary.label}
       gradient={primary.gradient ?? CTA_PRIMARY_GRADIENT}
       shimmerStyle={shimmerStyle}
+      onPress={onPrimaryPress}
     />
     <CTAButton
       href={secondary.href}
@@ -129,6 +137,15 @@ export default function Index() {
     }),
     [bottomShimmerAnim],
   );
+
+  const handleStartSignup = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn("failed to sign out before signup", error);
+    }
+    router.push("/signup");
+  }, []);
 
   // スクロールで指定地点到達時1秒後にCTAボタンの光沢を1度だけ発火
   const handleScroll = useCallback(
@@ -276,7 +293,12 @@ export default function Index() {
             <Text style={styles.subtitle}>{translations.hero.subtitle}</Text>
             <CTAButtonsRow
               shimmerStyle={shimmerStyle}
-              primary={{ href: "/signup", label: translations.hero.ctaPrimary, gradient: CTA_PRIMARY_GRADIENT }}
+              primary={{
+                href: "/signup",
+                label: translations.hero.ctaPrimary,
+                gradient: CTA_PRIMARY_GRADIENT,
+              }}
+              onPrimaryPress={handleStartSignup}
               secondary={{ href: "/login", label: translations.hero.ctaSecondary, gradient: CTA_SECONDARY_GRADIENT }}
             />
           </View>
@@ -332,7 +354,12 @@ export default function Index() {
             <Text style={styles.cardBody}>{translations.getStarted.description}</Text>
             <CTAButtonsRow
               shimmerStyle={bottomShimmerStyle}
-              primary={{ href: "/signup", label: translations.getStarted.ctaPrimary, gradient: CTA_PRIMARY_GRADIENT }}
+              primary={{
+                href: "/signup",
+                label: translations.getStarted.ctaPrimary,
+                gradient: CTA_PRIMARY_GRADIENT,
+              }}
+              onPrimaryPress={handleStartSignup}
               secondary={{
                 href: "/login",
                 label: translations.getStarted.ctaSecondary,

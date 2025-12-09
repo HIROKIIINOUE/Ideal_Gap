@@ -74,7 +74,7 @@ describe("signUpWithEmailConfirmation", () => {
       password: "password123",
       options: {
         data: { name: "New User", language: "en", time_zone: "Asia/Tokyo" },
-        emailRedirectTo: "idealgap://dashboard",
+        emailRedirectTo: "idealgap://purchases?signup=1",
       },
     });
     expect(result).toEqual({ ok: true });

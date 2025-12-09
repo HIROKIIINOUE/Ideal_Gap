@@ -67,7 +67,7 @@ Ideal Gap (仮名)
 
 Supabase Auth で「id」サインアップ時の「ユーザ名」「メールアドレス」「パスワード」を保持。
 Supabase DB における users テーブル内の「id」は Auth の id と一致、「ユーザ名」「メールアドレス」も Auth の各データと同期させる。(ユーザ名とメールアドレスを変更可能にするため)
-課金状態は Supabase DB における subscriptions テーブルで管理。 //kokokok
+課金状態は Supabase DB における subscriptions テーブルで管理。
 こちらで有料機能を開放するかを判定。(課金状態=アクティブ && ユーザログイン済み)
 二度目の初月無料防止策として、DB 内の user テーブルに is_canceled フラグを作成し、ユーザ退会後もユーザデータを保持、再サインアップ時には実質「再アクティブ化」として is_canceled を false に変更する。また、再アクティブ時に user テーブル内の had_account_before をチェックし、true なら初月無料対象外
 

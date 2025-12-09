@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -18,6 +18,8 @@ import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signInWithEmailPassword } from "../lib/auth";
+import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
+import { supabase } from "../lib/supabaseClient";
 
 export default function Login() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
@@ -59,6 +61,22 @@ export default function Login() {
     }
 
     setErrorMessage(null);
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id;
+    if (userId) {
+      const subscription = await getSubscriptionForUser(userId);
+      if (!subscription || subscription.status === "signupAwait") {
+        try {
+          await ensureSignupAwaitSubscription(userId);
+        } catch (error) {
+          console.warn("failed to ensure signupAwait subscription", error);
+        }
+        router.replace("/purchases?from=login");
+      } else {
+        router.replace("/dashboard");
+      }
+    }
+
     showToast(t("loginSuccess"));
   }, [disabled, email, password, showToast, t]);
 

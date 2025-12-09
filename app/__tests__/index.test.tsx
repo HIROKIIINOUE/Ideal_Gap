@@ -4,6 +4,14 @@ import i18n from "../../i18n";
 import { LanguageProvider } from "../../providers/LanguageProvider";
 import Index from "../index";
 
+jest.mock("../../lib/supabaseClient", () => ({
+  supabase: {
+    auth: {
+      signOut: jest.fn().mockResolvedValue({ error: null }),
+    },
+  },
+}));
+
 describe("Index screen", () => {
   it("shows pricing and CTA buttons", async () => {
     render(
