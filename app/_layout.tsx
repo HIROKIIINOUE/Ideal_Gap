@@ -8,6 +8,7 @@ import i18n from "../i18n";
 import { ensureSignupAwaitSubscription } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { LanguageProvider } from "../providers/LanguageProvider";
+import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 
 
@@ -99,9 +100,11 @@ export default function RootLayout() {
   return (
     <I18nextProvider i18n={i18n}>
       <LanguageProvider>
-        <RevenueCatProvider>
-          <Stack />
-        </RevenueCatProvider>
+        <FunPlanProvider>
+          <RevenueCatProvider>
+            <Stack />
+          </RevenueCatProvider>
+        </FunPlanProvider>
       </LanguageProvider>
     </I18nextProvider>
   );

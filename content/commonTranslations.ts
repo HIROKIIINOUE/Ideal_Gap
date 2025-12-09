@@ -20,7 +20,10 @@ export type CommonTranslations = {
     logoutSuccess: string;
     items: {
       logout: { title: string; subtitle: string };
-      toggleFunPlan: { title: string; subtitle: string };
+      toggleFunPlan: {
+        show: { title: string; subtitle: string };
+        hide: { title: string; subtitle: string };
+      };
       payment: { title: string; subtitle: string };
       timezone: { title: string; subtitle: string };
       profile: { title: string; subtitle: string };
@@ -52,7 +55,16 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
       logoutSuccess: "ログアウトが完了しました",
       items: {
         logout: { title: "ログアウト", subtitle: "セッションを終了します" },
-        toggleFunPlan: { title: "次回の楽しい予定の表示", subtitle: "カードの表示を切り替えます（後で設定）" },
+        toggleFunPlan: {
+          show: {
+            title: "次回の楽しい予定を表示",
+            subtitle: "カードをダッシュボードに戻します",
+          },
+          hide: {
+            title: "次回の楽しい予定を非表示",
+            subtitle: "カードを一時的に隠します",
+          },
+        },
         payment: { title: "支払い方法の確認・変更", subtitle: "ストアの設定画面を開きます" },
         timezone: { title: "タイムゾーンの変更", subtitle: "時刻の表示を合わせます" },
         profile: { title: "プロフィール変更", subtitle: "名前やメールを更新します" },
@@ -90,7 +102,10 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
       logoutSuccess: "Signed out successfully",
       items: {
         logout: { title: "Log out", subtitle: "End your current session" },
-        toggleFunPlan: { title: "Toggle Next Fun Plan", subtitle: "Show or hide the card (coming soon)" },
+        toggleFunPlan: {
+          show: { title: "Show Next Fun Plan", subtitle: "Bring the card back to dashboard" },
+          hide: { title: "Hide Next Fun Plan", subtitle: "Temporarily hide the card" },
+        },
         payment: { title: "Manage payment", subtitle: "Open the store settings" },
         timezone: { title: "Change time zone", subtitle: "Align time displays" },
         profile: { title: "Edit profile", subtitle: "Update name or email" },
@@ -129,8 +144,14 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
       items: {
         logout: { title: "Déconnexion", subtitle: "Terminer la session en cours" },
         toggleFunPlan: {
-          title: "Afficher le prochain moment plaisir",
-          subtitle: "Afficher ou masquer la carte (bientôt)",
+          show: {
+            title: "Afficher le prochain moment plaisir",
+            subtitle: "Ramener la carte sur le tableau de bord",
+          },
+          hide: {
+            title: "Masquer le prochain moment plaisir",
+            subtitle: "Masquer la carte temporairement",
+          },
         },
         payment: { title: "Gérer le paiement", subtitle: "Ouvrir les réglages de la boutique" },
         timezone: { title: "Changer le fuseau horaire", subtitle: "Aligner l’affichage de l’heure" },

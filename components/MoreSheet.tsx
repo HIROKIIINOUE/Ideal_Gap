@@ -17,6 +17,8 @@ type MoreSheetProps = {
   visible: boolean;
   onClose: () => void;
   onSelect?: (key: MoreActionKey) => void;
+  funPlanVisible?: boolean;
+  onToggleFunPlan?: () => void;
 };
 
 type ActionConfig = {
@@ -33,7 +35,7 @@ const actions: ActionConfig[] = [
   { key: "contact", icon: "message-text-outline" },
 ];
 
-const MoreSheet = memo(({ visible, onClose, onSelect }: MoreSheetProps) => {
+const MoreSheet = memo(({ visible, onClose, onSelect, funPlanVisible = true, onToggleFunPlan }: MoreSheetProps) => {
   const progress = useRef(new Animated.Value(0)).current;
   const [rendered, setRendered] = useState(visible);
   const { t } = useTranslation("common", { keyPrefix: "moreSheet" });
@@ -62,15 +64,23 @@ const MoreSheet = memo(({ visible, onClose, onSelect }: MoreSheetProps) => {
     }
   }, [progress, visible]);
 
-  const optionList = useMemo(
-    () =>
-      actions.map((action) => ({
+  const optionList = useMemo(() => {
+    return actions.map((action) => {
+      if (action.key === "toggleFunPlan") {
+        const variantPrefix = funPlanVisible ? "items.toggleFunPlan.hide" : "items.toggleFunPlan.show";
+        return {
+          ...action,
+          title: t(`${variantPrefix}.title`),
+          subtitle: t(`${variantPrefix}.subtitle`),
+        };
+      }
+      return {
         ...action,
         title: t(`items.${action.key}.title`),
         subtitle: t(`items.${action.key}.subtitle`),
-      })),
-    [t],
-  );
+      };
+    });
+  }, [funPlanVisible, t]);
 
   if (!rendered) return null;
 
@@ -127,10 +137,14 @@ const MoreSheet = memo(({ visible, onClose, onSelect }: MoreSheetProps) => {
                 key={option.key}
                 accessibilityRole="button"
                 accessibilityLabel={option.title}
-                onPress={() => {
+              onPress={() => {
+                if (option.key === "toggleFunPlan") {
+                  onToggleFunPlan?.();
+                } else {
                   onSelect?.(option.key);
-                  onClose();
-                }}
+                }
+                onClose();
+              }}
                 style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
               >
                 <View style={styles.optionLeft}>

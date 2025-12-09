@@ -8,6 +8,7 @@ import LanguageSheet from "../../components/LanguageSheet";
 import MoreSheet from "../../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { supabase } from "../../lib/supabaseClient";
+import { useFunPlan } from "../../providers/FunPlanProvider";
 
 type FeatureId =
   | "ideal-self"
@@ -35,6 +36,7 @@ export default function FeaturePlaceholder() {
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
+  const { toggleFunPlan, funPlanVisible } = useFunPlan();
 
   const showLogoutToast = () => {
     const message = tCommon("logoutSuccess");
@@ -64,6 +66,9 @@ export default function FeaturePlaceholder() {
         ],
         { cancelable: true },
       );
+    }
+    if (key === "toggleFunPlan") {
+      toggleFunPlan();
     }
   };
 
@@ -99,6 +104,8 @@ export default function FeaturePlaceholder() {
       <MoreSheet
         visible={moreSheetVisible}
         onClose={() => setMoreSheetVisible(false)}
+        funPlanVisible={funPlanVisible}
+        onToggleFunPlan={toggleFunPlan}
         onSelect={handleMoreSelect}
       />
     </SafeAreaView>

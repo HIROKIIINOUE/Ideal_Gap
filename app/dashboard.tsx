@@ -9,6 +9,7 @@ import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { supabase } from "../lib/supabaseClient";
+import { useFunPlan } from "../providers/FunPlanProvider";
 
 type CardKey =
   | "idealSelf"
@@ -34,6 +35,7 @@ export default function Dashboard() {
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
+  const { funPlanVisible, toggleFunPlan } = useFunPlan();
 
   const showLogoutToast = () => {
     const message = tCommon("logoutSuccess");
@@ -63,6 +65,9 @@ export default function Dashboard() {
         ],
         { cancelable: true },
       );
+    }
+    if (key === "toggleFunPlan") {
+      toggleFunPlan();
     }
   };
 
@@ -121,25 +126,27 @@ export default function Dashboard() {
           </View>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push({ pathname: "/feature/[feature]", params: { feature: "next-fun-plan" } })}
-          style={({ pressed }) => [styles.heroCard, pressed && styles.heroPressed]}
-        >
-          <LinearGradient
-            colors={["rgba(30,94,255,0.28)", "rgba(12,18,32,0.92)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.heroContent}>
-            <Text style={styles.heroLabel}>{t("nextFunPlan.title")}</Text>
-            <View style={styles.heroFooter}>
-              <Text style={styles.heroCta}>{t("nextFunPlan.cta")}</Text>
-              <Text style={styles.heroHelper}>{t("nextFunPlan.emptyLabel")}</Text>
+        {funPlanVisible && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: "/feature/[feature]", params: { feature: "next-fun-plan" } })}
+            style={({ pressed }) => [styles.heroCard, pressed && styles.heroPressed]}
+          >
+            <LinearGradient
+              colors={["rgba(30,94,255,0.28)", "rgba(12,18,32,0.92)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.heroContent}>
+              <Text style={styles.heroLabel}>{t("nextFunPlan.title")}</Text>
+              <View style={styles.heroFooter}>
+                <Text style={styles.heroCta}>{t("nextFunPlan.cta")}</Text>
+                <Text style={styles.heroHelper}>{t("nextFunPlan.emptyLabel")}</Text>
+              </View>
             </View>
-          </View>
-        </Pressable>
+          </Pressable>
+        )}
 
         <View style={styles.grid}>
           {cards.map((card, index) => renderCard(card, index))}
@@ -156,6 +163,8 @@ export default function Dashboard() {
       <MoreSheet
         visible={moreSheetVisible}
         onClose={() => setMoreSheetVisible(false)}
+        funPlanVisible={funPlanVisible}
+        onToggleFunPlan={toggleFunPlan}
         onSelect={handleMoreSelect}
       />
     </SafeAreaView>
