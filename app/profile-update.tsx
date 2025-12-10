@@ -156,7 +156,7 @@ export default function ProfileUpdate() {
     const updatePayload: Parameters<typeof supabase.auth.updateUser>[0] = {
       data: { name: trimmedUsername },
     };
-    // パスワード変更ロジック
+    // パスワード変更ロジック、バリデーションで文字数は検証しているためここでは空文字ではないことだけをチェック
     if (password.length > 0) {
       updatePayload.password = password;
     }
