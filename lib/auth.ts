@@ -65,6 +65,9 @@ const buildRedirect = (path: string) => {
   return Linking.createURL(path);
 };
 
+// 外部からも使えるように公開
+export const buildRedirectUrl = (path: string) => buildRedirect(path);
+
 const isExistingEmailError = (error: AuthError) => {
   const message = error.message?.toLowerCase() ?? "";
   return (

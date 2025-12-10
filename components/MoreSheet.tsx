@@ -137,14 +137,14 @@ const MoreSheet = memo(({ visible, onClose, onSelect, funPlanVisible = true, onT
                 key={option.key}
                 accessibilityRole="button"
                 accessibilityLabel={option.title}
-              onPress={() => {
-                if (option.key === "toggleFunPlan") {
-                  onToggleFunPlan?.();
-                } else {
-                  onSelect?.(option.key);
-                }
-                onClose();
-              }}
+                onPress={() => {
+                  if (option.key === "toggleFunPlan") {
+                    onToggleFunPlan?.();
+                  } else {
+                    onSelect?.(option.key);
+                  }
+                  onClose();
+                }}
                 style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
               >
                 <View style={styles.optionLeft}>

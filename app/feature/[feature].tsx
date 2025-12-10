@@ -70,6 +70,9 @@ export default function FeaturePlaceholder() {
     if (key === "toggleFunPlan") {
       toggleFunPlan();
     }
+    if (key === "profile") {
+      router.push("/profile-update");
+    }
   };
 
   const featureTitle = useMemo(() => {
