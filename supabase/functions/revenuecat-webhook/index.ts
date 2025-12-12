@@ -5,20 +5,26 @@
 // 要件 2-2-3, 2-2-4 に基づき、署名検証後にサブスク状態を upsert する
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { z } from "zod";
 
-//RevenueCat から飛んでくる JSON のうち、使う部分だけ型定義。
-type RevenueCatEvent = {
-  type: string;
-  app_user_id?: string | null;
-  original_app_user_id?: string | null;
-  expiration_at_ms?: number | null;
-  cancellation_reason?: string | null;
-  period_type?: string | null; // TRIAL / NORMAL / INTRO
-};
+// RevenueCat から飛んでくる JSON のうち、使う部分だけ型定義 + バリデーション
+// v4 では unknown keys を許容する場合は looseObject を使う
+const revenueCatEventSchema = z.looseObject({
+  type: z.string(),
+  app_user_id: z.string().nullable().optional(),
+  original_app_user_id: z.string().nullable().optional(),
+  expiration_at_ms: z.number().nullable().optional(),
+  cancellation_reason: z.string().nullable().optional(),
+  period_type: z.string().nullable().optional(), // TRIAL / NORMAL / INTRO
+});
 
-type RevenueCatPayload = {
-  event: RevenueCatEvent;
-};
+// 以下のlooseObject()を指定することで、上記のキーのみ型チェックし、その他のキーは自動で通過してparsed.dataに入る
+const revenueCatPayloadSchema = z.looseObject({
+  event: revenueCatEventSchema.optional(),
+});
+
+type RevenueCatPayload = z.infer<typeof revenueCatPayloadSchema>;
+type RevenueCatEvent = z.infer<typeof revenueCatEventSchema>;
 
 const REVENUECAT_SIGNATURE_HEADER = "x-revenuecat-signature";
 
@@ -141,13 +147,20 @@ serve(async (req: Request) => {
 
   let payload: RevenueCatPayload | null = null;
   try {
-    payload = JSON.parse(bodyText) as RevenueCatPayload;
+    const parsed = revenueCatPayloadSchema.safeParse(JSON.parse(bodyText));
+    if (!parsed.success) {
+      return new Response("invalid json", { status: 400 });
+    }
+    payload = parsed.data;
   } catch (error) {
     return new Response("invalid json", { status: 400 });
   }
 
-  const appUserId =
-    payload?.event?.app_user_id ?? payload?.event?.original_app_user_id;
+  const event = payload.event;
+  if (!event) {
+    return new Response("missing app_user_id", { status: 400 });
+  }
+  const appUserId = event.app_user_id ?? event.original_app_user_id;
   if (!appUserId) {
     return new Response("missing app_user_id", { status: 400 });
   }
@@ -165,9 +178,9 @@ serve(async (req: Request) => {
     .maybeSingle();
 
   const hadAccountBefore = existingUser?.had_account_before ?? false;
-  const subscriptionState = mapStatus(payload.event, hadAccountBefore);
+  const subscriptionState = mapStatus(event, hadAccountBefore);
   if (subscriptionState.status === "unsupported") {
-    console.warn("unsupported revenuecat event type", payload.event.type);
+    console.warn("unsupported revenuecat event type", event.type);
     return new Response("unsupported event type", { status: 422 });
   }
 
@@ -200,8 +213,7 @@ serve(async (req: Request) => {
   // had_account_before を true にして再サインアップ無料を無効化
   // is_canceled は CANCELLATION/EXPIRATION で true, それ以外は false
   const shouldMarkCanceled =
-    payload.event.type === "CANCELLATION" ||
-    payload.event.type === "EXPIRATION";
+    event.type === "CANCELLATION" || event.type === "EXPIRATION";
 
   const userUpdate = await supabaseAdmin
     .from("users")

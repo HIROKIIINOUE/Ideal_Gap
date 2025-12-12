@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
@@ -23,7 +24,11 @@ import { buildRedirectUrl } from "../lib/auth";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
-const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const profileSchema = z.object({
+  username: z.string().trim().min(1),
+  email: z.string().trim().check(z.email()),
+  password: z.string().optional().transform((val) => val ?? ""),
+});
 
 export default function ProfileUpdate() {
   const { t } = useTranslation("profileUpdate");
@@ -43,10 +48,16 @@ export default function ProfileUpdate() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [initialEmail, setInitialEmail] = useState<string | null>(null);
 
-  const isUsernameValid = username.trim().length > 0;
-  const isEmailValid = useMemo(() => emailRegex.test(email.trim()), [email]);
-  const isPasswordValid = password.length === 0 || password.length >= 6;
-  const isFormValid = isUsernameValid && isEmailValid && isPasswordValid;
+  const validation = useMemo(() => profileSchema.safeParse({ username, email, password }), [email, password, username]);
+  const fieldErrors = validation.success ? {} : z.flattenError(validation.error).fieldErrors;
+  const isUsernameValid = !fieldErrors.username;
+  const isEmailValid = !fieldErrors.email;
+  const isPasswordValid =
+    !fieldErrors.password &&
+    (validation.success
+      ? validation.data.password.length === 0 || validation.data.password.length >= 6
+      : password.length === 0 || password.length >= 6);
+  const isFormValid = validation.success && isPasswordValid;
 
   // トースト表示の雛形
   const showToast = (message: string) => {
@@ -121,75 +132,77 @@ export default function ProfileUpdate() {
     if (!isFormValid || submitting) return;
     setSubmitting(true);
 
-    const { data: userData, error: sessionError } = await supabase.auth.getUser();
-    if (sessionError || !userData.user) {
-      router.replace("/login");
-      return;
-    }
+    try {
+      const { data: userData, error: sessionError } = await supabase.auth.getUser();
+      if (sessionError || !userData.user) {
+        router.replace("/login");
+        return;
+      }
 
-    const user = userData.user;
-    const userId = user.id;
-    const trimmedEmail = email.trim();
-    const trimmedUsername = username.trim();
-    const emailChanged = initialEmail && trimmedEmail.toLowerCase() !== initialEmail.toLowerCase();
+      const user = userData.user;
+      const userId = user.id;
+      const parsed = profileSchema.parse({ username, email, password });
+      const trimmedEmail = parsed.email;
+      const trimmedUsername = parsed.username;
+      const parsedPassword = parsed.password;
+      const emailChanged = initialEmail && trimmedEmail.toLowerCase() !== initialEmail.toLowerCase();
 
-    //　email変更のロジック
-    if (emailChanged) {
-      const { count, error: existsError } = await supabase
-        .from("users")
-        .select("id", { count: "exact", head: true })
-        .eq("email", trimmedEmail)
-        .neq("id", userId);
-      if (existsError) {
+      //　email変更のロジック
+      if (emailChanged) {
+        const { count, error: existsError } = await supabase
+          .from("users")
+          .select("id", { count: "exact", head: true })
+          .eq("email", trimmedEmail)
+          .neq("id", userId);
+        if (existsError) {
+          setError(t("errorUnknown"));
+          return;
+        }
+        if ((count ?? 0) > 0) {
+          setError(t("errorEmailExists"));
+          return;
+        }
+      }
+
+      const redirectTo = buildRedirectUrl("/profile-update?email=1");
+      const updatePayload: Parameters<typeof supabase.auth.updateUser>[0] = {
+        data: { name: trimmedUsername },
+      };
+      // パスワード変更ロジック、バリデーションで文字数は検証しているためここでは空文字ではないことだけをチェック
+      if (parsedPassword.length > 0) {
+        updatePayload.password = parsedPassword;
+      }
+      if (emailChanged) {
+        updatePayload.email = trimmedEmail;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser(
+        updatePayload,
+        emailChanged ? { emailRedirectTo: redirectTo } : undefined,
+      );
+      if (updateError) {
         setError(t("errorUnknown"));
-        setSubmitting(false);
         return;
       }
-      if ((count ?? 0) > 0) {
-        setError(t("errorEmailExists"));
-        setSubmitting(false);
-        return;
+
+      // ユーザ名は即時反映する
+      const timestamp = new Date().toISOString();
+      await supabase
+        .from("users")
+        .update({ name: trimmedUsername, ...(emailChanged ? {} : { email: trimmedEmail }), updated_at: timestamp })
+        .eq("id", userId);
+
+      if (emailChanged) {
+        setInfo(`${t("emailPendingTitle")}\n${t("emailPendingBody")}`);
+      } else {
+        setInfo(`${t("successTitle")}\n${t("successBody")}`);
       }
-    }
-
-    const redirectTo = buildRedirectUrl("/profile-update?email=1");
-    const updatePayload: Parameters<typeof supabase.auth.updateUser>[0] = {
-      data: { name: trimmedUsername },
-    };
-    // パスワード変更ロジック、バリデーションで文字数は検証しているためここでは空文字ではないことだけをチェック
-    if (password.length > 0) {
-      updatePayload.password = password;
-    }
-    if (emailChanged) {
-      updatePayload.email = trimmedEmail;
-    }
-
-    const { error: updateError } = await supabase.auth.updateUser(
-      updatePayload,
-      emailChanged ? { emailRedirectTo: redirectTo } : undefined,
-    );
-    if (updateError) {
-      setError(t("errorUnknown"));
+      setInitialEmail(emailChanged ? initialEmail : trimmedEmail);
+      setPassword("");
+      showToast(emailChanged ? t("emailPendingTitle") : t("successTitle"));
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    // ユーザ名は即時反映する
-    const timestamp = new Date().toISOString();
-    await supabase
-      .from("users")
-      .update({ name: trimmedUsername, ...(emailChanged ? {} : { email: trimmedEmail }), updated_at: timestamp })
-      .eq("id", userId);
-
-    if (emailChanged) {
-      setInfo(`${t("emailPendingTitle")}\n${t("emailPendingBody")}`);
-    } else {
-      setInfo(`${t("successTitle")}\n${t("successBody")}`);
-    }
-    setInitialEmail(emailChanged ? initialEmail : trimmedEmail);
-    setPassword("");
-    showToast(emailChanged ? t("emailPendingTitle") : t("successTitle"));
-    setSubmitting(false);
   };
 
   //  画面に表示するエラーメッセージ1件を決定するロジック

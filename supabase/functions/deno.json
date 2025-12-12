@@ -8,6 +8,9 @@
       "tags": ["recommended"]
     }
   },
+  "imports": {
+    "zod": "npm:zod@4.1.13"
+  },
   "compilerOptions": {
     "strict": true
   }

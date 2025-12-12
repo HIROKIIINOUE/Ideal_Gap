@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
@@ -23,6 +24,14 @@ import {
   requestPasswordResetEmail,
   setSessionFromRecoveryLink,
 } from "../lib/auth";
+
+const resetEmailSchema = z.object({
+  email: z.string().trim().check(z.email()),
+});
+
+const newPasswordSchema = z.object({
+  newPassword: z.string().min(6),
+});
 
 export default function ResetPassword() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
@@ -36,8 +45,13 @@ export default function ResetPassword() {
   const { t } = useTranslation("resetPassword");
   const { replace } = useRouter();
 
-  const sendDisabled = email.trim() === "" || isSending;
-  const updateDisabled = newPassword.trim() === "" || isUpdating || !recoveryReady;
+  const sendValidation = useMemo(() => resetEmailSchema.safeParse({ email }), [email]);
+  const updateValidation = useMemo(
+    () => newPasswordSchema.safeParse({ newPassword }),
+    [newPassword],
+  );
+  const sendDisabled = !sendValidation.success || isSending;
+  const updateDisabled = !updateValidation.success || isUpdating || !recoveryReady;
 
   const showToast = useCallback((message: string) => {
     if (Platform.OS === "android") {
@@ -75,17 +89,21 @@ export default function ResetPassword() {
     setIsSending(true);
     setErrorMessage(null);
     setStatusMessage(null);
-    const result = await requestPasswordResetEmail(email.trim());
-    setIsSending(false);
+    try {
+      const parsed = resetEmailSchema.parse({ email });
+      const result = await requestPasswordResetEmail(parsed.email);
 
-    if (!result.ok) {
-      const message =
-        result.reason === "user_not_found" ? t("errorUserNotFound") : result.message ?? t("errorUnknown");
-      setErrorMessage(message);
-      return;
+      if (!result.ok) {
+        const message =
+          result.reason === "user_not_found" ? t("errorUserNotFound") : result.message ?? t("errorUnknown");
+        setErrorMessage(message);
+        return;
+      }
+
+      setStatusMessage(t("linkSent"));
+    } finally {
+      setIsSending(false);
     }
-
-    setStatusMessage(t("linkSent"));
   }, [email, sendDisabled, t]);
 
   // パスワード更新機能
@@ -93,17 +111,21 @@ export default function ResetPassword() {
     if (updateDisabled) return;
     setIsUpdating(true);
     setErrorMessage(null);
-    const result = await completePasswordReset(newPassword);
-    setIsUpdating(false);
+    try {
+      const parsed = newPasswordSchema.parse({ newPassword });
+      const result = await completePasswordReset(parsed.newPassword);
 
-    if (!result.ok) {
-      const message = result.reason === "missing_session" ? t("sessionNotReady") : result.message ?? t("errorUnknown");
-      setErrorMessage(message);
-      return;
+      if (!result.ok) {
+        const message = result.reason === "missing_session" ? t("sessionNotReady") : result.message ?? t("errorUnknown");
+        setErrorMessage(message);
+        return;
+      }
+
+      showToast(t("updateSuccess"));
+      replace("/login");
+    } finally {
+      setIsUpdating(false);
     }
-
-    showToast(t("updateSuccess"));
-    replace("/login");
   }, [newPassword, replace, showToast, t, updateDisabled]);
 
   // メールリンククリック後のアプリ再遷移時に表示(要確認)

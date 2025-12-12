@@ -14,12 +14,18 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signInWithEmailPassword } from "../lib/auth";
 import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
+
+const loginSchema = z.object({
+  email: z.string().trim().min(1),
+  password: z.string().min(1),
+});
 
 export default function Login() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
@@ -28,8 +34,14 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation("login");
-  const isLoginDisabled = email.trim() === "" || password.trim() === "";
-  const disabled = isLoginDisabled || isSubmitting;
+  const loginValidation = useMemo(() => {
+    const result = loginSchema.safeParse({ email, password });
+    if (result.success) {
+      return { isValid: true };
+    }
+    return { isValid: false };
+  }, [email, password]);
+  const disabled = !loginValidation.isValid || isSubmitting;
 
   const showToast = useCallback((message: string) => {
     if (Platform.OS === "android") {
@@ -43,41 +55,48 @@ export default function Login() {
     if (disabled) return;
     setIsSubmitting(true);
     setErrorMessage(null);
-    const result = await signInWithEmailPassword({
-      email: email.trim(),
-      password,
-    });
-    setIsSubmitting(false);
+    try {
+      const parsed = loginSchema.parse({ email, password });
+      const result = await signInWithEmailPassword({
+        email: parsed.email,
+        password: parsed.password,
+      });
 
-    if (!result.ok) {
-      const message =
-        result.reason === "user_not_found"
-          ? t("errorUserNotFound")
-          : result.reason === "invalid_password"
-            ? t("errorWrongPassword")
-            : result.message ?? t("errorWrongPassword");
-      setErrorMessage(message);
-      return;
-    }
-
-    setErrorMessage(null);
-    const { data } = await supabase.auth.getSession();
-    const userId = data.session?.user?.id;
-    if (userId) {
-      const subscription = await getSubscriptionForUser(userId);
-      if (!subscription || subscription.status === "signupAwait") {
-        try {
-          await ensureSignupAwaitSubscription(userId);
-        } catch (error) {
-          console.warn("failed to ensure signupAwait subscription", error);
-        }
-        router.replace("/purchases?from=login");
-      } else {
-        router.replace("/dashboard");
+      //　打ち込んだEmailのユーザが存在するか、パスワードは正しいかを検証
+      if (!result.ok) {
+        const message =
+          result.reason === "user_not_found"
+            ? t("errorUserNotFound")
+            : result.reason === "invalid_password"
+              ? t("errorWrongPassword")
+              : result.message ?? t("errorWrongPassword");
+        setErrorMessage(message);
+        return;
       }
-    }
 
-    showToast(t("loginSuccess"));
+      setErrorMessage(null);
+
+      // ログイン情報が正しい時、Authのユーザ情報からSubscriptionデータを取得し、それに応じてユーザを各ページに遷移させる
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id;
+      if (userId) {
+        const subscription = await getSubscriptionForUser(userId);
+        if (!subscription || subscription.status === "signupAwait") {
+          try {
+            await ensureSignupAwaitSubscription(userId);
+          } catch (error) {
+            console.warn("failed to ensure signupAwait subscription", error);
+          }
+          router.replace("/purchases?from=login");
+        } else {
+          router.replace("/dashboard");
+        }
+      }
+
+      showToast(t("loginSuccess"));
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [disabled, email, password, showToast, t]);
 
   const errorLabel = useMemo(() => errorMessage, [errorMessage]);

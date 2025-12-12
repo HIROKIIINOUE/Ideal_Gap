@@ -1,15 +1,21 @@
 // 本番環境or開発環境を判定し、それに応じて環境変数を仕分け処理をするファイル
 
 import Constants from "expo-constants";
+import { z } from "zod";
 
-export type AppEnvironment = "dev" | "preview" | "prod";
+const appEnvSchema = z.enum(["dev", "preview", "prod"]);
+const requiredString = (envKey: string) => z.string().min(1, envKey);
 
-export type AppEnv = {
-  appEnv: AppEnvironment;
-  supabaseUrl: string;
-  supabaseAnonKey: string;
-  revenueCatApiKey: string;
-};
+const createEnvSchema = (revenueCatKeyName: string) =>
+  z.object({
+    appEnv: appEnvSchema,
+    supabaseUrl: requiredString("EXPO_PUBLIC_SUPABASE_URL"),
+    supabaseAnonKey: requiredString("EXPO_PUBLIC_SUPABASE_ANON_KEY"),
+    revenueCatApiKey: requiredString(revenueCatKeyName),
+  });
+
+export type AppEnvironment = z.infer<typeof appEnvSchema>;
+export type AppEnv = z.infer<ReturnType<typeof createEnvSchema>>;
 
 // 開発環境か本番環境かをジャッジ
 const resolveAppEnv = (): AppEnvironment => {
@@ -20,50 +26,51 @@ const resolveAppEnv = (): AppEnvironment => {
     extraEnv ?? process.env.EXPO_PUBLIC_APP_ENV ?? process.env.APP_ENV ?? "dev";
 
   const normalized = raw.toString().toLowerCase();
-  if (normalized === "prod") return "prod";
-  if (normalized === "preview") return "preview";
+  const parsed = appEnvSchema.safeParse(normalized);
+  if (parsed.success) return parsed.data;
   return "dev";
 };
 
-// 本番or開発を引数で受け取り、それに応じてRevenueCatの環境変数を返す
-const getRevenueCatApiKey = (appEnv: AppEnvironment) => {
-  const devKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV;
-  const prodKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_PROD;
-  const selectedKey = appEnv === "prod" ? prodKey : devKey;
-
-  if (!selectedKey) {
-    const missing =
-      appEnv === "prod"
-        ? "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD"
-        : "EXPO_PUBLIC_REVENUECAT_API_KEY_DEV";
-    throw new Error(`Missing environment variables: ${missing}`);
-  }
-
-  return selectedKey;
-};
+// 本番or開発を引数で受け取り、それに応じてRevenueCatの環境変数名を返す
+const getRevenueCatEnvKeyName = (appEnv: AppEnvironment) =>
+  appEnv === "prod"
+    ? "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD"
+    : "EXPO_PUBLIC_REVENUECAT_API_KEY_DEV";
 
 export const getValidatedEnv = (): AppEnv => {
   const appEnv = resolveAppEnv();
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  const revenueCatApiKey = getRevenueCatApiKey(appEnv);
+  const revenueCatKeyName = getRevenueCatEnvKeyName(appEnv);
 
-  if (!supabaseUrl) {
-    throw new Error("Missing environment variables: EXPO_PUBLIC_SUPABASE_URL");
-  }
+  const envSchema = createEnvSchema(revenueCatKeyName);
+  const envVarNameByField = {
+    supabaseUrl: "EXPO_PUBLIC_SUPABASE_URL",
+    supabaseAnonKey: "EXPO_PUBLIC_SUPABASE_ANON_KEY",
+    revenueCatApiKey: revenueCatKeyName,
+  } as const;
 
-  if (!supabaseAnonKey) {
-    throw new Error(
-      "Missing environment variables: EXPO_PUBLIC_SUPABASE_ANON_KEY"
-    );
-  }
-
-  return {
+  const parsed = envSchema.safeParse({
     appEnv,
-    supabaseUrl,
-    supabaseAnonKey,
-    revenueCatApiKey,
-  };
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    revenueCatApiKey: process.env[revenueCatKeyName],
+  });
+
+  if (!parsed.success) {
+    const missing = Array.from(
+      new Set(
+        parsed.error.issues.map((issue) => {
+          const field = issue.path[0];
+          if (typeof field === "string" && field in envVarNameByField) {
+            return envVarNameByField[field as keyof typeof envVarNameByField];
+          }
+          return issue.message;
+        })
+      )
+    ).join(", ");
+    throw new Error(`Missing environment variables: ${missing}`);
+  }
+
+  return parsed.data;
 };
 
 export const env = getValidatedEnv();

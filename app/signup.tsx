@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
@@ -13,6 +14,12 @@ import { fetchTestStorePackage, TestStorePlan } from "../lib/revenuecatOfferings
 import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { useLanguage } from "../providers/LanguageProvider";
+
+const signupSchema = z.object({
+  username: z.string().trim().min(1),
+  email: z.string().trim().check(z.email()),
+  password: z.string().min(6),
+});
 
 export default function Signup() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
@@ -31,11 +38,20 @@ export default function Signup() {
   const [submissionState, setSubmissionState] = useState<"idle" | "success">("idle");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // valid状態変数群でinputの値を適切かどうか判定
-  const isUsernameValid = username.trim().length > 0;
-  const isEmailValid = useMemo(() => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email), [email]);
-  const isPasswordValid = password.length >= 6;
-  const isFormValid = isUsernameValid && isEmailValid && isPasswordValid;
+  const signupValidation = useMemo(() => {
+    const result = signupSchema.safeParse({ username, email, password });
+    if (result.success) {
+      return { isValid: true, fieldErrors: {} as Record<string, string[]> };
+    }
+    return {
+      isValid: false,
+      fieldErrors: z.flattenError(result.error).fieldErrors,
+    };
+  }, [email, password, username]);
+  const isUsernameValid = !signupValidation.fieldErrors.username;
+  const isEmailValid = !signupValidation.fieldErrors.email;
+  const isPasswordValid = !signupValidation.fieldErrors.password;
+  const isFormValid = signupValidation.isValid;
   const planPriceCopy = useMemo(() => getPlanPriceCopy(plan, t), [plan, t]);
   const trialLabel = useMemo(() => getTrialLabel(plan, t), [plan, t]);
 
@@ -100,25 +116,29 @@ export default function Signup() {
     setSubmissionState("idle");
     setIsSubmitting(true);
 
-    const result = await signUpWithEmailConfirmation({
-      email: email.trim(),
-      password,
-      username: username.trim(),
-      language,
-    });
+    try {
+      const parsed = signupSchema.parse({ username, email, password });
 
-    setIsSubmitting(false);
+      const result = await signUpWithEmailConfirmation({
+        email: parsed.email,
+        password: parsed.password,
+        username: parsed.username,
+        language,
+      });
 
-    if (!result.ok) {
-      if (result.reason === "email_exists") {
-        setSubmissionError(t("emailExistsError"));
-      } else {
-        setSubmissionError(t("unknownError"));
+      if (!result.ok) {
+        if (result.reason === "email_exists") {
+          setSubmissionError(t("emailExistsError"));
+        } else {
+          setSubmissionError(t("unknownError"));
+        }
+        return;
       }
-      return;
-    }
 
-    setSubmissionState("success");
+      setSubmissionState("success");
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [email, isFormValid, isSubmitting, language, password, t, username]);
 
   return (
