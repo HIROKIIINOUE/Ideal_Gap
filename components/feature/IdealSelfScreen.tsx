@@ -1,18 +1,19 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  PanResponder,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 
@@ -27,9 +28,6 @@ const idealSchema = z.object({
   description: z.string().trim().min(1),
 });
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
-const ROW_HEIGHT = 104;
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 
@@ -68,8 +66,6 @@ export default function IdealSelfScreen() {
   const [modalDraft, setModalDraft] = useState("");
   const [modalError, setModalError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const draggingIndexRef = useRef<number | null>(null);
 
   const handleAddPress = () => {
     setEditingId(null);
@@ -78,7 +74,8 @@ export default function IdealSelfScreen() {
     setModalVisible(true);
   };
 
-  const handleCardPress = (item: IdealCard) => {
+  // 更新ボタンと削除ボタンを状況に応じて管理
+  const handleButtonPress = (item: IdealCard) => {
     if (deleteMode) {
       Alert.alert(tIdeal("deleteConfirmTitle"), tIdeal("deleteConfirmBody"), [
         { text: tIdeal("deleteConfirmNo"), style: "cancel" },
@@ -131,52 +128,18 @@ export default function IdealSelfScreen() {
 
   const toggleDeleteMode = () => {
     setDeleteMode((prev) => !prev);
-    setDraggingId(null);
-    draggingIndexRef.current = null;
   };
 
-  const startDrag = (itemId: string) => {
-    const idx = ideals.findIndex((ideal) => ideal.id === itemId);
-    draggingIndexRef.current = idx;
-    setDraggingId(itemId);
+  // ドラッグ並び替え終了時の配列データをセットする
+  const handleDragEnd = ({ data }: { data: IdealCard[] }) => {
+    setIdeals(data);
   };
 
-  const endDrag = () => {
-    draggingIndexRef.current = null;
-    setDraggingId(null);
-  };
 
-  const reorderItem = (itemId: string, gestureY: number) => {
-    const baseIndex = draggingIndexRef.current;
-    if (baseIndex === null) return;
-    setIdeals((prev) => {
-      const currentIndex = prev.findIndex((ideal) => ideal.id === itemId);
-      if (currentIndex === -1) return prev;
-      const targetIndex = clamp(
-        Math.floor((baseIndex * ROW_HEIGHT + gestureY) / ROW_HEIGHT + 0.5),
-        0,
-        prev.length - 1,
-      );
-      if (targetIndex === currentIndex) return prev;
-      const next = [...prev];
-      const [moved] = next.splice(currentIndex, 1);
-      next.splice(targetIndex, 0, moved);
-      draggingIndexRef.current = targetIndex;
-      return next;
-    });
-  };
-
-  const renderIdealCard = (item: IdealCard, index: number) => {
-    const panResponder = PanResponder.create({
-      onMoveShouldSetPanResponder: () => draggingId === item.id,
-      onPanResponderMove: (_evt, gestureState) => {
-        if (draggingId === item.id) {
-          reorderItem(item.id, gestureState.dy);
-        }
-      },
-      onPanResponderRelease: endDrag,
-      onPanResponderTerminate: endDrag,
-    });
+  // 長押しドラッグを可能にするロジック
+  const renderIdealCard = ({ item, drag, isActive }: RenderItemParams<IdealCard>) => {
+    const position = ideals.findIndex((ideal) => ideal.id === item.id) + 1;
+    const onEditPress = () => handleButtonPress(item);
 
     return (
       <Pressable
@@ -184,12 +147,12 @@ export default function IdealSelfScreen() {
         style={[
           styles.idealCard,
           shadows.card,
-          draggingId === item.id && styles.idealCardDragging,
+          isActive && styles.idealCardDragging,
           deleteMode && styles.idealCardDeleteMode,
         ]}
-        onLongPress={() => startDrag(item.id)}
+        onLongPress={drag} // ここで長押しタップ発火
         delayLongPress={120}
-        {...panResponder.panHandlers}
+        disabled={deleteMode && isActive}
       >
         <LinearGradient
           colors={LIST_CARD_GRADIENT}
@@ -198,7 +161,7 @@ export default function IdealSelfScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.idealCardHeader}>
-
+          <Text style={styles.idealBadge}>{`${tIdeal("listLabel")} ${position}`}</Text>
           <Text style={styles.idealUpdated}>{item.updated}</Text>
         </View>
         <Text style={styles.idealTitle}>{item.description}</Text>
@@ -208,18 +171,14 @@ export default function IdealSelfScreen() {
           {deleteMode ? (
             <Pressable
               accessibilityRole="button"
-              onPress={() => handleCardPress(item)}
+              onPress={() => handleButtonPress(item)}
               style={[styles.dangerButton, styles.iconButtonRow]}
             >
               <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
               <Text style={styles.dangerButtonText}>{tIdeal("delete")}</Text>
             </Pressable>
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleCardPress(item)}
-              style={[styles.editButton, styles.iconButtonRow]}
-            >
+            <Pressable accessibilityRole="button" onPress={onEditPress} style={[styles.editButton, styles.iconButtonRow]}>
               <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
               <Text style={styles.editButtonText}>{tIdeal("modal.editTitle")}</Text>
             </Pressable>
@@ -233,7 +192,7 @@ export default function IdealSelfScreen() {
   const modalTitle = editingId ? tIdeal("modal.editTitle") : tIdeal("modal.addTitle");
 
   return (
-    <>
+    <GestureHandlerRootView style={styles.ghRoot}>
       <View style={[styles.card, shadows.card]}>
         <LinearGradient
           colors={HEADER_CARD_GRADIENT}
@@ -270,7 +229,16 @@ export default function IdealSelfScreen() {
       </View>
 
       {hasIdeals ? (
-        <View style={styles.idealGrid}>{ideals.map(renderIdealCard)}</View>
+        // DraggableFlatListタグはrenderItemにdragを渡しdragを使って発火のタイミングを操作できる。受け取った先でonLongPress={drag}を付与した要素がトリガーを握る。drag処理が終わるとonDragEndが発火する。
+        <DraggableFlatList
+          data={ideals}
+          keyExtractor={(item) => item.id}
+          renderItem={renderIdealCard}
+          onDragEnd={handleDragEnd}
+          scrollEnabled={false}
+          activationDistance={10}
+          contentContainerStyle={styles.idealGrid}
+        />
       ) : (
         <View style={[styles.card, shadows.card, styles.emptyCard]}>
           <LinearGradient
@@ -320,11 +288,14 @@ export default function IdealSelfScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
-    </>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  ghRoot: {
+    flex: 1,
+  },
   card: {
     backgroundColor: "#132742",
     borderRadius: radius.lg,
@@ -408,7 +379,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(110,168,255,0.25)",
     padding: spacing.lg,
     gap: spacing.sm,
-    minHeight: ROW_HEIGHT,
     overflow: "hidden",
   },
   idealCardDragging: {
