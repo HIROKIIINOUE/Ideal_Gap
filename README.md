@@ -3,7 +3,8 @@
 - git clone
 - リポジトリ直下で npm install
 - 環境変数設定(雛形は.env.example)
-- npm run typecheck / npm run lint でクリーンな状態を確認
+- expo-env.d.ts
+- npm run typecheck / npm run lint / npm run test でクリーンな状態を確認
 
 # Welcome to your Expo app 👋
 

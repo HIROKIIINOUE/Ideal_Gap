@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { memo, useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing, typography } from "../constants/theme";
 
 type FooterProps = {
@@ -10,44 +11,100 @@ type FooterProps = {
   onLanguagePress?: () => void;
   onDashboardPress?: () => void;
   onMorePress?: () => void;
+  onContactPress?: () => void;
+  onHomePress?: () => void;
+  guestActions?: "contact" | "home";
 };
 
 type FooterAction = {
-  key: "language" | "dashboard" | "more";
+  key: "language" | "dashboard" | "more" | "contact" | "home";
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  showLabel: boolean;
+  flex: number;
 };
 
 const Footer = memo(
-  ({ isAuthenticated = false, onLanguagePress, onDashboardPress, onMorePress }: FooterProps) => {
+  ({
+    isAuthenticated = false,
+    onLanguagePress,
+    onDashboardPress,
+    onMorePress,
+    onContactPress,
+    onHomePress,
+    guestActions = "contact",
+  }: FooterProps) => {
     const { t } = useTranslation("common");
-    const noop = useCallback(() => {}, []);
+    const noop = useCallback(() => { }, []);
 
-    const actions = useMemo(
-      () => {
-        const actionConfig: FooterAction[] = [
-          { key: "language", label: "Language", icon: "earth" },
-          { key: "dashboard", label: t("footer.dashboard"), icon: "view-dashboard-outline" },
-          { key: "more", label: t("footer.more"), icon: "menu" },
+    const actions = useMemo(() => {
+      const actionConfig: FooterAction[] = isAuthenticated
+        ? [
+          {
+            key: "language",
+            label: t("footer.language"),
+            icon: "earth",
+            showLabel: false,
+            flex: 0.6,
+          },
+          {
+            key: "dashboard",
+            label: t("footer.dashboard"),
+            icon: "view-dashboard-outline",
+            showLabel: true,
+            flex: 1.4,
+          },
+          {
+            key: "more",
+            label: t("footer.more"),
+            icon: "menu",
+            showLabel: false,
+            flex: 0.6,
+          },
+        ]
+        : [
+          {
+            key: "language",
+            label: t("footer.language"),
+            icon: "earth",
+            showLabel: true,
+            flex: 1,
+          },
+          guestActions === "contact"
+            ? {
+              key: "contact",
+              label: t("footer.contact"),
+              icon: "message-text-outline",
+              showLabel: true,
+              flex: 1,
+            }
+            : {
+              key: "home",
+              label: t("footer.home"),
+              icon: "home-outline",
+              showLabel: true,
+              flex: 1,
+            },
         ];
-        const handlers: Record<FooterAction["key"], () => void> = {
-          language: onLanguagePress ?? noop,
-          dashboard: onDashboardPress ?? noop,
-          more: onMorePress ?? noop,
-        };
 
-        return actionConfig.filter((action) => isAuthenticated || action.key === "language").map((action) => ({
-          ...action,
-          onPress: handlers[action.key],
-        }));
-      },
-      [isAuthenticated, onLanguagePress, onDashboardPress, onMorePress, noop, t],
-    );
+      const handlers: Record<FooterAction["key"], () => void> = {
+        language: onLanguagePress ?? noop,
+        dashboard: onDashboardPress ?? (() => router.replace("/dashboard")),
+        more: onMorePress ?? noop,
+        contact: onContactPress ?? (() => router.push("/contact")),
+        home: onHomePress ?? (() => router.replace("/")),
+      };
+
+      return actionConfig.map((action) => ({
+        ...action,
+        onPress: handlers[action.key],
+      }));
+    }, [isAuthenticated, onLanguagePress, onDashboardPress, onMorePress, onContactPress, onHomePress, guestActions, noop, t]);
 
     return (
       <View style={styles.wrapper}>
         <LinearGradient
-          colors={["rgba(12,18,32,0.95)", "rgba(12,18,32,0.9)"]}
+          colors={[colors.surface, colors.surface]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -58,7 +115,11 @@ const Footer = memo(
               key={action.key}
               accessibilityRole="button"
               accessibilityLabel={action.label}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.actionPressed]}
+              style={({ pressed }) => [
+                styles.actionButton,
+                { flexGrow: action.flex, flexShrink: 1, flexBasis: 0 },
+                pressed && styles.actionPressed,
+              ]}
               onPress={action.onPress}
             >
               <MaterialCommunityIcons
@@ -66,7 +127,7 @@ const Footer = memo(
                 size={20}
                 color={colors.textPrimary}
               />
-              <Text style={styles.actionLabel}>{action.label}</Text>
+              {action.showLabel && <Text style={styles.actionLabel}>{action.label}</Text>}
             </Pressable>
           ))}
         </View>
@@ -81,9 +142,9 @@ export default Footer;
 
 const styles = StyleSheet.create({
   wrapper: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-    backgroundColor: colors.overlay,
+    borderTopWidth: 2,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    backgroundColor: colors.surface,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xl,
   },
@@ -94,7 +155,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   actionButton: {
-    flex: 1,
+    flexGrow: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

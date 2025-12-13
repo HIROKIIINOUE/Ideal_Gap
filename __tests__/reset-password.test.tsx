@@ -12,6 +12,16 @@ const mockReplace = jest.fn();
 
 jest.mock("../components/LanguageSheet", () => () => null);
 jest.mock("../components/Footer", () => () => null);
+jest.mock("../lib/supabaseClient", () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: jest.fn().mockReturnValue({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      }),
+    },
+  },
+}));
 
 jest.mock("expo-router", () => {
   const React = require("react");

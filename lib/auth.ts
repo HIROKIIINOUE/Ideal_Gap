@@ -1,6 +1,7 @@
-// supabaseのサインアップ・サインインロジック
+// supabaseのサインアップ・サインインロジック・パスワード変更
 
 import { AuthError } from "@supabase/supabase-js";
+import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import * as Localization from "expo-localization";
 import { LanguageKey } from "../types/i18n";
@@ -49,6 +50,24 @@ type CompletePasswordResetResult =
 const resolveTimeZone = () =>
   Localization.getCalendars?.()[0]?.timeZone ?? "UTC";
 
+const getAppScheme = () => {
+  const scheme = Constants.expoConfig?.scheme; //app.config.tsから本番・開発環境のスキーマを取得
+  if (!scheme) return undefined;
+  return Array.isArray(scheme) ? scheme[0] : scheme;
+};
+
+// 本番環境か開発環境かを判断し、それに応じてリダイレクト先を決定する機能
+const buildRedirect = (path: string) => {
+  const scheme = getAppScheme();
+  const normalized = path.startsWith("/") ? path.slice(1) : path;
+  if (scheme) return `${scheme}://${normalized}`;
+  // Fallback: Expo Goなどでschemeが取れないときはLinkingに任せる
+  return Linking.createURL(path);
+};
+
+// 外部からも使えるように公開
+export const buildRedirectUrl = (path: string) => buildRedirect(path);
+
 const isExistingEmailError = (error: AuthError) => {
   const message = error.message?.toLowerCase() ?? "";
   return (
@@ -68,7 +87,7 @@ export const signUpWithEmailConfirmation = async ({
 }: SignUpParams): Promise<SignUpResult> => {
   try {
     // Eメールのサインアップリンククリック時の遷移先指定
-    const emailRedirectTo = Linking.createURL("/auth/callback");
+    const emailRedirectTo = buildRedirect("/purchases?signup=1");
     // ユーザサインアップ時のユーザの端末からタイムゾーンを取得
     const timeZone = resolveTimeZone();
 
@@ -124,7 +143,7 @@ export const requestPasswordResetEmail = async (
       return { ok: false, reason: "user_not_found", message: "User not found" };
     }
 
-    const redirectTo = Linking.createURL("/reset-password");
+    const redirectTo = buildRedirect("/reset-password");
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,
     });

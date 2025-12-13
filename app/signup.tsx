@@ -1,23 +1,38 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { Link, router } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { signUpWithEmailConfirmation } from "../lib/auth";
+import { getPlanPriceCopy, getTrialLabel } from "../lib/planCopy";
+import { fetchTestStorePackage, TestStorePlan } from "../lib/revenuecatOfferings";
+import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
+import { supabase } from "../lib/supabaseClient";
 import { useLanguage } from "../providers/LanguageProvider";
 
+const signupSchema = z.object({
+  username: z.string().trim().min(1),
+  email: z.string().trim().check(z.email()),
+  password: z.string().min(6),
+});
+
 export default function Signup() {
+  useRedirectAuthenticated();
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const { t } = useTranslation("signup");
   const { language } = useLanguage();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [paymentSet, setPaymentSet] = useState(false);
+  const [plan, setPlan] = useState<TestStorePlan | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [isLoadingPlan, setIsLoadingPlan] = useState(true);
   // touched状態変数群でinputに1度でもFocusしたかどうかを判定しエラーメッセージ出力の有無に利用
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
@@ -25,11 +40,69 @@ export default function Signup() {
   const [submissionState, setSubmissionState] = useState<"idle" | "success">("idle");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // valid状態変数群でinputの値を適切かどうか判定
-  const isUsernameValid = username.trim().length > 0;
-  const isEmailValid = useMemo(() => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email), [email]);
-  const isPasswordValid = password.length >= 6;
-  const isFormValid = isUsernameValid && isEmailValid && isPasswordValid && paymentSet;
+  const signupValidation = useMemo(() => {
+    const result = signupSchema.safeParse({ username, email, password });
+    if (result.success) {
+      return { isValid: true, fieldErrors: {} as Record<string, string[]> };
+    }
+    return {
+      isValid: false,
+      fieldErrors: z.flattenError(result.error).fieldErrors,
+    };
+  }, [email, password, username]);
+  const isUsernameValid = !signupValidation.fieldErrors.username;
+  const isEmailValid = !signupValidation.fieldErrors.email;
+  const isPasswordValid = !signupValidation.fieldErrors.password;
+  const isFormValid = signupValidation.isValid;
+  const planPriceCopy = useMemo(() => getPlanPriceCopy(plan, t), [plan, t]);
+  const trialLabel = useMemo(() => getTrialLabel(plan, t), [plan, t]);
+
+  //　画面が表示されたときの初期処理(ログイン状態時のみ、状況に応じて各ページに遷移される)
+  useEffect(() => {
+    let mounted = true;
+
+    //　現在のログイン状況と購読状況を確認
+    const checkExistingSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) return;
+      const userId = data.session?.user?.id;
+      if (!userId) return;
+      const subscription = await getSubscriptionForUser(userId);
+      if (!subscription || subscription.status === "signupAwait") {
+        try {
+          await ensureSignupAwaitSubscription(userId);
+        } catch (error) {
+          console.warn("failed to ensure signupAwait subscription", error);
+        }
+        router.replace("/purchases?from=signup");
+        return;
+      }
+      if (subscription.status === "active" || subscription.status === "trial") {
+        router.replace("/dashboard");
+      }
+    };
+
+    //　ユーザのプラン情報の取得
+    const loadPlan = async () => {
+      try {
+        const offering = await fetchTestStorePackage();
+        if (!mounted) return;
+        setPlan(offering);
+      } catch (error) {
+        console.warn("Failed to load offering", error);
+        if (mounted) setPlanError(t("planLoadError"));
+      } finally {
+        if (mounted) setIsLoadingPlan(false);
+      }
+    };
+
+    checkExistingSession().catch((error) => console.warn("signup guard failed", error));
+    loadPlan();
+
+    return () => {
+      mounted = false;
+    };
+  }, [t]);
 
   const handleSubmit = useCallback(async () => {
     //ユーザがinputを触らずに送信した場合も各inputを検証しエラーを出力する
@@ -45,25 +118,29 @@ export default function Signup() {
     setSubmissionState("idle");
     setIsSubmitting(true);
 
-    const result = await signUpWithEmailConfirmation({
-      email: email.trim(),
-      password,
-      username: username.trim(),
-      language,
-    });
+    try {
+      const parsed = signupSchema.parse({ username, email, password });
 
-    setIsSubmitting(false);
+      const result = await signUpWithEmailConfirmation({
+        email: parsed.email,
+        password: parsed.password,
+        username: parsed.username,
+        language,
+      });
 
-    if (!result.ok) {
-      if (result.reason === "email_exists") {
-        setSubmissionError(t("emailExistsError"));
-      } else {
-        setSubmissionError(t("unknownError"));
+      if (!result.ok) {
+        if (result.reason === "email_exists") {
+          setSubmissionError(t("emailExistsError"));
+        } else {
+          setSubmissionError(t("unknownError"));
+        }
+        return;
       }
-      return;
-    }
 
-    setSubmissionState("success");
+      setSubmissionState("success");
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [email, isFormValid, isSubmitting, language, password, t, username]);
 
   return (
@@ -77,8 +154,24 @@ export default function Signup() {
         </View>
 
         <View style={[styles.card, shadows.card]}>
+          <LinearGradient
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={styles.title}>{t("heroTitle")}</Text>
-          <Text style={styles.body}>{t("heroBody")}</Text>
+          <Text style={styles.body}>{t("heroBody", { planCopy: planPriceCopy })}</Text>
+
+          <View style={[styles.planCard, shadows.card]}>
+            <View style={styles.planHeader}>
+              <Text style={styles.planTitle}>{t("planTitle")}</Text>
+              {!isLoadingPlan && <Text style={styles.planPrice}>{planPriceCopy}</Text>}
+            </View>
+            {trialLabel && <Text style={styles.trialText}>{trialLabel}</Text>}
+            <Text style={styles.helperText}>{t("planDescription")}</Text>
+            {planError && <Text style={styles.errorText}>{planError}</Text>}
+          </View>
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>{t("usernameLabel")}</Text>
@@ -128,27 +221,6 @@ export default function Signup() {
             )}
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("paymentLabel")}</Text>
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.placeholderButton,
-                paymentSet && styles.placeholderActive,
-                pressed && styles.placeholderPressed,
-              ]}
-              onPress={() => setPaymentSet((prev) => !prev)}
-            >
-              <Text style={styles.placeholderText}>
-                {paymentSet ? t("paymentStatusSet") : t("paymentStatusUnset")}
-              </Text>
-              <Text style={styles.placeholderSub}>
-                {paymentSet ? t("paymentToggleUnset") : t("paymentToggleSet")}
-              </Text>
-            </Pressable>
-            <Text style={styles.helperText}>{t("paymentHelper")}</Text>
-          </View>
-
           <Pressable
             accessibilityRole="button"
             style={({ pressed }) => [
@@ -187,6 +259,12 @@ export default function Signup() {
           </View>
         </View>
         <View style={[styles.card, shadows.card]}>
+          <LinearGradient
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={styles.cardHeading}>{t("existingAccountHeading")}</Text>
           <Link href="/login" asChild>
             <Pressable accessibilityRole="button" style={({ pressed }) => [pressed && styles.buttonPressed]}>
@@ -202,7 +280,11 @@ export default function Signup() {
           </Link>
         </View>
       </ScrollView>
-      <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <Footer
+        isAuthenticated={false}
+        onLanguagePress={() => setLanguageSheetVisible(true)}
+        onContactPress={() => router.push("/contact")}
+      />
       <LanguageSheet
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}
@@ -214,7 +296,7 @@ export default function Signup() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     padding: spacing.xl,
@@ -238,11 +320,12 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.18)",
+    borderColor: "rgba(110,168,255,0.25)",
+    overflow: "hidden",
   },
   title: {
     color: colors.textPrimary,
@@ -263,6 +346,38 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sm,
   },
+  planCard: {
+    backgroundColor: colors.overlay,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    gap: spacing.xs,
+  },
+  planHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.xs,
+    flexWrap: "wrap",
+  },
+  planTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+    flexShrink: 1,
+    flexGrow: 1,
+  },
+  planPrice: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+    flexShrink: 0,
+  },
+  trialText: {
+    color: colors.accentPrimary,
+    fontSize: typography.sm,
+  },
   fieldGroup: {
     gap: spacing.xs,
   },
@@ -272,13 +387,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   input: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     borderWidth: 1,
     borderColor: colors.divider,
+    fontSize: typography.md,
   },
   helperText: {
     color: colors.textSecondary,
@@ -313,31 +429,6 @@ const styles = StyleSheet.create({
     color: "#ff8a8a",
     fontSize: typography.sm,
     marginTop: spacing.xs / 2,
-  },
-  placeholderButton: {
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.background,
-    alignItems: "center",
-  },
-  placeholderText: {
-    color: colors.textSecondary,
-    fontSize: typography.sm,
-  },
-  placeholderSub: {
-    color: colors.textSecondary,
-    fontSize: typography.sm,
-    marginTop: spacing.xs / 2,
-  },
-  placeholderActive: {
-    borderColor: colors.accentPrimary,
-  },
-  placeholderPressed: {
-    opacity: 0.9,
-    transform: [{ translateY: 1 }],
   },
   ctaButton: {
     width: "100%",

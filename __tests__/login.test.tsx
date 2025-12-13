@@ -2,8 +2,13 @@ import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import { Alert } from "react-native";
+import { router } from "expo-router";
 import Login from "../app/login";
 import i18n from "../i18n";
+import { supabase } from "../lib/supabaseClient";
+
+const mockGetSubscriptionForUser = jest.fn();
+const mockEnsureSignupAwaitSubscription = jest.fn();
 
 jest.mock("expo-router", () => {
   const React = require("react");
@@ -18,6 +23,21 @@ jest.mock("expo-router", () => {
 jest.mock("../components/LanguageSheet", () => () => null);
 jest.mock("../components/Footer", () => () => null);
 
+jest.mock("../lib/subscription", () => ({
+  getSubscriptionForUser: (...args: unknown[]) => mockGetSubscriptionForUser(...args),
+  ensureSignupAwaitSubscription: (...args: unknown[]) =>
+    mockEnsureSignupAwaitSubscription(...args),
+}));
+
+jest.mock("../lib/supabaseClient", () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn(),
+      onAuthStateChange: jest.fn(),
+    },
+  },
+}));
+
 const mockSignInWithEmailPassword = jest.fn();
 
 jest.mock("../lib/auth", () => ({
@@ -27,6 +47,23 @@ jest.mock("../lib/auth", () => ({
 describe("Login screen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (supabase.auth.getSession as jest.Mock)
+      .mockResolvedValueOnce({
+        data: { session: null },
+        error: null,
+      })
+      .mockResolvedValue({
+        data: { session: { user: { id: "user-123" } } },
+        error: null,
+      });
+    (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    });
+    mockGetSubscriptionForUser.mockResolvedValue({ status: "signupAwait" });
+    mockEnsureSignupAwaitSubscription.mockResolvedValue({
+      user_id: "user-123",
+      status: "signupAwait",
+    });
   });
 
   const renderScreen = () =>
@@ -86,8 +123,9 @@ describe("Login screen", () => {
     expect(await findByText("Incorrect password. Please try again.")).toBeTruthy();
   });
 
-  test("shows success toast when login succeeds", async () => {
+  test("redirects to purchases when subscription is pending signup", async () => {
     mockSignInWithEmailPassword.mockResolvedValue({ ok: true });
+    mockGetSubscriptionForUser.mockResolvedValue({ status: "signupAwait" });
     const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
 
     const { getByPlaceholderText, getByRole } = renderScreen();
@@ -97,8 +135,47 @@ describe("Login screen", () => {
     fireEvent.press(getByRole("button", { name: "Log In" }));
 
     await waitFor(() => expect(mockSignInWithEmailPassword).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith("Logged in successfully"));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/purchases?from=login"));
+    expect(alertSpy).toHaveBeenCalledWith("Logged in successfully");
 
     alertSpy.mockRestore();
+  });
+
+  test("redirects to dashboard when subscription is active", async () => {
+    mockSignInWithEmailPassword.mockResolvedValue({ ok: true });
+    mockGetSubscriptionForUser.mockResolvedValue({ status: "active" });
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+
+    const { getByPlaceholderText, getByRole } = renderScreen();
+
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "user@example.com");
+    fireEvent.changeText(getByPlaceholderText("Password"), "password123");
+    fireEvent.press(getByRole("button", { name: "Log In" }));
+
+    await waitFor(() => expect(mockSignInWithEmailPassword).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard"));
+    expect(alertSpy).toHaveBeenCalledWith("Logged in successfully");
+
+    alertSpy.mockRestore();
+  });
+
+  test("redirects authenticated users to dashboard on mount", async () => {
+    (supabase.auth.getSession as jest.Mock).mockReset();
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: { id: "user-123" } } },
+      error: null,
+    });
+    (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    });
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Login />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(supabase.auth.getSession).toHaveBeenCalled());
+    expect(router.replace).toHaveBeenCalledWith("/dashboard");
   });
 });

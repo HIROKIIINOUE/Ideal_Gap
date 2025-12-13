@@ -68,6 +68,7 @@
     "active"
     "canceled"
     "expired"
+    "signupAwait"
   }
 
   Table user_settings {
@@ -205,4 +206,34 @@ enum week_bucket {
       (user_id, scheduled_at)
     }
   }
+
+
+  Table feedbacks {
+    id uuid [pk]
+    user_id uuid [ref: > users.id] // ログイン済みユーザの場合のみ紐づく（未ログインなら null）
+    user_name varchar
+    user_email varchar  // 返信用アドレス
+    message text [not null]
+    category category
+    is_login_user boolean  // ログインユーザからの送信なら true
+    app_version varchar
+    platform os_type
+    created_at timestamptz
+
+    Indexes {
+      (user_id)
+    }
+  }
+
+  enum category {
+    "bug"
+    "request"
+    "feedback"
+    "other"
+  }
+  enum os_type {
+    "ios"
+    "android"
+  }
+
 ```
