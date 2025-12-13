@@ -14,6 +14,9 @@ jest.mock("../lib/supabaseClient", () => ({
       onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
       signOut: jest.fn(),
     },
+    from: () => ({
+      insert: jest.fn().mockResolvedValue({ error: null }),
+    }),
   },
 }));
 jest.mock("../providers/FunPlanProvider", () => ({
@@ -41,6 +44,6 @@ describe("Contact page", () => {
 
     fireEvent.press(getByRole("button", { name: /send message/i }));
 
-    expect(await findByText(/this is a demo submission/i)).toBeTruthy();
+    expect(await findByText(/we’ll review your submission shortly/i)).toBeTruthy();
   });
 });

@@ -45,6 +45,52 @@ export type Database = {
         };
         Relationships: [];
       };
+      feedbacks: {
+        Row: {
+          app_version: string | null;
+          category: "bug" | "request" | "feedback" | "other" | null;
+          created_at: string | null;
+          id: string;
+          is_login_user: boolean | null;
+          message: string;
+          platform: "ios" | "android" | null;
+          user_email: string | null;
+          user_id: string | null;
+          user_name: string | null;
+        };
+        Insert: {
+          app_version?: string | null;
+          category?: "bug" | "request" | "feedback" | "other" | null;
+          created_at?: string | null;
+          id?: string;
+          is_login_user?: boolean | null;
+          message: string;
+          platform?: "ios" | "android" | null;
+          user_email?: string | null;
+          user_id?: string | null;
+          user_name?: string | null;
+        };
+        Update: {
+          app_version?: string | null;
+          category?: "bug" | "request" | "feedback" | "other" | null;
+          created_at?: string | null;
+          id?: string;
+          is_login_user?: boolean | null;
+          message?: string;
+          platform?: "ios" | "android" | null;
+          user_email?: string | null;
+          user_id?: string | null;
+          user_name?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "feedbacks_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null;
@@ -112,6 +158,8 @@ export type Database = {
     Enums: {
       language: "ja" | "en" | "fr";
       status: "trial" | "active" | "canceled" | "expired" | "signupAwait";
+      category: "bug" | "request" | "feedback" | "other";
+      os_type: "ios" | "android";
     };
     CompositeTypes: {};
   };

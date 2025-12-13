@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -12,7 +13,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
-const categoryKeys = ["bug", "feature", "feedback", "other"] as const;
+const categoryKeys = ["bug", "request", "feedback", "other"] as const;
 type CategoryKey = (typeof categoryKeys)[number];
 
 const contactSchema = z.object({
@@ -34,6 +35,13 @@ export default function Contact() {
   const [message, setMessage] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitted">("idle");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  // touched状態変数群で各inputに1度でもFocusしたかどうかを判定しエラーメッセージ出力の有無に利用
+  const [nameTouched, setNameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [categoryTouched, setCategoryTouched] = useState(false);
+  const [messageTouched, setMessageTouched] = useState(false);
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
 
   const categoryOptions = useMemo(
@@ -49,12 +57,61 @@ export default function Contact() {
     () => contactSchema.safeParse({ name, email, category, message }),
     [name, email, category, message],
   );
+  const fieldErrors = useMemo(() => {
+    if (validation.success) return {};
+    return z.flattenError(validation.error).fieldErrors;
+  }, [validation]);
   const isValid = validation.success;
 
-  const handleSubmit = () => {
-    if (!validation.success) return;
-    setStatus("submitted");
-    setCategoryOpen(false);
+  const resetTouches = () => {
+    setNameTouched(true);
+    setEmailTouched(true);
+    setCategoryTouched(true);
+    setMessageTouched(true);
+  };
+
+  // コンタクトフォーム送信機能
+  const handleSubmit = async () => {
+    resetTouches();
+    if (!isValid) return;
+    setIsSubmitting(true);
+    setSubmissionError(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+      // Constantsを使ってユーザが使用しているアプリのバージョンを取得
+      const appVersion =
+        Constants.expoConfig?.version ||
+        Constants.expoConfig?.runtimeVersion ||
+        Constants.expoConfig?.extra?.appVersion ||
+        "unknown";
+
+      //OSがiOSかAndroidの時のみOSを取得
+      const platform = Platform.OS === "ios" || Platform.OS === "android" ? Platform.OS : null;
+
+      const payload = {
+        user_id: user?.id ?? null,
+        user_name: validation.data.name.trim(),
+        user_email: validation.data.email.trim(),
+        message: validation.data.message.trim(),
+        category: validation.data.category,
+        is_login_user: Boolean(user),
+        app_version: appVersion,
+        platform,
+      };
+
+      const { error } = await supabase.from("feedbacks").insert([payload]);
+      if (error) {
+        throw error;
+      }
+
+      setStatus("submitted");
+      setCategoryOpen(false);
+    } catch {
+      setSubmissionError(t("submit.error"));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const showLogoutToast = useCallback(() => {
@@ -132,10 +189,6 @@ export default function Contact() {
             <Text style={styles.subtitle}>{t("intro")}</Text>
           </View>
 
-          <View style={styles.notice}>
-            <Text style={styles.noticeLabel}>{t("demoNotice")}</Text>
-          </View>
-
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>{t("fields.nameLabel")}</Text>
             <TextInput
@@ -146,7 +199,11 @@ export default function Contact() {
               style={styles.input}
               autoCapitalize="words"
               keyboardAppearance="dark"
+              onBlur={() => setNameTouched(true)}
             />
+            {!validation.success && nameTouched && fieldErrors.name && (
+              <Text style={styles.errorText}>{t("validation.name")}</Text>
+            )}
           </View>
 
           <View style={styles.fieldGroup}>
@@ -160,7 +217,11 @@ export default function Contact() {
               autoCapitalize="none"
               keyboardType="email-address"
               keyboardAppearance="dark"
+              onBlur={() => setEmailTouched(true)}
             />
+            {!validation.success && emailTouched && fieldErrors.email && (
+              <Text style={styles.errorText}>{t("validation.email")}</Text>
+            )}
           </View>
 
           <View style={styles.fieldGroup}>
@@ -168,7 +229,10 @@ export default function Contact() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={category ? t(`categories.${category}`) : t("fields.categoryPlaceholder")}
-              onPress={() => setCategoryOpen((prev) => !prev)}
+              onPress={() => {
+                setCategoryOpen((prev) => !prev);
+                setCategoryTouched(true);
+              }}
               style={({ pressed }) => [styles.selectButton, pressed && styles.pressed]}
             >
               <Text style={styles.selectLabel}>
@@ -187,6 +251,7 @@ export default function Contact() {
                     onPress={() => {
                       setCategory(option.key);
                       setCategoryOpen(false);
+                      setCategoryTouched(true);
                     }}
                     style={({ pressed }) => [styles.optionButton, pressed && styles.pressed]}
                   >
@@ -194,6 +259,9 @@ export default function Contact() {
                   </Pressable>
                 ))}
               </View>
+            )}
+            {!validation.success && categoryTouched && fieldErrors.category && (
+              <Text style={styles.errorText}>{t("validation.category")}</Text>
             )}
           </View>
 
@@ -209,27 +277,36 @@ export default function Contact() {
               numberOfLines={5}
               textAlignVertical="top"
               keyboardAppearance="dark"
+              onBlur={() => setMessageTouched(true)}
             />
+            {!validation.success && messageTouched && fieldErrors.message && (
+              <Text style={styles.errorText}>{t("validation.message")}</Text>
+            )}
           </View>
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("submit.label")}
-            disabled={!isValid}
+            disabled={!isValid || isSubmitting}
             onPress={handleSubmit}
             style={({ pressed }) => [
               styles.submitButton,
-              (!isValid || pressed) && styles.pressed,
-              !isValid && styles.submitDisabled,
+              (!isValid || pressed || isSubmitting) && styles.pressed,
+              (!isValid || isSubmitting) && styles.submitDisabled,
             ]}
           >
-            <Text style={styles.submitLabel}>{t("submit.label")}</Text>
+            <Text style={styles.submitLabel}>{isSubmitting ? t("submit.sending") : t("submit.label")}</Text>
           </Pressable>
 
           {status === "submitted" && (
             <View style={styles.successCard}>
               <Text style={styles.successTitle}>{t("submit.successTitle")}</Text>
               <Text style={styles.successBody}>{t("submit.successBody")}</Text>
+            </View>
+          )}
+          {submissionError && (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorBody}>{submissionError}</Text>
             </View>
           )}
         </View>
@@ -339,6 +416,11 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     marginTop: spacing.xs / 2,
   },
+  errorText: {
+    color: "#ff8a8a",
+    fontSize: typography.sm,
+    marginTop: spacing.xs / 2,
+  },
   optionList: {
     marginTop: spacing.xs,
     borderRadius: radius.lg,
@@ -383,8 +465,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "rgba(60, 195, 140, 0.12)",
+    borderColor: "rgba(56,217,150,0.9)",
+    backgroundColor: "rgba(56,217,150,0.12)",
     gap: spacing.xs,
   },
   successTitle: {
@@ -394,6 +476,19 @@ const styles = StyleSheet.create({
   },
   successBody: {
     color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  errorCard: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "#ff8a8a",
+    backgroundColor: "rgba(255,138,138,0.08)",
+  },
+  errorBody: {
+    color: "#ffb3b3",
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
   },

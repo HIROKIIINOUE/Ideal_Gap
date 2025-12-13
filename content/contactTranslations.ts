@@ -17,15 +17,22 @@ export type ContactTranslations = {
   };
   categories: {
     bug: string;
-    feature: string;
+    request: string;
     feedback: string;
     other: string;
   };
   submit: {
     label: string;
-    submitting: string;
+    sending: string;
     successTitle: string;
     successBody: string;
+    error: string;
+  };
+  validation: {
+    name: string;
+    email: string;
+    category: string;
+    message: string;
   };
 };
 
@@ -47,15 +54,22 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
     },
     categories: {
       bug: "バグ報告",
-      feature: "機能要望",
+      request: "機能要望",
       feedback: "フィードバック",
       other: "その他",
     },
     submit: {
       label: "送信する",
-      submitting: "送信中...",
-      successTitle: "送信を受け付けました",
-      successBody: "デモ送信のため実際には記録されませんが、いただいた内容を確認します。",
+      sending: "送信中...",
+      successTitle: "送信が完了しました",
+      successBody: "いただいた内容は順次確認させていただきます。",
+      error: "送信に失敗しました。ネットワーク環境を確認して、もう一度お試しください。",
+    },
+    validation: {
+      name: "お名前を入力してください",
+      email: "有効なメールアドレスを入力してください",
+      category: "カテゴリーを選択してください",
+      message: "本文は6文字以上で入力してください",
     },
   },
   en: {
@@ -75,15 +89,22 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
     },
     categories: {
       bug: "Bug",
-      feature: "Feature request",
+      request: "Feature request",
       feedback: "Feedback",
       other: "Other",
     },
     submit: {
       label: "Send message",
-      submitting: "Sending...",
-      successTitle: "Thanks for your message",
-      successBody: "This is a demo submission. We’ll review your feedback shortly.",
+      sending: "Sending...",
+      successTitle: "Message sent",
+      successBody: "We’ll review your submission shortly.",
+      error: "Could not send your message. Please check your connection and try again.",
+    },
+    validation: {
+      name: "Please enter your name",
+      email: "Enter a valid email address",
+      category: "Choose a category",
+      message: "Message must be at least 6 characters",
     },
   },
   fr: {
@@ -103,15 +124,22 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
     },
     categories: {
       bug: "Bug",
-      feature: "Demande de fonctionnalité",
+      request: "Demande de fonctionnalité",
       feedback: "Retour général",
       other: "Autre",
     },
     submit: {
       label: "Envoyer",
-      submitting: "Envoi...",
-      successTitle: "Merci pour votre message",
-      successBody: "Ceci est un envoi de démonstration. Nous examinerons votre retour prochainement.",
+      sending: "Envoi...",
+      successTitle: "Message envoyé",
+      successBody: "Nous examinerons votre demande prochainement.",
+      error: "Impossible d’envoyer votre message. Vérifiez votre connexion et réessayez.",
+    },
+    validation: {
+      name: "Veuillez saisir votre nom",
+      email: "Entrez une adresse e-mail valide",
+      category: "Choisissez une catégorie",
+      message: "Le message doit contenir au moins 6 caractères",
     },
   },
 };
