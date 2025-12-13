@@ -35,6 +35,7 @@ jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
       getSession: jest.fn(),
+      onAuthStateChange: jest.fn(),
     },
   },
 }));
@@ -56,6 +57,9 @@ describe("Signup screen", () => {
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: null },
       error: null,
+    });
+    (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
     });
     mockGetSubscriptionForUser.mockResolvedValue(null);
     mockEnsureSignupAwaitSubscription.mockResolvedValue({

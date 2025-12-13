@@ -33,6 +33,7 @@ jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
       getSession: jest.fn(),
+      onAuthStateChange: jest.fn(),
     },
   },
 }));
@@ -46,9 +47,17 @@ jest.mock("../lib/auth", () => ({
 describe("Login screen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-      data: { session: { user: { id: "user-123" } } },
-      error: null,
+    (supabase.auth.getSession as jest.Mock)
+      .mockResolvedValueOnce({
+        data: { session: null },
+        error: null,
+      })
+      .mockResolvedValue({
+        data: { session: { user: { id: "user-123" } } },
+        error: null,
+      });
+    (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
     });
     mockGetSubscriptionForUser.mockResolvedValue({ status: "signupAwait" });
     mockEnsureSignupAwaitSubscription.mockResolvedValue({
@@ -148,5 +157,25 @@ describe("Login screen", () => {
     expect(alertSpy).toHaveBeenCalledWith("Logged in successfully");
 
     alertSpy.mockRestore();
+  });
+
+  test("redirects authenticated users to dashboard on mount", async () => {
+    (supabase.auth.getSession as jest.Mock).mockReset();
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: { id: "user-123" } } },
+      error: null,
+    });
+    (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    });
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Login />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(supabase.auth.getSession).toHaveBeenCalled());
+    expect(router.replace).toHaveBeenCalledWith("/dashboard");
   });
 });

@@ -18,6 +18,7 @@ import { z } from "zod";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { signInWithEmailPassword } from "../lib/auth";
 import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
@@ -28,6 +29,7 @@ const loginSchema = z.object({
 });
 
 export default function Login() {
+  useRedirectAuthenticated();
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

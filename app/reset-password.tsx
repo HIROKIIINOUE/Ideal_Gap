@@ -19,6 +19,7 @@ import { z } from "zod";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import {
   completePasswordReset,
   requestPasswordResetEmail,
@@ -34,6 +35,7 @@ const newPasswordSchema = z.object({
 });
 
 export default function ResetPassword() {
+  useRedirectAuthenticated();
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");

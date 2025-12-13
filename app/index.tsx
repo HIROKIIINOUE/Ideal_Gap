@@ -9,6 +9,7 @@ import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { LandingSections } from "../content/landingTranslations";
+import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { supabase } from "../lib/supabaseClient";
 
 type GradientPair = readonly [string, string];
@@ -90,6 +91,7 @@ const CTAButtonsRow = ({ shimmerStyle, primary, secondary, onPrimaryPress }: CTA
 );
 
 export default function Index() {
+  useRedirectAuthenticated();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const { t } = useTranslation("landing");
