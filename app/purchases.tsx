@@ -226,7 +226,7 @@ export default function Purchases() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     padding: spacing.xl,
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     lineHeight: typography.md * 1.4,
   },
   planCard: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
@@ -302,13 +302,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   input: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     borderWidth: 1,
     borderColor: colors.divider,
+    fontSize: typography.md,
   },
   helperText: {
     color: colors.textSecondary,

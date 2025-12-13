@@ -385,7 +385,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   heroShell: {
     borderRadius: radius.xl,

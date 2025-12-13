@@ -180,7 +180,7 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     paddingVertical: spacing.xl,
   },
   content: {

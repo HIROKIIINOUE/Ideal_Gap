@@ -1,10 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { memo, useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
-import { colors, radius, spacing, typography } from "../constants/theme";
 import { router } from "expo-router";
+import { memo, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { colors, radius, spacing, typography } from "../constants/theme";
 
 type FooterProps = {
   isAuthenticated?: boolean;
@@ -35,57 +35,57 @@ const Footer = memo(
     guestActions = "contact",
   }: FooterProps) => {
     const { t } = useTranslation("common");
-    const noop = useCallback(() => {}, []);
+    const noop = useCallback(() => { }, []);
 
     const actions = useMemo(() => {
       const actionConfig: FooterAction[] = isAuthenticated
         ? [
-            {
-              key: "language",
-              label: t("footer.language"),
-              icon: "earth",
-              showLabel: false,
-              flex: 0.6,
-            },
-            {
-              key: "dashboard",
-              label: t("footer.dashboard"),
-              icon: "view-dashboard-outline",
-              showLabel: true,
-              flex: 1.4,
-            },
-            {
-              key: "more",
-              label: t("footer.more"),
-              icon: "menu",
-              showLabel: false,
-              flex: 0.6,
-            },
-          ]
+          {
+            key: "language",
+            label: t("footer.language"),
+            icon: "earth",
+            showLabel: false,
+            flex: 0.6,
+          },
+          {
+            key: "dashboard",
+            label: t("footer.dashboard"),
+            icon: "view-dashboard-outline",
+            showLabel: true,
+            flex: 1.4,
+          },
+          {
+            key: "more",
+            label: t("footer.more"),
+            icon: "menu",
+            showLabel: false,
+            flex: 0.6,
+          },
+        ]
         : [
-            {
-              key: "language",
-              label: t("footer.language"),
-              icon: "earth",
+          {
+            key: "language",
+            label: t("footer.language"),
+            icon: "earth",
+            showLabel: true,
+            flex: 1,
+          },
+          guestActions === "contact"
+            ? {
+              key: "contact",
+              label: t("footer.contact"),
+              icon: "message-text-outline",
+              showLabel: true,
+              flex: 1,
+            }
+            : {
+              key: "home",
+              label: t("footer.home"),
+              icon: "home-outline",
               showLabel: true,
               flex: 1,
             },
-            guestActions === "contact"
-              ? {
-                  key: "contact",
-                  label: t("footer.contact"),
-                  icon: "message-text-outline",
-                  showLabel: true,
-                  flex: 1,
-                }
-              : {
-                  key: "home",
-                  label: t("footer.home"),
-                  icon: "home-outline",
-                  showLabel: true,
-                  flex: 1,
-                },
-          ];
+        ];
 
       const handlers: Record<FooterAction["key"], () => void> = {
         language: onLanguagePress ?? noop,
@@ -104,7 +104,7 @@ const Footer = memo(
     return (
       <View style={styles.wrapper}>
         <LinearGradient
-          colors={["rgba(12,18,32,0.95)", "rgba(12,18,32,0.9)"]}
+          colors={[colors.surface, colors.surface]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -142,9 +142,9 @@ export default Footer;
 
 const styles = StyleSheet.create({
   wrapper: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-    backgroundColor: colors.overlay,
+    borderTopWidth: 2,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    backgroundColor: colors.surface,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xl,
   },

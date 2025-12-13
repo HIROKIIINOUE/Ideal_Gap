@@ -294,7 +294,7 @@ export default function Signup() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     padding: spacing.xl,
