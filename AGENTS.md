@@ -27,6 +27,7 @@ These documentation files are specifically formatted for AI agents and should be
 - 常に `docs/tech-stack.md` を参照し、記載済みの技術スタック・依存モジュールは必要に応じて積極的に導入する
 - リスト外のツールやモジュールを検討・追加する場合は、(1)どの機能に必要か (2)なぜ必要か を事前に説明して合意を取る
 - 型定義とバリデーションは可能な限り Zod で一元化し、既存機能に影響を与えない形で段階的に適用する
+- すべての新規型バリデーションは Zod を必ず使用し、既存のバリデーション拡張時も Zod へ統一する
 
 ## Project Structure
 
