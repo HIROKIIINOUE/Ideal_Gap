@@ -21,7 +21,7 @@ const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<View
   <View style={[styles.cardShell, style]}>
     <View style={styles.card}>
       <LinearGradient
-        colors={["rgba(24, 25, 28, 0.18)", "rgba(15,28,47,0.8)"]}
+        colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -499,15 +499,15 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.18)",
+    borderColor: "rgba(110,168,255,0.25)",
     gap: spacing.md,
     overflow: "hidden",
   },
   cardShell: {
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     ...shadows.card,
   },
   cardRow: {

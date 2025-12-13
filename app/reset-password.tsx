@@ -145,6 +145,12 @@ export default function ResetPassword() {
         </View>
 
         <View style={[styles.card, shadows.card]}>
+          <LinearGradient
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={styles.title}>{t("introTitle")}</Text>
           <Text style={styles.body}>{t("introBody")}</Text>
 
@@ -192,6 +198,12 @@ export default function ResetPassword() {
         </View>
 
         <View style={[styles.card, shadows.card]}>
+          <LinearGradient
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={styles.cardHeading}>{t("newPasswordTitle")}</Text>
           <Text style={styles.body}>{recoveryHint}</Text>
 
@@ -279,11 +291,12 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.18)",
+    borderColor: "rgba(110,168,255,0.25)",
+    overflow: "hidden",
   },
   title: {
     color: colors.textPrimary,
@@ -309,13 +322,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   input: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     borderWidth: 1,
     borderColor: colors.divider,
+    fontSize: typography.md,
   },
   ctaButton: {
     paddingVertical: spacing.md,

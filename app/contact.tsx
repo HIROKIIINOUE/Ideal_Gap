@@ -180,7 +180,7 @@ export default function Contact() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, shadows.card]}>
           <LinearGradient
-            colors={["rgba(77,125,255,0.14)", "rgba(12,18,32,0.94)"]}
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}

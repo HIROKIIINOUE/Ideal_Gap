@@ -247,6 +247,12 @@ export default function ProfileUpdate() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: "padding", android: undefined })}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={[styles.card, shadows.card]}>
+            <LinearGradient
+              colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <Text style={styles.title}>{t("title")}</Text>
             <Text style={styles.subtitle}>{t("subtitle")}</Text>
 
@@ -360,11 +366,11 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.xl,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: "rgba(110,168,255,0.25)",
     overflow: "hidden",
   },
   title: {
@@ -386,13 +392,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   input: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     borderWidth: 1,
     borderColor: colors.divider,
+    fontSize: typography.md,
   },
   ctaButton: {
     paddingVertical: spacing.md,

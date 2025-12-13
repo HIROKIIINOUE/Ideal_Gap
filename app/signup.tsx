@@ -152,6 +152,12 @@ export default function Signup() {
         </View>
 
         <View style={[styles.card, shadows.card]}>
+          <LinearGradient
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={styles.title}>{t("heroTitle")}</Text>
           <Text style={styles.body}>{t("heroBody", { planCopy: planPriceCopy })}</Text>
 
@@ -251,6 +257,12 @@ export default function Signup() {
           </View>
         </View>
         <View style={[styles.card, shadows.card]}>
+          <LinearGradient
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={styles.cardHeading}>{t("existingAccountHeading")}</Text>
           <Link href="/login" asChild>
             <Pressable accessibilityRole="button" style={({ pressed }) => [pressed && styles.buttonPressed]}>
@@ -306,11 +318,12 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.18)",
+    borderColor: "rgba(110,168,255,0.25)",
+    overflow: "hidden",
   },
   title: {
     color: colors.textPrimary,
@@ -332,7 +345,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
   },
   planCard: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.overlay,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
@@ -372,13 +385,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   input: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     borderWidth: 1,
     borderColor: colors.divider,
+    fontSize: typography.md,
   },
   helperText: {
     color: colors.textSecondary,
