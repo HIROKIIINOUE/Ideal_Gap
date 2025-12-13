@@ -1,8 +1,11 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+// ６つのメイン機能のページの幹をここで管理。各ページ詳細ロジックはcomponents/feature内に格納
+
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { ComponentType, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
 import Footer from "../../components/Footer";
 import LanguageSheet from "../../components/LanguageSheet";
 import MoreSheet from "../../components/MoreSheet";
@@ -29,10 +32,10 @@ const featureKeys: Record<FeatureId, string> = {
   "next-fun-plan": "cards.nextFunPlan.title",
 };
 
-export default function FeaturePlaceholder() {
+export default function FeatureScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ feature?: FeatureId }>();
-  const { t } = useTranslation("dashboard");
+  const { t: tDashboard } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
@@ -80,26 +83,41 @@ export default function FeaturePlaceholder() {
 
   const featureTitle = useMemo(() => {
     const key = params.feature as FeatureId | undefined;
-    if (!key || !(key in featureKeys)) return t("pageTitle");
+    if (!key || !(key in featureKeys)) return tDashboard("pageTitle");
     const translationKey = featureKeys[key];
-    return t(translationKey);
-  }, [params.feature, t]);
+    return tDashboard(translationKey);
+  }, [params.feature, tDashboard]);
+
+  const featureId = params.feature as FeatureId | undefined;
+
+  const ScreenComponent = useMemo<ComponentType | null>(() => {
+    if (!featureId) return null;
+    const mapping: Partial<Record<FeatureId, ComponentType>> = {
+      "ideal-self": IdealSelfScreen,
+    };
+    return mapping[featureId] ?? null;
+  }, [featureId]);
+
+  const Placeholder = () => (
+    <View style={[styles.card, shadows.card]}>
+      <Text style={styles.heading}>{tDashboard("details.heading", { title: featureTitle })}</Text>
+      <Text style={styles.body}>{tDashboard("details.body")}</Text>
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.replace("/dashboard")}
+        style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+      >
+        <Text style={styles.buttonLabel}>{tDashboard("details.back")}</Text>
+      </Pressable>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ title: featureTitle }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.card, shadows.card]}>
-          <Text style={styles.heading}>{t("details.heading", { title: featureTitle })}</Text>
-          <Text style={styles.body}>{t("details.body")}</Text>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.replace("/dashboard")}
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          >
-            <Text style={styles.buttonLabel}>{t("details.back")}</Text>
-          </Pressable>
-        </View>
+        {ScreenComponent ? <ScreenComponent /> : <Placeholder />}
       </ScrollView>
       <Footer
         isAuthenticated
@@ -126,6 +144,7 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.xl,
     paddingBottom: spacing.xl * 2,
+    gap: spacing.md,
   },
   card: {
     backgroundColor: colors.surface,
