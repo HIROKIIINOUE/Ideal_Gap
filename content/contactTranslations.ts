@@ -24,6 +24,7 @@ export type ContactTranslations = {
   submit: {
     label: string;
     sending: string;
+    sent: string;
     successTitle: string;
     successBody: string;
     error: string;
@@ -61,6 +62,7 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
     submit: {
       label: "送信する",
       sending: "送信中...",
+      sent: "送信済み",
       successTitle: "送信が完了しました",
       successBody: "いただいた内容は順次確認させていただきます。",
       error: "送信に失敗しました。ネットワーク環境を確認して、もう一度お試しください。",
@@ -96,6 +98,7 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
     submit: {
       label: "Send message",
       sending: "Sending...",
+      sent: "Sent",
       successTitle: "Message sent",
       successBody: "We’ll review your submission shortly.",
       error: "Could not send your message. Please check your connection and try again.",
@@ -131,6 +134,7 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
     submit: {
       label: "Envoyer",
       sending: "Envoi...",
+      sent: "Envoyé",
       successTitle: "Message envoyé",
       successBody: "Nous examinerons votre demande prochainement.",
       error: "Impossible d’envoyer votre message. Vérifiez votre connexion et réessayez.",

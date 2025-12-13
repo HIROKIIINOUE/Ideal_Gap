@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -235,9 +236,12 @@ export default function Contact() {
               }}
               style={({ pressed }) => [styles.selectButton, pressed && styles.pressed]}
             >
-              <Text style={styles.selectLabel}>
-                {category ? t(`categories.${category}`) : t("fields.categoryPlaceholder")}
-              </Text>
+              <View style={styles.selectHeader}>
+                <Text style={styles.selectLabel}>
+                  {category ? t(`categories.${category}`) : t("fields.categoryPlaceholder")}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={18} color={colors.textPrimary} />
+              </View>
               <Text style={styles.selectHelper}>{t("fields.helper")}</Text>
             </Pressable>
 
@@ -287,15 +291,17 @@ export default function Contact() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("submit.label")}
-            disabled={!isValid || isSubmitting}
+            disabled={!isValid || isSubmitting || status === "submitted"}
             onPress={handleSubmit}
             style={({ pressed }) => [
               styles.submitButton,
-              (!isValid || pressed || isSubmitting) && styles.pressed,
-              (!isValid || isSubmitting) && styles.submitDisabled,
+              (!isValid || pressed || isSubmitting || status === "submitted") && styles.pressed,
+              (!isValid || isSubmitting || status === "submitted") && styles.submitDisabled,
             ]}
           >
-            <Text style={styles.submitLabel}>{isSubmitting ? t("submit.sending") : t("submit.label")}</Text>
+            <Text style={styles.submitLabel}>
+              {isSubmitting ? t("submit.sending") : status === "submitted" ? t("submit.sent") : t("submit.label")}
+            </Text>
           </Pressable>
 
           {status === "submitted" && (
@@ -399,12 +405,18 @@ const styles = StyleSheet.create({
     minHeight: 140,
   },
   selectButton: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
+  },
+  selectHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
   selectLabel: {
     color: colors.textPrimary,
@@ -425,15 +437,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    borderColor: "rgba(110,168,255,0.6)",
+    backgroundColor: "rgba(110,168,255,0.08)",
     overflow: "hidden",
   },
   optionButton: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: "rgba(110,168,255,0.3)",
+    backgroundColor: "rgba(255,255,255,0.02)",
   },
   optionLabel: {
     color: colors.textPrimary,
