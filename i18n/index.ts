@@ -9,6 +9,7 @@ import { purchasesTranslations } from "../content/purchasesTranslations";
 import { profileUpdateTranslations } from "../content/profileUpdateTranslations";
 import { resetPasswordTranslations } from "../content/resetPasswordTranslations";
 import { signupTranslations } from "../content/signupTranslations";
+import { contactTranslations } from "../content/contactTranslations";
 import { LanguageKey, SUPPORTED_LANGUAGES } from "../types/i18n";
 
 const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
@@ -22,6 +23,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     purchases: purchasesTranslations[lang],
     resetPassword: resetPasswordTranslations[lang],
     signup: signupTranslations[lang],
+    contact: contactTranslations[lang],
   };
   return acc;
 }, {} as Resource);
@@ -34,7 +36,17 @@ if (!i18n.isInitialized) {
     supportedLngs: SUPPORTED_LANGUAGES,
     lng: "en",
     defaultNS: "common",
-    ns: ["common", "dashboard", "landing", "login", "resetPassword", "signup", "purchases", "profileUpdate"],
+    ns: [
+      "common",
+      "dashboard",
+      "landing",
+      "login",
+      "resetPassword",
+      "signup",
+      "purchases",
+      "profileUpdate",
+      "contact",
+    ],
     interpolation: {
       escapeValue: false,
     },

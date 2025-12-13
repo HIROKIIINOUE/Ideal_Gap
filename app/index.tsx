@@ -369,7 +369,11 @@ export default function Index() {
           </Card>
         </Animated.View>
       </Animated.ScrollView>
-      <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <Footer
+        isAuthenticated={false}
+        onLanguagePress={() => setLanguageSheetVisible(true)}
+        onContactPress={() => router.push("/contact")}
+      />
       <LanguageSheet
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}

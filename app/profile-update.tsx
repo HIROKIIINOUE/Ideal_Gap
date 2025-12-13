@@ -237,6 +237,9 @@ export default function ProfileUpdate() {
     if (key === "profile") {
       router.push("/profile-update");
     }
+    if (key === "contact") {
+      router.push("/contact");
+    }
   };
 
   return (

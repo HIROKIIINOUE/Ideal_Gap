@@ -73,6 +73,9 @@ export default function FeaturePlaceholder() {
     if (key === "profile") {
       router.push("/profile-update");
     }
+    if (key === "contact") {
+      router.push("/contact");
+    }
   };
 
   const featureTitle = useMemo(() => {

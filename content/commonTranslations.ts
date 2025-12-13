@@ -5,6 +5,8 @@ export type CommonTranslations = {
     language: string;
     dashboard: string;
     more: string;
+    contact: string;
+    home: string;
   };
   languageSheet: {
     title: string;
@@ -40,6 +42,8 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
       language: "言語",
       dashboard: "ダッシュボード",
       more: "その他",
+      contact: "お問い合わせ",
+      home: "ホームへ戻る",
     },
     languageSheet: {
       title: "言語を選択",
@@ -87,6 +91,8 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
       language: "Language",
       dashboard: "Dashboard",
       more: "More",
+      contact: "Contact",
+      home: "Home",
     },
     languageSheet: {
       title: "Choose a language",
@@ -128,6 +134,8 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
       language: "Langue",
       dashboard: "Tableau de bord",
       more: "Autres",
+      contact: "Contact",
+      home: "Accueil",
     },
     languageSheet: {
       title: "Choisir une langue",

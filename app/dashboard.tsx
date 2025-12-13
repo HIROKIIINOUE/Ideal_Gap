@@ -72,6 +72,9 @@ export default function Dashboard() {
     if (key === "profile") {
       router.push("/profile-update");
     }
+    if (key === "contact") {
+      router.push("/contact");
+    }
   };
 
   const cards: DashboardCard[] = useMemo(

@@ -11,10 +11,13 @@ type FooterProps = {
   onLanguagePress?: () => void;
   onDashboardPress?: () => void;
   onMorePress?: () => void;
+  onContactPress?: () => void;
+  onHomePress?: () => void;
+  guestActions?: "contact" | "home";
 };
 
 type FooterAction = {
-  key: "language" | "dashboard" | "more";
+  key: "language" | "dashboard" | "more" | "contact" | "home";
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   showLabel: boolean;
@@ -22,48 +25,81 @@ type FooterAction = {
 };
 
 const Footer = memo(
-  ({ isAuthenticated = false, onLanguagePress, onDashboardPress, onMorePress }: FooterProps) => {
+  ({
+    isAuthenticated = false,
+    onLanguagePress,
+    onDashboardPress,
+    onMorePress,
+    onContactPress,
+    onHomePress,
+    guestActions = "contact",
+  }: FooterProps) => {
     const { t } = useTranslation("common");
     const noop = useCallback(() => {}, []);
 
-    const actions = useMemo(
-      () => {
-        const actionConfig: FooterAction[] = [
-          {
-            key: "language",
-            label: "Language",
-            icon: "earth",
-            showLabel: !isAuthenticated,
-            flex: isAuthenticated ? 0.6 : 1,
-          },
-          {
-            key: "dashboard",
-            label: t("footer.dashboard"),
-            icon: "view-dashboard-outline",
-            showLabel: true,
-            flex: 1.4,
-          },
-          {
-            key: "more",
-            label: t("footer.more"),
-            icon: "menu",
-            showLabel: !isAuthenticated,
-            flex: isAuthenticated ? 0.6 : 1,
-          },
-        ];
-        const handlers: Record<FooterAction["key"], () => void> = {
-          language: onLanguagePress ?? noop,
-          dashboard: onDashboardPress ?? (() => router.replace("/dashboard")),
-          more: onMorePress ?? noop,
-        };
+    const actions = useMemo(() => {
+      const actionConfig: FooterAction[] = isAuthenticated
+        ? [
+            {
+              key: "language",
+              label: t("footer.language"),
+              icon: "earth",
+              showLabel: false,
+              flex: 0.6,
+            },
+            {
+              key: "dashboard",
+              label: t("footer.dashboard"),
+              icon: "view-dashboard-outline",
+              showLabel: true,
+              flex: 1.4,
+            },
+            {
+              key: "more",
+              label: t("footer.more"),
+              icon: "menu",
+              showLabel: false,
+              flex: 0.6,
+            },
+          ]
+        : [
+            {
+              key: "language",
+              label: t("footer.language"),
+              icon: "earth",
+              showLabel: true,
+              flex: 1,
+            },
+            guestActions === "contact"
+              ? {
+                  key: "contact",
+                  label: t("footer.contact"),
+                  icon: "message-text-outline",
+                  showLabel: true,
+                  flex: 1,
+                }
+              : {
+                  key: "home",
+                  label: t("footer.home"),
+                  icon: "home-outline",
+                  showLabel: true,
+                  flex: 1,
+                },
+          ];
 
-        return actionConfig.filter((action) => isAuthenticated || action.key === "language").map((action) => ({
-          ...action,
-          onPress: handlers[action.key],
-        }));
-      },
-      [isAuthenticated, onLanguagePress, onDashboardPress, onMorePress, noop, t],
-    );
+      const handlers: Record<FooterAction["key"], () => void> = {
+        language: onLanguagePress ?? noop,
+        dashboard: onDashboardPress ?? (() => router.replace("/dashboard")),
+        more: onMorePress ?? noop,
+        contact: onContactPress ?? (() => router.push("/contact")),
+        home: onHomePress ?? (() => router.replace("/")),
+      };
+
+      return actionConfig.map((action) => ({
+        ...action,
+        onPress: handlers[action.key],
+      }));
+    }, [isAuthenticated, onLanguagePress, onDashboardPress, onMorePress, onContactPress, onHomePress, guestActions, noop, t]);
 
     return (
       <View style={styles.wrapper}>

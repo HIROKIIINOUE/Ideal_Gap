@@ -43,7 +43,7 @@ export default function ResetPassword() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const { t } = useTranslation("resetPassword");
-  const { replace } = useRouter();
+  const { replace, push } = useRouter();
 
   const sendValidation = useMemo(() => resetEmailSchema.safeParse({ email }), [email]);
   const updateValidation = useMemo(
@@ -239,7 +239,11 @@ export default function ResetPassword() {
           </Pressable>
         </View>
       </ScrollView>
-      <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <Footer
+        isAuthenticated={false}
+        onLanguagePress={() => setLanguageSheetVisible(true)}
+        onContactPress={() => push("/contact")}
+      />
       <LanguageSheet
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}
