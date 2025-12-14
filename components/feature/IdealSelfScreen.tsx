@@ -17,6 +17,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { supabase } from "../../lib/supabaseClient";
+import Loading from "../Loading";
 
 type IdealCard = {
   id: string;
@@ -315,6 +316,14 @@ export default function IdealSelfScreen() {
   const modalTitle = editingId ? tIdeal("modal.editTitle") : tIdeal("modal.addTitle");
   const modalListLabel = editingMeta ? `${tIdeal("listLabel")} ${editingMeta.position}` : null;
   const modalUpdatedText = editingMeta?.updatedAt ? formatUpdated(editingMeta.updatedAt, updatedLabel) : null;
+
+  if (loading) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <Loading />
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
