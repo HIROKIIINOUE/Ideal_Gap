@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   content: {
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xl * 2,
     gap: spacing.md,
   },

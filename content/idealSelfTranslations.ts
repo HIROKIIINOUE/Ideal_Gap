@@ -8,10 +8,12 @@ export type IdealSelfTranslations = {
   deleteExit: string;
   listLabel: string;
   reorderHint: string;
+  loading: string;
   emptyTitle: string;
   emptyBody: string;
   emptyCta: string;
   handleA11y: string;
+  updatedSuffix: string;
   modal: {
     addTitle: string;
     editTitle: string;
@@ -24,6 +26,12 @@ export type IdealSelfTranslations = {
   deleteConfirmBody: string;
   deleteConfirmYes: string;
   deleteConfirmNo: string;
+  errors: {
+    loginMissing: string;
+    deleteFailed: string;
+    reorderSaveFailed: string;
+    saveFailed: string;
+  };
 };
 
 export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> = {
@@ -35,10 +43,12 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
     deleteExit: "削除モードを終了",
     listLabel: "リスト",
     reorderHint: "カードを長押し＋ドラッグで順番を変えられます",
+    loading: "読み込み中...",
     emptyTitle: "まだ理想が登録されていません",
     emptyBody: "最初の理想を追加して、軸を固定しましょう。",
     emptyCta: "最初の理想を追加",
     handleA11y: "長押しで並び替え",
+    updatedSuffix: "更新",
     modal: {
       addTitle: "理想を追加",
       editTitle: "理想を編集",
@@ -51,6 +61,12 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
     deleteConfirmBody: "この理想を削除すると元に戻せません。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
+    errors: {
+      loginMissing: "ログイン情報が見つかりませんでした",
+      deleteFailed: "削除に失敗しました",
+      reorderSaveFailed: "並び替えの保存に失敗しました",
+      saveFailed: "保存に失敗しました",
+    },
   },
   en: {
     pageTitle: "Ideal Self",
@@ -60,10 +76,12 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
     deleteExit: "Exit delete mode",
     listLabel: "List",
     reorderHint: "Long-press and drag cards to reorder.",
+    loading: "Loading...",
     emptyTitle: "No ideals yet",
     emptyBody: "Add your first ideal to anchor your direction.",
     emptyCta: "Add your first ideal",
     handleA11y: "Long press to reorder",
+    updatedSuffix: "Updated",
     modal: {
       addTitle: "Add ideal",
       editTitle: "Edit ideal",
@@ -76,6 +94,12 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
     deleteConfirmBody: "You can’t undo this action after deleting.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
+    errors: {
+      loginMissing: "Session not found. Please log in again.",
+      deleteFailed: "Failed to delete",
+      reorderSaveFailed: "Failed to save order",
+      saveFailed: "Failed to save",
+    },
   },
   fr: {
     pageTitle: "Moi idéal",
@@ -85,10 +109,12 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
     deleteExit: "Quitter le mode suppression",
     listLabel: "Liste",
     reorderHint: "Appui long puis glisser pour réordonner les cartes.",
+    loading: "Chargement...",
     emptyTitle: "Aucun idéal pour le moment",
     emptyBody: "Ajoutez un premier idéal pour fixer votre cap.",
     emptyCta: "Ajouter un premier idéal",
     handleA11y: "Appui long pour réordonner",
+    updatedSuffix: "Mis à jour",
     modal: {
       addTitle: "Ajouter un idéal",
       editTitle: "Modifier l’idéal",
@@ -101,5 +127,11 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
     deleteConfirmBody: "Cette action est définitive après suppression.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
+    errors: {
+      loginMissing: "Session introuvable. Veuillez vous reconnecter.",
+      deleteFailed: "Échec de la suppression",
+      reorderSaveFailed: "Échec de l'enregistrement de l'ordre",
+      saveFailed: "Échec de l'enregistrement",
+    },
   },
 };
