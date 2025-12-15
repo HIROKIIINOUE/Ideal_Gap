@@ -29,7 +29,18 @@ type AnnualGoal = {
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
-const COLOR_OPTIONS = ["#1E5EFF", "#6EA8FF", "#38D996", "#F2C94C", "#F25F5C", "#9B8CFF"] as const;
+const COLOR_OPTIONS = [
+  "#1E5EFF", // primary blue
+  "#6EA8FF", // soft blue
+  "#4BD0FF", // cyan
+  "#1EC6A0", // teal
+  "#38D996", // green
+  "#9B8CFF", // violet
+  "#C677F2", // purple-mauve
+  "#F25F5C", // coral red
+  "#F2C94C", // yellow
+  "#FF9F6E", // warm amber
+] as const;
 
 const goalSchema = z.object({
   description: z.string().trim().min(1),
@@ -479,6 +490,7 @@ const styles = StyleSheet.create({
   centerLabelTitle: {
     color: colors.textSecondary,
     fontSize: typography.sm,
+    textAlign: "center",
   },
   centerLabelValue: {
     color: colors.textPrimary,
@@ -494,6 +506,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.xs,
+    width: 96,
   },
   donutFallbackOuter: {
     width: 148,
@@ -506,7 +519,7 @@ const styles = StyleSheet.create({
     width: 148,
     height: 148,
     borderRadius: 74,
-    borderWidth: 14,
+    borderWidth: 18,
     borderColor: "rgba(30,94,255,0.25)",
     backgroundColor: "transparent",
   },
