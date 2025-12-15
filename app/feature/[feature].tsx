@@ -5,6 +5,7 @@ import { ComponentType, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AnnualGoalsScreen from "../../components/feature/AnnualGoalsScreen";
 import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
 import Footer from "../../components/Footer";
 import LanguageSheet from "../../components/LanguageSheet";
@@ -94,6 +95,7 @@ export default function FeatureScreen() {
     if (!featureId) return null;
     const mapping: Partial<Record<FeatureId, ComponentType>> = {
       "ideal-self": IdealSelfScreen,
+      "annual-goals": AnnualGoalsScreen,
     };
     return mapping[featureId] ?? null;
   }, [featureId]);

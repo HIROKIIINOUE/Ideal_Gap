@@ -4,6 +4,7 @@ import { initReactI18next } from "react-i18next";
 import { commonTranslations } from "../content/commonTranslations";
 import { dashboardTranslations } from "../content/dashboardTranslations";
 import { idealSelfTranslations } from "../content/idealSelfTranslations";
+import { annualGoalsTranslations } from "../content/annualGoalsTranslations";
 import { landingTranslations } from "../content/landingTranslations";
 import { loginTranslations } from "../content/loginTranslations";
 import { purchasesTranslations } from "../content/purchasesTranslations";
@@ -19,6 +20,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     common: commonTranslations[lang],
     dashboard: dashboardTranslations[lang],
     idealSelf: idealSelfTranslations[lang],
+    annualGoals: annualGoalsTranslations[lang],
     landing: landingTranslations[lang],
     login: loginTranslations[lang],
     profileUpdate: profileUpdateTranslations[lang],
@@ -42,6 +44,7 @@ if (!i18n.isInitialized) {
       "common",
       "dashboard",
       "idealSelf",
+      "annualGoals",
       "landing",
       "login",
       "resetPassword",
