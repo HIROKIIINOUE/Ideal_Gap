@@ -9,7 +9,7 @@
 - Expo SQLite → ローカルデータベース
 - async storage → 軽量のデータベース、ユーザー設定(言語やログイン情報など)
 - Supabase → データベース、ユーザ認証周り
-- victory-native + react-native-svg → アプリ内のグラフ作成
+- react-native-gifted-charts → アプリ内の円グラフ作成
 - day.js
 - react-i18next → 多言語対応
 - expo-localization → 端末の言語・地域を取得
