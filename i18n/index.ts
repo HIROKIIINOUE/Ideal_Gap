@@ -5,6 +5,7 @@ import { commonTranslations } from "../content/commonTranslations";
 import { dashboardTranslations } from "../content/dashboardTranslations";
 import { idealSelfTranslations } from "../content/idealSelfTranslations";
 import { annualGoalsTranslations } from "../content/annualGoalsTranslations";
+import { monthlyGoalsTranslations } from "../content/monthlyGoalsTranslations";
 import { landingTranslations } from "../content/landingTranslations";
 import { loginTranslations } from "../content/loginTranslations";
 import { purchasesTranslations } from "../content/purchasesTranslations";
@@ -21,6 +22,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     dashboard: dashboardTranslations[lang],
     idealSelf: idealSelfTranslations[lang],
     annualGoals: annualGoalsTranslations[lang],
+    monthlyGoals: monthlyGoalsTranslations[lang],
     landing: landingTranslations[lang],
     login: loginTranslations[lang],
     profileUpdate: profileUpdateTranslations[lang],
@@ -45,6 +47,7 @@ if (!i18n.isInitialized) {
       "dashboard",
       "idealSelf",
       "annualGoals",
+      "monthlyGoals",
       "landing",
       "login",
       "resetPassword",
