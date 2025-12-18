@@ -98,7 +98,7 @@
     user_id uuid [not null, ref: > users.id]
     description varchar [not null]
     category varchar [not null]
-    category_color varchear [not null]
+    category_color varchar [not null]
     "order" int // ソート用
     accumulated_time_year int // 円グラフ計算用
     created_at timestamptz

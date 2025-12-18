@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -16,6 +16,9 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { supabase } from "../../lib/supabaseClient";
+import { Database } from "../../types/database";
+import Loading from "../Loading";
 
 type AnnualGoal = {
   id: string;
@@ -26,6 +29,8 @@ type AnnualGoal = {
   order: number;
   updatedAt: string | null;
 };
+
+type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
@@ -48,6 +53,7 @@ const goalSchema = z.object({
   categoryColor: z.string().trim().min(1),
 });
 
+// 分の合計値から「◯時間◯分」というフォーマットに変換する処理
 const formatMinutes = (minutes: number) => {
   const totalMinutes = Math.max(0, Math.round(minutes));
   const hrs = Math.floor(totalMinutes / 60);
@@ -61,66 +67,95 @@ const formatMinutes = (minutes: number) => {
   return `${hrs}h ${mins}m`;
 };
 
-const seededGoals: AnnualGoal[] = [
-  {
-    id: "goal-1",
-    description: "Deep health routine with consistent sleep and workouts",
-    categoryName: "Health",
-    categoryColor: COLOR_OPTIONS[2],
-    accumulatedMinutes: 1820,
-    order: 0,
-    updatedAt: "2025-01-06T09:30:00Z",
-  },
-  {
-    id: "goal-2",
-    description: "Career leap with shipped projects and portfolio refresh",
-    categoryName: "Career",
-    categoryColor: COLOR_OPTIONS[0],
-    accumulatedMinutes: 2450,
-    order: 1,
-    updatedAt: "2025-01-08T13:10:00Z",
-  },
-  {
-    id: "goal-3",
-    description: "Creative output: publish 24 essays and 4 public talks",
-    categoryName: "Creative",
-    categoryColor: COLOR_OPTIONS[5],
-    accumulatedMinutes: 1280,
-    order: 2,
-    updatedAt: "2025-01-04T07:50:00Z",
-  },
-];
+
+// データベースから取得した年間目標の情報を必要なデータのみに整形する
+const toAnnualGoal = (row: YearlyGoalRow): AnnualGoal => ({
+  id: row.id,
+  description: row.description,
+  categoryName: row.category,
+  categoryColor: row.category_color,
+  accumulatedMinutes: row.accumulated_time_year ?? 0,
+  order: row.order ?? 0,
+  updatedAt: row.updated_at ?? null,
+});
 
 export default function AnnualGoalsScreen() {
   const { t: tAnnual } = useTranslation("annualGoals");
-  const [goals, setGoals] = useState<AnnualGoal[]>(seededGoals);
+  const [goals, setGoals] = useState<AnnualGoal[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingUpdatedAt, setEditingUpdatedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ description: string; categoryName: string; categoryColor: string }>({
     description: "",
     categoryName: "",
     categoryColor: COLOR_OPTIONS[0],
   });
 
-  // インストールから何日後か計算
+  // Supabase Authからログインユーザ情報を取得
+  const fetchUserId = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id ?? null;
+    setUserId(uid);
+    return uid;
+  }, []);
+
+  // データベースからユーザの年間目標データを取得し必要なデータのみに絞った上で状態変数goalsにセットするロジック
+  useEffect(() => {
+    let active = true;
+    const fetchGoals = async () => {
+      setLoading(true);
+      setErrorMessage(null);
+      const uid = await fetchUserId();
+      if (!uid) {
+        if (active) setErrorMessage(tAnnual("errors.loginMissing"));
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("yearly_goals")
+        .select("id, description, category, category_color, accumulated_time_year, order, updated_at")
+        .eq("user_id", uid)
+        .order("order", { ascending: true });
+
+      if (error) {
+        if (active) setErrorMessage(error.message ?? tAnnual("errors.fetchFailed"));
+      } else if (active) {
+        const mapped = ((data as YearlyGoalRow[]) ?? []).map(toAnnualGoal);
+        setGoals(mapped);
+      }
+      if (active) setLoading(false);
+    };
+
+    fetchGoals();
+    return () => {
+      active = false;
+    };
+  }, [fetchUserId, tAnnual]);
+
+  // インストールから何日後か計算(92日前を仮のインストール日として計算している）
   const installDate = useMemo(() => new Date(Date.now() - 1000 * 60 * 60 * 24 * 92), []);
   const daysSinceInstall = useMemo(
     () => Math.max(1, Math.ceil((Date.now() - installDate.getTime()) / (1000 * 60 * 60 * 24))),
     [installDate],
   );
 
+  // ドーナツ型円グラフ作成のためのデータ取得
   const chartData = useMemo(() => {
     if (goals.length === 0) return [];
     return goals.map((goal, idx) => ({
       value: Math.max(goal.accumulatedMinutes, 1),
-      color: COLOR_OPTIONS[idx % COLOR_OPTIONS.length],
+      color: goal.categoryColor || COLOR_OPTIONS[idx % COLOR_OPTIONS.length],
     }));
   }, [goals]);
 
+  // 合計時間の算出
   const totalMinutes = useMemo(
     () => goals.reduce((sum, goal) => sum + Math.max(goal.accumulatedMinutes, 0), 0),
     [goals],
@@ -156,21 +191,51 @@ export default function AnnualGoalsScreen() {
       {
         text: tAnnual("deleteConfirmYes"),
         style: "destructive",
-        onPress: () => {
-          setGoals((prev) =>
-            prev
-              .filter((g) => g.id !== goal.id)
-              .map((g, idx) => ({
-                ...g,
-                order: idx,
-              })),
-          );
+        onPress: async () => {
+          const uid = userId ?? (await fetchUserId());
+          if (!uid) {
+            Alert.alert(tAnnual("errors.deleteFailed"), tAnnual("errors.loginMissing"));
+            return;
+          }
+          // データベースから削除するロジック
+          const { error } = await supabase.from("yearly_goals").delete().eq("id", goal.id);
+          if (error) {
+            Alert.alert(tAnnual("errors.deleteFailed"), error.message);
+            return;
+          }
+          // 削除したデータを表示しないようにタイムリーにUIに反映させるロジック
+          const nextGoals = goals
+            .filter((g) => g.id !== goal.id)
+            .map((g, idx) => ({
+              ...g,
+              order: idx,
+            }));
+          setGoals(nextGoals);
+
+          if (nextGoals.length > 0) {
+            // 定数updatesに正しい順番の年間目標をセットし、データベース更新に使用
+            const updates = nextGoals.map((item, idx) => ({
+              id: item.id,
+              description: item.description,
+              category: item.categoryName,
+              category_color: item.categoryColor,
+              accumulated_time_year: item.accumulatedMinutes,
+              order: idx,
+              user_id: uid,
+            }));
+
+            const { error: upsertError } = await supabase.from("yearly_goals").upsert(updates, { onConflict: "id" });
+            if (upsertError) {
+              Alert.alert(tAnnual("errors.reorderSaveFailed"), upsertError.message);
+            }
+          }
         },
       },
     ]);
   };
 
-  const handleSave = () => {
+  // 新規追加・アップデートの「追加ボタン」ロジック
+  const handleSave = async () => {
     const parsed = goalSchema.safeParse(draft);
     if (!parsed.success) {
       setModalError(tAnnual("modal.errorRequired"));
@@ -179,51 +244,129 @@ export default function AnnualGoalsScreen() {
 
     setSaving(true);
     setModalError(null);
-    const timestamp = new Date().toISOString();
+    try {
+      const uid = userId ?? (await fetchUserId());
+      if (!uid) {
+        setModalError(tAnnual("errors.loginMissing"));
+        setSaving(false);
+        return;
+      }
 
-    if (editingId) {
-      setGoals((prev) =>
-        prev.map((goal) =>
-          goal.id === editingId
-            ? {
-              ...goal,
-              description: parsed.data.description,
-              categoryName: parsed.data.categoryName,
-              categoryColor: parsed.data.categoryColor,
-              updatedAt: timestamp,
-            }
-            : goal,
-        ),
-      );
-    } else {
-      const nextOrderGoals = goals.map((goal, idx) => ({ ...goal, order: idx + 1 }));
-      const newGoal: AnnualGoal = {
-        id: `goal-${Date.now()}`,
-        description: parsed.data.description,
-        categoryName: parsed.data.categoryName,
-        categoryColor: parsed.data.categoryColor,
-        accumulatedMinutes: 90,
-        order: 0,
-        updatedAt: timestamp,
-      };
-      setGoals([newGoal, ...nextOrderGoals]);
+      // 「編集ボタン」からモーダルを開いた場合の処理
+      if (editingId) {
+        const { data, error } = await supabase
+          .from("yearly_goals")
+          .update({
+            description: parsed.data.description,
+            category: parsed.data.categoryName,
+            category_color: parsed.data.categoryColor,
+          })
+          .eq("id", editingId)
+          .select("id, description, category, category_color, accumulated_time_year, order, updated_at")
+          .single();
+        if (error) {
+          setModalError(error.message);
+          setSaving(false);
+          return;
+        }
+        const row = data as unknown as YearlyGoalRow;
+        setGoals((prev) => prev.map((goal) => (goal.id === editingId ? toAnnualGoal(row) : goal)));
+      } else {
+        // 「新規追加ボタン」からモーダルを開いた場合の処理
+        // ↓ 既存のgoalsのorderを＋１に更新し、新しいデータをorder0として処理する準備をする
+        const nextOrderGoals = goals.map((goal, idx) => ({ ...goal, order: idx + 1 }));
+        const { data, error } = await supabase
+          .from("yearly_goals")
+          .insert({
+            user_id: uid,
+            description: parsed.data.description,
+            category: parsed.data.categoryName,
+            category_color: parsed.data.categoryColor,
+            accumulated_time_year: 0,
+            order: 0,
+          })
+          .select("id, description, category, category_color, accumulated_time_year, order, updated_at")
+          .single();
+        if (error) {
+          setModalError(error.message);
+          setSaving(false);
+          return;
+        }
+        const row = data as unknown as YearlyGoalRow;
+        const upsertPayload = [
+          ...nextOrderGoals.map((goal, idx) => ({
+            id: goal.id,
+            description: goal.description,
+            category: goal.categoryName,
+            category_color: goal.categoryColor,
+            accumulated_time_year: goal.accumulatedMinutes,
+            order: idx + 1,
+            user_id: uid,
+          })),
+          {
+            id: row.id,
+            description: row.description,
+            category: row.category,
+            category_color: row.category_color,
+            accumulated_time_year: row.accumulated_time_year ?? 0,
+            order: 0,
+            user_id: uid,
+          },
+        ];
+
+        // ここで更新された情報(upsertPayload)をデータベースに反映
+        // upsert → onConflictで指定したキーがDBに存在すれば更新、存在しなければ挿入を実行
+        const { error: upsertError } = await supabase.from("yearly_goals").upsert(upsertPayload, { onConflict: "id" });
+        if (upsertError) {
+          setModalError(upsertError.message);
+          setSaving(false);
+          return;
+        }
+        setGoals((prev) => [toAnnualGoal(row), ...prev.map((goal, idx) => ({ ...goal, order: idx + 1 }))]);
+      }
+      setModalVisible(false);
+      setEditingId(null);
+      setEditingUpdatedAt(null);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : tAnnual("errors.saveFailed");
+      setModalError(message);
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    setModalVisible(false);
-    setEditingId(null);
-    setEditingUpdatedAt(null);
   };
 
-  const handleDragEnd = ({ data }: { data: AnnualGoal[] }) => {
+  // ドラッグの順番並び替えが終わった時に発火
+  const handleDragEnd = async ({ data }: { data: AnnualGoal[] }) => {
     setGoals(
       data.map((goal, idx) => ({
         ...goal,
         order: idx,
       })),
     );
+    const uid = userId ?? (await fetchUserId());
+    if (!uid) {
+      Alert.alert(tAnnual("errors.reorderSaveFailed"), tAnnual("errors.loginMissing"));
+      return;
+    }
+
+    const updates = data.map((goal, idx) => ({
+      id: goal.id,
+      description: goal.description,
+      category: goal.categoryName,
+      category_color: goal.categoryColor,
+      accumulated_time_year: goal.accumulatedMinutes,
+      order: idx,
+      user_id: uid,
+    }));
+
+    //　ここで更新された情報をデータベースに反映
+    const { error } = await supabase.from("yearly_goals").upsert(updates, { onConflict: "id" });
+    if (error) {
+      Alert.alert(tAnnual("errors.reorderSaveFailed"), error.message);
+    }
   };
 
+  // 指定のPressable要素の長押しドラッグを可能にするロジック
   const renderGoalCard = ({ item, drag, isActive }: RenderItemParams<AnnualGoal>) => (
     <Pressable
       key={item.id}
@@ -271,6 +414,14 @@ export default function AnnualGoalsScreen() {
   const hasGoals = goals.length > 0;
   const modalTitle = editingId ? tAnnual("modal.editTitle") : tAnnual("modal.addTitle");
 
+  if (loading) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <Loading />
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
       <View style={[styles.card, shadows.card]}>
@@ -304,7 +455,7 @@ export default function AnnualGoalsScreen() {
                 </View>
               </View>
               <View style={styles.chartSummary}>
-                <Text style={styles.centerLabelTitle}>{tAnnual("chart.totalLabel")}</Text>
+                <Text style={styles.centerLabelSubTitle}>{tAnnual("chart.totalLabel")}</Text>
                 <Text style={styles.centerLabelValue}>{formatMinutes(totalMinutes)}</Text>
                 <Text style={styles.centerLabelCaption}>
                   {tAnnual("chart.avgPerDayLabel", { value: formatMinutes(averagePerDay) })}
@@ -333,6 +484,7 @@ export default function AnnualGoalsScreen() {
           </Pressable>
         </View>
 
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </View>
 
       {hasGoals ? (
@@ -492,6 +644,11 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     textAlign: "center",
   },
+  centerLabelSubTitle: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    textAlign: "left",
+  },
   centerLabelValue: {
     color: colors.textPrimary,
     fontSize: typography.lg,
@@ -575,6 +732,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: "700",
     fontSize: typography.md,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: typography.sm,
   },
   goalGrid: {
     gap: spacing.md,

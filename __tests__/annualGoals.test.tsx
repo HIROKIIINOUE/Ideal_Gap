@@ -1,8 +1,9 @@
 import React from "react";
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import AnnualGoalsScreen from "../components/feature/AnnualGoalsScreen";
 import i18n from "../i18n";
+import { supabase } from "../lib/supabaseClient";
 
 jest.mock("@expo/vector-icons", () => {
   const MockIcon = () => null;
@@ -15,6 +16,15 @@ jest.mock("expo-linear-gradient", () => {
   MockLinearGradient.displayName = "MockLinearGradient";
   return { LinearGradient: MockLinearGradient };
 });
+
+jest.mock("../lib/supabaseClient", () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn(),
+    },
+    from: jest.fn(),
+  },
+}));
 
 jest.mock("react-native-gifted-charts", () => {
   const MockPieChart = ({ centerLabelComponent }: { centerLabelComponent?: () => React.ReactNode }) => (
@@ -39,7 +49,7 @@ jest.mock("react-native-draggable-flatlist", () => {
     React.useEffect(() => {
       if (!firedRef.current && data.length > 0) {
         firedRef.current = true;
-        onDragEnd({ data });
+        onDragEnd({ data: [...data].reverse() });
       }
     }, [data, onDragEnd]);
 
@@ -62,6 +72,19 @@ jest.mock("react-native-draggable-flatlist", () => {
 });
 
 describe("AnnualGoalsScreen", () => {
+  const mockSelect = jest.fn();
+  const mockEq = jest.fn();
+  const mockOrder = jest.fn();
+  const mockUpsert = jest.fn();
+  const mockInsert = jest.fn();
+  const mockUpdate = jest.fn();
+  const mockDelete = jest.fn();
+  const mockEqAfterDelete = jest.fn();
+  const mockSelectAfterInsert = jest.fn();
+  const mockSingleAfterInsert = jest.fn();
+  const mockSelectAfterUpdate = jest.fn();
+  const mockSingleAfterUpdate = jest.fn();
+
   const renderScreen = () =>
     render(
       <I18nextProvider i18n={i18n}>
@@ -69,15 +92,131 @@ describe("AnnualGoalsScreen", () => {
       </I18nextProvider>,
     );
 
-  test("renders seeded goals and chart summary", () => {
-    const { getByText } = renderScreen();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: { id: "user-123" } } },
+    });
+    (supabase.from as jest.Mock).mockReturnValue({
+      select: mockSelect,
+      eq: mockEq,
+      order: mockOrder,
+      upsert: mockUpsert,
+      insert: mockInsert,
+      update: mockUpdate,
+      delete: mockDelete,
+    });
 
-    expect(getByText("Total focus time")).toBeTruthy();
-    expect(getByText("Career leap with shipped projects and portfolio refresh")).toBeTruthy();
+    mockSelect.mockReturnValue({
+      eq: mockEq,
+      order: mockOrder,
+    });
+    mockEq.mockReturnValue({
+      order: mockOrder,
+    });
+    mockOrder.mockResolvedValue({
+      data: [
+        {
+          id: "goal-1",
+          description: "Deep health routine with consistent sleep and workouts",
+          category: "Health",
+          category_color: "#1E5EFF",
+          accumulated_time_year: 1820,
+          order: 0,
+          updated_at: "2025-01-06T09:30:00Z",
+        },
+        {
+          id: "goal-2",
+          description: "Career leap with shipped projects and portfolio refresh",
+          category: "Career",
+          category_color: "#6EA8FF",
+          accumulated_time_year: 2450,
+          order: 1,
+          updated_at: "2025-01-08T13:10:00Z",
+        },
+      ],
+      error: null,
+    });
+    mockUpsert.mockResolvedValue({ error: null });
+
+    mockSingleAfterInsert.mockResolvedValue({
+      data: {
+        id: "goal-3",
+        description: "Launch a side product",
+        category: "Product",
+        category_color: "#1E5EFF",
+        accumulated_time_year: 0,
+        order: 0,
+        updated_at: "2025-02-01T00:00:00Z",
+      },
+      error: null,
+    });
+    mockSelectAfterInsert.mockReturnThis();
+    mockInsert.mockReturnValue({
+      select: mockSelectAfterInsert,
+      single: mockSingleAfterInsert,
+    });
+
+    mockSingleAfterUpdate.mockResolvedValue({
+      data: {
+        id: "goal-1",
+        description: "Updated goal",
+        category: "Health",
+        category_color: "#1E5EFF",
+        accumulated_time_year: 1820,
+        order: 0,
+        updated_at: "2025-02-02T00:00:00Z",
+      },
+      error: null,
+    });
+    mockSelectAfterUpdate.mockReturnThis();
+    mockUpdate.mockReturnValue({
+      eq: () => ({
+        select: mockSelectAfterUpdate,
+        single: mockSingleAfterUpdate,
+      }),
+    });
+    mockEqAfterDelete.mockResolvedValue({ error: null });
+    mockDelete.mockReturnValue({
+      eq: mockEqAfterDelete,
+    });
   });
 
-  test("allows adding a new annual goal", () => {
-    const { getByRole, getByPlaceholderText, getByText } = renderScreen();
+  test("fetches goals, renders them, and persists reordered data with user id", async () => {
+    const { findByText } = renderScreen();
+
+    expect(await findByText("Total focus time")).toBeTruthy();
+    expect(await findByText("Career leap with shipped projects and portfolio refresh")).toBeTruthy();
+
+    await waitFor(() => expect(mockUpsert).toHaveBeenCalled());
+    const [updates, options] = mockUpsert.mock.calls[0];
+    expect(updates).toEqual([
+      {
+        id: "goal-2",
+        description: "Career leap with shipped projects and portfolio refresh",
+        category: "Career",
+        category_color: "#6EA8FF",
+        accumulated_time_year: 2450,
+        order: 0,
+        user_id: "user-123",
+      },
+      {
+        id: "goal-1",
+        description: "Deep health routine with consistent sleep and workouts",
+        category: "Health",
+        category_color: "#1E5EFF",
+        accumulated_time_year: 1820,
+        order: 1,
+        user_id: "user-123",
+      },
+    ]);
+    expect(options).toEqual({ onConflict: "id" });
+  });
+
+  test("allows adding a new annual goal and shifts existing order", async () => {
+    const { getByRole, getByPlaceholderText } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
 
     fireEvent.press(getByRole("button", { name: "Add" }));
     fireEvent.changeText(
@@ -87,6 +226,47 @@ describe("AnnualGoalsScreen", () => {
     fireEvent.changeText(getByPlaceholderText("e.g. Health / Career"), "Product");
     fireEvent.press(getByRole("button", { name: "Save" }));
 
-    expect(getByText("Launch a side product")).toBeTruthy();
+    await waitFor(() => expect(mockInsert).toHaveBeenCalled());
+    await waitFor(() => expect(mockUpsert).toHaveBeenCalledTimes(2));
+
+    const [updates] = mockUpsert.mock.calls[mockUpsert.mock.calls.length - 1];
+    expect(updates).toEqual([
+      {
+        id: "goal-2",
+        description: "Career leap with shipped projects and portfolio refresh",
+        category: "Career",
+        category_color: "#6EA8FF",
+        accumulated_time_year: 2450,
+        order: 1,
+        user_id: "user-123",
+      },
+      {
+        id: "goal-1",
+        description: "Deep health routine with consistent sleep and workouts",
+        category: "Health",
+        category_color: "#1E5EFF",
+        accumulated_time_year: 1820,
+        order: 2,
+        user_id: "user-123",
+      },
+      {
+        id: "goal-3",
+        description: "Launch a side product",
+        category: "Product",
+        category_color: "#1E5EFF",
+        accumulated_time_year: 0,
+        order: 0,
+        user_id: "user-123",
+      },
+    ]);
+  });
+
+  test("shows login missing message when session is absent", async () => {
+    (supabase.auth.getSession as jest.Mock).mockResolvedValueOnce({
+      data: { session: null },
+    });
+    const { findByText } = renderScreen();
+
+    expect(await findByText("Session not found. Please log in again.")).toBeTruthy();
   });
 });

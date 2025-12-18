@@ -152,6 +152,83 @@ export type Database = {
           },
         ];
       };
+      user_ideal: {
+        Row: {
+          created_at: string | null;
+          description: string;
+          id: string;
+          order: number | null;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          description: string;
+          id?: string;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string;
+          id?: string;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_ideal_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      yearly_goals: {
+        Row: {
+          accumulated_time_year: number | null;
+          category: string;
+          category_color: string;
+          created_at: string | null;
+          description: string;
+          id: string;
+          order: number | null;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          accumulated_time_year?: number | null;
+          category: string;
+          category_color: string;
+          created_at?: string | null;
+          description: string;
+          id?: string;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          accumulated_time_year?: number | null;
+          category?: string;
+          category_color?: string;
+          created_at?: string | null;
+          description?: string;
+          id?: string;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "yearly_goals_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {};
     Functions: {};

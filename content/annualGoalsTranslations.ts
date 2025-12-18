@@ -33,6 +33,13 @@ export type AnnualGoalsTranslations = {
   deleteConfirmBody: string;
   deleteConfirmYes: string;
   deleteConfirmNo: string;
+  errors: {
+    loginMissing: string;
+    fetchFailed: string;
+    reorderSaveFailed: string;
+    saveFailed: string;
+    deleteFailed: string;
+  };
 };
 
 export const annualGoalsTranslations: Record<
@@ -73,6 +80,13 @@ export const annualGoalsTranslations: Record<
     deleteConfirmBody: "この年間目標を削除すると元に戻せません。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
+    errors: {
+      loginMissing: "ログイン情報が見つかりませんでした",
+      fetchFailed: "年間目標の取得に失敗しました",
+      reorderSaveFailed: "並び替えの保存に失敗しました",
+      saveFailed: "保存に失敗しました",
+      deleteFailed: "削除に失敗しました",
+    },
   },
   en: {
     pageTitle: "Annual Goals",
@@ -109,6 +123,13 @@ export const annualGoalsTranslations: Record<
     deleteConfirmBody: "You can’t undo this action after deleting.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
+    errors: {
+      loginMissing: "Session not found. Please log in again.",
+      fetchFailed: "Failed to load annual goals.",
+      reorderSaveFailed: "Failed to save the new order.",
+      saveFailed: "Failed to save.",
+      deleteFailed: "Failed to delete this annual goal.",
+    },
   },
   fr: {
     pageTitle: "Objectifs annuels",
@@ -146,5 +167,12 @@ export const annualGoalsTranslations: Record<
     deleteConfirmBody: "Cette action est définitive après suppression.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
+    errors: {
+      loginMissing: "Session introuvable. Veuillez vous reconnecter.",
+      fetchFailed: "Échec du chargement des objectifs annuels.",
+      reorderSaveFailed: "Échec de l'enregistrement de l'ordre.",
+      saveFailed: "Échec de l'enregistrement.",
+      deleteFailed: "Échec de la suppression de cet objectif annuel.",
+    },
   },
 };
