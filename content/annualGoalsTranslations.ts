@@ -16,19 +16,20 @@ export type AnnualGoalsTranslations = {
     totalLabel: string;
     avgPerDayLabel: string;
   };
-  modal: {
-    addTitle: string;
-    editTitle: string;
-    descriptionLabel: string;
-    categoryLabel: string;
-    colorLabel: string;
-    placeholder: string;
-    categoryPlaceholder: string;
-    cancel: string;
-    save: string;
-    errorRequired: string;
-    colorA11y: string;
-  };
+    modal: {
+      addTitle: string;
+      editTitle: string;
+      descriptionLabel: string;
+      categoryLabel: string;
+      colorLabel: string;
+      placeholder: string;
+      categoryPlaceholder: string;
+      cancel: string;
+      save: string;
+      errorRequired: string;
+      errorCategoryMax: string;
+      colorA11y: string;
+    };
   deleteConfirmTitle: string;
   deleteConfirmBody: string;
   deleteConfirmYes: string;
@@ -74,6 +75,7 @@ export const annualGoalsTranslations: Record<
       cancel: "キャンセル",
       save: "保存",
       errorRequired: "すべての項目を入力してください",
+      errorCategoryMax: "カテゴリー名は15文字以内で入力してください",
       colorA11y: "色 {{color}} を選択",
     },
     deleteConfirmTitle: "削除してもよろしいですか？",
@@ -117,6 +119,7 @@ export const annualGoalsTranslations: Record<
       cancel: "Cancel",
       save: "Save",
       errorRequired: "Please fill all fields",
+      errorCategoryMax: "Category name must be 15 characters or fewer.",
       colorA11y: "Select color {{color}}",
     },
     deleteConfirmTitle: "Delete this annual goal?",
@@ -161,6 +164,7 @@ export const annualGoalsTranslations: Record<
       cancel: "Annuler",
       save: "Enregistrer",
       errorRequired: "Veuillez remplir tous les champs",
+      errorCategoryMax: "Le nom de catégorie doit contenir 15 caractères ou moins.",
       colorA11y: "Sélectionner la couleur {{color}}",
     },
     deleteConfirmTitle: "Supprimer cet objectif annuel ?",

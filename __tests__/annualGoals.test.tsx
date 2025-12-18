@@ -261,6 +261,26 @@ describe("AnnualGoalsScreen", () => {
     ]);
   });
 
+  test("prevents saving a category name longer than 15 characters", async () => {
+    const { getByRole, getByPlaceholderText, findByText } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const initialUpsertCalls = mockUpsert.mock.calls.length;
+
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    fireEvent.changeText(
+      getByPlaceholderText("e.g. Build a stable sleep routine and prioritize recovery"),
+      "Ship more features",
+    );
+    fireEvent.changeText(getByPlaceholderText("e.g. Health / Career"), "VeryLongCategoryName");
+    fireEvent.press(getByRole("button", { name: "Save" }));
+
+    expect(await findByText("Category name must be 15 characters or fewer.")).toBeTruthy();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockUpsert.mock.calls.length).toBe(initialUpsertCalls);
+  });
+
   test("shows login missing message when session is absent", async () => {
     (supabase.auth.getSession as jest.Mock).mockResolvedValueOnce({
       data: { session: null },

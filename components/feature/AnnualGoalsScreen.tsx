@@ -49,7 +49,7 @@ const COLOR_OPTIONS = [
 
 const goalSchema = z.object({
   description: z.string().trim().min(1),
-  categoryName: z.string().trim().min(1),
+  categoryName: z.string().trim().min(1).max(15),
   categoryColor: z.string().trim().min(1),
 });
 
@@ -238,7 +238,14 @@ export default function AnnualGoalsScreen() {
   const handleSave = async () => {
     const parsed = goalSchema.safeParse(draft);
     if (!parsed.success) {
-      setModalError(tAnnual("modal.errorRequired"));
+      const hasCategoryTooLong = parsed.error.issues.some(
+        (issue) => issue.path[0] === "categoryName" && issue.code === "too_big",
+      );
+      if (hasCategoryTooLong) {
+        setModalError(tAnnual("modal.errorCategoryMax"));
+      } else {
+        setModalError(tAnnual("modal.errorRequired"));
+      }
       return;
     }
 
