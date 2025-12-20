@@ -16,20 +16,17 @@ export type AnnualGoalsTranslations = {
     totalLabel: string;
     avgPerDayLabel: string;
   };
-    modal: {
-      addTitle: string;
-      editTitle: string;
-      descriptionLabel: string;
-      categoryLabel: string;
-      colorLabel: string;
-      placeholder: string;
-      categoryPlaceholder: string;
-      cancel: string;
-      save: string;
-      errorRequired: string;
-      errorCategoryMax: string;
-      colorA11y: string;
-    };
+  modal: {
+    addTitle: string;
+    editTitle: string;
+    descriptionLabel: string;
+    colorLabel: string;
+    placeholder: string;
+    cancel: string;
+    save: string;
+    errorRequired: string;
+    colorA11y: string;
+  };
   deleteConfirmTitle: string;
   deleteConfirmBody: string;
   deleteConfirmYes: string;
@@ -49,14 +46,13 @@ export const annualGoalsTranslations: Record<
 > = {
   ja: {
     pageTitle: "年間目標",
-    pageSubtitle:
-      "理想の自分をもとに、カテゴリーと色で年間の軸を整理しましょう。",
+    pageSubtitle: "理想の自分をもとに、色で年間の軸を整理しましょう。",
     add: "追加",
     delete: "削除",
     deleteExit: "削除モードを終了",
     reorderHint: "カードを長押し＋ドラッグで順番を変えられます",
     emptyTitle: "まだ年間目標が登録されていません",
-    emptyBody: "カテゴリーと色を決めて、年間の優先順位を可視化しましょう。",
+    emptyBody: "色を決めて、年間の優先順位を可視化しましょう。",
     emptyCta: "最初の年間目標を追加",
     updatedSuffix: "更新",
     chart: {
@@ -68,14 +64,11 @@ export const annualGoalsTranslations: Record<
       addTitle: "年間目標を追加",
       editTitle: "編集",
       descriptionLabel: "年間目標",
-      categoryLabel: "カテゴリー名",
-      colorLabel: "カテゴリーカラー",
+      colorLabel: "目標カラー",
       placeholder: "例）健康的な生活リズムを確立して睡眠を最優先にする",
-      categoryPlaceholder: "例）Health / Career など",
       cancel: "キャンセル",
       save: "保存",
       errorRequired: "すべての項目を入力してください",
-      errorCategoryMax: "カテゴリー名は15文字以内で入力してください",
       colorA11y: "色 {{color}} を選択",
     },
     deleteConfirmTitle: "削除してもよろしいですか？",
@@ -92,15 +85,13 @@ export const annualGoalsTranslations: Record<
   },
   en: {
     pageTitle: "Annual Goals",
-    pageSubtitle:
-      "Map your year from your ideal self with categories and colors.",
+    pageSubtitle: "Map your year from your ideal self with clear color coding.",
     add: "Add",
     delete: "Delete",
     deleteExit: "Exit delete mode",
     reorderHint: "Long-press and drag cards to reorder.",
     emptyTitle: "No annual goals yet",
-    emptyBody:
-      "Define categories and colors to visualize your yearly priorities.",
+    emptyBody: "Pick colors to visualize your yearly priorities.",
     emptyCta: "Add your first annual goal",
     updatedSuffix: "Updated",
     chart: {
@@ -112,14 +103,11 @@ export const annualGoalsTranslations: Record<
       addTitle: "Add annual goal",
       editTitle: "Edit",
       descriptionLabel: "Annual goal",
-      categoryLabel: "Category name",
-      colorLabel: "Category color",
+      colorLabel: "Goal color",
       placeholder: "e.g. Build a stable sleep routine and prioritize recovery",
-      categoryPlaceholder: "e.g. Health / Career",
       cancel: "Cancel",
       save: "Save",
       errorRequired: "Please fill all fields",
-      errorCategoryMax: "Category name must be 15 characters or fewer.",
       colorA11y: "Select color {{color}}",
     },
     deleteConfirmTitle: "Delete this annual goal?",
@@ -137,14 +125,14 @@ export const annualGoalsTranslations: Record<
   fr: {
     pageTitle: "Objectifs annuels",
     pageSubtitle:
-      "Définissez votre année depuis votre moi idéal avec des catégories et des couleurs.",
+      "Définissez votre année depuis votre moi idéal avec un code couleur clair.",
     add: "Ajouter",
     delete: "Supprimer",
     deleteExit: "Quitter le mode suppression",
     reorderHint: "Appui long puis glisser pour réordonner les cartes.",
     emptyTitle: "Aucun objectif annuel pour le moment",
     emptyBody:
-      "Choisissez des catégories et des couleurs pour visualiser vos priorités.",
+      "Choisissez des couleurs pour visualiser vos priorités annuelles.",
     emptyCta: "Ajouter un premier objectif annuel",
     updatedSuffix: "Mis à jour",
     chart: {
@@ -156,15 +144,12 @@ export const annualGoalsTranslations: Record<
       addTitle: "Ajouter un objectif annuel",
       editTitle: "Modifier",
       descriptionLabel: "Objectif annuel",
-      categoryLabel: "Nom de catégorie",
-      colorLabel: "Couleur de catégorie",
+      colorLabel: "Couleur de l'objectif",
       placeholder:
         "ex. Construire une routine de sommeil stable et prioriser la récupération",
-      categoryPlaceholder: "ex. Santé / Carrière",
       cancel: "Annuler",
       save: "Enregistrer",
       errorRequired: "Veuillez remplir tous les champs",
-      errorCategoryMax: "Le nom de catégorie doit contenir 15 caractères ou moins.",
       colorA11y: "Sélectionner la couleur {{color}}",
     },
     deleteConfirmTitle: "Supprimer cet objectif annuel ?",

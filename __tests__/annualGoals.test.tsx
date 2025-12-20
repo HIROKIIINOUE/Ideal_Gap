@@ -119,8 +119,7 @@ describe("AnnualGoalsScreen", () => {
         {
           id: "goal-1",
           description: "Deep health routine with consistent sleep and workouts",
-          category: "Health",
-          category_color: "#1E5EFF",
+          year_goal_color: "#1E5EFF",
           accumulated_time_year: 1820,
           order: 0,
           updated_at: "2025-01-06T09:30:00Z",
@@ -128,8 +127,7 @@ describe("AnnualGoalsScreen", () => {
         {
           id: "goal-2",
           description: "Career leap with shipped projects and portfolio refresh",
-          category: "Career",
-          category_color: "#6EA8FF",
+          year_goal_color: "#6EA8FF",
           accumulated_time_year: 2450,
           order: 1,
           updated_at: "2025-01-08T13:10:00Z",
@@ -143,8 +141,7 @@ describe("AnnualGoalsScreen", () => {
       data: {
         id: "goal-3",
         description: "Launch a side product",
-        category: "Product",
-        category_color: "#1E5EFF",
+        year_goal_color: "#1E5EFF",
         accumulated_time_year: 0,
         order: 0,
         updated_at: "2025-02-01T00:00:00Z",
@@ -161,8 +158,7 @@ describe("AnnualGoalsScreen", () => {
       data: {
         id: "goal-1",
         description: "Updated goal",
-        category: "Health",
-        category_color: "#1E5EFF",
+        year_goal_color: "#1E5EFF",
         accumulated_time_year: 1820,
         order: 0,
         updated_at: "2025-02-02T00:00:00Z",
@@ -194,8 +190,7 @@ describe("AnnualGoalsScreen", () => {
       {
         id: "goal-2",
         description: "Career leap with shipped projects and portfolio refresh",
-        category: "Career",
-        category_color: "#6EA8FF",
+        year_goal_color: "#6EA8FF",
         accumulated_time_year: 2450,
         order: 0,
         user_id: "user-123",
@@ -203,8 +198,7 @@ describe("AnnualGoalsScreen", () => {
       {
         id: "goal-1",
         description: "Deep health routine with consistent sleep and workouts",
-        category: "Health",
-        category_color: "#1E5EFF",
+        year_goal_color: "#1E5EFF",
         accumulated_time_year: 1820,
         order: 1,
         user_id: "user-123",
@@ -223,7 +217,6 @@ describe("AnnualGoalsScreen", () => {
       getByPlaceholderText("e.g. Build a stable sleep routine and prioritize recovery"),
       "Launch a side product",
     );
-    fireEvent.changeText(getByPlaceholderText("e.g. Health / Career"), "Product");
     fireEvent.press(getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(mockInsert).toHaveBeenCalled());
@@ -234,8 +227,7 @@ describe("AnnualGoalsScreen", () => {
       {
         id: "goal-2",
         description: "Career leap with shipped projects and portfolio refresh",
-        category: "Career",
-        category_color: "#6EA8FF",
+        year_goal_color: "#6EA8FF",
         accumulated_time_year: 2450,
         order: 1,
         user_id: "user-123",
@@ -243,8 +235,7 @@ describe("AnnualGoalsScreen", () => {
       {
         id: "goal-1",
         description: "Deep health routine with consistent sleep and workouts",
-        category: "Health",
-        category_color: "#1E5EFF",
+        year_goal_color: "#1E5EFF",
         accumulated_time_year: 1820,
         order: 2,
         user_id: "user-123",
@@ -252,8 +243,7 @@ describe("AnnualGoalsScreen", () => {
       {
         id: "goal-3",
         description: "Launch a side product",
-        category: "Product",
-        category_color: "#1E5EFF",
+        year_goal_color: "#1E5EFF",
         accumulated_time_year: 0,
         order: 0,
         user_id: "user-123",
@@ -261,22 +251,17 @@ describe("AnnualGoalsScreen", () => {
     ]);
   });
 
-  test("prevents saving a category name longer than 15 characters", async () => {
-    const { getByRole, getByPlaceholderText, findByText } = renderScreen();
+  test("prevents saving when required fields are empty", async () => {
+    const { getByRole, findByText } = renderScreen();
 
     await waitFor(() => expect(mockOrder).toHaveBeenCalled());
 
     const initialUpsertCalls = mockUpsert.mock.calls.length;
 
     fireEvent.press(getByRole("button", { name: "Add" }));
-    fireEvent.changeText(
-      getByPlaceholderText("e.g. Build a stable sleep routine and prioritize recovery"),
-      "Ship more features",
-    );
-    fireEvent.changeText(getByPlaceholderText("e.g. Health / Career"), "VeryLongCategoryName");
     fireEvent.press(getByRole("button", { name: "Save" }));
 
-    expect(await findByText("Category name must be 15 characters or fewer.")).toBeTruthy();
+    expect(await findByText("Please fill all fields")).toBeTruthy();
     expect(mockInsert).not.toHaveBeenCalled();
     expect(mockUpsert.mock.calls.length).toBe(initialUpsertCalls);
   });

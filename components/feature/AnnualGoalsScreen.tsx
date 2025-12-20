@@ -23,8 +23,7 @@ import Loading from "../Loading";
 type AnnualGoal = {
   id: string;
   description: string;
-  categoryName: string;
-  categoryColor: string;
+  goalColor: string;
   accumulatedMinutes: number;
   order: number;
   updatedAt: string | null;
@@ -49,8 +48,7 @@ const COLOR_OPTIONS = [
 
 const goalSchema = z.object({
   description: z.string().trim().min(1),
-  categoryName: z.string().trim().min(1).max(15),
-  categoryColor: z.string().trim().min(1),
+  goalColor: z.string().trim().min(1),
 });
 
 // 分の合計値から「◯時間◯分」というフォーマットに変換する処理
@@ -72,8 +70,7 @@ const formatMinutes = (minutes: number) => {
 const toAnnualGoal = (row: YearlyGoalRow): AnnualGoal => ({
   id: row.id,
   description: row.description,
-  categoryName: row.category,
-  categoryColor: row.category_color,
+  goalColor: row.year_goal_color,
   accumulatedMinutes: row.accumulated_time_year ?? 0,
   order: row.order ?? 0,
   updatedAt: row.updated_at ?? null,
@@ -91,10 +88,9 @@ export default function AnnualGoalsScreen() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ description: string; categoryName: string; categoryColor: string }>({
+  const [draft, setDraft] = useState<{ description: string; goalColor: string }>({
     description: "",
-    categoryName: "",
-    categoryColor: COLOR_OPTIONS[0],
+    goalColor: COLOR_OPTIONS[0],
   });
 
   // Supabase Authからログインユーザ情報を取得
@@ -120,7 +116,7 @@ export default function AnnualGoalsScreen() {
 
       const { data, error } = await supabase
         .from("yearly_goals")
-        .select("id, description, category, category_color, accumulated_time_year, order, updated_at")
+        .select("id, description, year_goal_color, accumulated_time_year, order, updated_at")
         .eq("user_id", uid)
         .order("order", { ascending: true });
 
@@ -151,7 +147,7 @@ export default function AnnualGoalsScreen() {
     if (goals.length === 0) return [];
     return goals.map((goal, idx) => ({
       value: Math.max(goal.accumulatedMinutes, 1),
-      color: goal.categoryColor || COLOR_OPTIONS[idx % COLOR_OPTIONS.length],
+      color: goal.goalColor || COLOR_OPTIONS[idx % COLOR_OPTIONS.length],
     }));
   }, [goals]);
 
@@ -164,7 +160,7 @@ export default function AnnualGoalsScreen() {
 
   const handleAddPress = () => {
     setEditingId(null);
-    setDraft({ description: "", categoryName: "", categoryColor: COLOR_OPTIONS[0] });
+    setDraft({ description: "", goalColor: COLOR_OPTIONS[0] });
     setModalError(null);
     setModalVisible(true);
   };
@@ -177,8 +173,7 @@ export default function AnnualGoalsScreen() {
     setEditingId(goal.id);
     setDraft({
       description: goal.description,
-      categoryName: goal.categoryName,
-      categoryColor: goal.categoryColor,
+      goalColor: goal.goalColor,
     });
     setEditingUpdatedAt(goal.updatedAt);
     setModalError(null);
@@ -217,8 +212,7 @@ export default function AnnualGoalsScreen() {
             const updates = nextGoals.map((item, idx) => ({
               id: item.id,
               description: item.description,
-              category: item.categoryName,
-              category_color: item.categoryColor,
+              year_goal_color: item.goalColor,
               accumulated_time_year: item.accumulatedMinutes,
               order: idx,
               user_id: uid,
@@ -238,14 +232,7 @@ export default function AnnualGoalsScreen() {
   const handleSave = async () => {
     const parsed = goalSchema.safeParse(draft);
     if (!parsed.success) {
-      const hasCategoryTooLong = parsed.error.issues.some(
-        (issue) => issue.path[0] === "categoryName" && issue.code === "too_big",
-      );
-      if (hasCategoryTooLong) {
-        setModalError(tAnnual("modal.errorCategoryMax"));
-      } else {
-        setModalError(tAnnual("modal.errorRequired"));
-      }
+      setModalError(tAnnual("modal.errorRequired"));
       return;
     }
 
@@ -265,11 +252,10 @@ export default function AnnualGoalsScreen() {
           .from("yearly_goals")
           .update({
             description: parsed.data.description,
-            category: parsed.data.categoryName,
-            category_color: parsed.data.categoryColor,
+            year_goal_color: parsed.data.goalColor,
           })
           .eq("id", editingId)
-          .select("id, description, category, category_color, accumulated_time_year, order, updated_at")
+          .select("id, description, year_goal_color, accumulated_time_year, order, updated_at")
           .single();
         if (error) {
           setModalError(error.message);
@@ -287,12 +273,11 @@ export default function AnnualGoalsScreen() {
           .insert({
             user_id: uid,
             description: parsed.data.description,
-            category: parsed.data.categoryName,
-            category_color: parsed.data.categoryColor,
+            year_goal_color: parsed.data.goalColor,
             accumulated_time_year: 0,
             order: 0,
           })
-          .select("id, description, category, category_color, accumulated_time_year, order, updated_at")
+          .select("id, description, year_goal_color, accumulated_time_year, order, updated_at")
           .single();
         if (error) {
           setModalError(error.message);
@@ -304,8 +289,7 @@ export default function AnnualGoalsScreen() {
           ...nextOrderGoals.map((goal, idx) => ({
             id: goal.id,
             description: goal.description,
-            category: goal.categoryName,
-            category_color: goal.categoryColor,
+            year_goal_color: goal.goalColor,
             accumulated_time_year: goal.accumulatedMinutes,
             order: idx + 1,
             user_id: uid,
@@ -313,8 +297,7 @@ export default function AnnualGoalsScreen() {
           {
             id: row.id,
             description: row.description,
-            category: row.category,
-            category_color: row.category_color,
+            year_goal_color: row.year_goal_color,
             accumulated_time_year: row.accumulated_time_year ?? 0,
             order: 0,
             user_id: uid,
@@ -359,8 +342,7 @@ export default function AnnualGoalsScreen() {
     const updates = data.map((goal, idx) => ({
       id: goal.id,
       description: goal.description,
-      category: goal.categoryName,
-      category_color: goal.categoryColor,
+      year_goal_color: goal.goalColor,
       accumulated_time_year: goal.accumulatedMinutes,
       order: idx,
       user_id: uid,
@@ -395,9 +377,8 @@ export default function AnnualGoalsScreen() {
       />
       <Text style={styles.goalTitle}>{item.description}</Text>
       <View style={styles.goalFooter}>
-        <View style={styles.categoryRow}>
-          <View style={[styles.categoryDot, { backgroundColor: item.categoryColor }]} />
-          <Text style={styles.categoryName}>{item.categoryName}</Text>
+        <View style={styles.colorRow}>
+          <View style={[styles.colorDot, { backgroundColor: item.goalColor }]} />
           <Text style={styles.goalTime}>{formatMinutes(item.accumulatedMinutes)}</Text>
         </View>
         <Pressable
@@ -553,20 +534,6 @@ export default function AnnualGoalsScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>{tAnnual("modal.categoryLabel")}</Text>
-                <TextInput
-                  placeholder={tAnnual("modal.categoryPlaceholder")}
-                  placeholderTextColor={colors.textSecondary}
-                  style={styles.modalInput}
-                  value={draft.categoryName}
-                  onChangeText={(text) => {
-                    setDraft((prev) => ({ ...prev, categoryName: text }));
-                    setModalError(null);
-                  }}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
                 <Text style={styles.label}>{tAnnual("modal.colorLabel")}</Text>
                 <View style={styles.swatchRow}>
                   {COLOR_OPTIONS.map((option) => (
@@ -574,14 +541,14 @@ export default function AnnualGoalsScreen() {
                       key={option}
                       accessibilityRole="button"
                       accessibilityLabel={tAnnual("modal.colorA11y", { color: option })}
-                      onPress={() => setDraft((prev) => ({ ...prev, categoryColor: option }))}
+                      onPress={() => setDraft((prev) => ({ ...prev, goalColor: option }))}
                       style={[
                         styles.colorSwatch,
                         { backgroundColor: option },
-                        draft.categoryColor === option && styles.colorSwatchActive,
+                        draft.goalColor === option && styles.colorSwatchActive,
                       ]}
                     >
-                      {draft.categoryColor === option && (
+                      {draft.goalColor === option && (
                         <MaterialCommunityIcons name="check" size={16} color={colors.textPrimary} />
                       )}
                     </Pressable>
@@ -770,22 +737,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
-  categoryRow: {
+  colorRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
   },
-  categoryDot: {
+  colorDot: {
     width: 12,
     height: 12,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
-  },
-  categoryName: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-    fontSize: typography.sm,
   },
   goalTime: {
     color: colors.textSecondary,

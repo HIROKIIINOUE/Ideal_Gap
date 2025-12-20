@@ -189,8 +189,7 @@ export type Database = {
       yearly_goals: {
         Row: {
           accumulated_time_year: number | null;
-          category: string;
-          category_color: string;
+          year_goal_color: string;
           created_at: string | null;
           description: string;
           id: string;
@@ -200,8 +199,7 @@ export type Database = {
         };
         Insert: {
           accumulated_time_year?: number | null;
-          category: string;
-          category_color: string;
+          year_goal_color: string;
           created_at?: string | null;
           description: string;
           id?: string;
@@ -211,8 +209,7 @@ export type Database = {
         };
         Update: {
           accumulated_time_year?: number | null;
-          category?: string;
-          category_color?: string;
+          year_goal_color?: string;
           created_at?: string | null;
           description?: string;
           id?: string;
