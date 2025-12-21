@@ -4,8 +4,8 @@ export type WeeklyTasksTranslations = {
   pageTitle: string;
   bucket: {
     current: string;
-    next: string;
-    last: string;
+    next?: string;
+    last?: string;
   };
   header: {
     title: string;
@@ -56,8 +56,6 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
     pageTitle: "週間タスク",
     bucket: {
       current: "今週",
-      next: "来週メモ",
-      last: "先週メモ",
     },
     header: {
       title: "週の進捗",
@@ -106,8 +104,6 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
     pageTitle: "Weekly Tasks",
     bucket: {
       current: "This week",
-      next: "Next week memo",
-      last: "Last week memo",
     },
     header: {
       title: "Weekly progress",
@@ -156,8 +152,6 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
     pageTitle: "Tâches hebdomadaires",
     bucket: {
       current: "Cette semaine",
-      next: "Mémo semaine prochaine",
-      last: "Mémo semaine dernière",
     },
     header: {
       title: "Progression de la semaine",

@@ -55,7 +55,7 @@ const sampleTasks: WeeklyTask[] = [
     monthlyGoalId: "m3",
     estimatedMinutes: 180,
     loggedMinutes: 0,
-    bucket: "next_memo",
+    bucket: "current",
   },
   {
     id: "w4",
@@ -64,17 +64,16 @@ const sampleTasks: WeeklyTask[] = [
     monthlyGoalId: "m4",
     estimatedMinutes: 240,
     loggedMinutes: 240,
-    bucket: "last_week",
+    bucket: "current",
   },
 ];
 
 export default function WeeklyTasksScreen() {
   const { t } = useTranslation("weeklyTasks");
-  const [bucket, setBucket] = useState<BucketKey>("current");
   const [tasks, setTasks] = useState<WeeklyTask[]>(sampleTasks);
   const [deleteMode, setDeleteMode] = useState(false);
 
-  const filteredTasks = useMemo(() => tasks.filter((task) => task.bucket === bucket), [bucket, tasks]);
+  const filteredTasks = useMemo(() => tasks, [tasks]);
 
   const totals = useMemo(() => {
     const target = filteredTasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
@@ -82,12 +81,6 @@ export default function WeeklyTasksScreen() {
     const progress = target > 0 ? Math.min(1, logged / target) : 0;
     return { target, logged, progress };
   }, [filteredTasks]);
-
-  const bucketTabs: { key: BucketKey; label: string }[] = [
-    { key: "current", label: t("bucket.current") },
-    { key: "next_memo", label: t("bucket.next") },
-    { key: "last_week", label: t("bucket.last") },
-  ];
 
   const monthlyGoalOptions = useMemo(
     () => [
@@ -106,14 +99,12 @@ export default function WeeklyTasksScreen() {
 
   const weeklyTaskSchema = z.object({
     title: z.string().trim().min(1),
-    bucket: z.union([z.literal("current"), z.literal("next_memo"), z.literal("last_week")]),
     monthlyGoalId: z.string().trim().min(1),
     estimatedHours: z.coerce.number().positive(),
   });
 
   const [draft, setDraft] = useState({
     title: "",
-    bucket: "current" as BucketKey,
     monthlyGoalId: monthlyGoalOptions[0]?.id ?? "",
     estimatedHours: "10",
   });
@@ -122,7 +113,6 @@ export default function WeeklyTasksScreen() {
     setEditingId(null);
     setDraft({
       title: "",
-      bucket,
       monthlyGoalId: monthlyGoalOptions[0]?.id ?? "",
       estimatedHours: "10",
     });
@@ -134,7 +124,6 @@ export default function WeeklyTasksScreen() {
     setEditingId(task.id);
     setDraft({
       title: task.title,
-      bucket: task.bucket,
       monthlyGoalId: task.monthlyGoalId,
       estimatedHours: String(Math.max(1, task.estimatedMinutes) / 60),
     });
@@ -149,7 +138,7 @@ export default function WeeklyTasksScreen() {
       setModalError(hasEstimated ? t("modal.errorEstimated") : t("modal.errorRequired"));
       return;
     }
-    const { title, bucket: draftBucket, monthlyGoalId, estimatedHours } = parse.data;
+    const { title, monthlyGoalId, estimatedHours } = parse.data;
     const selectedGoal = monthlyGoalOptions.find((opt) => opt.id === monthlyGoalId);
     const estimatedMinutes = Math.round(estimatedHours * 60);
 
@@ -160,7 +149,7 @@ export default function WeeklyTasksScreen() {
             ? {
                 ...task,
                 title,
-                bucket: draftBucket,
+                bucket: "current",
                 monthlyGoalId,
                 monthlyGoalLabel: selectedGoal?.label ?? task.monthlyGoalLabel,
                 estimatedMinutes,
@@ -174,7 +163,7 @@ export default function WeeklyTasksScreen() {
         {
           id: `tmp-${Date.now()}`,
           title,
-          bucket: draftBucket,
+          bucket: "current",
           monthlyGoalId,
           monthlyGoalLabel: selectedGoal?.label ?? "",
           estimatedMinutes,
@@ -199,37 +188,8 @@ export default function WeeklyTasksScreen() {
         <View style={styles.headerTop}>
           <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
 
-          <View style={styles.tabRow}>
-            {bucketTabs.map((tab) => {
-              const active = tab.key === bucket;
-              return (
-                <Pressable
-                  key={tab.key}
-                  accessibilityRole="button"
-                  onPress={() => setBucket(tab.key)}
-                  style={({ pressed }) => [
-                    styles.tab,
-                    active && styles.tabActive,
-                    pressed && styles.tabPressed,
-                  ]}
-                >
-                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {bucket === "current" && (
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.applyButton, pressed && styles.tabPressed]}
-            >
-              <Text style={styles.tabLabel}>{t("header.applyNextMemo")}</Text>
-            </Pressable>
-          )}
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>{t("header.title")}</Text>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>{t("header.title")}</Text>
 
           <View style={styles.progressBarContainer}>
             <View style={styles.progressTrack} />
@@ -351,7 +311,7 @@ export default function WeeklyTasksScreen() {
                 </Pressable>
               </View>
 
-              {bucket === "current" && (
+              {true && (
                 <View style={[styles.actionsColumn, styles.taskActionsRow]}>
                   <Pressable
                     accessibilityRole="button"
@@ -392,27 +352,6 @@ export default function WeeklyTasksScreen() {
                   setModalError(null);
                 }}
               />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>{t("modal.bucketLabel")}</Text>
-              <View style={styles.bucketRow}>
-                {bucketTabs.map((tab) => {
-                  const active = tab.key === draft.bucket;
-                  return (
-                    <Pressable
-                      key={tab.key}
-                      accessibilityRole="button"
-                      style={[styles.monthChip, active && styles.monthChipActive]}
-                      onPress={() => {
-                        setDraft((prev) => ({ ...prev, bucket: tab.key as BucketKey }));
-                      }}
-                    >
-                      <Text style={[styles.monthChipText, active && styles.monthChipTextActive]}>{tab.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
             </View>
 
             <View style={styles.formGroup}>
@@ -532,33 +471,6 @@ const styles = StyleSheet.create({
     fontSize: typography.xl,
     fontWeight: "800",
   },
-  tabRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  tab: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "rgba(255,255,255,0.04)",
-  },
-  tabActive: {
-    borderColor: colors.accentPrimary,
-    backgroundColor: "rgba(30,94,255,0.14)",
-  },
-  tabPressed: {
-    opacity: 0.9,
-  },
-  tabLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.md,
-    fontWeight: "700",
-  },
-  tabLabelActive: {
-    color: colors.textPrimary,
-  },
   monthChip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -583,19 +495,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.md,
     lineHeight: typography.md * 1.4,
-  },
-  applyButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    alignSelf: "stretch",
-    alignItems: "center",
-    width: "100%",
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
   },
   actionsRow: {
     flexDirection: "row",
