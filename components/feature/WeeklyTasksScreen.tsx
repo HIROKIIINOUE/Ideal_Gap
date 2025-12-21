@@ -258,6 +258,7 @@ export default function WeeklyTasksScreen() {
               style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
               onPress={handleOpenAdd}
             >
+              <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
               <Text style={styles.primaryButtonText}>{t("actions.add")}</Text>
             </Pressable>
             <Pressable
@@ -269,6 +270,11 @@ export default function WeeklyTasksScreen() {
               ]}
               onPress={() => setDeleteMode((prev) => !prev)}
             >
+              <MaterialCommunityIcons
+                name={deleteMode ? "close" : "trash-can-outline"}
+                size={20}
+                color={colors.textPrimary}
+              />
               <Text style={styles.secondaryButtonText}>
                 {deleteMode ? t("actions.deleteExit") ?? t("actions.delete") : t("actions.delete")}
               </Text>
@@ -287,7 +293,14 @@ export default function WeeklyTasksScreen() {
           const progress = task.estimatedMinutes > 0 ? Math.min(1, task.loggedMinutes / task.estimatedMinutes) : 0;
           const remaining = Math.max(0, task.estimatedMinutes - task.loggedMinutes);
           return (
-            <View key={task.id} style={[styles.taskCard, shadows.card]}>
+            <View
+              key={task.id}
+              style={[
+                styles.taskCard,
+                shadows.card,
+                deleteMode && styles.taskCardDeleteMode,
+              ]}
+            >
               <LinearGradient
                 colors={LIST_CARD_GRADIENT}
                 start={{ x: 0, y: 0 }}
@@ -715,6 +728,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     overflow: "hidden",
     marginBottom: spacing.sm,
+  },
+  taskCardDeleteMode: {
+    borderColor: colors.error,
+    backgroundColor: "rgba(242,95,92,0.08)",
   },
   taskHeader: {
     gap: spacing.xs,
