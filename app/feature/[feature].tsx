@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AnnualGoalsScreen from "../../components/feature/AnnualGoalsScreen";
 import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
 import MonthlyGoalsScreen from "../../components/feature/MonthlyGoalsScreen";
+import WeeklyTasksScreen from "../../components/feature/WeeklyTasksScreen";
 import Footer from "../../components/Footer";
 import LanguageSheet from "../../components/LanguageSheet";
 import MoreSheet from "../../components/MoreSheet";
@@ -98,6 +99,7 @@ export default function FeatureScreen() {
       "ideal-self": IdealSelfScreen,
       "annual-goals": AnnualGoalsScreen,
       "monthly-goals": MonthlyGoalsScreen,
+      "weekly-goals": WeeklyTasksScreen,
     };
     return mapping[featureId] ?? null;
   }, [featureId]);

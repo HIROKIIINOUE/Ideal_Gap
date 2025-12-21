@@ -55,8 +55,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         subtitle: "今月の到達点を決め、負荷を最適化。",
       },
       weeklyGoals: {
-        title: "週間目標",
-        subtitle: "週単位でタスク化し、進捗を滑らかに。",
+        title: "週間タスク",
+        subtitle: "週単位のタスクで、目標を行動まで落とし込む。",
       },
       focusMusic: {
         title: "タスク集中音楽",
@@ -100,8 +100,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         subtitle: "Define this month’s targets and load.",
       },
       weeklyGoals: {
-        title: "Weekly Goals",
-        subtitle: "Turn goals into weekly, actionable steps.",
+        title: "Weekly Tasks",
+        subtitle: "Turn goals into focused weekly tasks.",
       },
       focusMusic: {
         title: "Focus Music",
@@ -145,8 +145,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         subtitle: "Fixer les cibles du mois et la charge.",
       },
       weeklyGoals: {
-        title: "Objectifs hebdomadaires",
-        subtitle: "Transformer en actions hebdomadaires concrètes.",
+        title: "Tâches hebdomadaires",
+        subtitle: "Transformer les objectifs en tâches de la semaine.",
       },
       focusMusic: {
         title: "Musique de focus",

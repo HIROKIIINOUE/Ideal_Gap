@@ -13,6 +13,7 @@ import { profileUpdateTranslations } from "../content/profileUpdateTranslations"
 import { resetPasswordTranslations } from "../content/resetPasswordTranslations";
 import { signupTranslations } from "../content/signupTranslations";
 import { contactTranslations } from "../content/contactTranslations";
+import { weeklyTasksTranslations } from "../content/weeklyTasksTranslations";
 import { LanguageKey, SUPPORTED_LANGUAGES } from "../types/i18n";
 
 const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
@@ -30,6 +31,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     resetPassword: resetPasswordTranslations[lang],
     signup: signupTranslations[lang],
     contact: contactTranslations[lang],
+    weeklyTasks: weeklyTasksTranslations[lang],
   };
   return acc;
 }, {} as Resource);
@@ -55,6 +57,7 @@ if (!i18n.isInitialized) {
       "purchases",
       "profileUpdate",
       "contact",
+      "weeklyTasks",
     ],
     interpolation: {
       escapeValue: false,
