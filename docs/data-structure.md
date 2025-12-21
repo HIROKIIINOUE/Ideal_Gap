@@ -148,7 +148,7 @@
 enum week_bucket {
   "current"   // 今週
   "next_memo" // 来週メモ
-  "archived"  // 過去のタスク（履歴）
+  "last_week"  // 先週のタスク（履歴）
 }
 
   // 作業タイマーデータ
