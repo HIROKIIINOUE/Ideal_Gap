@@ -226,6 +226,58 @@ export type Database = {
           },
         ];
       };
+      monthly_goals: {
+        Row: {
+          accumulated_time_month: number | null;
+          created_at: string | null;
+          description: string;
+          estimated_time_month: number | null;
+          id: string;
+          month: number;
+          order: number | null;
+          updated_at: string | null;
+          user_id: string;
+          yearly_goal_id: string;
+        };
+        Insert: {
+          accumulated_time_month?: number | null;
+          created_at?: string | null;
+          description: string;
+          estimated_time_month?: number | null;
+          id?: string;
+          month: number;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id: string;
+          yearly_goal_id: string;
+        };
+        Update: {
+          accumulated_time_month?: number | null;
+          created_at?: string | null;
+          description?: string;
+          estimated_time_month?: number | null;
+          id?: string;
+          month?: number;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id?: string;
+          yearly_goal_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "monthly_goals_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "monthly_goals_yearly_goal_id_fkey";
+            columns: ["yearly_goal_id"];
+            referencedRelation: "yearly_goals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {};
     Functions: {};

@@ -39,6 +39,12 @@ export type MonthlyGoalsTranslations = {
   deleteConfirmBody: string;
   deleteConfirmYes: string;
   deleteConfirmNo: string;
+  errors?: {
+    loginMissing: string;
+    fetchFailed: string;
+    saveFailed: string;
+    reorderSaveFailed: string;
+  };
 };
 
 export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslations> = {
@@ -81,6 +87,12 @@ export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslati
     deleteConfirmBody: "この月間目標を削除すると元に戻せません。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
+    errors: {
+      loginMissing: "ログイン情報が見つかりませんでした",
+      fetchFailed: "月間目標の取得に失敗しました",
+      saveFailed: "保存に失敗しました",
+      reorderSaveFailed: "並び替えの保存に失敗しました",
+    },
   },
   en: {
     pageTitle: "Monthly goals",
@@ -121,6 +133,12 @@ export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslati
     deleteConfirmBody: "You can’t undo this action after deleting.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
+    errors: {
+      loginMissing: "Session not found. Please log in again.",
+      fetchFailed: "Failed to load monthly goals.",
+      saveFailed: "Failed to save.",
+      reorderSaveFailed: "Failed to save the new order.",
+    },
   },
   fr: {
     pageTitle: "Objectifs mensuels",
@@ -161,5 +179,11 @@ export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslati
     deleteConfirmBody: "Cette action est définitive après suppression.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
+    errors: {
+      loginMissing: "Session introuvable. Veuillez vous reconnecter.",
+      fetchFailed: "Échec du chargement des objectifs mensuels.",
+      saveFailed: "Échec de l'enregistrement.",
+      reorderSaveFailed: "Échec de l'enregistrement de l'ordre.",
+    },
   },
 };

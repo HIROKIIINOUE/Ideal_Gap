@@ -8,6 +8,9 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { supabase } from "../../lib/supabaseClient";
+import { Database } from "../../types/database";
+import Loading from "../Loading";
 
 type YearlyGoalOption = {
   id: string;
@@ -25,6 +28,9 @@ type MonthlyGoal = {
   order: number;
   updatedAt?: string | null;
 };
+
+type MonthlyGoalRow = Database["public"]["Tables"]["monthly_goals"]["Row"];
+type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
@@ -58,69 +64,18 @@ const monthlyGoalSchema = z.object({
   estimatedMinutes: z.number().positive(),
 });
 
-const seedYearlyGoals: YearlyGoalOption[] = [
-  {
-    id: "yg-health",
-    name: "Deep health routine with consistent sleep and workouts",
-    color: "#1E5EFF",
-  },
-  {
-    id: "yg-career",
-    name: "Career leap with shipped projects and portfolio refresh",
-    color: "#6EA8FF",
-  },
-  {
-    id: "yg-learning",
-    name: "Learning and writing habit",
-    color: "#4BD0FF",
-  },
-];
-
-const seedMonthlyGoals: MonthlyGoal[] = [
-  {
-    id: "mg-feb-1",
-    description: "Sleep 7+ hours consistently",
-    month: 2,
-    estimatedMinutes: 1800, // 30h
-    accumulatedMinutes: 900, // 15h
-    yearlyGoalId: "yg-health",
-    order: 0,
-    updatedAt: "2025-02-01T09:00:00Z",
-  },
-  {
-    id: "mg-feb-2",
-    description: "Ship portfolio case studies update",
-    month: 2,
-    estimatedMinutes: 1200, // 20h
-    accumulatedMinutes: 600, // 10h
-    yearlyGoalId: "yg-career",
-    order: 1,
-    updatedAt: "2025-02-03T09:00:00Z",
-  },
-  {
-    id: "mg-jan-1",
-    description: "Read and summarize two books",
-    month: 1,
-    estimatedMinutes: 600, // 10h
-    accumulatedMinutes: 300, // 5h
-    yearlyGoalId: "yg-learning",
-    order: 0,
-    updatedAt: "2025-01-15T09:00:00Z",
-  },
-];
-
 export default function MonthlyGoalsScreen() {
   const { t: tMonthly } = useTranslation("monthlyGoals");
-  const [goals, setGoals] = useState<MonthlyGoal[]>(seedMonthlyGoals);
+  const [goals, setGoals] = useState<MonthlyGoal[]>([]);
+  const [yearlyGoals, setYearlyGoals] = useState<YearlyGoalOption[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteMode, setDeleteMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const initialMonth = useMemo(() => {
-    const currentMonth = new Date().getMonth() + 1;
-    const hasSeedForCurrent = seedMonthlyGoals.some((goal) => goal.month === currentMonth);
-    return hasSeedForCurrent ? currentMonth : seedMonthlyGoals[0]?.month ?? currentMonth;
-  }, []);
+  const initialMonth = useMemo(() => new Date().getMonth() + 1, []);
   const [selectedMonth, setSelectedMonth] = useState<number>(initialMonth);
   const [draft, setDraft] = useState<{
     description: string;
@@ -130,25 +85,120 @@ export default function MonthlyGoalsScreen() {
   }>({
     description: "",
     month: String(initialMonth),
-    yearlyGoalId: seedYearlyGoals[0]?.id ?? "",
+    yearlyGoalId: "",
     estimatedHours: "10",
   });
   const monthListRef = useRef<FlatList<number>>(null);
   const [isMonthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [isYearlyDropdownOpen, setYearlyDropdownOpen] = useState(false);
 
+  const toMonthlyGoal = (row: MonthlyGoalRow): MonthlyGoal => ({
+    id: row.id,
+    description: row.description,
+    month: row.month,
+    estimatedMinutes: row.estimated_time_month ?? 0,
+    accumulatedMinutes: row.accumulated_time_month ?? 0,
+    yearlyGoalId: row.yearly_goal_id,
+    order: row.order ?? 0,
+    updatedAt: row.updated_at ?? null,
+  });
+
+  const toMonthlyRow = (goal: MonthlyGoal, uid: string) => ({
+    id: goal.id,
+    user_id: uid,
+    yearly_goal_id: goal.yearlyGoalId,
+    month: goal.month,
+    description: goal.description,
+    estimated_time_month: goal.estimatedMinutes,
+    accumulated_time_month: goal.accumulatedMinutes,
+    order: goal.order,
+  });
+
+  // 月間ゴールリストを指定した月でフィルターし、指定月の目標リストとそれ以外の月の目標リストを返す。また該当月の目標リストはorderをもとにここで並び替えられる
+  const reorderWithinMonth = (allGoals: MonthlyGoal[], month: number) => {
+    const sameMonth = allGoals
+      .filter((goal) => goal.month === month)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((goal, idx) => ({ ...goal, order: idx }));
+    const others = allGoals.filter((goal) => goal.month !== month);
+    return [...others, ...sameMonth];
+  };
+
+  // ログイン中のユーザ取得
+  const fetchUserId = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id ?? null;
+    setUserId(uid);
+    return uid;
+  }, []);
+
+  // 年間目標データと月間目標データを取得
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    const uid = await fetchUserId();
+    if (!uid) {
+      setErrorMessage(tMonthly("errors.loginMissing"));
+      setLoading(false);
+      return;
+    }
+
+    const [{ data: yearlyData, error: yearlyError }, { data: monthlyData, error: monthlyError }] = await Promise.all([
+      supabase
+        .from("yearly_goals")
+        .select("id, description, year_goal_color, order")
+        .eq("user_id", uid)
+        .order("order", { ascending: true }),
+      supabase
+        .from("monthly_goals")
+        .select("id, yearly_goal_id, month, description, estimated_time_month, accumulated_time_month, order, updated_at")
+        .eq("user_id", uid)
+        .order("month", { ascending: true })
+        .order("order", { ascending: true }),
+    ]);
+
+    // 年間ゴールもしくは月間ゴールのどちらか一方でも取得できなかったらエラーを返す
+    if (yearlyError || monthlyError) {
+      setErrorMessage(yearlyError?.message ?? monthlyError?.message ?? tMonthly("errors.fetchFailed"));
+      setLoading(false);
+      return;
+    }
+
+    const yearlyOptions = ((yearlyData as YearlyGoalRow[]) ?? []).map((row) => ({
+      id: row.id,
+      name: row.description,
+      color: row.year_goal_color,
+    }));
+    setYearlyGoals(yearlyOptions);
+    setGoals(((monthlyData as MonthlyGoalRow[]) ?? []).map(toMonthlyGoal));
+    setLoading(false);
+  }, [fetchUserId, tMonthly]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // 入力中の月間目標が年間目標と紐づいていない状態ならば年間目標リストの１番目がデフォルトでセットされる
+  useEffect(() => {
+    if (!draft.yearlyGoalId && yearlyGoals[0]?.id) {
+      setDraft((prev) => ({ ...prev, yearlyGoalId: yearlyGoals[0].id }));
+    }
+  }, [draft.yearlyGoalId, yearlyGoals]);
+
   const monthNames = tMonthly("monthsShort", { returnObjects: true }) as string[];
 
+  // 各言語の指定月の名称を返す
   const monthLabel = (month: number) => {
-    const idx = Math.max(0, Math.min(11, month - 1));
+    const idx = Math.max(0, Math.min(11, month - 1)); // max処理で下限をインデックス0(1月)、min処理で上限をインデックス11(12月)と制御
     return monthNames[idx] ?? `M${month}`;
   };
 
   const monthsList = useMemo(() => Array.from({ length: 12 }, (_, idx) => idx + 1), []);
 
+  // 選択月がリストの左から2番目付近に来るようにスクロール位置を計算するヘルパー関数
   const targetIndexForMonth = useCallback(
     (month: number) => {
-      const idx = month - 2; // 選択月が左から2番目に来るように1つ前を先頭に
+      const idx = month - 2; // 選択月が左から2番目に来るように1つ前の月を先頭に
       if (idx < 0) return 0;
       if (idx > monthsList.length - 1) return monthsList.length - 1;
       return idx;
@@ -156,12 +206,15 @@ export default function MonthlyGoalsScreen() {
     [monthsList.length],
   );
 
+  // 【理解度△】targetIndexForMonthが返したidxを使い、FlatListを対象位置にスクロールさせる関数
+  // 月選択時や初期読み込み時に選択付きが見える位置へ確実に移動させる
   const scrollToMonth = useCallback(
     (month: number, animated = true) => {
       const idx = targetIndexForMonth(month);
       try {
         monthListRef.current?.scrollToIndex({ index: idx, animated });
       } catch {
+        // scrollToIndexが正しく取得できなかった時のフォールバック
         const offset = (MONTH_ITEM_WIDTH + spacing.xs) * idx;
         monthListRef.current?.scrollToOffset({ offset, animated: false });
       }
@@ -169,6 +222,7 @@ export default function MonthlyGoalsScreen() {
     [targetIndexForMonth],
   );
 
+  // AsyncStorageから月の初期値を取得
   useEffect(() => {
     const loadSelectedMonth = async () => {
       try {
@@ -188,27 +242,33 @@ export default function MonthlyGoalsScreen() {
     loadSelectedMonth();
   }, [scrollToMonth]);
 
+  // 新しくユーザに月が選択された時に発火
   useEffect(() => {
     scrollToMonth(selectedMonth, true);
   }, [selectedMonth, scrollToMonth]);
 
+
+  // 選択された月の各月間目標をDB上のorderデータをもとにソート
   const filteredGoals = useMemo(
     () => goals.filter((goal) => goal.month === selectedMonth).sort((a, b) => a.order - b.order),
     [goals, selectedMonth],
   );
 
+  // 各月の作業目標の合計と作業時間の合計、それらをもとにしたプログレスバーの算出ロジック
   const totalTarget = filteredGoals.reduce((sum, goal) => sum + goal.estimatedMinutes, 0);
   const totalLogged = filteredGoals.reduce((sum, goal) => sum + goal.accumulatedMinutes, 0);
   const progressRatio = totalTarget > 0 ? Math.min(1, totalLogged / totalTarget) : 0;
 
-  const getYearlyGoal = (id: string) => seedYearlyGoals.find((g) => g.id === id);
+  // 月間目標に紐づいた年間目標idから年間目標データを抽出
+  const getYearlyGoal = (id: string) => yearlyGoals.find((g) => g.id === id);
 
+  // 「月間目標追加」タップ後のロジック、インプット項目を初期化
   const handleAddPress = () => {
     setEditingId(null);
     setDraft({
       description: "",
       month: String(selectedMonth),
-      yearlyGoalId: seedYearlyGoals[0]?.id ?? "",
+      yearlyGoalId: yearlyGoals[0]?.id ?? "",
       estimatedHours: "10",
     });
     setModalError(null);
@@ -217,6 +277,7 @@ export default function MonthlyGoalsScreen() {
     setYearlyDropdownOpen(false);
   };
 
+  // 「月間目標編集」タップ後の露軸、インプット項目に既存データを配置
   const handleEditPress = (goal: MonthlyGoal) => {
     setEditingId(goal.id);
     setDraft({
@@ -231,10 +292,13 @@ export default function MonthlyGoalsScreen() {
     setYearlyDropdownOpen(false);
   };
 
+  // 削除モード切り替えロジック
   const handleToggleDeleteMode = () => {
     setDeleteMode((prev) => !prev);
   };
 
+
+  // 表示月をユーザが選んだ際に発火する処理
   const handleSelectMonth = (month: number) => {
     setSelectedMonth(month);
     setDraft((prev) => ({ ...prev, month: String(month) }));
@@ -244,26 +308,46 @@ export default function MonthlyGoalsScreen() {
     scrollToMonth(month, true);
   };
 
+  // 削除処理
   const handleDelete = (goal: MonthlyGoal) => {
     Alert.alert(tMonthly("deleteConfirmTitle"), tMonthly("deleteConfirmBody"), [
       { text: tMonthly("deleteConfirmNo"), style: "cancel" },
       {
         text: tMonthly("deleteConfirmYes"),
         style: "destructive",
-        onPress: () => {
-          const nextGoals = goals
-            .filter((g) => g.id !== goal.id)
-            .map((g, idx) => ({
-              ...g,
-              order: idx,
-            }));
-          setGoals(nextGoals);
+        onPress: async () => {
+          const uid = userId ?? (await fetchUserId());
+          if (!uid) {
+            Alert.alert(tMonthly("deleteConfirmTitle"), tMonthly("errors.loginMissing"));
+            return;
+          }
+          const { error } = await supabase.from("monthly_goals").delete().eq("id", goal.id);
+          if (error) {
+            Alert.alert(tMonthly("deleteConfirmTitle"), error.message ?? tMonthly("errors.saveFailed"));
+            return;
+          }
+
+          const remaining = goals.filter((g) => g.id !== goal.id);
+          const reordered = reorderWithinMonth(remaining, goal.month);
+          setGoals(reordered);
+
+          const monthGoals = reordered.filter((g) => g.month === goal.month);
+
+          if (monthGoals.length > 0) {
+            const updates = monthGoals.map((g) => toMonthlyRow(g, uid));
+            const { error: upsertError } = await supabase.from("monthly_goals").upsert(updates, { onConflict: "id" });
+            if (upsertError) {
+              Alert.alert(tMonthly("deleteConfirmTitle"), upsertError.message ?? tMonthly("errors.reorderSaveFailed"));
+            }
+          }
         },
       },
     ]);
   };
 
-  const handleSave = () => {
+
+  // 追記・編集したdraftを保存する処理
+  const handleSave = async () => {
     const parsed = monthlyGoalSchema.safeParse({
       description: draft.description,
       month: Number(draft.month),
@@ -285,30 +369,79 @@ export default function MonthlyGoalsScreen() {
       return;
     }
 
-    const payload: MonthlyGoal = {
-      id: editingId ?? `mg-${Date.now()}`,
-      description: parsed.data.description,
-      month: parsed.data.month,
-      estimatedMinutes: parsed.data.estimatedMinutes,
-      accumulatedMinutes: editingId
-        ? goals.find((g) => g.id === editingId)?.accumulatedMinutes ?? 0
-        : 0,
-      yearlyGoalId: parsed.data.yearlyGoalId,
-      order: editingId ? goals.find((g) => g.id === editingId)?.order ?? 0 : 0,
-      updatedAt: new Date().toISOString(),
-    };
+    const uid = userId ?? (await fetchUserId());
+    if (!uid) {
+      setModalError(tMonthly("errors.loginMissing"));
+      return;
+    }
 
+    //編集モーダルの保存処理（データベースupdate）
     if (editingId) {
-      setGoals((prev) =>
-        prev
-          .map((goal) => (goal.id === editingId ? { ...payload } : goal))
-          .map((goal, idx) => ({ ...goal, order: idx })),
-      );
+      const { data, error } = await supabase
+        .from("monthly_goals")
+        .update({
+          description: parsed.data.description,
+          month: parsed.data.month,
+          yearly_goal_id: parsed.data.yearlyGoalId,
+          estimated_time_month: parsed.data.estimatedMinutes,
+        })
+        .eq("id", editingId)
+        .select("id, yearly_goal_id, month, description, estimated_time_month, accumulated_time_month, order, updated_at")
+        .single();
+
+      if (error) {
+        setModalError(error.message ?? tMonthly("errors.saveFailed"));
+        return;
+      }
+      const row = data as unknown as MonthlyGoalRow;
+      setGoals((prev) => {
+        const updated = prev.map((goal) => (goal.id === editingId ? toMonthlyGoal(row) : goal));
+        return reorderWithinMonth(updated, row.month);
+      });
     } else {
-      setGoals((prev) => [
-        payload,
-        ...prev.map((goal, idx) => ({ ...goal, order: idx + 1 })),
-      ]);
+      // 新規追加モーダルの保存処理（データベースinsert）
+      const monthGoals = goals
+        .filter((g) => g.month === parsed.data.month)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((g, idx) => ({ ...g, order: idx + 1 }));
+
+      const { data, error } = await supabase
+        .from("monthly_goals")
+        .insert({
+          user_id: uid,
+          yearly_goal_id: parsed.data.yearlyGoalId,
+          month: parsed.data.month,
+          description: parsed.data.description,
+          estimated_time_month: parsed.data.estimatedMinutes,
+          accumulated_time_month: 0,
+          order: 0,
+        })
+        .select("id, yearly_goal_id, month, description, estimated_time_month, accumulated_time_month, order, updated_at")
+        .single();
+
+      if (error) {
+        setModalError(error.message ?? tMonthly("errors.saveFailed"));
+        return;
+      }
+
+      const row = data as unknown as MonthlyGoalRow;
+      const newGoal = toMonthlyGoal(row);
+      // 新しいデータを挿入しorder順に並び替えられた月の目標リスト(新しいデータを含む)
+      const reorderedMonthGoals = reorderWithinMonth([...monthGoals, newGoal], newGoal.month).filter(
+        (goal) => goal.month === newGoal.month,
+      );
+
+      const upsertPayload = reorderedMonthGoals.map((goal) => toMonthlyRow(goal, uid));
+      const { error: upsertError } = await supabase.from("monthly_goals").upsert(upsertPayload, { onConflict: "id" });
+      if (upsertError) {
+        setModalError(upsertError.message ?? tMonthly("errors.saveFailed"));
+        return;
+      }
+
+      setGoals((prev) => {
+        const others = prev.filter((g) => g.month !== newGoal.month);
+        return [...others, ...reorderedMonthGoals];
+      });
     }
 
     setMonthDropdownOpen(false);
@@ -318,11 +451,24 @@ export default function MonthlyGoalsScreen() {
     setModalError(null);
   };
 
-  const handleDragEnd = ({ data }: { data: MonthlyGoal[] }) => {
-    const next = data.map((goal, idx) => ({ ...goal, order: idx }));
-    setGoals(next);
+  // ドラッグの順番並び替えが終わった時に発火
+  const handleDragEnd = async ({ data }: { data: MonthlyGoal[] }) => {
+    const uid = userId ?? (await fetchUserId());
+    if (!uid) {
+      Alert.alert(tMonthly("deleteConfirmTitle"), tMonthly("errors.loginMissing"));
+      return;
+    }
+    const reordered = data.map((goal, idx) => ({ ...goal, order: idx }));
+    setGoals((prev) => reorderWithinMonth([...prev.filter((g) => g.month !== selectedMonth), ...reordered], selectedMonth));
+
+    const updates = reordered.map((goal) => toMonthlyRow(goal, uid));
+    const { error } = await supabase.from("monthly_goals").upsert(updates, { onConflict: "id" });
+    if (error) {
+      Alert.alert(tMonthly("deleteConfirmTitle"), error.message ?? tMonthly("errors.reorderSaveFailed"));
+    }
   };
 
+  // 指定のPressable要素の長押しドラッグを可能にするロジック
   const renderGoalCard = ({ item, drag, isActive }: RenderItemParams<MonthlyGoal>) => {
     const progress = item.estimatedMinutes > 0 ? Math.min(1, item.accumulatedMinutes / item.estimatedMinutes) : 0;
     const remaining = Math.max(0, item.estimatedMinutes - item.accumulatedMinutes);
@@ -386,6 +532,14 @@ export default function MonthlyGoalsScreen() {
 
   const hasGoals = filteredGoals.length > 0;
   const modalTitle = editingId ? tMonthly("modal.editTitle") : tMonthly("modal.addTitle");
+
+  if (loading) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <Loading />
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
@@ -471,6 +625,7 @@ export default function MonthlyGoalsScreen() {
             <Text style={styles.secondaryButtonText}>{deleteMode ? tMonthly("deleteExit") : tMonthly("delete")}</Text>
           </Pressable>
         </View>
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </View>
 
       {hasGoals ? (
@@ -605,7 +760,7 @@ export default function MonthlyGoalsScreen() {
                     <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
                   </View>
                   <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
-                    {seedYearlyGoals.map((option) => (
+                    {yearlyGoals.map((option) => (
                       <Pressable
                         key={option.id}
                         accessibilityRole="button"
@@ -752,6 +907,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: "700",
     fontSize: typography.md,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: typography.sm,
   },
   label: {
     color: colors.textSecondary,
