@@ -34,6 +34,21 @@ export type WeeklyTasksTranslations = {
     edit: string;
     comingSoon: string;
   };
+  modal: {
+    addTitle: string;
+    editTitle: string;
+    titleLabel: string;
+    titlePlaceholder: string;
+    bucketLabel: string;
+    monthlyGoalLabel: string;
+    targetLabel: string;
+    targetPlaceholder: string;
+    targetHelper: string;
+    cancel: string;
+    save: string;
+    errorRequired: string;
+    errorEstimated: string;
+  };
 };
 
 export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslations> = {
@@ -71,6 +86,21 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
       edit: "編集",
       comingSoon: "機能は後で実装予定",
     },
+    modal: {
+      addTitle: "週間タスクを追加",
+      editTitle: "編集",
+      titleLabel: "週間タスク",
+      titlePlaceholder: "例）朝の30分でUX改善タスクを3本進める",
+      bucketLabel: "表示する週",
+      monthlyGoalLabel: "紐づける月間目標",
+      targetLabel: "目標時間（時間）",
+      targetPlaceholder: "例）10",
+      targetHelper: "時間単位で入力すると計算しやすいです",
+      cancel: "キャンセル",
+      save: "保存",
+      errorRequired: "すべての項目を入力してください",
+      errorEstimated: "目標時間は0より大きい数値で入力してください",
+    },
   },
   en: {
     pageTitle: "Weekly Tasks",
@@ -105,6 +135,21 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
       manualLog: "Manual log",
       edit: "Edit",
       comingSoon: "Feature coming later",
+    },
+    modal: {
+      addTitle: "Add weekly task",
+      editTitle: "Edit",
+      titleLabel: "Weekly task",
+      titlePlaceholder: "e.g. Ship 3 UX fixes in 30m every morning",
+      bucketLabel: "Bucket",
+      monthlyGoalLabel: "Link monthly goal",
+      targetLabel: "Target time (hours)",
+      targetPlaceholder: "e.g. 10",
+      targetHelper: "Enter hours to keep calculations simple.",
+      cancel: "Cancel",
+      save: "Save",
+      errorRequired: "Please fill all fields",
+      errorEstimated: "Target time must be greater than 0.",
     },
   },
   fr: {
@@ -141,6 +186,21 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
       manualLog: "Saisie manuelle",
       edit: "Modifier",
       comingSoon: "Fonctionnalité à venir",
+    },
+    modal: {
+      addTitle: "Ajouter une tâche hebdomadaire",
+      editTitle: "Modifier",
+      titleLabel: "Tâche hebdomadaire",
+      titlePlaceholder: "ex. Avancer 3 tâches UX en 30 min chaque matin",
+      bucketLabel: "Semaine",
+      monthlyGoalLabel: "Associer un objectif mensuel",
+      targetLabel: "Temps cible (heures)",
+      targetPlaceholder: "ex. 10",
+      targetHelper: "Saisir en heures pour simplifier les calculs.",
+      cancel: "Annuler",
+      save: "Enregistrer",
+      errorRequired: "Veuillez remplir tous les champs",
+      errorEstimated: "Le temps cible doit être supérieur à 0.",
     },
   },
 };
