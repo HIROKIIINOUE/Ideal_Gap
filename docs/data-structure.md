@@ -139,7 +139,6 @@
     updated_at timestamptz
 
     Indexes {
-      (user_id, bucket)
       (monthly_goal_id)
     }
   }

@@ -2,20 +2,20 @@ import { LanguageKey } from "../types/i18n";
 
 export type WeeklyTasksTranslations = {
   pageTitle: string;
-  bucket: {
-    current: string;
-    next?: string;
-    last?: string;
-  };
   header: {
     title: string;
-    description: string;
     applyNextMemo: string;
   };
   actions: {
     add: string;
     delete: string;
     deleteExit: string;
+  };
+  deleteConfirm: {
+    title: string;
+    body: string;
+    yes: string;
+    no: string;
   };
   summary: {
     target: string;
@@ -39,8 +39,9 @@ export type WeeklyTasksTranslations = {
     editTitle: string;
     titleLabel: string;
     titlePlaceholder: string;
-    bucketLabel: string;
+    monthLabel: string;
     monthlyGoalLabel: string;
+    noMonthlyGoal: string;
     targetLabel: string;
     targetPlaceholder: string;
     targetHelper: string;
@@ -51,21 +52,26 @@ export type WeeklyTasksTranslations = {
   };
 };
 
-export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslations> = {
+export const weeklyTasksTranslations: Record<
+  LanguageKey,
+  WeeklyTasksTranslations
+> = {
   ja: {
     pageTitle: "週間タスク",
-    bucket: {
-      current: "今週",
-    },
     header: {
       title: "週の進捗",
-      description: "月間目標に紐づくタスクを週単位で整え、来週・先週メモも並べて管理できます。",
       applyNextMemo: "来週メモを今週へ適用",
     },
     actions: {
       add: "追加",
       delete: "削除",
       deleteExit: "削除モードを終了",
+    },
+    deleteConfirm: {
+      title: "削除してもよろしいですか？",
+      body: "この週間タスクを削除すると元に戻せません。",
+      yes: "削除する",
+      no: "キャンセル",
     },
     summary: {
       target: "目標",
@@ -89,8 +95,9 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
       editTitle: "編集",
       titleLabel: "週間タスク",
       titlePlaceholder: "例）朝の30分でUX改善タスクを3本進める",
-      bucketLabel: "表示する週",
+      monthLabel: "月間目標リストを表示する月",
       monthlyGoalLabel: "紐づける月間目標",
+      noMonthlyGoal: "{{month}}月にまだ月間目標がありません",
       targetLabel: "目標時間（時間）",
       targetPlaceholder: "例）10",
       targetHelper: "時間単位で入力すると計算しやすいです",
@@ -102,18 +109,20 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
   },
   en: {
     pageTitle: "Weekly Tasks",
-    bucket: {
-      current: "This week",
-    },
     header: {
       title: "Weekly progress",
-      description: "Organize tasks by week, linked to monthly goals, with next/last week memos side by side.",
       applyNextMemo: "Apply next memo to this week",
     },
     actions: {
       add: "Add",
       delete: "Delete",
       deleteExit: "Exit delete mode",
+    },
+    deleteConfirm: {
+      title: "Delete this weekly task?",
+      body: "You can’t undo this action after deleting.",
+      yes: "Delete",
+      no: "Cancel",
     },
     summary: {
       target: "Target",
@@ -137,8 +146,9 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
       editTitle: "Edit",
       titleLabel: "Weekly task",
       titlePlaceholder: "e.g. Ship 3 UX fixes in 30m every morning",
-      bucketLabel: "Bucket",
+      monthLabel: "Month to show monthly goals",
       monthlyGoalLabel: "Link monthly goal",
+      noMonthlyGoal: "No monthly goals for month {{month}} yet",
       targetLabel: "Target time (hours)",
       targetPlaceholder: "e.g. 10",
       targetHelper: "Enter hours to keep calculations simple.",
@@ -150,19 +160,20 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
   },
   fr: {
     pageTitle: "Tâches hebdomadaires",
-    bucket: {
-      current: "Cette semaine",
-    },
     header: {
       title: "Progression de la semaine",
-      description:
-        "Organisez vos tâches par semaine, reliées aux objectifs mensuels, avec les mémos de la semaine prochaine et précédente.",
       applyNextMemo: "Appliquer le mémo à cette semaine",
     },
     actions: {
       add: "Ajouter",
       delete: "Supprimer",
       deleteExit: "Quitter le mode suppression",
+    },
+    deleteConfirm: {
+      title: "Supprimer cette tâche hebdomadaire ?",
+      body: "Cette action est définitive après suppression.",
+      yes: "Supprimer",
+      no: "Annuler",
     },
     summary: {
       target: "Objectif",
@@ -186,8 +197,9 @@ export const weeklyTasksTranslations: Record<LanguageKey, WeeklyTasksTranslation
       editTitle: "Modifier",
       titleLabel: "Tâche hebdomadaire",
       titlePlaceholder: "ex. Avancer 3 tâches UX en 30 min chaque matin",
-      bucketLabel: "Semaine",
+      monthLabel: "Mois pour afficher les objectifs mensuels",
       monthlyGoalLabel: "Associer un objectif mensuel",
+      noMonthlyGoal: "Pas d'objectif mensuel pour le mois {{month}}",
       targetLabel: "Temps cible (heures)",
       targetPlaceholder: "ex. 10",
       targetHelper: "Saisir en heures pour simplifier les calculs.",
