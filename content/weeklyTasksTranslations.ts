@@ -50,6 +50,23 @@ export type WeeklyTasksTranslations = {
     errorRequired: string;
     errorEstimated: string;
   };
+  manualModal: {
+    title: string;
+    description: string;
+    taskLabel: string;
+    currentLabel: string;
+    targetLabel: string;
+    hoursLabel: string;
+    minutesLabel: string;
+    rangeHelper: string;
+    unchangedHint: string;
+    confirmTitle: string;
+    confirmMessage: string;
+    confirm: string;
+    cancel: string;
+    submit: string;
+    outOfRange: string;
+  };
 };
 
 export const weeklyTasksTranslations: Record<
@@ -106,6 +123,23 @@ export const weeklyTasksTranslations: Record<
       errorRequired: "すべての項目を入力してください",
       errorEstimated: "目標時間は0より大きい数値で入力してください",
     },
+    manualModal: {
+      title: "手動で記録",
+      description: "アプリ外で進めた作業時間を手入力で反映できます。",
+      taskLabel: "対象タスク",
+      currentLabel: "現在の実績",
+      targetLabel: "目標時間",
+      hoursLabel: "時間",
+      minutesLabel: "分",
+      rangeHelper: "0〜{{maxHours}}時間{{maxMinutes}}分の範囲で入力してください",
+      unchangedHint: "数値を変更すると更新ボタンが有効になります",
+      confirmTitle: "この実績で更新しますか？",
+      confirmMessage: "累計時間を{{value}}に置き換えます。",
+      confirm: "更新する",
+      cancel: "戻る",
+      submit: "更新する",
+      outOfRange: "目標時間を超えない値を入力してください",
+    },
   },
   en: {
     pageTitle: "Weekly Tasks",
@@ -157,6 +191,23 @@ export const weeklyTasksTranslations: Record<
       errorRequired: "Please fill all fields",
       errorEstimated: "Target time must be greater than 0.",
     },
+    manualModal: {
+      title: "Manual record",
+      description: "Log time you worked outside the app.",
+      taskLabel: "Task",
+      currentLabel: "Current log",
+      targetLabel: "Weekly target",
+      hoursLabel: "Hours",
+      minutesLabel: "Minutes",
+      rangeHelper: "Enter between 0 and {{maxHours}}h {{maxMinutes}}m.",
+      unchangedHint: "Change the value to enable update.",
+      confirmTitle: "Update this log?",
+      confirmMessage: "Replace the total with {{value}}.",
+      confirm: "Update",
+      cancel: "Back",
+      submit: "Update",
+      outOfRange: "Stay within the target time.",
+    },
   },
   fr: {
     pageTitle: "Tâches hebdomadaires",
@@ -207,6 +258,23 @@ export const weeklyTasksTranslations: Record<
       save: "Enregistrer",
       errorRequired: "Veuillez remplir tous les champs",
       errorEstimated: "Le temps cible doit être supérieur à 0.",
+    },
+    manualModal: {
+      title: "Saisie manuelle",
+      description: "Enregistrez le temps travaillé hors de l’app.",
+      taskLabel: "Tâche",
+      currentLabel: "Enregistré",
+      targetLabel: "Objectif hebdo",
+      hoursLabel: "Heures",
+      minutesLabel: "Minutes",
+      rangeHelper: "Saisissez entre 0 et {{maxHours}}h {{maxMinutes}}m.",
+      unchangedHint: "Modifiez la valeur pour activer la mise à jour.",
+      confirmTitle: "Mettre à jour ce suivi ?",
+      confirmMessage: "Remplacer le total par {{value}}.",
+      confirm: "Mettre à jour",
+      cancel: "Retour",
+      submit: "Mettre à jour",
+      outOfRange: "Restez sous l’objectif.",
     },
   },
 };

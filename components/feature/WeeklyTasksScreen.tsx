@@ -36,7 +36,15 @@ type WeeklyTaskRow = {
 };
 type MonthlyGoalRow = Database["public"]["Tables"]["monthly_goals"]["Row"];
 
-// 〇〇minutesを〇hour〇minutesに変換する
+type ManualLogState = {
+  visible: boolean;
+  task: WeeklyTask | null;
+  hours: string;
+  minutes: string;
+  defaultMinutes: number;
+};
+
+// 合計minutesを受け取ってそれを元に表示する文言を返す(〇〇h 〇〇m)
 const formatMinutes = (minutes: number) => {
   const safe = Math.max(0, Math.round(minutes)); //値が負の数にならないように
   const hours = Math.floor(safe / 60);
@@ -44,6 +52,15 @@ const formatMinutes = (minutes: number) => {
   if (hours === 0) return `${mins}m`;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
+};
+
+// 〇〇minutesを〇hour〇minutesに変換する
+const toHourMinuteParts = (minutes: number) => {
+  const safe = Math.max(0, Math.round(minutes));
+  return {
+    hours: Math.floor(safe / 60),
+    minutes: safe % 60,
+  };
 };
 
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
@@ -55,6 +72,24 @@ export default function WeeklyTasksScreen() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [manualLog, setManualLog] = useState<ManualLogState>({
+    visible: false,
+    task: null,
+    hours: "0",
+    minutes: "0",
+    defaultMinutes: 0,
+  });
+
+  const manualRangeUpper = Math.max(0, manualLog.task?.estimatedMinutes ?? 0);
+  const manualMaxParts = useMemo(() => toHourMinuteParts(manualRangeUpper), [manualRangeUpper]);
+  const manualHoursNumber = useMemo(() => Number(manualLog.hours || "0"), [manualLog.hours]);
+  const manualMinutesNumber = useMemo(() => Math.min(59, Number(manualLog.minutes || "0")), [manualLog.minutes]);
+  const manualTotalMinutes = useMemo(
+    () => manualHoursNumber * 60 + manualMinutesNumber,
+    [manualHoursNumber, manualMinutesNumber],
+  );
+  const manualChanged = manualLog.task !== null && manualTotalMinutes !== manualLog.defaultMinutes;
+  const manualInRange = manualTotalMinutes >= 0 && manualTotalMinutes <= manualRangeUpper;
 
   // 全てのタスクの「目標時間合計」「タスク実行時間合計」「達成度」を算出
   const totals = useMemo(() => {
@@ -310,6 +345,57 @@ export default function WeeklyTasksScreen() {
     setModalVisible(true);
   };
 
+  // 手動で作業時間積み上げモーダルをオープン・デフォルト値のセット
+  const handleOpenManualLog = (task: WeeklyTask) => {
+    const { hours, minutes } = toHourMinuteParts(task.loggedMinutes);
+    setManualLog({
+      visible: true,
+      task,
+      hours: String(hours),
+      minutes: String(minutes),
+      defaultMinutes: Math.max(0, task.loggedMinutes),
+    });
+  };
+
+  const handleManualHoursChange = (value: string) => {
+    const sanitized = value.replace(/[^0-9]/g, "").slice(0, 4);
+    setManualLog((prev) => ({ ...prev, hours: sanitized }));
+  };
+
+  const handleManualMinutesChange = (value: string) => {
+    //奇数から数字以外を全てから文字に変換し、文字列内を数字だけにする。先頭から２桁までの数値を切り取ることで、値を必ず2桁までの数値に制御できる。
+    const sanitized = value.replace(/[^0-9]/g, "").slice(0, 2);
+    if (sanitized === "") {
+      setManualLog((prev) => ({ ...prev, minutes: "" }));
+      return;
+    }
+    const numeric = Math.min(59, Number(sanitized));
+    setManualLog((prev) => ({ ...prev, minutes: String(numeric) }));
+  };
+
+  const closeManualLog = () => {
+    setManualLog((prev) => ({ ...prev, visible: false, task: null }));
+  };
+
+  const handleSubmitManualLog = () => {
+    if (!manualLog.task || !manualInRange || !manualChanged) return;
+    const safeTotal = Math.min(Math.max(0, manualTotalMinutes), manualRangeUpper);
+    Alert.alert(t("manualModal.confirmTitle"), t("manualModal.confirmMessage", { value: formatMinutes(safeTotal) }), [
+      { text: t("manualModal.cancel"), style: "cancel" },
+      {
+        text: t("manualModal.confirm"),
+        style: "default",
+        onPress: () => {
+          setTasks((prev) =>
+            prev.map((task) => (task.id === manualLog.task?.id ? { ...task, loggedMinutes: safeTotal } : task)),
+          );
+          // TODO: DB更新と同期を追加する（手動積み上げの永続化）
+          closeManualLog();
+        },
+      },
+    ]);
+  };
+
 
 
   const handleSave = async () => {
@@ -510,7 +596,13 @@ export default function WeeklyTasksScreen() {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              style={({ pressed }) => [styles.secondaryButtonFull, pressed && styles.secondaryPressed]}
+              disabled={deleteMode}
+              style={({ pressed }) => [
+                styles.secondaryButtonFull,
+                pressed && styles.secondaryPressed,
+                deleteMode && styles.buttonDisabled,
+              ]}
+              onPress={() => handleOpenManualLog(item)}
             >
               <MaterialCommunityIcons name="playlist-edit" size={18} color={colors.textPrimary} />
               <Text style={styles.secondaryButtonText}>{t("task.manualLog")}</Text>
@@ -791,6 +883,89 @@ export default function WeeklyTasksScreen() {
             </View>
           </View>
         </Modal>
+
+        <Modal visible={manualLog.visible} transparent animationType="fade" onRequestClose={closeManualLog}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.manualCard, shadows.card]}>
+              <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
+              <Text style={styles.manualDescription}>{t("manualModal.description")}</Text>
+
+              <View style={styles.manualTaskBox}>
+                <Text style={styles.label}>{t("manualModal.taskLabel")}</Text>
+                <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
+                  {manualLog.task?.title ?? "-"}
+                </Text>
+                <View style={styles.manualStatsRow}>
+                  <Text style={styles.manualStatText}>
+                    {t("manualModal.currentLabel")}: {formatMinutes(manualLog.defaultMinutes)}
+                  </Text>
+                  <Text style={styles.manualStatText}>
+                    {t("manualModal.targetLabel")}: {formatMinutes(manualRangeUpper)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.manualInputsRow}>
+                <View style={styles.manualInputGroup}>
+                  <Text style={styles.label}>{t("manualModal.hoursLabel")}</Text>
+                  <TextInput
+                    placeholder="0"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="number-pad"
+                    value={manualLog.hours}
+                    onChangeText={handleManualHoursChange}
+                    style={styles.manualNumberInput}
+                  />
+                </View>
+                <View style={styles.manualInputGroup}>
+                  <Text style={styles.label}>{t("manualModal.minutesLabel")}</Text>
+                  <TextInput
+                    placeholder="0"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="number-pad"
+                    value={manualLog.minutes}
+                    onChangeText={handleManualMinutesChange}
+                    style={styles.manualNumberInput}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.manualHelperRow}>
+                <Text style={styles.helperText}>
+                  {t("manualModal.rangeHelper", {
+                    maxHours: manualMaxParts.hours,
+                    maxMinutes: manualMaxParts.minutes,
+                  })}
+                </Text>
+                <Text style={styles.helperText}>
+                  {t("summary.logged")}: {formatMinutes(manualTotalMinutes)}
+                </Text>
+              </View>
+              {!manualInRange && <Text style={styles.errorText}>{t("manualModal.outOfRange")}</Text>}
+              {manualInRange && !manualChanged ? (
+                <Text style={styles.helperText}>{t("manualModal.unchangedHint")}</Text>
+              ) : null}
+
+              <View style={styles.modalActions}>
+                <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
+                  <Text style={styles.secondaryButtonText}>{t("manualModal.cancel")}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={!manualLog.task || !manualInRange || !manualChanged}
+                  onPress={handleSubmitManualLog}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    pressed && styles.primaryPressed,
+                    (!manualLog.task || !manualInRange || !manualChanged) && styles.primaryButtonDisabled,
+                  ]}
+                >
+                  <Text style={styles.primaryButtonText}>{t("manualModal.submit")}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </GestureHandlerRootView>
   );
@@ -841,6 +1016,9 @@ const styles = StyleSheet.create({
   primaryPressed: {
     opacity: 0.92,
     transform: [{ translateY: 1 }],
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   primaryButtonText: {
     color: colors.textPrimary,
@@ -1073,10 +1251,68 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     width: "100%",
   },
+  manualCard: {
+    backgroundColor: "#1f3a63",
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    width: "100%",
+  },
   modalTitle: {
     color: colors.textPrimary,
     fontSize: typography.lg,
     fontWeight: "800",
+  },
+  manualDescription: {
+    color: colors.textSecondary,
+    fontSize: typography.md,
+    lineHeight: typography.md * 1.4,
+  },
+  manualTaskBox: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  manualTaskTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.lg,
+    fontWeight: "800",
+  },
+  manualStatsRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  manualStatText: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    flex: 1,
+  },
+  manualInputsRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  manualInputGroup: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  manualNumberInput: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    color: colors.textPrimary,
+    fontSize: typography.lg,
+    height: 56,
+  },
+  manualHelperRow: {
+    gap: spacing.xs / 2,
   },
   formGroup: {
     gap: spacing.xs,
