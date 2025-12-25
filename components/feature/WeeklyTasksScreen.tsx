@@ -11,6 +11,7 @@ import { colors, radius, shadows, spacing, typography } from "../../constants/th
 import { supabase } from "../../lib/supabaseClient";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
+import { updateAccumulatedTimes } from "../../lib/timeTracking/updateAccumulatedTimes";
 
 // 画面表示用データの型
 type WeeklyTask = {
@@ -374,7 +375,13 @@ export default function WeeklyTasksScreen() {
   };
 
   const closeManualLog = () => {
-    setManualLog((prev) => ({ ...prev, visible: false, task: null }));
+    setManualLog({
+      visible: false,
+      task: null,
+      hours: "0",
+      minutes: "0",
+      defaultMinutes: 0,
+    });
   };
 
   const handleSubmitManualLog = () => {
@@ -385,12 +392,35 @@ export default function WeeklyTasksScreen() {
       {
         text: t("manualModal.confirm"),
         style: "default",
-        onPress: () => {
-          setTasks((prev) =>
-            prev.map((task) => (task.id === manualLog.task?.id ? { ...task, loggedMinutes: safeTotal } : task)),
-          );
-          // TODO: DB更新と同期を追加する（手動積み上げの永続化）
-          closeManualLog();
+        onPress: async () => {
+          const uid = userId ?? (await fetchUserId());
+          if (!uid || !manualLog.task) {
+            Alert.alert(t("manualModal.errorTitle"), t("modal.errorRequired"));
+            closeManualLog();
+            return;
+          }
+          try {
+            const result = await updateAccumulatedTimes({
+              userId: uid,
+              taskId: manualLog.task.id,
+              monthlyGoalId: manualLog.task.monthlyGoalId,
+              newLoggedMinutes: safeTotal,
+              previousLoggedMinutes: manualLog.defaultMinutes,
+            });
+
+            setTasks((prev) =>
+              prev.map((task) =>
+                task.id === manualLog.task?.id ? { ...task, loggedMinutes: result.newLoggedMinutes } : task,
+              ),
+            );
+
+            Alert.alert(t("manualModal.successTitle"), t("manualModal.successBody"));
+          } catch (error) {
+            const message = error instanceof Error ? error.message : t("modal.errorRequired");
+            Alert.alert(t("manualModal.errorTitle"), message);
+          } finally {
+            closeManualLog();
+          }
         },
       },
     ]);

@@ -66,6 +66,9 @@ export type WeeklyTasksTranslations = {
     cancel: string;
     submit: string;
     outOfRange: string;
+    successTitle: string;
+    successBody: string;
+    errorTitle: string;
   };
 };
 
@@ -139,6 +142,9 @@ export const weeklyTasksTranslations: Record<
       cancel: "戻る",
       submit: "更新する",
       outOfRange: "目標時間を超えない値を入力してください",
+      successTitle: "更新しました",
+      successBody: "実績時間を保存しました。",
+      errorTitle: "更新に失敗しました",
     },
   },
   en: {
@@ -207,6 +213,9 @@ export const weeklyTasksTranslations: Record<
       cancel: "Back",
       submit: "Update",
       outOfRange: "Stay within the target time.",
+      successTitle: "Update saved",
+      successBody: "Time has been updated.",
+      errorTitle: "Update failed",
     },
   },
   fr: {
@@ -275,6 +284,9 @@ export const weeklyTasksTranslations: Record<
       cancel: "Retour",
       submit: "Mettre à jour",
       outOfRange: "Restez sous l’objectif.",
+      successTitle: "Mise à jour enregistrée",
+      successBody: "Le temps a été mis à jour.",
+      errorTitle: "Échec de la mise à jour",
     },
   },
 };
