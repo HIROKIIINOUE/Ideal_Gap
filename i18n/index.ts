@@ -14,6 +14,7 @@ import { resetPasswordTranslations } from "../content/resetPasswordTranslations"
 import { signupTranslations } from "../content/signupTranslations";
 import { contactTranslations } from "../content/contactTranslations";
 import { weeklyTasksTranslations } from "../content/weeklyTasksTranslations";
+import { taskTimerTranslations } from "../content/taskTimerTranslations";
 import { LanguageKey, SUPPORTED_LANGUAGES } from "../types/i18n";
 
 const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
@@ -32,6 +33,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     signup: signupTranslations[lang],
     contact: contactTranslations[lang],
     weeklyTasks: weeklyTasksTranslations[lang],
+    taskTimer: taskTimerTranslations[lang],
   };
   return acc;
 }, {} as Resource);
@@ -58,6 +60,7 @@ if (!i18n.isInitialized) {
       "profileUpdate",
       "contact",
       "weeklyTasks",
+      "taskTimer",
     ],
     interpolation: {
       escapeValue: false,

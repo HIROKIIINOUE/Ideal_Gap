@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -9,9 +10,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { supabase } from "../../lib/supabaseClient";
+import { updateAccumulatedTimes } from "../../lib/timeTracking/updateAccumulatedTimes";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
-import { updateAccumulatedTimes } from "../../lib/timeTracking/updateAccumulatedTimes";
 
 // 画面表示用データの型
 type WeeklyTask = {
@@ -170,6 +171,19 @@ export default function WeeklyTasksScreen() {
         },
       },
     ]);
+  };
+
+  //　作業タイマーへ遷移する
+  const handleOpenTimer = (task: WeeklyTask) => {
+    router.push({
+      pathname: "/task-timer",
+      params: {
+        title: task.title,
+        monthlyGoal: task.monthlyGoalLabel,
+        estimated: String(task.estimatedMinutes),
+        logged: String(task.loggedMinutes),
+      },
+    });
   };
 
   const fetchUserId = async () => {
@@ -619,7 +633,13 @@ export default function WeeklyTasksScreen() {
           <View style={[styles.actionsColumn, styles.taskActionsRow]}>
             <Pressable
               accessibilityRole="button"
-              style={({ pressed }) => [styles.primaryButtonFull, pressed && styles.primaryPressed]}
+              disabled={deleteMode}
+              onPress={() => handleOpenTimer(item)}
+              style={({ pressed }) => [
+                styles.primaryButtonFull,
+                pressed && styles.primaryPressed,
+                deleteMode && styles.buttonDisabled,
+              ]}
             >
               <MaterialCommunityIcons name="timer-outline" size={18} color={colors.textPrimary} />
               <Text style={styles.primaryButtonText}>{t("task.openTimer")}</Text>
