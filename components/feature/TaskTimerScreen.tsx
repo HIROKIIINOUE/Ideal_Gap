@@ -115,7 +115,7 @@ export default function TaskTimerScreen() {
       return;
     }
 
-    // 1秒ごとに残りの時間数を更新する
+    // 1秒ごとに残りの時間数を更新する。バックグランドでは動かないが、UI更新用なので動かなくても良い。
     tickRef.current = setInterval(() => {
       setRemainingSeconds((prev) => {
         if (prev <= 1) {
@@ -131,13 +131,16 @@ export default function TaskTimerScreen() {
     return clearTick;
   }, [status]);
 
-  // 状態がカウントダウンスタート前、もしくはカウントダウン完了状態なら
+  // 状態がidle,finishedの時のみ残り時間とユーザの設定作業時間を一致させる
+  // paused時は残り時間とユーザ設定時間が異なるのでここの処理は走らせない
   useEffect(() => {
     if (status === "idle" || status === "finished") {
       setRemainingSeconds(inputSeconds);
     }
   }, [inputSeconds, status]);
 
+  // クリーンアップ関数でアンマウント時(ページから離れた場合)はタイマーをリセット
+  // アプリ離脱→アプリ再開をした時はシンプルにアンマウント→再マウントの流れで処理が走る
   useEffect(() => {
     return () => clearTick();
   }, []);
