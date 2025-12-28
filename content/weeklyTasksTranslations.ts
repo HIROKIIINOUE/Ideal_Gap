@@ -52,14 +52,13 @@ export type WeeklyTasksTranslations = {
   };
   manualModal: {
     title: string;
-    description: string;
-    taskLabel: string;
     currentLabel: string;
-    targetLabel: string;
+    addedLabel: string;
+    finalLabel: string;
     hoursLabel: string;
     minutesLabel: string;
     rangeHelper: string;
-    unchangedHint: string;
+    finalPreview: string;
     confirmTitle: string;
     confirmMessage: string;
     confirm: string;
@@ -128,22 +127,22 @@ export const weeklyTasksTranslations: Record<
     },
     manualModal: {
       title: "手動で記録",
-      description: "アプリ外で進めた作業時間を手入力で反映できます。",
-      taskLabel: "対象タスク",
       currentLabel: "現在の実績",
-      targetLabel: "目標時間",
+      addedLabel: "追加する時間",
+      finalLabel: "追加後の合計",
       hoursLabel: "時間",
       minutesLabel: "分",
-      rangeHelper: "0〜{{maxHours}}時間{{maxMinutes}}分の範囲で入力してください",
-      unchangedHint: "数値を変更すると更新ボタンが有効になります",
+      rangeHelper:
+        "入力した時間を現在の実績に積み上げます。関連する月間目標、年間目標にも反映されます。",
+      finalPreview: "追加後の累計: {{total}}（目標 {{target}}）",
       confirmTitle: "この実績で更新しますか？",
-      confirmMessage: "累計時間を{{value}}に置き換えます。",
-      confirm: "更新する",
+      confirmMessage: "{{added}} を加算して合計を {{total}} に更新します。",
+      confirm: "加算する",
       cancel: "戻る",
-      submit: "更新する",
-      outOfRange: "目標時間を超えない値を入力してください",
+      submit: "加算する",
+      outOfRange: "1分以上の時間を入力してください",
       successTitle: "更新しました",
-      successBody: "実績時間を保存しました。",
+      successBody: "追加分を保存しました。",
       errorTitle: "更新に失敗しました",
     },
   },
@@ -199,22 +198,22 @@ export const weeklyTasksTranslations: Record<
     },
     manualModal: {
       title: "Manual record",
-      description: "Log time you worked outside the app.",
-      taskLabel: "Task",
       currentLabel: "Current log",
-      targetLabel: "Weekly target",
+      addedLabel: "Add",
+      finalLabel: "New total",
       hoursLabel: "Hours",
       minutesLabel: "Minutes",
-      rangeHelper: "Enter between 0 and {{maxHours}}h {{maxMinutes}}m.",
-      unchangedHint: "Change the value to enable update.",
+      rangeHelper:
+        "The time you enter will be added to the current total. It will be also applied on relating monthly and yearly goals",
+      finalPreview: "New total: {{total}} (target {{target}})",
       confirmTitle: "Update this log?",
-      confirmMessage: "Replace the total with {{value}}.",
-      confirm: "Update",
+      confirmMessage: "Add {{added}} and update the total to {{total}}.",
+      confirm: "Add time",
       cancel: "Back",
-      submit: "Update",
-      outOfRange: "Stay within the target time.",
-      successTitle: "Update saved",
-      successBody: "Time has been updated.",
+      submit: "Add time",
+      outOfRange: "Enter more than 0 minutes.",
+      successTitle: "Added",
+      successBody: "The additional time has been saved.",
       errorTitle: "Update failed",
     },
   },
@@ -270,22 +269,22 @@ export const weeklyTasksTranslations: Record<
     },
     manualModal: {
       title: "Saisie manuelle",
-      description: "Enregistrez le temps travaillé hors de l’app.",
-      taskLabel: "Tâche",
       currentLabel: "Enregistré",
-      targetLabel: "Objectif hebdo",
+      addedLabel: "Ajout",
+      finalLabel: "Total après ajout",
       hoursLabel: "Heures",
       minutesLabel: "Minutes",
-      rangeHelper: "Saisissez entre 0 et {{maxHours}}h {{maxMinutes}}m.",
-      unchangedHint: "Modifiez la valeur pour activer la mise à jour.",
+      rangeHelper:
+        "Le temps que vous saisissez sera ajouté au total actuel. Il sera également appliqué aux objectifs mensuels et annuels correspondants.",
+      finalPreview: "Nouveau total : {{total}} (objectif {{target}})",
       confirmTitle: "Mettre à jour ce suivi ?",
-      confirmMessage: "Remplacer le total par {{value}}.",
-      confirm: "Mettre à jour",
+      confirmMessage: "Ajouter {{added}} au suivi et passer à {{total}}.",
+      confirm: "Ajouter",
       cancel: "Retour",
-      submit: "Mettre à jour",
-      outOfRange: "Restez sous l’objectif.",
-      successTitle: "Mise à jour enregistrée",
-      successBody: "Le temps a été mis à jour.",
+      submit: "Ajouter",
+      outOfRange: "Entrez une durée supérieure à 0 minute.",
+      successTitle: "Ajout enregistré",
+      successBody: "Le temps ajouté a été enregistré.",
       errorTitle: "Échec de la mise à jour",
     },
   },

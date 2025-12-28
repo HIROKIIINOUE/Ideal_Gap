@@ -57,15 +57,6 @@ const formatMinutes = (minutes: number) => {
   return `${hours}h ${mins}m`;
 };
 
-// 〇〇minutesを〇hour〇minutesに変換する
-const toHourMinuteParts = (minutes: number) => {
-  const safe = Math.max(0, Math.round(minutes));
-  return {
-    hours: Math.floor(safe / 60),
-    minutes: safe % 60,
-  };
-};
-
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 
 export default function WeeklyTasksScreen() {
@@ -83,16 +74,20 @@ export default function WeeklyTasksScreen() {
     defaultMinutes: 0,
   });
 
-  const manualRangeUpper = Math.max(0, manualLog.task?.estimatedMinutes ?? 0);
-  const manualMaxParts = useMemo(() => toHourMinuteParts(manualRangeUpper), [manualRangeUpper]);
+  const manualTargetMinutes = Math.max(0, manualLog.task?.estimatedMinutes ?? 0);
   const manualHoursNumber = useMemo(() => Number(manualLog.hours || "0"), [manualLog.hours]);
   const manualMinutesNumber = useMemo(() => Math.min(59, Number(manualLog.minutes || "0")), [manualLog.minutes]);
-  const manualTotalMinutes = useMemo(
+  const manualAddedMinutes = useMemo(
     () => manualHoursNumber * 60 + manualMinutesNumber,
     [manualHoursNumber, manualMinutesNumber],
   );
-  const manualChanged = manualLog.task !== null && manualTotalMinutes !== manualLog.defaultMinutes;
-  const manualInRange = manualTotalMinutes >= 0 && manualTotalMinutes <= manualRangeUpper;
+  const manualFinalMinutes = useMemo(
+    () => manualLog.defaultMinutes + manualAddedMinutes,
+    [manualAddedMinutes, manualLog.defaultMinutes],
+  );
+  const manualHasInput = manualAddedMinutes > 0;
+  const manualChanged = manualLog.task !== null && manualHasInput;
+  const manualInRange = manualHasInput;
 
   // 全てのタスクの「目標時間合計」「タスク実行時間合計」「達成度」を算出
   const totals = useMemo(() => {
@@ -128,6 +123,7 @@ export default function WeeklyTasksScreen() {
 
   const monthsList = useMemo(() => Array.from({ length: 12 }, (_, idx) => idx + 1), []);
   const initializedDefaultGoal = useRef(false);
+  const hasLoadedRef = useRef(false);
   const monthGoalsForSelected = useMemo(
     () => monthlyGoalOptions.filter((opt) => opt.month === selectedMonth),
     [monthlyGoalOptions, selectedMonth],
@@ -293,9 +289,19 @@ export default function WeeklyTasksScreen() {
     setLoading(false);
   }, [fetchUserId, initializedDefaultGoal, reorderTasks, t, toWeeklyTask]);
 
+  // 初回マウント時にもデータを1回だけ取得し、以降はフォーカス時に再取得する
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+    loadData();
+  }, [loadData]);
+
   // useFocusEffectを使用することでタイマーページから戻ってきた時も確実に最新情報を取得できる
   useFocusEffect(
     useCallback(() => {
+      if (!hasLoadedRef.current) {
+        hasLoadedRef.current = true;
+      }
       loadData();
     }, [loadData]),
   );
@@ -358,14 +364,13 @@ export default function WeeklyTasksScreen() {
     setModalVisible(true);
   };
 
-  // 手動で作業時間積み上げモーダルをオープン・デフォルト値のセット
+  // 手動で作業時間積み上げモーダルをオープンする処理
   const handleOpenManualLog = (task: WeeklyTask) => {
-    const { hours, minutes } = toHourMinuteParts(task.loggedMinutes);
     setManualLog({
       visible: true,
       task,
-      hours: String(hours),
-      minutes: String(minutes),
+      hours: "0",
+      minutes: "0",
       defaultMinutes: Math.max(0, task.loggedMinutes),
     });
   };
@@ -398,44 +403,50 @@ export default function WeeklyTasksScreen() {
 
   const handleSubmitManualLog = () => {
     if (!manualLog.task || !manualInRange || !manualChanged) return;
-    const safeTotal = Math.min(Math.max(0, manualTotalMinutes), manualRangeUpper);
-    Alert.alert(t("manualModal.confirmTitle"), t("manualModal.confirmMessage", { value: formatMinutes(safeTotal) }), [
-      { text: t("manualModal.cancel"), style: "cancel" },
-      {
-        text: t("manualModal.confirm"),
-        style: "default",
-        onPress: async () => {
-          const uid = userId ?? (await fetchUserId());
-          if (!uid || !manualLog.task) {
-            Alert.alert(t("manualModal.errorTitle"), t("modal.errorRequired"));
-            closeManualLog();
-            return;
-          }
-          try {
-            const result = await updateAccumulatedTimes({
-              userId: uid,
-              taskId: manualLog.task.id,
-              monthlyGoalId: manualLog.task.monthlyGoalId,
-              newLoggedMinutes: safeTotal,
-              previousLoggedMinutes: manualLog.defaultMinutes,
-            });
+    const safeTotal = Math.max(0, manualFinalMinutes);
+    Alert.alert(
+      t("manualModal.confirmTitle"),
+      t("manualModal.confirmMessage", {
+        total: formatMinutes(safeTotal),
+        added: formatMinutes(manualAddedMinutes),
+      }),
+      [
+        { text: t("manualModal.cancel"), style: "cancel" },
+        {
+          text: t("manualModal.confirm"),
+          style: "default",
+          onPress: async () => {
+            const uid = userId ?? (await fetchUserId());
+            if (!uid || !manualLog.task) {
+              Alert.alert(t("manualModal.errorTitle"), t("modal.errorRequired"));
+              closeManualLog();
+              return;
+            }
+            try {
+              const result = await updateAccumulatedTimes({
+                userId: uid,
+                taskId: manualLog.task.id,
+                monthlyGoalId: manualLog.task.monthlyGoalId,
+                newLoggedMinutes: safeTotal,
+                previousLoggedMinutes: manualLog.defaultMinutes,
+              });
 
-            setTasks((prev) =>
-              prev.map((task) =>
-                task.id === manualLog.task?.id ? { ...task, loggedMinutes: result.newLoggedMinutes } : task,
-              ),
-            );
+              setTasks((prev) =>
+                prev.map((task) =>
+                  task.id === manualLog.task?.id ? { ...task, loggedMinutes: result.newLoggedMinutes } : task,
+                ),
+              );
 
-            Alert.alert(t("manualModal.successTitle"), t("manualModal.successBody"));
-          } catch (error) {
-            const message = error instanceof Error ? error.message : t("modal.errorRequired");
-            Alert.alert(t("manualModal.errorTitle"), message);
-          } finally {
-            closeManualLog();
-          }
+              Alert.alert(t("manualModal.successTitle"), t("manualModal.successBody"));
+            } catch (error) {
+              const message = error instanceof Error ? error.message : t("modal.errorRequired");
+              Alert.alert(t("manualModal.errorTitle"), message);
+            } finally {
+              closeManualLog();
+            }
+          },
         },
-      },
-    ]);
+      ]);
   };
 
 
@@ -936,20 +947,25 @@ export default function WeeklyTasksScreen() {
           <View style={styles.modalOverlay}>
             <View style={[styles.manualCard, shadows.card]}>
               <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
-              <Text style={styles.manualDescription}>{t("manualModal.description")}</Text>
 
               <View style={styles.manualTaskBox}>
-                <Text style={styles.label}>{t("manualModal.taskLabel")}</Text>
                 <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
                   {manualLog.task?.title ?? "-"}
                 </Text>
-                <View style={styles.manualStatsRow}>
-                  <Text style={styles.manualStatText}>
-                    {t("manualModal.currentLabel")}: {formatMinutes(manualLog.defaultMinutes)}
-                  </Text>
-                  <Text style={styles.manualStatText}>
-                    {t("manualModal.targetLabel")}: {formatMinutes(manualRangeUpper)}
-                  </Text>
+                <View style={styles.manualSummaryBox}>
+                  <View style={styles.manualSummaryRow}>
+                    <Text style={styles.manualSummaryLabel}>{t("manualModal.currentLabel")}</Text>
+                    <Text style={styles.manualSummaryValue}>{formatMinutes(manualLog.defaultMinutes)}</Text>
+                  </View>
+                  <View style={styles.manualSummaryRow}>
+                    <Text style={styles.manualSummaryLabel}>{t("manualModal.addedLabel")}</Text>
+                    <Text style={styles.manualSummaryValue}>{formatMinutes(manualAddedMinutes)}</Text>
+                  </View>
+                  <View style={styles.manualSummaryDivider} />
+                  <View style={styles.manualSummaryRow}>
+                    <Text style={styles.manualSummaryLabel}>{t("manualModal.finalLabel")}</Text>
+                    <Text style={styles.manualSummaryTotal}>{formatMinutes(manualFinalMinutes)}</Text>
+                  </View>
                 </View>
               </View>
 
@@ -979,20 +995,14 @@ export default function WeeklyTasksScreen() {
               </View>
 
               <View style={styles.manualHelperRow}>
+                <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
                 <Text style={styles.helperText}>
-                  {t("manualModal.rangeHelper", {
-                    maxHours: manualMaxParts.hours,
-                    maxMinutes: manualMaxParts.minutes,
+                  {t("manualModal.finalPreview", {
+                    total: formatMinutes(manualFinalMinutes),
+                    target: formatMinutes(manualTargetMinutes),
                   })}
                 </Text>
-                <Text style={styles.helperText}>
-                  {t("summary.logged")}: {formatMinutes(manualTotalMinutes)}
-                </Text>
               </View>
-              {!manualInRange && <Text style={styles.errorText}>{t("manualModal.outOfRange")}</Text>}
-              {manualInRange && !manualChanged ? (
-                <Text style={styles.helperText}>{t("manualModal.unchangedHint")}</Text>
-              ) : null}
 
               <View style={styles.modalActions}>
                 <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
@@ -1313,11 +1323,6 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: "800",
   },
-  manualDescription: {
-    color: colors.textSecondary,
-    fontSize: typography.md,
-    lineHeight: typography.md * 1.4,
-  },
   manualTaskBox: {
     backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: radius.md,
@@ -1331,14 +1336,37 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: "800",
   },
-  manualStatsRow: {
-    flexDirection: "row",
-    gap: spacing.md,
+  manualSummaryBox: {
+    marginTop: spacing.sm,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    padding: spacing.sm,
+    gap: spacing.xs,
   },
-  manualStatText: {
+  manualSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  manualSummaryLabel: {
     color: colors.textSecondary,
     fontSize: typography.sm,
-    flex: 1,
+  },
+  manualSummaryValue: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    fontWeight: "700",
+  },
+  manualSummaryDivider: {
+    height: 1,
+    backgroundColor: colors.divider,
+  },
+  manualSummaryTotal: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "800",
   },
   manualInputsRow: {
     flexDirection: "row",
