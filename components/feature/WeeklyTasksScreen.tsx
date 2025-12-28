@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
@@ -188,12 +189,12 @@ export default function WeeklyTasksScreen() {
     });
   };
 
-  const fetchUserId = async () => {
+  const fetchUserId = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     const uid = data.session?.user?.id ?? null;
     setUserId(uid);
     return uid;
-  };
+  }, []);
 
   //  データベースの行データから画面表示用のWeeklyTask型に変換
   const toWeeklyTask = React.useCallback(
@@ -230,79 +231,74 @@ export default function WeeklyTasksScreen() {
       .map((task, idx) => ({ ...task, order: idx }));
   }, []);
 
-  // データ取得
-  useEffect(() => {
-    let active = true;
-    const loadData = async () => {
-      setLoading(true);
-      setErrorMessage(null);
-      const uid = await fetchUserId();
-      if (!uid) {
-        if (active) setErrorMessage(t("modal.errorRequired"));
-        setLoading(false);
-        return;
-      }
 
-      const [{ data: monthlyData, error: monthlyError }, { data: weeklyData, error: weeklyError }] = await Promise.all([
-        supabase
-          .from("monthly_goals")
-          .select("id, description, month, yearly_goal_id, yearly_goals(year_goal_color)")
-          .eq("user_id", uid)
-          .order("month", { ascending: true }),
-        supabase
-          .from("weekly_tasks" as any)
-          .select("id, description, monthly_goal_id, estimated_time_week, accumulated_time_week, order")
-          .eq("user_id", uid)
-          .order("order", { ascending: true }),
-      ]);
-
-      if (monthlyError || weeklyError) {
-        if (active) setErrorMessage(monthlyError?.message ?? weeklyError?.message ?? "Failed to load data");
-        setLoading(false);
-        return;
-      }
-
-      // 指定ユーザの全ての月間目標をページに表示するように整形
-      const monthlyOptions = ((monthlyData as any[]) ?? []).map((row) => {
-        const color = row?.yearly_goals?.year_goal_color ?? colors.accentPrimary;
-        return {
-          id: (row as MonthlyGoalRow).id,
-          label: `${(row as MonthlyGoalRow).month}月 : ${(row as MonthlyGoalRow).description}`,
-          color,
-          month: (row as MonthlyGoalRow).month,
-        };
-      });
-
-      // 月間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
-      // コードがシンプルになり、パフォーマンスが安定する
-      const goalLookup = monthlyOptions.reduce<Record<string, { label: string; color: string; month: number }>>((acc, item) => {
-        acc[item.id] = { label: item.label, color: item.color, month: item.month };
-        return acc;
-      }, {});
-
-      // データベースから取得した週間タスクをorderの値に基づいて順番を並び替え、編集モーダルに表示する用の「紐づいた月間目標ラベル」を各タスクデータに追加する
-      const weekly = reorderTasks(
-        ((weeklyData as any[]) ?? []).map((row) => toWeeklyTask(row as WeeklyTaskRow, goalLookup)),
-      );
-
-      if (active) {
-        setMonthlyGoalOptions(monthlyOptions);
-        setTasks(weekly);
-        // ↓ 初回データロード時に月間目標が存在するなら最初の1件をドラフト初期値にセットする」処理を一度だけ行う
-        if (monthlyOptions[0] && !initializedDefaultGoal.current) {
-          initializedDefaultGoal.current = true;
-          setDraft((prev) => ({ ...prev, monthlyGoalId: monthlyOptions[0].id, month: monthlyOptions[0].month }));
-        }
-      }
+  // 最新データ(週間タスクと月間目標)の取得
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    const uid = await fetchUserId();
+    if (!uid) {
+      setErrorMessage(t("modal.errorRequired"));
       setLoading(false);
-    };
+      return;
+    }
 
-    loadData();
-    return () => {
-      active = false;
-    };
-  }, [reorderTasks, t, toWeeklyTask]);
+    const [{ data: monthlyData, error: monthlyError }, { data: weeklyData, error: weeklyError }] = await Promise.all([
+      supabase
+        .from("monthly_goals")
+        .select("id, description, month, yearly_goal_id, yearly_goals(year_goal_color)")
+        .eq("user_id", uid)
+        .order("month", { ascending: true }),
+      supabase
+        .from("weekly_tasks" as any)
+        .select("id, description, monthly_goal_id, estimated_time_week, accumulated_time_week, order")
+        .eq("user_id", uid)
+        .order("order", { ascending: true }),
+    ]);
 
+    if (monthlyError || weeklyError) {
+      setErrorMessage(monthlyError?.message ?? weeklyError?.message ?? "Failed to load data");
+      setLoading(false);
+      return;
+    }
+
+    // 月間目標データを週間タスクページで使用しやすいフォーマットに変換
+    const monthlyOptions = ((monthlyData as any[]) ?? []).map((row) => {
+      const color = row?.yearly_goals?.year_goal_color ?? colors.accentPrimary;
+      return {
+        id: (row as MonthlyGoalRow).id,
+        label: `${(row as MonthlyGoalRow).month}月 : ${(row as MonthlyGoalRow).description}`,
+        color,
+        month: (row as MonthlyGoalRow).month,
+      };
+    });
+
+    // 月間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
+    // コードがシンプルになり、パフォーマンスが安定する
+    const goalLookup = monthlyOptions.reduce<Record<string, { label: string; color: string; month: number }>>((acc, item) => {
+      acc[item.id] = { label: item.label, color: item.color, month: item.month };
+      return acc;
+    }, {});
+
+    const weekly = reorderTasks(
+      ((weeklyData as any[]) ?? []).map((row) => toWeeklyTask(row as WeeklyTaskRow, goalLookup)),
+    );
+
+    setMonthlyGoalOptions(monthlyOptions);
+    setTasks(weekly);
+    if (monthlyOptions[0] && !initializedDefaultGoal.current) {
+      initializedDefaultGoal.current = true;
+      setDraft((prev) => ({ ...prev, monthlyGoalId: monthlyOptions[0].id, month: monthlyOptions[0].month }));
+    }
+    setLoading(false);
+  }, [fetchUserId, initializedDefaultGoal, reorderTasks, t, toWeeklyTask]);
+
+  // useFocusEffectを使用することでタイマーページから戻ってきた時も確実に最新情報を取得できる
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
   // ユーザがタスク追加時に選んだ選択月を記憶して次回の追加時のデフォルトとしてセット
   useEffect(() => {

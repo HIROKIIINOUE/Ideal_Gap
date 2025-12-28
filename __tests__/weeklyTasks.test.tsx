@@ -14,6 +14,10 @@ jest.mock("@expo/vector-icons", () => {
   return { MaterialCommunityIcons: MockIcon };
 });
 
+jest.mock("@react-navigation/native", () => ({
+  useFocusEffect: () => {},
+}));
+
 jest.mock("expo-linear-gradient", () => {
   const MockLinearGradient = ({ children }: { children: React.ReactNode }) => <>{children}</>;
   MockLinearGradient.displayName = "MockLinearGradient";
