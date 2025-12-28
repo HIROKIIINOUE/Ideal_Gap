@@ -29,8 +29,8 @@ type MusicOption = {
 };
 
 const PRESETS = [
-  { label: "add10s", minutes: 10 / 60 }, // これはテスト用
-  { label: "add1m", minutes: 1 }, // これはテスト用
+  // { label: "add10s", minutes: 10 / 60 }, // これはテスト用
+  // { label: "add1m", minutes: 1 }, // これはテスト用
   { label: "add5", minutes: 5 },
   { label: "add10", minutes: 10 },
   { label: "add30", minutes: 30 },
@@ -325,13 +325,6 @@ export default function TaskTimerScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]} testID="task-timer-screen">
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          {statusLabel && (
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>xxxx{statusLabel}</Text>
-            </View>
-          )}
-        </View>
         {showNotificationPrompt && (
           <View style={[styles.noticeCard, shadows.card]}>
             <Text style={styles.noticeText}>{t("header.notificationTitle")}</Text>
@@ -354,7 +347,7 @@ export default function TaskTimerScreen() {
           </View>
         )}
 
-        <View style={[styles.card, shadows.card]}>
+        <View style={[styles.card, styles.timerCard, shadows.card]}>
           <LinearGradient colors={gradientCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <Text style={styles.focusTitle} numberOfLines={2} ellipsizeMode="tail">
             {taskTitle}
@@ -381,6 +374,7 @@ export default function TaskTimerScreen() {
                     <Text style={styles.remainingLabel}>
                       {t("timerCard.endTimeLabel", { time: endTimeText })}
                     </Text>
+                    {statusLabel && <Text style={styles.statusInline}>{statusLabel}</Text>}
                   </View>
                 )}
               </AnimatedCircularProgress>
@@ -407,11 +401,14 @@ export default function TaskTimerScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={handleClear}
+              disabled={status === "running"}
               style={({ pressed }) => [
                 styles.secondaryButton,
                 styles.presetButton,
                 styles.clearButton,
                 pressed && styles.secondaryPressed,
+                status === "running" && styles.buttonDisabled,
+                status === "running" && styles.clearButtonDisabled,
               ]}
             >
               <Text style={styles.clearButtonText}>{t("presets.clear")}</Text>
@@ -625,10 +622,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.divider,
     overflow: "hidden",
+  },
+  timerCard: {
+    gap: 0,
   },
   noticeCard: {
     backgroundColor: colors.surface,
@@ -678,11 +678,12 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: "800",
     textAlign: "center",
+    marginBottom: spacing.lg,
   },
   timerWrapper: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: spacing.md,
+    marginTop: 0,
     width: "100%",
   },
   progressWrapper: {
@@ -716,13 +717,21 @@ const styles = StyleSheet.create({
   remainingLabel: {
     color: colors.textSecondary,
     fontSize: 18,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     textAlign: "center",
+  },
+  statusInline: {
+    marginTop: spacing.xs / 2,
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   presetsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
+    marginTop: -spacing.lg,  //【ここチェック】 他のデバイスでもデザインが崩れないかどうか
   },
   presetButton: {
     minWidth: 92,
@@ -730,6 +739,10 @@ const styles = StyleSheet.create({
   clearButton: {
     borderColor: colors.error,
     backgroundColor: "rgba(242,95,92,0.1)",
+  },
+  clearButtonDisabled: {
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
   clearButtonText: {
     color: colors.error,
