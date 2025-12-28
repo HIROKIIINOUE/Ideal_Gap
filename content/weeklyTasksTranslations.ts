@@ -10,6 +10,8 @@ export type WeeklyTasksTranslations = {
     add: string;
     delete: string;
     deleteExit: string;
+    listify: string;
+    listifyExit: string;
   };
   deleteConfirm: {
     title: string;
@@ -85,6 +87,8 @@ export const weeklyTasksTranslations: Record<
       add: "追加",
       delete: "削除",
       deleteExit: "削除モードを終了",
+      listify: "リスト化",
+      listifyExit: "戻す",
     },
     deleteConfirm: {
       title: "削除してもよろしいですか？",
@@ -156,6 +160,8 @@ export const weeklyTasksTranslations: Record<
       add: "Add",
       delete: "Delete",
       deleteExit: "Exit delete mode",
+      listify: "List view",
+      listifyExit: "Back",
     },
     deleteConfirm: {
       title: "Delete this weekly task?",
@@ -227,6 +233,8 @@ export const weeklyTasksTranslations: Record<
       add: "Ajouter",
       delete: "Supprimer",
       deleteExit: "Quitter le mode suppression",
+      listify: "Vue liste",
+      listifyExit: "Retour",
     },
     deleteConfirm: {
       title: "Supprimer cette tâche hebdomadaire ?",

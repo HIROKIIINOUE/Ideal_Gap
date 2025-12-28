@@ -63,6 +63,7 @@ export default function WeeklyTasksScreen() {
   const { t } = useTranslation("weeklyTasks");
   const [tasks, setTasks] = useState<WeeklyTask[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
+  const [listMode, setListMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -574,6 +575,55 @@ export default function WeeklyTasksScreen() {
 
   // 指定のPressable要素の長押しドラッグを可能にするロジック
   const renderTaskCard = ({ item, drag, isActive }: RenderItemParams<WeeklyTask>) => {
+    if (listMode) {
+      return (
+        <Pressable
+          onLongPress={drag}
+          delayLongPress={120}
+          disabled={deleteMode && isActive}
+          style={[
+            styles.listRow,
+            deleteMode && styles.listRowDelete,
+            isActive && styles.taskCardDragging,
+            deleteMode && styles.taskCardDeleteMode,
+          ]}
+        >
+          <LinearGradient
+            colors={LIST_CARD_GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View pointerEvents="none" style={styles.cardBorderOverlay} />
+          <View style={styles.listRowContent}>
+            <Text style={styles.listRowTitle} numberOfLines={1} ellipsizeMode="tail">
+              {item.title}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.listRowButton, deleteMode && styles.dangerButton]}
+              onPress={() => {
+                if (deleteMode) {
+                  handleDeleteTask(item);
+                } else {
+                  handleOpenEdit(item);
+                }
+              }}
+            >
+              <MaterialCommunityIcons
+                name={deleteMode ? "trash-can-outline" : "pencil-outline"}
+                size={16}
+                color={deleteMode ? colors.error : colors.textPrimary}
+              />
+              <Text style={deleteMode ? styles.dangerButtonText : styles.listRowButtonText}>
+                {deleteMode ? t("actions.delete") : t("task.edit")}
+              </Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      );
+    }
+
     const progress = item.estimatedMinutes > 0 ? Math.min(1, item.loggedMinutes / item.estimatedMinutes) : 0;
     const remaining = Math.max(0, item.estimatedMinutes - item.loggedMinutes);
     return (
@@ -594,6 +644,7 @@ export default function WeeklyTasksScreen() {
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+        <View pointerEvents="none" style={styles.cardBorderOverlay} />
         <View style={styles.taskHeader}>
           <Text style={styles.taskTitle}>{item.title}</Text>
         </View>
@@ -746,6 +797,30 @@ export default function WeeklyTasksScreen() {
                 </Text>
               </Pressable>
             </View>
+            {!deleteMode && (
+              <View style={styles.actionsRowSecondary}>
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.secondaryPressed,
+                    listMode && styles.secondaryButtonActive,
+                  ]}
+                  onPress={() => setListMode((prev) => !prev)}
+                >
+                  <MaterialCommunityIcons
+                    name={listMode ? "playlist-check" : "format-list-bulleted"}
+                    size={20}
+                    color={colors.textPrimary}
+                  />
+                  <Text style={styles.secondaryButtonText}>
+                    {listMode
+                      ? t("actions.listifyExit", { defaultValue: "Back" })
+                      : t("actions.listify", { defaultValue: "List view" })}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
@@ -1034,14 +1109,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingVertical: spacing.xl,
-    gap: spacing.xl * 1.2,
+    paddingBottom: spacing.xl,
+    gap: spacing.lg,
   },
   headerCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     overflow: "hidden",
-    padding: spacing.xl,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
     borderWidth: 1,
     borderColor: colors.divider,
     gap: spacing.md,
@@ -1059,6 +1135,11 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
     marginTop: spacing.sm,
+  },
+  actionsRowSecondary: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm / 2,
   },
   primaryButton: {
     flexDirection: "row",
@@ -1171,6 +1252,58 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: spacing.lg,
+  },
+  listRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+    marginBottom: spacing.sm,
+    gap: spacing.md,
+    overflow: "hidden",
+  },
+  listRowDelete: {
+    borderColor: colors.error,
+    backgroundColor: "rgba(242,95,92,0.08)",
+  },
+  listRowContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  listRowTitle: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+  },
+  listRowButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  listRowButtonText: {
+    color: colors.textPrimary,
+    fontWeight: "700",
+    fontSize: typography.sm,
+  },
+  cardBorderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    opacity: 0.7,
   },
   emptyTitle: {
     color: colors.textPrimary,
