@@ -1398,7 +1398,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   actionsColumn: {
+    flexDirection: "row",
     gap: spacing.sm,
+    flexWrap: "wrap",
   },
   primaryButtonFull: {
     flexDirection: "row",
@@ -1410,7 +1412,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.accentPrimary,
     backgroundColor: "rgba(30,94,255,0.2)",
-    width: "100%",
+    flex: 1,
+    minWidth: "48%",
     justifyContent: "center",
   },
   secondaryButtonFull: {
@@ -1423,7 +1426,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
     backgroundColor: "rgba(255,255,255,0.03)",
-    width: "100%",
+    flex: 1,
+    minWidth: "48%",
     justifyContent: "center",
   },
   modalOverlay: {

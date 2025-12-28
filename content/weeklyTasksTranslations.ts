@@ -108,8 +108,8 @@ export const weeklyTasksTranslations: Record<
     },
     task: {
       monthlyLink: "月間目標",
-      openTimer: "作業タイマー",
-      manualLog: "手動で記録",
+      openTimer: "タイマー",
+      manualLog: "手動記録",
       edit: "編集",
       comingSoon: "機能は後で実装予定",
     },
@@ -181,8 +181,8 @@ export const weeklyTasksTranslations: Record<
     },
     task: {
       monthlyLink: "Monthly goal",
-      openTimer: "Work timer",
-      manualLog: "Manual log",
+      openTimer: "Timer",
+      manualLog: "Manual",
       edit: "Edit",
       comingSoon: "Feature coming later",
     },
@@ -254,8 +254,8 @@ export const weeklyTasksTranslations: Record<
     },
     task: {
       monthlyLink: "Objectif mensuel",
-      openTimer: "Minuteur de travail",
-      manualLog: "Saisie manuelle",
+      openTimer: "Minuteur",
+      manualLog: "Manuel",
       edit: "Modifier",
       comingSoon: "Fonctionnalité à venir",
     },
