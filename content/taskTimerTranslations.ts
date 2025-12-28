@@ -24,6 +24,8 @@ export type TaskTimerTranslations = {
     zeroState: string;
   };
   presets: {
+    add10s: string; // これはテスト用
+    add1m: string; // これはテスト用
     add5: string;
     add10: string;
     add30: string;
@@ -78,6 +80,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       zeroState: "未設定",
     },
     presets: {
+      add10s: "10秒", // これはテスト用
+      add1m: "1分", // これはテスト用
       add5: "+5m",
       add10: "+10m",
       add30: "+30m",
@@ -130,6 +134,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       zeroState: "No time set",
     },
     presets: {
+      add10s: "10s", // これはテスト用
+      add1m: "1m", // これはテスト用
       add5: "+5m",
       add10: "+10m",
       add30: "+30m",
@@ -182,6 +188,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       zeroState: "Non défini",
     },
     presets: {
+      add10s: "10 s", // これはテスト用
+      add1m: "1 min", // これはテスト用
       add5: "+5 min",
       add10: "+10 min",
       add30: "+30 min",

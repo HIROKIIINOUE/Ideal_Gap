@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -17,6 +17,8 @@ import {
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { supabase } from "../../lib/supabaseClient";
+import { updateAccumulatedTimes } from "../../lib/timeTracking/updateAccumulatedTimes";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
 
@@ -27,6 +29,8 @@ type MusicOption = {
 };
 
 const PRESETS = [
+  { label: "add10s", minutes: 10 / 60 }, // これはテスト用
+  { label: "add1m", minutes: 1 }, // これはテスト用
   { label: "add5", minutes: 5 },
   { label: "add10", minutes: 10 },
   { label: "add30", minutes: 30 },
@@ -60,14 +64,21 @@ const gradientCard = ["rgba(30,94,255,0.18)", "rgba(12,18,32,0.95)"] as const;
 const formatEndTimeLabel = (timestamp: number | null) => {
   if (!timestamp) return "--:--";
   const date = new Date(timestamp);  // カウントダウンスタートもしくは再開時の時刻
-  const hours = String(date.getHours()).padStart(2, "0"); // 
+  const hours = String(date.getHours()).padStart(2, "0"); //
   const minutes = String(date.getMinutes()).padStart(2, "0");
   return `${hours}:${minutes}`;
 };
 
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
-  const params = useLocalSearchParams<{ title?: string; monthlyGoal?: string; estimated?: string; logged?: string }>();
+  const params = useLocalSearchParams<{
+    title?: string;
+    monthlyGoal?: string;
+    estimated?: string;
+    logged?: string;
+    taskId?: string;
+    monthlyGoalId?: string;
+  }>();
 
   // タイマーの初期値は常に0から開始する
   const initialSeconds = 0;
@@ -80,10 +91,17 @@ export default function TaskTimerScreen() {
   const [selectedMusic, setSelectedMusic] = useState<MusicOption>(MUSIC_OPTIONS[0]);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(true);
   const [expectedEndAt, setExpectedEndAt] = useState<number | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const completionFiredRef = useRef(false);
 
   const taskTitle = params.title || t("pageTitle");
+  const taskId = params.taskId ?? null;
+  const monthlyGoalId = params.monthlyGoalId ?? null;
+  const monthlyGoalIdSafe = monthlyGoalId || null;
+  const previousLoggedMinutes = useMemo(() => Math.max(0, Math.round(Number(params.logged ?? 0))), [params.logged]);
+  const [loggedBaseline, setLoggedBaseline] = useState(previousLoggedMinutes);
   const hasDuration = inputSeconds > 0;
 
   // 「経過した時間 / 設定作業時間」からどの割合進んだかを算出してリターンする
@@ -98,6 +116,32 @@ export default function TaskTimerScreen() {
   const durationLabel = `${formatDigital(remainingSeconds)} / ${formatDigital(inputSeconds)}`;
   const endTimeText = useMemo(() => formatEndTimeLabel(expectedEndAt), [expectedEndAt]);
 
+  const fetchUserId = useCallback(async () => {
+    if (userId) return userId;
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id ?? null;
+    setUserId(uid);
+    return uid;
+  }, [userId]);
+
+
+  // 初回レンダリング時に紐づく週間タスクの最新データをDBから取得
+  const fetchLatestLogged = useCallback(async (uid: string, weeklyTaskId: string) => {
+    const { data, error } = await supabase
+      .from("weekly_tasks" as any)
+      .select("accumulated_time_week, monthly_goal_id")
+      .eq("id", weeklyTaskId)
+      .eq("user_id", uid)
+      .single();
+    if (error) {
+      throw new Error(error.message);
+    }
+    return {
+      accumulated: Math.max(0, Math.round((data as any)?.accumulated_time_week ?? 0)),
+      monthlyGoalId: ((data as any)?.monthly_goal_id ?? null) as string | null,
+    };
+  }, []);
+
 
   // 1秒ごとにカウントする役割を持つtickRef.currentをリセットする
   const clearTick = () => {
@@ -106,30 +150,6 @@ export default function TaskTimerScreen() {
       tickRef.current = null;
     }
   };
-
-
-  // タイマーがカウント中(running)に切り替わった時に発火しsetIntervalをスタートさせる
-  useEffect(() => {
-    if (status !== "running") {
-      clearTick();
-      return;
-    }
-
-    // 1秒ごとに残りの時間数を更新する。バックグランドでは動かないが、UI更新用なので動かなくても良い。
-    tickRef.current = setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          clearTick();
-          setStatus("finished");
-          setExpectedEndAt(null);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return clearTick;
-  }, [status]);
 
   // 状態がidle,finishedの時のみ残り時間とユーザの設定作業時間を一致させる
   // paused時は残り時間とユーザ設定時間が異なるのでここの処理は走らせない
@@ -154,7 +174,7 @@ export default function TaskTimerScreen() {
     Alert.alert(message);
   };
 
-  // カウントダウンが「idle」「paused」の条件下で設定作業時間を追加するロジック
+  // カウントダウンが「idle」「paused」の各条件下でプリセットボタンで設定作業時間を追加するロジック
   const handlePreset = (minutes: number) => {
     if (status === "running") return;
     const delta = Math.round(minutes * 60);
@@ -181,6 +201,7 @@ export default function TaskTimerScreen() {
     setRemainingSeconds(0);
     setStatus("idle");
     setExpectedEndAt(null);
+    completionFiredRef.current = false;
   };
 
   // スタートボタン押下時
@@ -192,6 +213,7 @@ export default function TaskTimerScreen() {
     setRemainingSeconds(inputSeconds);
     setStatus("running");
     setExpectedEndAt(Date.now() + inputSeconds * 1000);
+    completionFiredRef.current = false;
   };
 
   // 一時停止orリスタート ボタン押下時
@@ -200,6 +222,7 @@ export default function TaskTimerScreen() {
     if (status === "running") {
       setStatus("paused");
       setExpectedEndAt(null);
+      completionFiredRef.current = false;
       return;
     }
     if (status === "paused") {
@@ -208,19 +231,82 @@ export default function TaskTimerScreen() {
     }
   };
 
+  // タイマーカウントダウンが完了 or 作業完了ボタンが押下された時に発火
+  // 「今回実行された作業時間」を紐づく週間タスクの最新の作業実績時間データに積み上げる
+  const persistElapsedAndExit = useCallback(async (elapsedSeconds: number) => {
+    const uid = await fetchUserId();
+    if (!uid || !taskId) {
+      Alert.alert(t("controls.completeConfirmTitle"), t("feedback.startError"));
+      return;
+    }
+
+    const elapsedMinutes = Math.max(0, Math.round(elapsedSeconds / 60));
+    const latest = await fetchLatestLogged(uid, taskId);
+    const baseLogged = latest.accumulated ?? loggedBaseline;
+    const newLoggedMinutes = baseLogged + elapsedMinutes;
+
+    try {
+      await updateAccumulatedTimes({
+        userId: uid,
+        taskId,
+        monthlyGoalId: latest.monthlyGoalId ?? monthlyGoalIdSafe,
+        newLoggedMinutes,
+        previousLoggedMinutes: baseLogged,
+      });
+      setLoggedBaseline(newLoggedMinutes);
+      setStatus("finished");
+      setExpectedEndAt(null);
+      showToast(t("controls.completeToast"));
+      router.back();
+    } catch (error) {
+      Alert.alert(t("controls.completeConfirmTitle"), error instanceof Error ? error.message : String(error));
+    }
+  }, [fetchLatestLogged, fetchUserId, loggedBaseline, monthlyGoalIdSafe, t, taskId]);
+
+  // タイマーがカウント中(running)に切り替わった時に発火しsetIntervalをスタートさせる
+  useEffect(() => {
+    if (status !== "running") {
+      clearTick();
+      return;
+    }
+
+    // 1秒ごとに残りの時間数を更新する。バックグランドでは動かないが、UI更新用なので動かなくても良い。
+    tickRef.current = setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          clearTick();
+          if (!completionFiredRef.current) {
+            completionFiredRef.current = true;
+            void persistElapsedAndExit(Math.max(0, inputSeconds));
+          }
+          setStatus("finished");
+          setExpectedEndAt(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return clearTick;
+  }, [status, inputSeconds, persistElapsedAndExit]);
+
   // 作業完了ボタン押下時の処理
   const handleComplete = () => {
+    if (!hasDuration) {
+      showToast(t("feedback.startError"));
+      return;
+    }
     Alert.alert(t("controls.completeConfirmTitle"), t("controls.completeConfirmBody"), [
       { text: t("controls.cancel"), style: "cancel" },
       {
         text: t("controls.confirm"),
         style: "destructive",
-        onPress: () => {
+        onPress: async () => {
+          if (completionFiredRef.current) return;
+          completionFiredRef.current = true;
           clearTick();
-          setStatus("finished");
-          setExpectedEndAt(null);
-          showToast(t("controls.completeToast"));
-          router.back();
+          const elapsedSeconds = Math.max(0, inputSeconds - remainingSeconds);
+          await persistElapsedAndExit(elapsedSeconds);
         },
       },
     ]);

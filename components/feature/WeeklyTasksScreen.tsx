@@ -178,6 +178,8 @@ export default function WeeklyTasksScreen() {
     router.push({
       pathname: "/task-timer",
       params: {
+        taskId: task.id,
+        monthlyGoalId: task.monthlyGoalId,
         title: task.title,
         monthlyGoal: task.monthlyGoalLabel,
         estimated: String(task.estimatedMinutes),

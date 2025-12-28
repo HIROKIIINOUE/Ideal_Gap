@@ -18,6 +18,16 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: MockLinearGradient };
 });
 
+jest.mock("../lib/supabaseClient", () => ({
+  supabase: {
+    auth: { getSession: jest.fn().mockResolvedValue({ data: { session: null } }) },
+  },
+}));
+
+jest.mock("../lib/timeTracking/updateAccumulatedTimes", () => ({
+  updateAccumulatedTimes: jest.fn().mockResolvedValue({ delta: 0, newLoggedMinutes: 0 }),
+}));
+
 jest.mock("react-native-circular-progress", () => {
   const React = require("react");
   const { View } = require("react-native");
