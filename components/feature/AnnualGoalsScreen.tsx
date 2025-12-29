@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { PieChart } from "react-native-gifted-charts";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { supabase } from "../../lib/supabaseClient";
@@ -144,9 +145,11 @@ export default function AnnualGoalsScreen() {
 
   // ドーナツ型円グラフ作成のためのデータ取得
   const chartData = useMemo(() => {
-    if (goals.length === 0) return [];
+    if (goals.length === 0) {
+      return [{ value: 1, color: "#000000" }];
+    }
     return goals.map((goal, idx) => ({
-      value: Math.max(goal.accumulatedMinutes, 1),
+      value: Math.max(goal.accumulatedMinutes, 0),
       color: goal.goalColor || COLOR_OPTIONS[idx % COLOR_OPTIONS.length],
     }));
   }, [goals]);
@@ -425,23 +428,21 @@ export default function AnnualGoalsScreen() {
         {hasGoals && (
           <View style={styles.chartContainer}>
             <View style={styles.chartSummaryRow}>
-              <View style={styles.donutFallbackOuter}>
-                <View
-                  style={[
-                    styles.donutFallbackRing,
-                    {
-                      borderTopColor: chartData[0]?.color ?? COLOR_OPTIONS[0],
-                      borderRightColor: chartData[1]?.color ?? COLOR_OPTIONS[1],
-                      borderBottomColor: chartData[2]?.color ?? COLOR_OPTIONS[2],
-                      borderLeftColor: chartData[3]?.color ?? COLOR_OPTIONS[3],
-                    },
-                  ]}
-                />
-                <View style={styles.donutFallbackInner} />
-                <View style={styles.centerLabel}>
-                  <Text style={styles.centerLabelTitle}>{tAnnual("chart.title")}</Text>
-                </View>
-              </View>
+              <PieChart
+                data={chartData}
+                donut
+                radius={70}
+                innerRadius={58}
+                innerCircleColor="#1c3358"
+                showText={false}
+                strokeWidth={0}
+                focusOnPress={false}
+                centerLabelComponent={() => (
+                  <View style={styles.centerLabel}>
+                    <Text style={styles.centerLabelTitle}>{tAnnual("chart.title")}</Text>
+                  </View>
+                )}
+              />
               <View style={styles.chartSummary}>
                 <Text style={styles.centerLabelSubTitle}>{tAnnual("chart.totalLabel")}</Text>
                 <Text style={styles.centerLabelValue}>{formatMinutes(totalMinutes)}</Text>
@@ -612,6 +613,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.lg,
+    marginBottom: spacing.md,
   },
   centerLabelTitle: {
     color: colors.textSecondary,
@@ -638,28 +640,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.xs,
     width: 96,
-  },
-  donutFallbackOuter: {
-    width: 148,
-    height: 148,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  donutFallbackRing: {
-    position: "absolute",
-    width: 148,
-    height: 148,
-    borderRadius: 74,
-    borderWidth: 18,
-    borderColor: "rgba(30,94,255,0.25)",
-    backgroundColor: "transparent",
-  },
-  donutFallbackInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#0F1C2F",
-    position: "absolute",
   },
   chartSummary: {
     gap: spacing.xs,
