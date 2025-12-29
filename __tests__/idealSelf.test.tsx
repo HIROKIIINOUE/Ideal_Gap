@@ -162,7 +162,6 @@ describe("IdealSelfScreen reordering", () => {
     const editButtons = await findAllByRole("button", { name: "Edit ideal" });
     fireEvent.press(editButtons[0]);
 
-    expect(getByText(/List 1/)).toBeTruthy();
     expect(getByText(/Updated/)).toBeTruthy();
   });
 

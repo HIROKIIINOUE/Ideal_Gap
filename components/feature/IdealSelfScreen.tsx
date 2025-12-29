@@ -45,7 +45,7 @@ const formatUpdated = (iso?: string | null, updatedLabel?: string) => {
   if (!iso) return "";
   try {
     const date = new Date(iso);
-    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ${updatedLabel ?? ""}`.trim();
+    return `${date.toLocaleDateString()} ${updatedLabel ?? ""}`.trim();
   } catch {
     return updatedLabel ?? "";
   }
@@ -66,7 +66,7 @@ export default function IdealSelfScreen() {
   const [modalDraft, setModalDraft] = useState("");
   const [modalError, setModalError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingMeta, setEditingMeta] = useState<{ position: number; updatedAt: string | null } | null>(null);
+  const [editingMeta, setEditingMeta] = useState<{ updatedAt: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -155,9 +155,7 @@ export default function IdealSelfScreen() {
     setEditingId(item.id);
     setModalDraft(item.description);
     setModalError(null);
-    // リストナンバーの表示用
-    const position = ideals.findIndex((ideal) => ideal.id === item.id) + 1;
-    setEditingMeta({ position: position > 0 ? position : 1, updatedAt: item.updatedAt });
+    setEditingMeta({ updatedAt: item.updatedAt });
     setModalVisible(true);
   };
 
@@ -314,7 +312,7 @@ export default function IdealSelfScreen() {
 
   const hasIdeals = ideals.length > 0;
   const modalTitle = editingId ? tIdeal("modal.editTitle") : tIdeal("modal.addTitle");
-  const modalListLabel = editingMeta ? `${tIdeal("listLabel")} ${editingMeta.position}` : null;
+  // list label was removed
   const modalUpdatedText = editingMeta?.updatedAt ? formatUpdated(editingMeta.updatedAt, updatedLabel) : null;
 
   if (loading) {
@@ -353,11 +351,6 @@ export default function IdealSelfScreen() {
             />
             <Text style={styles.secondaryButtonText}>{deleteMode ? tIdeal("deleteExit") : tIdeal("delete")}</Text>
           </Pressable>
-        </View>
-
-        <View style={styles.reorderHint}>
-          <MaterialCommunityIcons name="gesture-tap-hold" size={16} color={colors.textSecondary} />
-          <Text style={styles.reorderHintText}>{tIdeal("reorderHint")}</Text>
         </View>
         {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
       </View>
@@ -403,7 +396,6 @@ export default function IdealSelfScreen() {
               <Text style={styles.modalTitle}>{modalTitle}</Text>
               {editingMeta && (
                 <View style={styles.modalMeta}>
-                  <Text style={styles.modalMetaText}>{modalListLabel}</Text>
                   {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
                 </View>
               )}
@@ -507,16 +499,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: "700",
     fontSize: typography.md,
-  },
-  reorderHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-  },
-  reorderHintText: {
-    color: colors.textSecondary,
-    fontSize: typography.sm,
   },
   errorText: {
     color: colors.error,
