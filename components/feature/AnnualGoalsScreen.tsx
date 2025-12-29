@@ -35,16 +35,16 @@ type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 const COLOR_OPTIONS = [
-  "#0F244A", // deep navy
-  "#1D3F70", // indigo navy
-  "#275FAF", // vivid royal
-  "#3578F6", // bright cobalt
-  "#4E97FF", // clear blue
-  "#6FB6FF", // light azure
-  "#18B3DD", // vivid cyan
-  "#2AC3B4", // fresh teal
-  "#4DD18C", // bright green-teal
-  "#7C8FD9", // periwinkle slate
+  "#2E5FB3", // vivid royal
+  "#3F7CF5", // bright cobalt
+  "#5A9BFF", // clear blue
+  "#7AB7FF", // light azure
+  "#1FB8E8", // electric cyan
+  "#2EC7A6", // crisp teal
+  "#55D38D", // bright green-teal
+  "#A68BFF", // clear violet for contrast
+  "#c41a78ff", // red
+  "#838485ff", // gray
 ] as const;
 
 const goalSchema = z.object({
