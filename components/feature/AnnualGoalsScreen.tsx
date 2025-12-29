@@ -52,6 +52,15 @@ const goalSchema = z.object({
   goalColor: z.string().trim().min(1),
 });
 
+const formatUpdatedDate = (iso?: string | null, suffix?: string) => {
+  if (!iso) return "";
+  try {
+    return `${new Date(iso).toLocaleDateString()} ${suffix ?? ""}`.trim();
+  } catch {
+    return suffix ?? "";
+  }
+};
+
 // 分の合計値から「◯時間◯分」というフォーマットに変換する処理
 const formatMinutes = (minutes: number) => {
   const totalMinutes = Math.max(0, Math.round(minutes));
@@ -514,12 +523,14 @@ export default function AnnualGoalsScreen() {
               <View style={styles.formGroup}>
                 <View style={styles.labelRow}>
                   <Text style={styles.label}>{tAnnual("modal.descriptionLabel")}</Text>
-                  {editingUpdatedAt ? (
-                    <Text style={styles.labelMeta}>
-                      {tAnnual("updatedSuffix")} {new Date(editingUpdatedAt).toLocaleDateString()}
-                    </Text>
-                  ) : null}
                 </View>
+                {editingUpdatedAt ? (
+                  <View style={styles.modalMeta}>
+                    <Text style={styles.modalMetaText}>
+                      {formatUpdatedDate(editingUpdatedAt, tAnnual("updatedSuffix"))}
+                    </Text>
+                  </View>
+                ) : null}
                 <TextInput
                   autoFocus
                   multiline
@@ -809,6 +820,15 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     gap: spacing.xs,
+  },
+  modalMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  modalMetaText: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
   },
   labelRow: {
     flexDirection: "row",
