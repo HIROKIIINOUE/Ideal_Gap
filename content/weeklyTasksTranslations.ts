@@ -36,6 +36,13 @@ export type WeeklyTasksTranslations = {
     edit: string;
     comingSoon: string;
   };
+  bulkDelete: {
+    button: string;
+    title: string;
+    message: string;
+    all: string;
+    cancel: string;
+  };
   modal: {
     addTitle: string;
     editTitle: string;
@@ -86,9 +93,9 @@ export const weeklyTasksTranslations: Record<
     actions: {
       add: "追加",
       delete: "削除",
-      deleteExit: "削除モードを終了",
+      deleteExit: "戻る",
       listify: "リスト化",
-      listifyExit: "戻す",
+      listifyExit: "通常表示",
     },
     deleteConfirm: {
       title: "削除してもよろしいですか？",
@@ -112,6 +119,13 @@ export const weeklyTasksTranslations: Record<
       manualLog: "手動記録",
       edit: "編集",
       comingSoon: "機能は後で実装予定",
+    },
+    bulkDelete: {
+      button: "全削除",
+      title: "週間タスクを全て削除しますか？",
+      message: "この操作は元に戻せません。",
+      all: "すべて削除",
+      cancel: "キャンセル",
     },
     modal: {
       addTitle: "週間タスクを追加",
@@ -159,7 +173,7 @@ export const weeklyTasksTranslations: Record<
     actions: {
       add: "Add",
       delete: "Delete",
-      deleteExit: "Exit delete mode",
+      deleteExit: "Exit",
       listify: "List view",
       listifyExit: "Back",
     },
@@ -185,6 +199,13 @@ export const weeklyTasksTranslations: Record<
       manualLog: "Manual",
       edit: "Edit",
       comingSoon: "Feature coming later",
+    },
+    bulkDelete: {
+      button: "Delete all",
+      title: "Delete all weekly tasks?",
+      message: "This cannot be undone.",
+      all: "Delete all",
+      cancel: "Cancel",
     },
     modal: {
       addTitle: "Add weekly task",
@@ -232,7 +253,7 @@ export const weeklyTasksTranslations: Record<
     actions: {
       add: "Ajouter",
       delete: "Supprimer",
-      deleteExit: "Quitter le mode suppression",
+      deleteExit: "Quitter",
       listify: "Vue liste",
       listifyExit: "Retour",
     },
@@ -258,6 +279,13 @@ export const weeklyTasksTranslations: Record<
       manualLog: "Manuel",
       edit: "Modifier",
       comingSoon: "Fonctionnalité à venir",
+    },
+    bulkDelete: {
+      button: "Tout supprimer",
+      title: "Supprimer toutes les tâches hebdomadaires ?",
+      message: "Cette action est irréversible.",
+      all: "Tout supprimer",
+      cancel: "Annuler",
     },
     modal: {
       addTitle: "Ajouter une tâche hebdomadaire",

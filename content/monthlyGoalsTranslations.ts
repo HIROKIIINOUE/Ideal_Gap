@@ -39,6 +39,14 @@ export type MonthlyGoalsTranslations = {
   deleteConfirmBody: string;
   deleteConfirmYes: string;
   deleteConfirmNo: string;
+  bulkDelete: {
+    button: string;
+    title: string;
+    message: string;
+    all: string;
+    current: string;
+    cancel: string;
+  };
   errors?: {
     loginMissing: string;
     fetchFailed: string;
@@ -47,16 +55,32 @@ export type MonthlyGoalsTranslations = {
   };
 };
 
-export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslations> = {
+export const monthlyGoalsTranslations: Record<
+  LanguageKey,
+  MonthlyGoalsTranslations
+> = {
   ja: {
     pageTitle: "月間目標",
     add: "追加",
     delete: "削除",
-    deleteExit: "削除モードを終了",
+    deleteExit: "戻る",
     monthSelector: {
       label: "表示する月",
     },
-    monthsShort: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+    monthsShort: [
+      "1月",
+      "2月",
+      "3月",
+      "4月",
+      "5月",
+      "6月",
+      "7月",
+      "8月",
+      "9月",
+      "10月",
+      "11月",
+      "12月",
+    ],
     summary: {
       title: "今月の進捗",
       targetLabel: "目標",
@@ -87,6 +111,14 @@ export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslati
     deleteConfirmBody: "この月間目標を削除すると元に戻せません。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
+    bulkDelete: {
+      button: "全削除",
+      title: "どの目標を削除しますか？",
+      message: "この操作は元に戻せません。",
+      all: "すべて削除",
+      current: "{{month}}を削除",
+      cancel: "キャンセル",
+    },
     errors: {
       loginMissing: "ログイン情報が見つかりませんでした",
       fetchFailed: "月間目標の取得に失敗しました",
@@ -98,11 +130,24 @@ export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslati
     pageTitle: "Monthly goals",
     add: "Add",
     delete: "Delete",
-    deleteExit: "Exit delete mode",
+    deleteExit: "Exit",
     monthSelector: {
       label: "Month to display",
     },
-    monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    monthsShort: [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ],
     summary: {
       title: "This month",
       targetLabel: "Target",
@@ -133,6 +178,14 @@ export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslati
     deleteConfirmBody: "You can’t undo this action after deleting.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
+    bulkDelete: {
+      button: "Delete all",
+      title: "What would you like to delete?",
+      message: "This cannot be undone.",
+      all: "Delete all months",
+      current: "Delete {{month}}",
+      cancel: "Cancel",
+    },
     errors: {
       loginMissing: "Session not found. Please log in again.",
       fetchFailed: "Failed to load monthly goals.",
@@ -144,11 +197,24 @@ export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslati
     pageTitle: "Objectifs mensuels",
     add: "Ajouter",
     delete: "Supprimer",
-    deleteExit: "Quitter le mode suppression",
+    deleteExit: "Quitter",
     monthSelector: {
       label: "Mois à afficher",
     },
-    monthsShort: ["Janv", "Févr", "Mars", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"],
+    monthsShort: [
+      "Janv",
+      "Févr",
+      "Mars",
+      "Avr",
+      "Mai",
+      "Juin",
+      "Juil",
+      "Août",
+      "Sept",
+      "Oct",
+      "Nov",
+      "Déc",
+    ],
     summary: {
       title: "Ce mois-ci",
       targetLabel: "Objectif",
@@ -163,7 +229,8 @@ export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslati
       addTitle: "Ajouter un objectif mensuel",
       editTitle: "Modifier",
       descriptionLabel: "Objectif mensuel",
-      descriptionPlaceholder: "ex. Protéger 7h de sommeil et prioriser la récupération",
+      descriptionPlaceholder:
+        "ex. Protéger 7h de sommeil et prioriser la récupération",
       monthLabel: "Choisir le mois",
       yearlyGoalLabel: "Associer un objectif annuel",
       targetLabel: "Temps cible (heures)",
@@ -179,6 +246,14 @@ export const monthlyGoalsTranslations: Record<LanguageKey, MonthlyGoalsTranslati
     deleteConfirmBody: "Cette action est définitive après suppression.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
+    bulkDelete: {
+      button: "Tout supprimer",
+      title: "Que souhaitez-vous supprimer ?",
+      message: "Cette action est irréversible.",
+      all: "Supprimer tous les mois",
+      current: "Supprimer {{month}}",
+      cancel: "Annuler",
+    },
     errors: {
       loginMissing: "Session introuvable. Veuillez vous reconnecter.",
       fetchFailed: "Échec du chargement des objectifs mensuels.",

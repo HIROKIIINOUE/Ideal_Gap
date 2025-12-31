@@ -10,6 +10,7 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { deleteWeeklyTasks } from "../../lib/goals/deleteGoals";
 import { supabase } from "../../lib/supabaseClient";
 import { updateAccumulatedTimes } from "../../lib/timeTracking/updateAccumulatedTimes";
 import { Database } from "../../types/database";
@@ -346,6 +347,34 @@ export default function WeeklyTasksScreen() {
     });
     setModalError(null);
     setModalVisible(true);
+  };
+
+  // 全ての週間タスク削除機能
+  const handleBulkDelete = async () => {
+    const uid = userId ?? (await fetchUserId());
+    if (!uid) {
+      Alert.alert(t("deleteConfirm.title"), t("modal.errorRequired"));
+      return;
+    }
+    try {
+      await deleteWeeklyTasks({ userId: uid });
+      setTasks([]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("modal.errorRequired");
+      Alert.alert(t("deleteConfirm.title"), message);
+    }
+  };
+
+  // 全削除機能後のポップアップメッセージ、全削除ならhandleBulkDeleteが発火される
+  const confirmBulkDelete = () => {
+    Alert.alert(t("bulkDelete.title"), t("bulkDelete.message"), [
+      {
+        text: t("bulkDelete.all"),
+        style: "destructive",
+        onPress: handleBulkDelete,
+      },
+      { text: t("bulkDelete.cancel"), style: "cancel" },
+    ]);
   };
 
   // 「編集ボタン」からモーダルを開いた時のロジック
@@ -770,14 +799,16 @@ export default function WeeklyTasksScreen() {
             </View>
 
             <View style={styles.actionsRow}>
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
-                onPress={handleOpenAdd}
-              >
-                <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-                <Text style={styles.primaryButtonText}>{t("actions.add")}</Text>
-              </Pressable>
+              {!deleteMode && (
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
+                  onPress={handleOpenAdd}
+                >
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+                  <Text style={styles.primaryButtonText}>{t("actions.add")}</Text>
+                </Pressable>
+              )}
               <Pressable
                 accessibilityRole="button"
                 style={({ pressed }) => [
@@ -796,31 +827,45 @@ export default function WeeklyTasksScreen() {
                   {deleteMode ? t("actions.deleteExit") ?? t("actions.delete") : t("actions.delete")}
                 </Text>
               </Pressable>
-            </View>
-            {!deleteMode && (
-              <View style={styles.actionsRowSecondary}>
+              {deleteMode && (
                 <Pressable
                   accessibilityRole="button"
                   style={({ pressed }) => [
                     styles.secondaryButton,
                     pressed && styles.secondaryPressed,
-                    listMode && styles.secondaryButtonActive,
+                    styles.bulkDeleteButton,
                   ]}
-                  onPress={() => setListMode((prev) => !prev)}
+                  onPress={confirmBulkDelete}
                 >
-                  <MaterialCommunityIcons
-                    name={listMode ? "playlist-check" : "format-list-bulleted"}
-                    size={20}
-                    color={colors.textPrimary}
-                  />
+                  <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
                   <Text style={styles.secondaryButtonText}>
-                    {listMode
-                      ? t("actions.listifyExit", { defaultValue: "Back" })
-                      : t("actions.listify", { defaultValue: "List view" })}
+                    {t("bulkDelete.button", { defaultValue: "Delete all" })}
                   </Text>
                 </Pressable>
-              </View>
-            )}
+              )}
+            </View>
+            <View style={styles.actionsRowSecondary}>
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.secondaryPressed,
+                  listMode && styles.secondaryButtonActive,
+                ]}
+                onPress={() => setListMode((prev) => !prev)}
+              >
+                <MaterialCommunityIcons
+                  name={listMode ? "playlist-check" : "format-list-bulleted"}
+                  size={20}
+                  color={colors.textPrimary}
+                />
+                <Text style={styles.secondaryButtonText}>
+                  {listMode
+                    ? t("actions.listifyExit", { defaultValue: "Back" })
+                    : t("actions.listify", { defaultValue: "List view" })}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
@@ -1188,6 +1233,10 @@ const styles = StyleSheet.create({
   secondaryButtonActive: {
     borderColor: colors.accentSubtle,
     backgroundColor: "rgba(110,168,255,0.08)",
+  },
+  bulkDeleteButton: {
+    borderColor: colors.error,
+    backgroundColor: "rgba(242,95,92,0.12)",
   },
   errorText: {
     color: colors.error,

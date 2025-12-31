@@ -8,6 +8,7 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { deleteMonthlyGoals } from "../../lib/goals/deleteGoals";
 import { supabase } from "../../lib/supabaseClient";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
@@ -295,6 +296,47 @@ export default function MonthlyGoalsScreen() {
   // 削除モード切り替えロジック
   const handleToggleDeleteMode = () => {
     setDeleteMode((prev) => !prev);
+  };
+
+  // 指定月の全月間目標削除、12ヶ月分全ての月間目標削除のロジック
+  const handleBulkDelete = async (scope: "all" | "current") => {
+    const uid = userId ?? (await fetchUserId());
+    if (!uid) {
+      Alert.alert(tMonthly("deleteConfirmTitle"), tMonthly("errors.loginMissing"));
+      return;
+    }
+    try {
+      if (scope === "all") {
+        await deleteMonthlyGoals({ userId: uid });
+        setGoals([]);
+      } else {
+        await deleteMonthlyGoals({ userId: uid, month: selectedMonth });
+        setGoals((prev) => prev.filter((goal) => goal.month !== selectedMonth));
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : tMonthly("errors.saveFailed");
+      Alert.alert(tMonthly("deleteConfirmTitle"), message);
+    }
+  };
+
+  // 月全削除機能後のポップアップで「全月削除or1ヶ月分削除」を選ばせhandleBulkDelete関数を操作
+  const confirmBulkDelete = () => {
+    Alert.alert(tMonthly("bulkDelete.title"), tMonthly("bulkDelete.message"), [
+      {
+        text: tMonthly("bulkDelete.all"),
+        style: "destructive",
+        onPress: () => handleBulkDelete("all"),
+      },
+      {
+        text: tMonthly("bulkDelete.current", { month: monthLabel(selectedMonth) }),
+        style: "destructive",
+        onPress: () => handleBulkDelete("current"),
+      },
+      {
+        text: tMonthly("bulkDelete.cancel"),
+        style: "cancel",
+      },
+    ]);
   };
 
 
@@ -608,10 +650,12 @@ export default function MonthlyGoalsScreen() {
         </View>
 
         <View style={styles.actionRow}>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
-            <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{tMonthly("add")}</Text>
-          </Pressable>
+          {!deleteMode && (
+            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
+              <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+              <Text style={styles.primaryButtonText}>{tMonthly("add")}</Text>
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
             style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
@@ -624,6 +668,18 @@ export default function MonthlyGoalsScreen() {
             />
             <Text style={styles.secondaryButtonText}>{deleteMode ? tMonthly("deleteExit") : tMonthly("delete")}</Text>
           </Pressable>
+          {deleteMode && (
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.secondaryButton, styles.bulkDeleteButton]}
+              onPress={confirmBulkDelete}
+            >
+              <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
+              <Text style={styles.secondaryButtonText}>
+                {tMonthly("bulkDelete.button", { defaultValue: "Delete all" })}
+              </Text>
+            </Pressable>
+          )}
         </View>
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </View>
@@ -902,6 +958,10 @@ const styles = StyleSheet.create({
   secondaryButtonActive: {
     borderColor: colors.accentSubtle,
     backgroundColor: "rgba(110,168,255,0.08)",
+  },
+  bulkDeleteButton: {
+    borderColor: colors.error,
+    backgroundColor: "rgba(242,95,92,0.12)",
   },
   secondaryButtonText: {
     color: colors.textPrimary,

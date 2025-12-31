@@ -17,6 +17,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PieChart } from "react-native-gifted-charts";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { deleteYearlyGoals } from "../../lib/goals/deleteGoals";
 import { supabase } from "../../lib/supabaseClient";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
@@ -179,6 +180,37 @@ export default function AnnualGoalsScreen() {
 
   const handleToggleDeleteMode = () => {
     setDeleteMode((prev) => !prev);
+  };
+
+  // 全ての年間目標削除機能
+  const handleBulkDelete = async () => {
+    const uid = userId ?? (await fetchUserId());
+    if (!uid) {
+      Alert.alert(tAnnual("deleteConfirmTitle"), tAnnual("errors.loginMissing"));
+      return;
+    }
+    try {
+      await deleteYearlyGoals({ userId: uid });
+      setGoals([]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : tAnnual("errors.deleteFailed");
+      Alert.alert(tAnnual("deleteConfirmTitle"), message);
+    }
+  };
+
+  // 全削除機能後のポップアップメッセージ、全削除ならhandleBulkDeleteが発火される
+  const confirmBulkDelete = () => {
+    Alert.alert(tAnnual("bulkDelete.title"), tAnnual("bulkDelete.message"), [
+      {
+        text: tAnnual("bulkDelete.all"),
+        style: "destructive",
+        onPress: handleBulkDelete,
+      },
+      {
+        text: tAnnual("bulkDelete.cancel"),
+        style: "cancel",
+      },
+    ]);
   };
 
   const handleEditPress = (goal: AnnualGoal) => {
@@ -464,10 +496,12 @@ export default function AnnualGoalsScreen() {
         )}
 
         <View style={styles.actionRow}>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
-            <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{tAnnual("add")}</Text>
-          </Pressable>
+          {!deleteMode && (
+            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
+              <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+              <Text style={styles.primaryButtonText}>{tAnnual("add")}</Text>
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
             style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
@@ -480,6 +514,18 @@ export default function AnnualGoalsScreen() {
             />
             <Text style={styles.secondaryButtonText}>{deleteMode ? tAnnual("deleteExit") : tAnnual("delete")}</Text>
           </Pressable>
+          {deleteMode && (
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.secondaryButton, styles.bulkDeleteButton]}
+              onPress={confirmBulkDelete}
+            >
+              <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
+              <Text style={styles.secondaryButtonText}>
+                {tAnnual("bulkDelete.button", { defaultValue: "Delete all" })}
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
@@ -692,6 +738,10 @@ const styles = StyleSheet.create({
   secondaryButtonActive: {
     borderColor: colors.accentSubtle,
     backgroundColor: "rgba(110,168,255,0.08)",
+  },
+  bulkDeleteButton: {
+    borderColor: colors.error,
+    backgroundColor: "rgba(242,95,92,0.12)",
   },
   secondaryButtonText: {
     color: colors.textPrimary,

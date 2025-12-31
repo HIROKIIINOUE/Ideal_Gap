@@ -31,6 +31,13 @@ export type AnnualGoalsTranslations = {
   deleteConfirmBody: string;
   deleteConfirmYes: string;
   deleteConfirmNo: string;
+  bulkDelete: {
+    button: string;
+    title: string;
+    message: string;
+    all: string;
+    cancel: string;
+  };
   errors: {
     loginMissing: string;
     fetchFailed: string;
@@ -49,7 +56,7 @@ export const annualGoalsTranslations: Record<
     pageSubtitle: "理想の自分をもとに、色で年間の軸を整理しましょう。",
     add: "追加",
     delete: "削除",
-    deleteExit: "削除モードを終了",
+    deleteExit: "戻る",
     reorderHint: "カードを長押し＋ドラッグで順番を変えられます",
     emptyTitle: "まだ年間目標が登録されていません",
     emptyBody: "色を決めて、年間の優先順位を可視化しましょう。",
@@ -75,6 +82,13 @@ export const annualGoalsTranslations: Record<
     deleteConfirmBody: "この年間目標を削除すると元に戻せません。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
+    bulkDelete: {
+      button: "全削除",
+      title: "年間目標を全て削除しますか？",
+      message: "この操作は元に戻せません。",
+      all: "すべて削除",
+      cancel: "キャンセル",
+    },
     errors: {
       loginMissing: "ログイン情報が見つかりませんでした",
       fetchFailed: "年間目標の取得に失敗しました",
@@ -88,7 +102,7 @@ export const annualGoalsTranslations: Record<
     pageSubtitle: "Map your year from your ideal self with clear color coding.",
     add: "Add",
     delete: "Delete",
-    deleteExit: "Exit delete mode",
+    deleteExit: "Exit",
     reorderHint: "Long-press and drag cards to reorder.",
     emptyTitle: "No annual goals yet",
     emptyBody: "Pick colors to visualize your yearly priorities.",
@@ -114,6 +128,13 @@ export const annualGoalsTranslations: Record<
     deleteConfirmBody: "You can’t undo this action after deleting.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
+    bulkDelete: {
+      button: "Delete all",
+      title: "Delete all annual goals?",
+      message: "This cannot be undone.",
+      all: "Delete all",
+      cancel: "Cancel",
+    },
     errors: {
       loginMissing: "Session not found. Please log in again.",
       fetchFailed: "Failed to load annual goals.",
@@ -128,7 +149,7 @@ export const annualGoalsTranslations: Record<
       "Définissez votre année depuis votre moi idéal avec un code couleur clair.",
     add: "Ajouter",
     delete: "Supprimer",
-    deleteExit: "Quitter le mode suppression",
+    deleteExit: "Quitter",
     reorderHint: "Appui long puis glisser pour réordonner les cartes.",
     emptyTitle: "Aucun objectif annuel pour le moment",
     emptyBody:
@@ -156,6 +177,13 @@ export const annualGoalsTranslations: Record<
     deleteConfirmBody: "Cette action est définitive après suppression.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
+    bulkDelete: {
+      button: "Tout supprimer",
+      title: "Supprimer tous les objectifs annuels ?",
+      message: "Cette action est irréversible.",
+      all: "Tout supprimer",
+      cancel: "Annuler",
+    },
     errors: {
       loginMissing: "Session introuvable. Veuillez vous reconnecter.",
       fetchFailed: "Échec du chargement des objectifs annuels.",
