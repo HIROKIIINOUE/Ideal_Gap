@@ -190,7 +190,7 @@
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
     description varchar [not null]
-    scheduled_at timestamptz [not null]
+    "order" int
     created_at   timestamptz
     updated_at   timestamptz
 
