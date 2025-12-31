@@ -1046,7 +1046,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.divider,
-    marginBottom: spacing.md,
     overflow: "hidden",
   },
   goalCardDragging: {
