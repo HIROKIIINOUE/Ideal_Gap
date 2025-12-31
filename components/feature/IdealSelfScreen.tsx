@@ -59,7 +59,7 @@ const toIdealCard = (row: { id: string; description: string; order: number | nul
 });
 
 export default function IdealSelfScreen() {
-  const { t: tIdeal } = useTranslation("idealSelf");
+  const { t } = useTranslation("idealSelf");
   const [ideals, setIdeals] = useState<IdealCard[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -70,7 +70,7 @@ export default function IdealSelfScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const updatedLabel = tIdeal("updatedSuffix");
+  const updatedLabel = t("updatedSuffix");
 
   const getUserId = useMemo(
     () => async () => {
@@ -88,7 +88,7 @@ export default function IdealSelfScreen() {
       setErrorMessage(null);
       const uid = await getUserId();
       if (!uid) {
-        if (active) setErrorMessage(tIdeal("errors.loginMissing"));
+        if (active) setErrorMessage(t("errors.loginMissing"));
         setLoading(false);
         return;
       }
@@ -116,7 +116,7 @@ export default function IdealSelfScreen() {
     return () => {
       active = false;
     };
-  }, [getUserId, tIdeal]);
+  }, [getUserId, t]);
 
   // 追加モーダル表示ボタン
   const handleAddPress = () => {
@@ -130,10 +130,10 @@ export default function IdealSelfScreen() {
   // 更新ボタンと削除ボタンを状況に応じて管理
   const handleButtonPress = (item: IdealCard) => {
     if (deleteMode) {
-      Alert.alert(tIdeal("deleteConfirmTitle"), tIdeal("deleteConfirmBody"), [
-        { text: tIdeal("deleteConfirmNo"), style: "cancel" },
+      Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
+        { text: t("deleteConfirmNo"), style: "cancel" },
         {
-          text: tIdeal("deleteConfirmYes"),
+          text: t("deleteConfirmYes"),
           style: "destructive",
           onPress: () => {
             supabase
@@ -142,7 +142,7 @@ export default function IdealSelfScreen() {
               .eq("id", item.id)
               .then(({ error }) => {
                 if (error) {
-                  Alert.alert(tIdeal("errors.deleteFailed"), error.message);
+                  Alert.alert(t("errors.deleteFailed"), error.message);
                   return;
                 }
                 setIdeals((prev) => prev.filter((ideal) => ideal.id !== item.id));
@@ -163,7 +163,7 @@ export default function IdealSelfScreen() {
   const handleSave = () => {
     const parsed = idealSchema.safeParse({ description: modalDraft });
     if (!parsed.success) {
-      setModalError(tIdeal("modal.errorRequired"));
+      setModalError(t("modal.errorRequired"));
       return;
     }
     const run = async () => {
@@ -171,7 +171,7 @@ export default function IdealSelfScreen() {
       setModalError(null);
       const uid = await getUserId();
       if (!uid) {
-        setModalError(tIdeal("errors.loginMissing"));
+        setModalError(t("errors.loginMissing"));
         setSaving(false);
         return;
       }
@@ -232,7 +232,7 @@ export default function IdealSelfScreen() {
       setSaving(false);
     };
     run().catch((err) => {
-      setModalError(err.message ?? tIdeal("errors.saveFailed"));
+      setModalError(err.message ?? t("errors.saveFailed"));
       setSaving(false);
     });
   };
@@ -246,7 +246,7 @@ export default function IdealSelfScreen() {
     setIdeals(data);
     const uid = await getUserId();
     if (!uid) {
-      Alert.alert(tIdeal("errors.reorderSaveFailed"), tIdeal("errors.loginMissing"));
+      Alert.alert(t("errors.reorderSaveFailed"), t("errors.loginMissing"));
       return;
     }
 
@@ -259,7 +259,7 @@ export default function IdealSelfScreen() {
 
     const { error } = await supabase.from("user_ideal" as any).upsert(updates, { onConflict: "id" });
     if (error) {
-      Alert.alert(tIdeal("errors.reorderSaveFailed"), error.message);
+      Alert.alert(t("errors.reorderSaveFailed"), error.message);
     }
   };
 
@@ -297,12 +297,12 @@ export default function IdealSelfScreen() {
               style={[styles.dangerButton, styles.iconButtonRow]}
             >
               <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-              <Text style={styles.dangerButtonText}>{tIdeal("delete")}</Text>
+              <Text style={styles.dangerButtonText}>{t("delete")}</Text>
             </Pressable>
           ) : (
             <Pressable accessibilityRole="button" onPress={onEditPress} style={[styles.editButton, styles.iconButtonRow]}>
               <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
-              <Text style={styles.editButtonText}>{tIdeal("modal.editTitle")}</Text>
+              <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
             </Pressable>
           )}
         </View>
@@ -311,7 +311,7 @@ export default function IdealSelfScreen() {
   };
 
   const hasIdeals = ideals.length > 0;
-  const modalTitle = editingId ? tIdeal("modal.editTitle") : tIdeal("modal.addTitle");
+  const modalTitle = editingId ? t("modal.editTitle") : t("modal.addTitle");
   // list label was removed
   const modalUpdatedText = editingMeta?.updatedAt ? formatUpdated(editingMeta.updatedAt, updatedLabel) : null;
 
@@ -332,12 +332,12 @@ export default function IdealSelfScreen() {
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Text style={styles.heading}>{tIdeal("pageTitle")}</Text>
+        <Text style={styles.heading}>{t("pageTitle")}</Text>
 
         <View style={styles.actionRow}>
           <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading}>
             <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{tIdeal("add")}</Text>
+            <Text style={styles.primaryButtonText}>{t("add")}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -349,7 +349,7 @@ export default function IdealSelfScreen() {
               size={20}
               color={colors.textPrimary}
             />
-            <Text style={styles.secondaryButtonText}>{deleteMode ? tIdeal("deleteExit") : tIdeal("delete")}</Text>
+            <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
           </Pressable>
         </View>
         {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
@@ -357,7 +357,7 @@ export default function IdealSelfScreen() {
 
       {loading ? (
         <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <Text style={styles.emptyBody}>{tIdeal("loading")}</Text>
+          <Text style={styles.emptyBody}>{t("loading")}</Text>
         </View>
       ) : hasIdeals ? (
         // DraggableFlatListタグはrenderItemにdragを渡しdragを使って発火のタイミングを操作できる。受け取った先でonLongPress={drag}を付与した要素がトリガーを握る。drag処理が終わるとonDragEndが発火する。
@@ -380,11 +380,11 @@ export default function IdealSelfScreen() {
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <Text style={styles.emptyTitle}>{tIdeal("emptyTitle")}</Text>
-          <Text style={styles.emptyBody}>{tIdeal("emptyBody")}</Text>
+          <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
+          <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
           <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
             <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{tIdeal("emptyCta")}</Text>
+            <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
           </Pressable>
         </View>
       )}
@@ -402,7 +402,7 @@ export default function IdealSelfScreen() {
               <TextInput
                 autoFocus
                 multiline
-                placeholder={tIdeal("modal.placeholder")}
+                placeholder={t("modal.placeholder")}
                 placeholderTextColor={colors.textSecondary}
                 style={styles.modalInput}
                 value={modalDraft}
@@ -414,7 +414,7 @@ export default function IdealSelfScreen() {
               {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
               <View style={styles.modalActions}>
                 <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.secondaryButtonText}>{tIdeal("modal.cancel")}</Text>
+                  <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
@@ -423,7 +423,7 @@ export default function IdealSelfScreen() {
                   disabled={saving}
                 >
                   <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{tIdeal("modal.save")}</Text>
+                  <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
                 </Pressable>
               </View>
             </View>

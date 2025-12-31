@@ -66,7 +66,7 @@ const monthlyGoalSchema = z.object({
 });
 
 export default function MonthlyGoalsScreen() {
-  const { t: tMonthly } = useTranslation("monthlyGoals");
+  const { t } = useTranslation("monthlyGoals");
   const [goals, setGoals] = useState<MonthlyGoal[]>([]);
   const [yearlyGoals, setYearlyGoals] = useState<YearlyGoalOption[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -139,7 +139,7 @@ export default function MonthlyGoalsScreen() {
     setErrorMessage(null);
     const uid = await fetchUserId();
     if (!uid) {
-      setErrorMessage(tMonthly("errors.loginMissing"));
+      setErrorMessage(t("errors.loginMissing"));
       setLoading(false);
       return;
     }
@@ -160,7 +160,7 @@ export default function MonthlyGoalsScreen() {
 
     // 年間ゴールもしくは月間ゴールのどちらか一方でも取得できなかったらエラーを返す
     if (yearlyError || monthlyError) {
-      setErrorMessage(yearlyError?.message ?? monthlyError?.message ?? tMonthly("errors.fetchFailed"));
+      setErrorMessage(yearlyError?.message ?? monthlyError?.message ?? t("errors.fetchFailed"));
       setLoading(false);
       return;
     }
@@ -173,7 +173,7 @@ export default function MonthlyGoalsScreen() {
     setYearlyGoals(yearlyOptions);
     setGoals(((monthlyData as MonthlyGoalRow[]) ?? []).map(toMonthlyGoal));
     setLoading(false);
-  }, [fetchUserId, tMonthly]);
+  }, [fetchUserId, t]);
 
   useEffect(() => {
     loadData();
@@ -186,7 +186,7 @@ export default function MonthlyGoalsScreen() {
     }
   }, [draft.yearlyGoalId, yearlyGoals]);
 
-  const monthNames = tMonthly("monthsShort", { returnObjects: true }) as string[];
+  const monthNames = t("monthsShort", { returnObjects: true }) as string[];
 
   // 各言語の指定月の名称を返す
   const monthLabel = (month: number) => {
@@ -302,7 +302,7 @@ export default function MonthlyGoalsScreen() {
   const handleBulkDelete = async (scope: "all" | "current") => {
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
-      Alert.alert(tMonthly("deleteConfirmTitle"), tMonthly("errors.loginMissing"));
+      Alert.alert(t("deleteConfirmTitle"), t("errors.loginMissing"));
       return;
     }
     try {
@@ -314,26 +314,26 @@ export default function MonthlyGoalsScreen() {
         setGoals((prev) => prev.filter((goal) => goal.month !== selectedMonth));
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : tMonthly("errors.saveFailed");
-      Alert.alert(tMonthly("deleteConfirmTitle"), message);
+      const message = error instanceof Error ? error.message : t("errors.saveFailed");
+      Alert.alert(t("deleteConfirmTitle"), message);
     }
   };
 
   // 月全削除機能後のポップアップで「全月削除or1ヶ月分削除」を選ばせhandleBulkDelete関数を操作
   const confirmBulkDelete = () => {
-    Alert.alert(tMonthly("bulkDelete.title"), tMonthly("bulkDelete.message"), [
+    Alert.alert(t("bulkDelete.title"), t("bulkDelete.message"), [
       {
-        text: tMonthly("bulkDelete.all"),
+        text: t("bulkDelete.all"),
         style: "destructive",
         onPress: () => handleBulkDelete("all"),
       },
       {
-        text: tMonthly("bulkDelete.current", { month: monthLabel(selectedMonth) }),
+        text: t("bulkDelete.current", { month: monthLabel(selectedMonth) }),
         style: "destructive",
         onPress: () => handleBulkDelete("current"),
       },
       {
-        text: tMonthly("bulkDelete.cancel"),
+        text: t("bulkDelete.cancel"),
         style: "cancel",
       },
     ]);
@@ -352,20 +352,20 @@ export default function MonthlyGoalsScreen() {
 
   // 削除処理
   const handleDelete = (goal: MonthlyGoal) => {
-    Alert.alert(tMonthly("deleteConfirmTitle"), tMonthly("deleteConfirmBody"), [
-      { text: tMonthly("deleteConfirmNo"), style: "cancel" },
+    Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
+      { text: t("deleteConfirmNo"), style: "cancel" },
       {
-        text: tMonthly("deleteConfirmYes"),
+        text: t("deleteConfirmYes"),
         style: "destructive",
         onPress: async () => {
           const uid = userId ?? (await fetchUserId());
           if (!uid) {
-            Alert.alert(tMonthly("deleteConfirmTitle"), tMonthly("errors.loginMissing"));
+            Alert.alert(t("deleteConfirmTitle"), t("errors.loginMissing"));
             return;
           }
           const { error } = await supabase.from("monthly_goals").delete().eq("id", goal.id);
           if (error) {
-            Alert.alert(tMonthly("deleteConfirmTitle"), error.message ?? tMonthly("errors.saveFailed"));
+            Alert.alert(t("deleteConfirmTitle"), error.message ?? t("errors.saveFailed"));
             return;
           }
 
@@ -379,7 +379,7 @@ export default function MonthlyGoalsScreen() {
             const updates = monthGoals.map((g) => toMonthlyRow(g, uid));
             const { error: upsertError } = await supabase.from("monthly_goals").upsert(updates, { onConflict: "id" });
             if (upsertError) {
-              Alert.alert(tMonthly("deleteConfirmTitle"), upsertError.message ?? tMonthly("errors.reorderSaveFailed"));
+              Alert.alert(t("deleteConfirmTitle"), upsertError.message ?? t("errors.reorderSaveFailed"));
             }
           }
         },
@@ -402,18 +402,18 @@ export default function MonthlyGoalsScreen() {
       const hasMonthError = issues.some((issue) => issue.path[0] === "month");
       const hasEstimateError = issues.some((issue) => issue.path[0] === "estimatedMinutes");
       if (hasMonthError) {
-        setModalError(tMonthly("modal.errorMonthRange"));
+        setModalError(t("modal.errorMonthRange"));
       } else if (hasEstimateError) {
-        setModalError(tMonthly("modal.errorEstimated"));
+        setModalError(t("modal.errorEstimated"));
       } else {
-        setModalError(tMonthly("modal.errorRequired"));
+        setModalError(t("modal.errorRequired"));
       }
       return;
     }
 
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
-      setModalError(tMonthly("errors.loginMissing"));
+      setModalError(t("errors.loginMissing"));
       return;
     }
 
@@ -432,7 +432,7 @@ export default function MonthlyGoalsScreen() {
         .single();
 
       if (error) {
-        setModalError(error.message ?? tMonthly("errors.saveFailed"));
+        setModalError(error.message ?? t("errors.saveFailed"));
         return;
       }
       const row = data as unknown as MonthlyGoalRow;
@@ -462,7 +462,7 @@ export default function MonthlyGoalsScreen() {
         .single();
 
       if (error) {
-        setModalError(error.message ?? tMonthly("errors.saveFailed"));
+        setModalError(error.message ?? t("errors.saveFailed"));
         return;
       }
 
@@ -476,7 +476,7 @@ export default function MonthlyGoalsScreen() {
       const upsertPayload = reorderedMonthGoals.map((goal) => toMonthlyRow(goal, uid));
       const { error: upsertError } = await supabase.from("monthly_goals").upsert(upsertPayload, { onConflict: "id" });
       if (upsertError) {
-        setModalError(upsertError.message ?? tMonthly("errors.saveFailed"));
+        setModalError(upsertError.message ?? t("errors.saveFailed"));
         return;
       }
 
@@ -497,7 +497,7 @@ export default function MonthlyGoalsScreen() {
   const handleDragEnd = async ({ data }: { data: MonthlyGoal[] }) => {
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
-      Alert.alert(tMonthly("deleteConfirmTitle"), tMonthly("errors.loginMissing"));
+      Alert.alert(t("deleteConfirmTitle"), t("errors.loginMissing"));
       return;
     }
     const reordered = data.map((goal, idx) => ({ ...goal, order: idx }));
@@ -506,7 +506,7 @@ export default function MonthlyGoalsScreen() {
     const updates = reordered.map((goal) => toMonthlyRow(goal, uid));
     const { error } = await supabase.from("monthly_goals").upsert(updates, { onConflict: "id" });
     if (error) {
-      Alert.alert(tMonthly("deleteConfirmTitle"), error.message ?? tMonthly("errors.reorderSaveFailed"));
+      Alert.alert(t("deleteConfirmTitle"), error.message ?? t("errors.reorderSaveFailed"));
     }
   };
 
@@ -542,15 +542,15 @@ export default function MonthlyGoalsScreen() {
         </View>
         <View style={styles.goalFooterRow}>
           <View style={styles.goalStat}>
-            <Text style={styles.statLabel}>{tMonthly("summary.targetLabel")}</Text>
+            <Text style={styles.statLabel}>{t("summary.targetLabel")}</Text>
             <Text style={styles.statValue}>{formatMinutes(item.estimatedMinutes)}</Text>
           </View>
           <View style={styles.goalStat}>
-            <Text style={styles.statLabel}>{tMonthly("summary.loggedLabel")}</Text>
+            <Text style={styles.statLabel}>{t("summary.loggedLabel")}</Text>
             <Text style={styles.statValue}>{formatMinutes(item.accumulatedMinutes)}</Text>
           </View>
           <View style={styles.goalStat}>
-            <Text style={styles.statLabel}>{tMonthly("summary.remainingLabel", { defaultValue: "Remaining" })}</Text>
+            <Text style={styles.statLabel}>{t("summary.remainingLabel", { defaultValue: "Remaining" })}</Text>
             <Text style={styles.statValue}>{formatMinutes(remaining)}</Text>
           </View>
           <Pressable
@@ -564,7 +564,7 @@ export default function MonthlyGoalsScreen() {
               color={deleteMode ? colors.error : colors.textPrimary}
             />
             <Text style={deleteMode ? styles.dangerButtonText : styles.editButtonText}>
-              {deleteMode ? tMonthly("delete") : tMonthly("modal.editTitle")}
+              {deleteMode ? t("delete") : t("modal.editTitle")}
             </Text>
           </Pressable>
         </View>
@@ -573,7 +573,7 @@ export default function MonthlyGoalsScreen() {
   };
 
   const hasGoals = filteredGoals.length > 0;
-  const modalTitle = editingId ? tMonthly("modal.editTitle") : tMonthly("modal.addTitle");
+  const modalTitle = editingId ? t("modal.editTitle") : t("modal.addTitle");
 
   if (loading) {
     return (
@@ -588,11 +588,11 @@ export default function MonthlyGoalsScreen() {
       <View style={[styles.card, shadows.card]}>
         <LinearGradient colors={HEADER_CARD_GRADIENT} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
         <View style={styles.headerRow}>
-          <Text style={styles.pageTitle}>{tMonthly("pageTitle")}</Text>
+          <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
         </View>
 
         <View style={styles.monthSelector}>
-          <Text style={styles.label}>{tMonthly("monthSelector.label")}</Text>
+          <Text style={styles.label}>{t("monthSelector.label")}</Text>
           <FlatList
             ref={monthListRef}
             data={monthsList}
@@ -632,18 +632,18 @@ export default function MonthlyGoalsScreen() {
         </View>
 
         <View style={[styles.summaryCard, shadows.card]}>
-          <Text style={styles.summaryTitle}>{tMonthly("summary.title")}</Text>
+          <Text style={styles.summaryTitle}>{t("summary.title")}</Text>
           <View style={styles.progressBarContainer}>
             <View style={styles.progressTrack} />
             <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
           </View>
           <View style={styles.summaryRow}>
             <View style={styles.goalStat}>
-              <Text style={styles.statLabel}>{tMonthly("summary.targetLabel")}</Text>
+              <Text style={styles.statLabel}>{t("summary.targetLabel")}</Text>
               <Text style={styles.statValue}>{formatMinutes(totalTarget)}</Text>
             </View>
             <View style={styles.goalStat}>
-              <Text style={styles.statLabel}>{tMonthly("summary.loggedLabel")}</Text>
+              <Text style={styles.statLabel}>{t("summary.loggedLabel")}</Text>
               <Text style={styles.statValue}>{formatMinutes(totalLogged)}</Text>
             </View>
           </View>
@@ -653,7 +653,7 @@ export default function MonthlyGoalsScreen() {
           {!deleteMode && (
             <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
               <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-              <Text style={styles.primaryButtonText}>{tMonthly("add")}</Text>
+              <Text style={styles.primaryButtonText}>{t("add")}</Text>
             </Pressable>
           )}
           <Pressable
@@ -666,7 +666,7 @@ export default function MonthlyGoalsScreen() {
               size={20}
               color={colors.textPrimary}
             />
-            <Text style={styles.secondaryButtonText}>{deleteMode ? tMonthly("deleteExit") : tMonthly("delete")}</Text>
+            <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
           </Pressable>
           {deleteMode && (
             <Pressable
@@ -676,7 +676,7 @@ export default function MonthlyGoalsScreen() {
             >
               <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
               <Text style={styles.secondaryButtonText}>
-                {tMonthly("bulkDelete.button", { defaultValue: "Delete all" })}
+                {t("bulkDelete.button", { defaultValue: "Delete all" })}
               </Text>
             </Pressable>
           )}
@@ -703,11 +703,11 @@ export default function MonthlyGoalsScreen() {
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <Text style={styles.emptyTitle}>{tMonthly("empty.title")}</Text>
-          <Text style={styles.emptyBody}>{tMonthly("empty.body")}</Text>
+          <Text style={styles.emptyTitle}>{t("empty.title")}</Text>
+          <Text style={styles.emptyBody}>{t("empty.body")}</Text>
           <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
             <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{tMonthly("add")}</Text>
+            <Text style={styles.primaryButtonText}>{t("add")}</Text>
           </Pressable>
         </View>
       )}
@@ -718,11 +718,11 @@ export default function MonthlyGoalsScreen() {
             <Text style={styles.modalTitle}>{modalTitle}</Text>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>{tMonthly("modal.descriptionLabel")}</Text>
+              <Text style={styles.label}>{t("modal.descriptionLabel")}</Text>
               <TextInput
                 autoFocus
                 multiline
-                placeholder={tMonthly("modal.descriptionPlaceholder")}
+                placeholder={t("modal.descriptionPlaceholder")}
                 placeholderTextColor={colors.textSecondary}
                 style={styles.modalInput}
                 value={draft.description}
@@ -734,7 +734,7 @@ export default function MonthlyGoalsScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>{tMonthly("modal.monthLabel")}</Text>
+              <Text style={styles.label}>{t("modal.monthLabel")}</Text>
               <Pressable
                 accessibilityRole="button"
                 style={[styles.selectInput, isMonthDropdownOpen && styles.selectInputActive]}
@@ -789,7 +789,7 @@ export default function MonthlyGoalsScreen() {
             </View>
 
             <View style={[styles.formGroup, styles.formGroupTight]}>
-              <Text style={styles.label}>{tMonthly("modal.yearlyGoalLabel")}</Text>
+              <Text style={styles.label}>{t("modal.yearlyGoalLabel")}</Text>
               <Pressable
                 accessibilityRole="button"
                 style={[styles.selectInput, isYearlyDropdownOpen && styles.selectInputActive]}
@@ -849,9 +849,9 @@ export default function MonthlyGoalsScreen() {
             </View>
 
             <View style={[styles.formGroup, styles.formGroupAfterTight]}>
-              <Text style={styles.label}>{tMonthly("modal.targetLabel")}</Text>
+              <Text style={styles.label}>{t("modal.targetLabel")}</Text>
               <TextInput
-                placeholder={tMonthly("modal.targetPlaceholder")}
+                placeholder={t("modal.targetPlaceholder")}
                 placeholderTextColor={colors.textSecondary}
                 style={styles.modalInput}
                 keyboardType="numeric"
@@ -861,7 +861,7 @@ export default function MonthlyGoalsScreen() {
                   setModalError(null);
                 }}
               />
-              <Text style={styles.helperText}>{tMonthly("modal.targetHelper")}</Text>
+              <Text style={styles.helperText}>{t("modal.targetHelper")}</Text>
             </View>
 
             {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
@@ -875,11 +875,11 @@ export default function MonthlyGoalsScreen() {
                   setYearlyDropdownOpen(false);
                 }}
               >
-                <Text style={styles.secondaryButtonText}>{tMonthly("modal.cancel")}</Text>
+                <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
               </Pressable>
               <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleSave}>
                 <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
-                <Text style={styles.primaryButtonText}>{tMonthly("modal.save")}</Text>
+                <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
               </Pressable>
             </View>
           </View>

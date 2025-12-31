@@ -14,6 +14,17 @@ jest.mock("@expo/vector-icons", () => {
   return { MaterialCommunityIcons: MockIcon };
 });
 
+jest.mock("expo-router", () => {
+  const React = require("react");
+  return {
+    useFocusEffect: (cb: () => void) => React.useEffect(cb, []),
+    router: {
+      push: jest.fn(),
+      replace: jest.fn(),
+    },
+  };
+});
+
 jest.mock("expo-linear-gradient", () => {
   const MockLinearGradient = ({ children }: { children: React.ReactNode }) => <>{children}</>;
   MockLinearGradient.displayName = "MockLinearGradient";
@@ -156,7 +167,7 @@ describe("FunPlanScreen interactions", () => {
 
     const { findByRole, findByText } = renderScreen();
 
-    const addButton = await findByRole("button", { name: "Add plan" });
+    const addButton = await findByRole("button", { name: "Add" });
     expect(addButton.props.accessibilityState?.disabled).toBe(true);
     expect(await findByText("Up to 5 plans can be added")).toBeTruthy();
   });

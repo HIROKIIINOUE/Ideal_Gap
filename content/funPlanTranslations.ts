@@ -36,10 +36,11 @@ export type FunPlanTranslations = {
 export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
   ja: {
     pageTitle: "次回の楽しい予定",
-    pageSubtitle: "直近の楽しみを可視化して、毎日のモチベーションを高めましょう。（1番上のリストのみダッシュボードに表示されます）",
-    add: "予定を追加",
+    pageSubtitle:
+      "直近の楽しみを可視化して、毎日のモチベーションを高めましょう。（1番上のリストのみダッシュボードに表示されます）",
+    add: "追加",
     delete: "削除",
-    deleteExit: "削除モードを終了",
+    deleteExit: "戻る",
     loading: "読み込み中...",
     emptyTitle: "まだ楽しい予定がありません",
     emptyBody: "",
@@ -48,7 +49,7 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     limitHelper: "追加できるのは最大5件までです",
     limitReached: "上限に達しました。削除してから追加してください。",
     modal: {
-      addTitle: "予定を追加",
+      addTitle: "追加",
       editTitle: "予定を編集",
       placeholder: "例）金曜の友人とのディナー",
       cancel: "キャンセル",
@@ -68,10 +69,11 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
   },
   en: {
     pageTitle: "Next Fun Plans",
-    pageSubtitle: "Keep your next bright moments in sight and stay motivated. (Only the top item appears on the dashboard)",
-    add: "Add plan",
+    pageSubtitle:
+      "Keep your next bright moments in sight and stay motivated. (Only the top item appears on the dashboard)",
+    add: "Add",
     delete: "Delete",
-    deleteExit: "Exit delete mode",
+    deleteExit: "Exit",
     loading: "Loading...",
     emptyTitle: "No fun plans yet",
     emptyBody: "",
@@ -80,7 +82,7 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     limitHelper: "Up to 5 plans can be added",
     limitReached: "You’ve reached the limit. Remove one to add another.",
     modal: {
-      addTitle: "Add plan",
+      addTitle: "Add",
       editTitle: "Edit plan",
       placeholder: "e.g. Dinner with friends on Friday",
       cancel: "Cancel",
@@ -100,10 +102,11 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
   },
   fr: {
     pageTitle: "Prochaines envies",
-    pageSubtitle: "Gardez vos moments réjouissants en vue pour nourrir la motivation. (Seul le premier élément s’affiche sur le tableau de bord)",
-    add: "Ajouter un moment",
+    pageSubtitle:
+      "Gardez vos moments réjouissants en vue pour nourrir la motivation. (Seul le premier élément s’affiche sur le tableau de bord)",
+    add: "Ajouter",
     delete: "Supprimer",
-    deleteExit: "Quitter le mode suppression",
+    deleteExit: "Quitter",
     loading: "Chargement...",
     emptyTitle: "Aucun moment plaisir pour l’instant",
     emptyBody: "",
@@ -112,7 +115,7 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     limitHelper: "Vous pouvez en ajouter jusqu’à 5",
     limitReached: "Limite atteinte. Supprimez-en un pour en ajouter un autre.",
     modal: {
-      addTitle: "Ajouter un moment",
+      addTitle: "Ajouter",
       editTitle: "Modifier le moment",
       placeholder: "ex. Dîner avec des amis vendredi",
       cancel: "Annuler",

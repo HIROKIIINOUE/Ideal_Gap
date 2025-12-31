@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Href, router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { Href, router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -48,6 +48,8 @@ export default function Dashboard() {
     }
   };
 
+
+  // ハンバーガーメニューのハンドラー
   const handleMoreSelect = async (key: string) => {
     if (key === "logout") {
       Alert.alert(
@@ -91,38 +93,32 @@ export default function Dashboard() {
     [],
   );
 
-  // 【ここチェック】
-  useEffect(() => {
-    let active = true;
-    const fetchNextFunPlan = async () => {
-      if (!funPlanVisible) {
-        if (active) setNextFunPlan(null);
-        return;
-      }
-      const session = await supabase.auth.getSession();
-      const uid = session.data.session?.user?.id;
-      if (!uid) {
-        if (active) setNextFunPlan(null);
-        return;
-      }
-      const { data, error } = await supabase
-        .from("fun_plans" as any)
-        .select("id, description, order")
-        .eq("user_id", uid)
-        .order("order", { ascending: true })
-        .limit(1);
-      if (!active) return;
-      if (error) {
-        setNextFunPlan(null);
-      } else {
-        setNextFunPlan(((data as any[]) ?? [])[0]?.description ?? null);
-      }
-    };
-    fetchNextFunPlan();
-    return () => {
-      active = false;
-    };
+  // ダッシュボード遷移時に最新の楽しい予定リストの1番目を取得する
+  const fetchNextFunPlan = useCallback(async () => {
+    const session = await supabase.auth.getSession();
+    const uid = session.data.session?.user?.id;
+    if (!uid || !funPlanVisible) {
+      setNextFunPlan(null);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("fun_plans")
+      .select("id, description, order")
+      .eq("user_id", uid)
+      .order("order", { ascending: true })
+      .limit(1);
+    if (error) {
+      setNextFunPlan(null);
+      return;
+    }
+    setNextFunPlan(((data as any[]) ?? [])[0]?.description ?? null);
   }, [funPlanVisible]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchNextFunPlan();
+    }, [fetchNextFunPlan]),
+  );
 
   const renderCard = (card: DashboardCard, index: number) => {
     const rowIndex = Math.floor(index / 2);
@@ -182,8 +178,7 @@ export default function Dashboard() {
             <View style={styles.heroContent}>
               <Text style={styles.heroLabel}>{t("nextFunPlan.title")}</Text>
               <View style={styles.heroFooter}>
-                <Text style={styles.heroCta}>{t("nextFunPlan.cta")}</Text>
-                <Text style={styles.heroHelper}>{nextFunPlan ?? t("nextFunPlan.emptyLabel")}</Text>
+                <Text style={styles.heroCta}>{nextFunPlan ?? t("nextFunPlan.cta")}</Text>
               </View>
             </View>
           </Pressable>
@@ -194,7 +189,6 @@ export default function Dashboard() {
         </View>
 
       </ScrollView>
-
       <Footer
         isAuthenticated
         onLanguagePress={() => setLanguageSheetVisible(true)}
@@ -269,8 +263,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   heroLabel: {
-    color: colors.accentSubtle,
-    fontSize: typography.sm,
+    color: colors.textSecondary,
+    fontSize: typography.md,
     letterSpacing: 0.6,
     textTransform: "uppercase",
   },
@@ -286,7 +280,7 @@ const styles = StyleSheet.create({
   },
   heroCta: {
     color: colors.textPrimary,
-    fontSize: typography.md,
+    fontSize: typography.md * 1.3,
     fontWeight: "700",
   },
   heroHelper: {

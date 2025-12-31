@@ -17,6 +17,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { supabase } from "../../lib/supabaseClient";
+import { Database } from "../../types/database";
 import Loading from "../Loading";
 
 type FunPlanCard = {
@@ -26,13 +27,7 @@ type FunPlanCard = {
   order: number;
 };
 
-type FunPlanRow = {
-  id: string;
-  user_id: string;
-  description: string;
-  order: number | null;
-  updated_at?: string | null;
-};
+type FunPlanRow = Database["public"]["Tables"]["fun_plans"]["Row"];
 
 const planSchema = z.object({
   description: z.string().trim().min(1),
@@ -40,8 +35,10 @@ const planSchema = z.object({
 
 const HEADER_CARD_GRADIENT = ["rgba(110,168,255,0.32)", "rgba(20,34,60,0.95)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(104,195,255,0.26)", "rgba(17,38,70,0.96)"] as const;
+// 楽しい予定の制限数を指定
 const MAX_PLANS = 5;
 
+// 編集インプットモーダルに表示する更新日の表示フォーマット
 const formatUpdated = (iso?: string | null, updatedLabel?: string) => {
   if (!iso) return "";
   try {
@@ -52,6 +49,7 @@ const formatUpdated = (iso?: string | null, updatedLabel?: string) => {
   }
 };
 
+// データベースから取得した「次回の楽しい予定データ」からUIに必要なデータにのみ抽出
 const toPlanCard = (row: { id: string; description: string; order: number | null; updated_at?: string | null }): FunPlanCard => ({
   id: row.id,
   description: row.description,
@@ -60,7 +58,7 @@ const toPlanCard = (row: { id: string; description: string; order: number | null
 });
 
 export default function FunPlanScreen() {
-  const { t: tFun } = useTranslation("funPlan");
+  const { t } = useTranslation("funPlan");
   const [plans, setPlans] = useState<FunPlanCard[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -71,7 +69,7 @@ export default function FunPlanScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const updatedLabel = tFun("updatedSuffix");
+  const updatedLabel = t("updatedSuffix");
   const limitReached = plans.length >= MAX_PLANS;
 
   const getUserId = useMemo(
@@ -82,6 +80,7 @@ export default function FunPlanScreen() {
     [],
   );
 
+  // 次回の楽しい予定データ取得 → データをきれいに整える → 状態関数にセット
   useEffect(() => {
     let active = true;
     const fetchPlans = async () => {
@@ -89,12 +88,12 @@ export default function FunPlanScreen() {
       setErrorMessage(null);
       const uid = await getUserId();
       if (!uid) {
-        if (active) setErrorMessage(tFun("errors.loginMissing"));
+        if (active) setErrorMessage(t("errors.loginMissing"));
         setLoading(false);
         return;
       }
       const { data, error } = await supabase
-        .from("fun_plans" as any)
+        .from("fun_plans")
         .select("id, description, order, updated_at")
         .eq("user_id", uid)
         .order("order", { ascending: true });
@@ -118,8 +117,9 @@ export default function FunPlanScreen() {
     return () => {
       active = false;
     };
-  }, [getUserId, tFun]);
+  }, [getUserId, t]);
 
+  // 追加ボタン押下時の処理、インプットに必要な全ての状態変数がリセットされる
   const handleAddPress = () => {
     if (limitReached) return;
     setEditingId(null);
@@ -129,21 +129,22 @@ export default function FunPlanScreen() {
     setEditingMeta(null);
   };
 
+  // 削除ボタン・編集ボタン押下時の処理
   const handleButtonPress = (item: FunPlanCard) => {
     if (deleteMode) {
-      Alert.alert(tFun("deleteConfirmTitle"), tFun("deleteConfirmBody"), [
-        { text: tFun("deleteConfirmNo"), style: "cancel" },
+      Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
+        { text: t("deleteConfirmNo"), style: "cancel" },
         {
-          text: tFun("deleteConfirmYes"),
+          text: t("deleteConfirmYes"),
           style: "destructive",
           onPress: () => {
             supabase
-              .from("fun_plans" as any)
+              .from("fun_plans")
               .delete()
               .eq("id", item.id)
               .then(({ error }) => {
                 if (error) {
-                  Alert.alert(tFun("errors.deleteFailed"), error.message);
+                  Alert.alert(t("errors.deleteFailed"), error.message);
                   return;
                 }
                 setPlans((prev) => prev.filter((plan) => plan.id !== item.id));
@@ -160,28 +161,30 @@ export default function FunPlanScreen() {
     setModalVisible(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const parsed = planSchema.safeParse({ description: modalDraft });
     if (!parsed.success) {
-      setModalError(tFun("modal.errorRequired"));
+      setModalError(t("modal.errorRequired"));
       return;
     }
     if (!editingId && limitReached) {
-      setModalError(tFun("limitReached"));
+      setModalError(t("limitReached"));
       return;
     }
-    const run = async () => {
+
+    try {
       setSaving(true);
       setModalError(null);
       const uid = await getUserId();
       if (!uid) {
-        setModalError(tFun("errors.loginMissing"));
+        setModalError(t("errors.loginMissing"));
         setSaving(false);
         return;
       }
       if (editingId) {
+        // 編集モーダルの保存処理
         const { data, error } = await supabase
-          .from("fun_plans" as any)
+          .from("fun_plans")
           .update({ description: parsed.data.description })
           .eq("id", editingId)
           .select("id, description, order, updated_at")
@@ -194,8 +197,9 @@ export default function FunPlanScreen() {
         const row = data as unknown as FunPlanRow;
         setPlans((prev) => prev.map((plan) => (plan.id === editingId ? toPlanCard(row) : plan)));
       } else {
+        // 追加モーダルの保存処理
         const { data, error } = await supabase
-          .from("fun_plans" as any)
+          .from("fun_plans")
           .insert({ user_id: uid, description: parsed.data.description, order: 0 })
           .select("id, description, order, updated_at")
           .single();
@@ -212,7 +216,7 @@ export default function FunPlanScreen() {
           user_id: uid,
         }));
         const { error: upsertError } = await supabase
-          .from("fun_plans" as any)
+          .from("fun_plans")
           .upsert(
             [
               ...shiftedExisting,
@@ -232,22 +236,24 @@ export default function FunPlanScreen() {
       setModalDraft("");
       setEditingMeta(null);
       setSaving(false);
-    };
-    run().catch((err) => {
-      setModalError(err.message ?? tFun("errors.saveFailed"));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : t("errors.saveFailed");
+      setModalError(message);
       setSaving(false);
-    });
+    }
   };
 
   const toggleDeleteMode = () => {
     setDeleteMode((prev) => !prev);
   };
 
+
+  // カード長押しドラッグで順番を入れ替えたあとの表示データ・DBデータのorderの更新
   const handleDragEnd = async ({ data }: { data: FunPlanCard[] }) => {
     setPlans(data);
     const uid = await getUserId();
     if (!uid) {
-      Alert.alert(tFun("errors.reorderSaveFailed"), tFun("errors.loginMissing"));
+      Alert.alert(t("errors.reorderSaveFailed"), t("errors.loginMissing"));
       return;
     }
 
@@ -258,12 +264,13 @@ export default function FunPlanScreen() {
       user_id: uid,
     }));
 
-    const { error } = await supabase.from("fun_plans" as any).upsert(updates, { onConflict: "id" });
+    const { error } = await supabase.from("fun_plans").upsert(updates, { onConflict: "id" });
     if (error) {
-      Alert.alert(tFun("errors.reorderSaveFailed"), error.message);
+      Alert.alert(t("errors.reorderSaveFailed"), error.message);
     }
   };
 
+  // 特定のPressable要素の長押しドラッグを可能にするロジック
   const renderPlanCard = ({ item, drag, isActive }: RenderItemParams<FunPlanCard>) => {
     const onEditPress = () => handleButtonPress(item);
 
@@ -296,12 +303,12 @@ export default function FunPlanScreen() {
               style={[styles.dangerButton, styles.iconButtonRow]}
             >
               <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-              <Text style={styles.dangerButtonText}>{tFun("delete")}</Text>
+              <Text style={styles.dangerButtonText}>{t("delete")}</Text>
             </Pressable>
           ) : (
             <Pressable accessibilityRole="button" onPress={onEditPress} style={[styles.editButton, styles.iconButtonRow]}>
               <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
-              <Text style={styles.editButtonText}>{tFun("modal.editTitle")}</Text>
+              <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
             </Pressable>
           )}
         </View>
@@ -310,7 +317,7 @@ export default function FunPlanScreen() {
   };
 
   const hasPlans = plans.length > 0;
-  const modalTitle = editingId ? tFun("modal.editTitle") : tFun("modal.addTitle");
+  const modalTitle = editingId ? t("modal.editTitle") : t("modal.addTitle");
   const modalUpdatedText = editingMeta?.updatedAt ? formatUpdated(editingMeta.updatedAt, updatedLabel) : null;
 
   if (loading) {
@@ -332,8 +339,8 @@ export default function FunPlanScreen() {
         />
         <View style={styles.headerRow}>
           <View style={styles.headerText}>
-            <Text style={styles.heading}>{tFun("pageTitle")}</Text>
-            <Text style={styles.body}>{tFun("pageSubtitle")}</Text>
+            <Text style={styles.heading}>{t("pageTitle")}</Text>
+            <Text style={styles.body}>{t("pageSubtitle")}</Text>
           </View>
         </View>
 
@@ -346,7 +353,7 @@ export default function FunPlanScreen() {
             disabled={limitReached}
           >
             <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{tFun("add")}</Text>
+            <Text style={styles.primaryButtonText}>{t("add")}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -358,16 +365,16 @@ export default function FunPlanScreen() {
               size={20}
               color={colors.textPrimary}
             />
-            <Text style={styles.secondaryButtonText}>{deleteMode ? tFun("deleteExit") : tFun("delete")}</Text>
+            <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
           </Pressable>
         </View>
-        {limitReached && <Text style={styles.limitText}>{tFun("limitHelper")}</Text>}
+        {limitReached && <Text style={styles.limitText}>{t("limitHelper")}</Text>}
         {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
       </View>
 
       {loading ? (
         <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <Text style={styles.emptyBody}>{tFun("loading")}</Text>
+          <Text style={styles.emptyBody}>{t("loading")}</Text>
         </View>
       ) : hasPlans ? (
         <View style={styles.listSpacing}>
@@ -389,11 +396,11 @@ export default function FunPlanScreen() {
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <Text style={styles.emptyTitle}>{tFun("emptyTitle")}</Text>
-          <Text style={styles.emptyBody}>{tFun("emptyBody")}</Text>
+          <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
+          <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
           <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
             <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{tFun("emptyCta")}</Text>
+            <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
           </Pressable>
         </View>
       )}
@@ -411,7 +418,7 @@ export default function FunPlanScreen() {
               <TextInput
                 autoFocus
                 multiline
-                placeholder={tFun("modal.placeholder")}
+                placeholder={t("modal.placeholder")}
                 placeholderTextColor={colors.textSecondary}
                 style={styles.modalInput}
                 value={modalDraft}
@@ -423,7 +430,7 @@ export default function FunPlanScreen() {
               {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
               <View style={styles.modalActions}>
                 <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.secondaryButtonText}>{tFun("modal.cancel")}</Text>
+                  <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
@@ -432,7 +439,7 @@ export default function FunPlanScreen() {
                   disabled={saving}
                 >
                   <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{tFun("modal.save")}</Text>
+                  <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
                 </Pressable>
               </View>
             </View>
