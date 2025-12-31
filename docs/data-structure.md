@@ -195,7 +195,7 @@
     updated_at   timestamptz
 
     Indexes {
-      (user_id, scheduled_at)
+      (user_id)
     }
   }
 
