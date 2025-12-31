@@ -9,6 +9,7 @@ import { monthlyGoalsTranslations } from "../content/monthlyGoalsTranslations";
 import { landingTranslations } from "../content/landingTranslations";
 import { loginTranslations } from "../content/loginTranslations";
 import { purchasesTranslations } from "../content/purchasesTranslations";
+import { funPlanTranslations } from "../content/funPlanTranslations";
 import { profileUpdateTranslations } from "../content/profileUpdateTranslations";
 import { resetPasswordTranslations } from "../content/resetPasswordTranslations";
 import { signupTranslations } from "../content/signupTranslations";
@@ -34,6 +35,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     contact: contactTranslations[lang],
     weeklyTasks: weeklyTasksTranslations[lang],
     taskTimer: taskTimerTranslations[lang],
+    funPlan: funPlanTranslations[lang],
   };
   return acc;
 }, {} as Resource);
@@ -61,6 +63,7 @@ if (!i18n.isInitialized) {
       "contact",
       "weeklyTasks",
       "taskTimer",
+      "funPlan",
     ],
     interpolation: {
       escapeValue: false,

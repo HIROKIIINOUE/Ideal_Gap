@@ -7,6 +7,7 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid,
 import { SafeAreaView } from "react-native-safe-area-context";
 import AnnualGoalsScreen from "../../components/feature/AnnualGoalsScreen";
 import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
+import FunPlanScreen from "../../components/feature/FunPlanScreen";
 import MonthlyGoalsScreen from "../../components/feature/MonthlyGoalsScreen";
 import WeeklyTasksScreen from "../../components/feature/WeeklyTasksScreen";
 import Footer from "../../components/Footer";
@@ -100,6 +101,7 @@ export default function FeatureScreen() {
       "annual-goals": AnnualGoalsScreen,
       "monthly-goals": MonthlyGoalsScreen,
       "weekly-goals": WeeklyTasksScreen,
+      "next-fun-plan": FunPlanScreen,
     };
     return mapping[featureId] ?? null;
   }, [featureId]);

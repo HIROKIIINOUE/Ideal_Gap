@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Href, router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -29,12 +29,14 @@ const alternatingGradients: readonly [readonly [string, string], readonly [strin
   ["rgba(77,125,255,0.16)", "rgba(15,28,47,0.92)"],
   ["rgba(160,195,255,0.12)", "rgba(15,28,47,0.9)"],
 ];
+const HERO_GRADIENT: readonly [string, string] = ["rgba(110,168,255,0.4)", "rgba(15,28,47,0.92)"];
 
 export default function Dashboard() {
   const { t } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
+  const [nextFunPlan, setNextFunPlan] = useState<string | null>(null);
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
 
   const showLogoutToast = () => {
@@ -89,6 +91,39 @@ export default function Dashboard() {
     [],
   );
 
+  // 【ここチェック】
+  useEffect(() => {
+    let active = true;
+    const fetchNextFunPlan = async () => {
+      if (!funPlanVisible) {
+        if (active) setNextFunPlan(null);
+        return;
+      }
+      const session = await supabase.auth.getSession();
+      const uid = session.data.session?.user?.id;
+      if (!uid) {
+        if (active) setNextFunPlan(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("fun_plans" as any)
+        .select("id, description, order")
+        .eq("user_id", uid)
+        .order("order", { ascending: true })
+        .limit(1);
+      if (!active) return;
+      if (error) {
+        setNextFunPlan(null);
+      } else {
+        setNextFunPlan(((data as any[]) ?? [])[0]?.description ?? null);
+      }
+    };
+    fetchNextFunPlan();
+    return () => {
+      active = false;
+    };
+  }, [funPlanVisible]);
+
   const renderCard = (card: DashboardCard, index: number) => {
     const rowIndex = Math.floor(index / 2);
     const isEvenRow = rowIndex % 2 === 0;
@@ -139,7 +174,7 @@ export default function Dashboard() {
             style={({ pressed }) => [styles.heroCard, pressed && styles.heroPressed]}
           >
             <LinearGradient
-              colors={["rgba(30,94,255,0.28)", "rgba(12,18,32,0.92)"]}
+              colors={HERO_GRADIENT}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
@@ -148,7 +183,7 @@ export default function Dashboard() {
               <Text style={styles.heroLabel}>{t("nextFunPlan.title")}</Text>
               <View style={styles.heroFooter}>
                 <Text style={styles.heroCta}>{t("nextFunPlan.cta")}</Text>
-                <Text style={styles.heroHelper}>{t("nextFunPlan.emptyLabel")}</Text>
+                <Text style={styles.heroHelper}>{nextFunPlan ?? t("nextFunPlan.emptyLabel")}</Text>
               </View>
             </View>
           </Pressable>
