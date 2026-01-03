@@ -17,6 +17,7 @@ import { contactTranslations } from "../content/contactTranslations";
 import { weeklyTasksTranslations } from "../content/weeklyTasksTranslations";
 import { taskTimerTranslations } from "../content/taskTimerTranslations";
 import { LanguageKey, SUPPORTED_LANGUAGES } from "../types/i18n";
+import { breakReminderTranslations } from "../content/breakReminderTranslations";
 
 const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
   // useTranslationの参照先をコントロール
@@ -36,6 +37,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     weeklyTasks: weeklyTasksTranslations[lang],
     taskTimer: taskTimerTranslations[lang],
     funPlan: funPlanTranslations[lang],
+    breakReminder: breakReminderTranslations[lang],
   };
   return acc;
 }, {} as Resource);
@@ -64,6 +66,7 @@ if (!i18n.isInitialized) {
       "weeklyTasks",
       "taskTimer",
       "funPlan",
+      "breakReminder",
     ],
     interpolation: {
       escapeValue: false,

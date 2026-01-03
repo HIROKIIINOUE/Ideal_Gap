@@ -81,6 +81,7 @@ export default function Dashboard() {
     }
   };
 
+  // ディスパッチャーである[feature].tsxに遷移させ、paramsを渡す
   const cards: DashboardCard[] = useMemo(
     () => [
       { key: "idealSelf", href: { pathname: "/feature/[feature]", params: { feature: "ideal-self" } } },
@@ -120,6 +121,7 @@ export default function Dashboard() {
     }, [fetchNextFunPlan]),
   );
 
+  // 6つの機能ページへ遷移する各カードを展開
   const renderCard = (card: DashboardCard, index: number) => {
     const rowIndex = Math.floor(index / 2);
     const isEvenRow = rowIndex % 2 === 0;

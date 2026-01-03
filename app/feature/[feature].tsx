@@ -1,4 +1,6 @@
-// ６つのメイン機能のページの幹をここで管理。各ページ詳細ロジックはcomponents/feature内に格納
+// ６つのメイン機能のページの幹をここで管理。各機能画面へのディスパッチャー。各ページ詳細はcomponents/feature内に格納。
+// ダッシュボードページの各リンクボタンでrouter.push({ pathname: "/feature/[feature]", params: { feature: "annual-goals" } })として呼び出される
+// また、各機能ページ共通のレイアウトもここで実装している
 
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ComponentType, useMemo, useState } from "react";
@@ -6,8 +8,9 @@ import { useTranslation } from "react-i18next";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AnnualGoalsScreen from "../../components/feature/AnnualGoalsScreen";
-import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
+import BreakReminderScreen from "../../components/feature/BreakReminderScreen";
 import FunPlanScreen from "../../components/feature/FunPlanScreen";
+import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
 import MonthlyGoalsScreen from "../../components/feature/MonthlyGoalsScreen";
 import WeeklyTasksScreen from "../../components/feature/WeeklyTasksScreen";
 import Footer from "../../components/Footer";
@@ -38,6 +41,7 @@ const featureKeys: Record<FeatureId, string> = {
 
 export default function FeatureScreen() {
   const router = useRouter();
+  // useLocalSearchParamsでdashboardから渡された「params: { feature: "〇〇〇〇" } }」の値を読み取る
   const params = useLocalSearchParams<{ feature?: FeatureId }>();
   const { t: tDashboard } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
@@ -94,6 +98,7 @@ export default function FeatureScreen() {
 
   const featureId = params.feature as FeatureId | undefined;
 
+  // パラメーターとして受け取ったfeatureIdの値に応じて各コンポーネントへ誘導
   const ScreenComponent = useMemo<ComponentType | null>(() => {
     if (!featureId) return null;
     const mapping: Partial<Record<FeatureId, ComponentType>> = {
@@ -102,10 +107,13 @@ export default function FeatureScreen() {
       "monthly-goals": MonthlyGoalsScreen,
       "weekly-goals": WeeklyTasksScreen,
       "next-fun-plan": FunPlanScreen,
+      "break-reminders": BreakReminderScreen,
     };
     return mapping[featureId] ?? null;
   }, [featureId]);
 
+
+  // 不正なパラメータ(6つの機能以外のパラメータ)が入力された場合は以下のPlaceholderを表示
   const Placeholder = () => (
     <View style={[styles.card, shadows.card]}>
       <Text style={styles.heading}>{tDashboard("details.heading", { title: featureTitle })}</Text>
