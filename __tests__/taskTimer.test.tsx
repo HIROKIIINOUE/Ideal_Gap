@@ -1,6 +1,8 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
+import * as Notifications from "expo-notifications";
+import { Linking } from "react-native";
 import TaskTimerScreen from "../components/feature/TaskTimerScreen";
 import i18n from "../i18n";
 
@@ -28,6 +30,15 @@ jest.mock("../lib/timeTracking/updateAccumulatedTimes", () => ({
   updateAccumulatedTimes: jest.fn().mockResolvedValue({ delta: 0, newLoggedMinutes: 0 }),
 }));
 
+jest.mock("expo-notifications", () => ({
+  getPermissionsAsync: jest.fn(),
+  PermissionStatus: {
+    GRANTED: "granted",
+    DENIED: "denied",
+    UNDETERMINED: "undetermined",
+  },
+}));
+
 jest.mock("react-native-circular-progress", () => {
   const React = require("react");
   const { View } = require("react-native");
@@ -51,7 +62,22 @@ const renderScreen = () =>
     </I18nextProvider>,
   );
 
+const mockGetPermissionsAsync = Notifications.getPermissionsAsync as jest.MockedFunction<
+  typeof Notifications.getPermissionsAsync
+>;
+const mockOpenSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
+
 describe("TaskTimerScreen", () => {
+  beforeEach(() => {
+    mockGetPermissionsAsync.mockResolvedValue({
+      status: Notifications.PermissionStatus.GRANTED,
+      granted: true,
+      canAskAgain: true,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
+    mockOpenSettings.mockClear();
+  });
+
   test("shows default layout with zero duration", () => {
     const { getAllByText, getByText, getByTestId } = renderScreen();
 
@@ -88,5 +114,76 @@ describe("TaskTimerScreen", () => {
     fireEvent.press(getByText("Night Drive"));
 
     expect(getByText("Night Drive selected")).toBeTruthy();
+  });
+
+  test("shows notification prompt when notifications are off", async () => {
+    jest.useRealTimers();
+    try {
+      mockGetPermissionsAsync.mockResolvedValueOnce({
+        status: Notifications.PermissionStatus.DENIED,
+        granted: false,
+        canAskAgain: false,
+        expires: "never",
+      } as Notifications.NotificationPermissionsStatus);
+
+      const { getByText } = renderScreen();
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockGetPermissionsAsync).toHaveBeenCalled();
+      expect(getByText("Allow notifications so we can alert you when the timer ends.")).toBeTruthy();
+    } finally {
+      jest.useFakeTimers();
+    }
+  });
+
+  test("hides notification prompt when notifications are granted", async () => {
+    jest.useRealTimers();
+    try {
+      mockGetPermissionsAsync.mockResolvedValueOnce({
+        status: Notifications.PermissionStatus.GRANTED,
+        granted: true,
+        canAskAgain: true,
+        expires: "never",
+      } as Notifications.NotificationPermissionsStatus);
+
+      const { queryByText } = renderScreen();
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockGetPermissionsAsync).toHaveBeenCalled();
+      expect(queryByText("Allow notifications so we can alert you when the timer ends.")).toBeNull();
+    } finally {
+      jest.useFakeTimers();
+    }
+  });
+
+  test("opens device settings when tapping notification action", async () => {
+    jest.useRealTimers();
+    try {
+      mockGetPermissionsAsync.mockResolvedValueOnce({
+        status: Notifications.PermissionStatus.DENIED,
+        granted: false,
+        canAskAgain: false,
+        expires: "never",
+      } as Notifications.NotificationPermissionsStatus);
+
+      const { getByText, queryByText } = renderScreen();
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      fireEvent.press(getByText("Open settings"));
+
+      await waitFor(() => expect(mockOpenSettings).toHaveBeenCalled());
+      expect(queryByText("Allow notifications so we can alert you when the timer ends.")).toBeNull();
+    } finally {
+      jest.useFakeTimers();
+    }
   });
 });

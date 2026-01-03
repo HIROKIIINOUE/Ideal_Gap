@@ -1,19 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Notifications from "expo-notifications";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Alert,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  ToastAndroid,
-  View,
-} from "react-native";
+import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
@@ -89,7 +80,7 @@ export default function TaskTimerScreen() {
   const [musicModalVisible, setMusicModalVisible] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<MusicOption>(MUSIC_OPTIONS[0]);
-  const [showNotificationPrompt, setShowNotificationPrompt] = useState(true);
+  const [userNotificationOn, setUserNotificationOn] = useState(true);
   const [expectedEndAt, setExpectedEndAt] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -123,6 +114,30 @@ export default function TaskTimerScreen() {
     setUserId(uid);
     return uid;
   }, [userId]);
+
+
+  // マウント時にユーザの端末がアプリ通知ONになっているか状態チェック
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadNotificationPermission = async () => {
+      try {
+        const { status, granted } = await Notifications.getPermissionsAsync();
+        if (!isMounted) return;
+        const isNotificationsOn = status === "granted" || granted;
+        setUserNotificationOn(isNotificationsOn);
+      } catch {
+        if (!isMounted) return;
+        setUserNotificationOn(true);
+      }
+    };
+
+    loadNotificationPermission();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
 
   // 初回レンダリング時に紐づく週間タスクの最新データをDBから取得
@@ -166,13 +181,25 @@ export default function TaskTimerScreen() {
   }, []);
 
   // 共通のトースト表示(ポップアップメッセージ)処理
-  const showToast = (message: string) => {
+  const showToast = useCallback((message: string) => {
     if (Platform.OS === "android") {
       ToastAndroid.show(message, ToastAndroid.SHORT);
       return;
     }
     Alert.alert(message);
-  };
+  }, []);
+
+  // iOS設定画面へ遷移する処理、Androidは要検討
+  const handleOpenSettings = useCallback(async () => {
+    try {
+      await Linking.openSettings();
+    } catch (error) {
+      console.warn("Failed to open settings", error);
+      showToast(t("feedback.startError"));
+    } finally {
+      setUserNotificationOn(true);
+    }
+  }, [showToast, t]);
 
   // カウントダウンが「idle」「paused」の各条件下でプリセットボタンで設定作業時間を追加するロジック
   const handlePreset = (minutes: number) => {
@@ -261,7 +288,7 @@ export default function TaskTimerScreen() {
     } catch (error) {
       Alert.alert(t("controls.completeConfirmTitle"), error instanceof Error ? error.message : String(error));
     }
-  }, [fetchLatestLogged, fetchUserId, loggedBaseline, monthlyGoalIdSafe, t, taskId]);
+  }, [fetchLatestLogged, fetchUserId, loggedBaseline, monthlyGoalIdSafe, showToast, t, taskId]);
 
   // タイマーがカウント中(running)に切り替わった時に発火しsetIntervalをスタートさせる
   useEffect(() => {
@@ -325,20 +352,20 @@ export default function TaskTimerScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]} testID="task-timer-screen">
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {showNotificationPrompt && (
+        {!userNotificationOn && (
           <View style={[styles.noticeCard, shadows.card]}>
             <Text style={styles.noticeText}>{t("header.notificationTitle")}</Text>
             <View style={styles.noticeActions}>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setShowNotificationPrompt(false)}
+                onPress={() => setUserNotificationOn(true)}
                 style={({ pressed }) => [styles.noticeButton, pressed && styles.pressed]}
               >
                 <Text style={styles.noticeButtonText}>{t("header.notificationDismiss")}</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setShowNotificationPrompt(false)}
+                onPress={handleOpenSettings}
                 style={({ pressed }) => [styles.noticePrimary, pressed && styles.primaryPressed]}
               >
                 <Text style={styles.noticePrimaryText}>{t("header.notificationAction")}</Text>

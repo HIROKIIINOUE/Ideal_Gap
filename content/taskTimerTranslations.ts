@@ -64,7 +64,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       estimatedLabel: "目標時間",
       loggedLabel: "実績",
       notificationTitle: "タイマー終了を通知するため、通知を許可してください。",
-      notificationAction: "あとで設定を開く",
+      notificationAction: "設定を開く",
       notificationDismiss: "閉じる",
     },
     timerCard: {
@@ -118,7 +118,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       estimatedLabel: "Planned",
       loggedLabel: "Logged",
       notificationTitle: "Allow notifications so we can alert you when the timer ends.",
-      notificationAction: "Open settings later",
+      notificationAction: "Open settings",
       notificationDismiss: "Dismiss",
     },
     timerCard: {
@@ -172,7 +172,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       estimatedLabel: "Temps prévu",
       loggedLabel: "Enregistré",
       notificationTitle: "Autorisez les notifications pour être prévenu à la fin du minuteur.",
-      notificationAction: "Autoriser plus tard",
+      notificationAction: "Ouvrir les réglages",
       notificationDismiss: "Fermer",
     },
     timerCard: {
