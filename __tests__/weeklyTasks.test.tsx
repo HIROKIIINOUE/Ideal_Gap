@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { Alert } from "react-native";
@@ -130,5 +130,36 @@ describe("WeeklyTasksScreen", () => {
     expect((await getAllByText("4h")).length).toBeGreaterThan(0);
     expect(await findByText("10h")).toBeTruthy();
     expect(await findByText("3h")).toBeTruthy();
+  });
+
+  test("localizes month labels in the add modal", async () => {
+    const currentMonth = new Date().getMonth() + 1;
+    const monthNames = i18n.t("monthsShort", { ns: "monthlyGoals", returnObjects: true }) as string[];
+    const monthLabel = monthNames[currentMonth - 1];
+    mockOrderMonthly.mockResolvedValue({
+      data: [
+        {
+          id: "m1",
+          description: "Focus this month",
+          month: currentMonth,
+          yearly_goal_id: "y1",
+          yearly_goals: { year_goal_color: "#1E5EFF" },
+        },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({ data: [], error: null });
+
+    const { findByText, getByText, queryByText } = renderScreen();
+
+    await waitFor(() => expect(mockOrderMonthly).toHaveBeenCalled());
+
+    fireEvent.press(await findByText("Add"));
+
+    await waitFor(() => expect(getByText("Month to show monthly goals")).toBeTruthy());
+
+    expect(getByText(monthLabel)).toBeTruthy();
+    expect(getByText(`${monthLabel}: Focus this month`)).toBeTruthy();
+    expect(queryByText(`${currentMonth}月`)).toBeFalsy();
   });
 });

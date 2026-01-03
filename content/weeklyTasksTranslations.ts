@@ -48,6 +48,8 @@ export type WeeklyTasksTranslations = {
     editTitle: string;
     titleLabel: string;
     titlePlaceholder: string;
+    monthValue: string;
+    monthOptionLabel: string;
     monthLabel: string;
     monthlyGoalLabel: string;
     noMonthlyGoal: string;
@@ -132,9 +134,11 @@ export const weeklyTasksTranslations: Record<
       editTitle: "編集",
       titleLabel: "週間タスク",
       titlePlaceholder: "例）朝の30分でUX改善タスクを3本進める",
+      monthValue: "{{monthLabel}}",
+      monthOptionLabel: "{{monthLabel}} : {{description}}",
       monthLabel: "月間目標リストを表示する月",
       monthlyGoalLabel: "紐づける月間目標",
-      noMonthlyGoal: "{{month}}月にまだ月間目標がありません",
+      noMonthlyGoal: "{{monthLabel}}にまだ月間目標がありません",
       targetLabel: "目標時間（時間）",
       targetPlaceholder: "例）10",
       targetHelper: "時間単位で入力すると計算しやすいです",
@@ -212,9 +216,11 @@ export const weeklyTasksTranslations: Record<
       editTitle: "Edit",
       titleLabel: "Weekly task",
       titlePlaceholder: "e.g. Ship 3 UX fixes in 30m every morning",
+      monthValue: "{{monthLabel}}",
+      monthOptionLabel: "{{monthLabel}}: {{description}}",
       monthLabel: "Month to show monthly goals",
       monthlyGoalLabel: "Link monthly goal",
-      noMonthlyGoal: "No monthly goals for month {{month}} yet",
+      noMonthlyGoal: "No monthly goals for {{monthLabel}} yet",
       targetLabel: "Target time (hours)",
       targetPlaceholder: "e.g. 10",
       targetHelper: "Enter hours to keep calculations simple.",
@@ -292,9 +298,11 @@ export const weeklyTasksTranslations: Record<
       editTitle: "Modifier",
       titleLabel: "Tâche hebdomadaire",
       titlePlaceholder: "ex. Avancer 3 tâches UX en 30 min chaque matin",
+      monthValue: "{{monthLabel}}",
+      monthOptionLabel: "{{monthLabel}} : {{description}}",
       monthLabel: "Mois pour afficher les objectifs mensuels",
       monthlyGoalLabel: "Associer un objectif mensuel",
-      noMonthlyGoal: "Pas d'objectif mensuel pour le mois {{month}}",
+      noMonthlyGoal: "Pas d'objectif mensuel pour {{monthLabel}}",
       targetLabel: "Temps cible (heures)",
       targetPlaceholder: "ex. 10",
       targetHelper: "Saisir en heures pour simplifier les calculs.",

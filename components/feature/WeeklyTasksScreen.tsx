@@ -61,7 +61,7 @@ const formatMinutes = (minutes: number) => {
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 
 export default function WeeklyTasksScreen() {
-  const { t } = useTranslation("weeklyTasks");
+  const { t } = useTranslation(["weeklyTasks", "monthlyGoals"]);
   const [tasks, setTasks] = useState<WeeklyTask[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
   const [listMode, setListMode] = useState(false);
@@ -126,6 +126,21 @@ export default function WeeklyTasksScreen() {
   const monthsList = useMemo(() => Array.from({ length: 12 }, (_, idx) => idx + 1), []);
   const initializedDefaultGoal = useRef(false);
   const hasLoadedRef = useRef(false);
+  // 各月名の配列の翻訳データを返している。(ns = name space)
+  // returnObject:trueとすることで配列やオブジェクトの翻訳データをそのまま配列やオブジェクトとして扱える。
+  // これがないと”[aaa, bbb, ccc]”のような一つの文字列として解釈されてしまう。
+  const monthNames = useMemo(
+    () => (t("monthsShort", { ns: "monthlyGoals", returnObjects: true }) as string[]) ?? [],
+    [t],
+  );
+  // 各月名の配列の翻訳データからユーザが選択中のデータを返している
+  const monthLabel = useCallback(
+    (month: number) => {
+      const idx = Math.max(0, Math.min(11, month - 1));
+      return monthNames[idx] ?? String(month);
+    },
+    [monthNames],
+  );
   const monthGoalsForSelected = useMemo(
     () => monthlyGoalOptions.filter((opt) => opt.month === selectedMonth),
     [monthlyGoalOptions, selectedMonth],
@@ -263,11 +278,15 @@ export default function WeeklyTasksScreen() {
     // 月間目標データを週間タスクページで使用しやすいフォーマットに変換
     const monthlyOptions = ((monthlyData as any[]) ?? []).map((row) => {
       const color = row?.yearly_goals?.year_goal_color ?? colors.accentPrimary;
+      const goalRow = row as MonthlyGoalRow;
       return {
-        id: (row as MonthlyGoalRow).id,
-        label: `${(row as MonthlyGoalRow).month}月 : ${(row as MonthlyGoalRow).description}`,
+        id: goalRow.id,
+        label: t("modal.monthOptionLabel", {
+          monthLabel: monthLabel(goalRow.month),
+          description: goalRow.description,
+        }),
         color,
-        month: (row as MonthlyGoalRow).month,
+        month: goalRow.month,
       };
     });
 
@@ -289,7 +308,7 @@ export default function WeeklyTasksScreen() {
       setDraft((prev) => ({ ...prev, monthlyGoalId: monthlyOptions[0].id, month: monthlyOptions[0].month }));
     }
     setLoading(false);
-  }, [fetchUserId, initializedDefaultGoal, reorderTasks, t, toWeeklyTask]);
+  }, [fetchUserId, initializedDefaultGoal, monthLabel, reorderTasks, t, toWeeklyTask]);
 
   // 初回マウント時にもデータを1回だけ取得し、以降はフォーカス時に再取得する
   useEffect(() => {
@@ -484,7 +503,7 @@ export default function WeeklyTasksScreen() {
   const handleSave = async () => {
     // 選択月に月間目標がない場合は早期return
     if (!hasMonthlyGoals) {
-      setModalError(t("modal.noMonthlyGoal", { month: selectedMonth }));
+      setModalError(t("modal.noMonthlyGoal", { monthLabel: monthLabel(selectedMonth) }));
       return;
     }
 
@@ -913,7 +932,7 @@ export default function WeeklyTasksScreen() {
                   style={[styles.selectInput, isMonthDropdownOpen && styles.selectInputActive]}
                   onPress={() => setMonthDropdownOpen((prev) => !prev)}
                 >
-                  <Text style={styles.selectValue}>{`${selectedMonth}月`}</Text>
+                  <Text style={styles.selectValue}>{t("modal.monthValue", { monthLabel: monthLabel(selectedMonth) })}</Text>
                   <MaterialCommunityIcons
                     name={isMonthDropdownOpen ? "chevron-up" : "chevron-down"}
                     size={18}
@@ -939,7 +958,7 @@ export default function WeeklyTasksScreen() {
                           }}
                         >
                           <Text style={[styles.selectOptionText, month === selectedMonth && styles.selectOptionTextActive]}>
-                            {`${month}月`}
+                            {t("modal.monthValue", { monthLabel: monthLabel(month) })}
                           </Text>
                         </Pressable>
                       ))}
@@ -977,7 +996,7 @@ export default function WeeklyTasksScreen() {
                       </Text>
                     ) : (
                       <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
-                        {t("modal.noMonthlyGoal", { month: selectedMonth })}
+                        {t("modal.noMonthlyGoal", { monthLabel: monthLabel(selectedMonth) })}
                       </Text>
                     )}
                   </View>
