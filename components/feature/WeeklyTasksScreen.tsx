@@ -1164,7 +1164,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: "rgba(110,168,255,0.25)",
     gap: spacing.md,
   },
   headerTop: {
