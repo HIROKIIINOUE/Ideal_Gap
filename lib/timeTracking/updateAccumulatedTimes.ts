@@ -14,6 +14,7 @@ export type UpdateAccumulatedTimesParams = {
   monthlyGoalId?: string | null;
   newLoggedMinutes: number;
   previousLoggedMinutes: number;
+  nextStartPoint?: string | null;
 };
 
 type MonthlyGoalInfo = {
@@ -27,6 +28,7 @@ export type TimeTrackingClient = {
     taskId: string;
     userId: string;
     newLoggedMinutes: number;
+    nextStartPoint?: string | null;
   }) => Promise<void>;
   getMonthlyGoal: (args: {
     monthlyGoalId: string;
@@ -50,10 +52,16 @@ export type TimeTrackingClient = {
 
 // 各データベース処理をパッケージ化したもの
 const supabaseTimeTrackingClient: TimeTrackingClient = {
-  async updateWeeklyLogged({ taskId, userId, newLoggedMinutes }) {
+  async updateWeeklyLogged({ taskId, userId, newLoggedMinutes, nextStartPoint }) {
+    const payload: Record<string, unknown> = {
+      accumulated_time_week: newLoggedMinutes,
+    };
+    if (typeof nextStartPoint !== "undefined") {
+      payload.next_start_point = nextStartPoint ?? null;
+    }
     const { error } = await supabase
       .from("weekly_tasks" as any)
-      .update({ accumulated_time_week: newLoggedMinutes })
+      .update(payload)
       .match({ id: taskId, user_id: userId });
 
     if (error) {
@@ -136,6 +144,7 @@ export const updateAccumulatedTimes = async (
     monthlyGoalId,
     newLoggedMinutes,
     previousLoggedMinutes,
+    nextStartPoint,
   } = params;
 
   const safeNew = Math.max(0, Math.round(newLoggedMinutes));
@@ -143,16 +152,21 @@ export const updateAccumulatedTimes = async (
   const delta = safeNew - safePrev;
 
   // 値が変わらない場合は何も更新しない
+  const shouldPersistWeekly = delta !== 0 || typeof nextStartPoint !== "undefined";
+
+  if (shouldPersistWeekly) {
+    // 週間タスクの作業実績データをDB上で更新
+    await client.updateWeeklyLogged({
+      taskId,
+      userId,
+      newLoggedMinutes: safeNew,
+      nextStartPoint,
+    });
+  }
+
   if (delta === 0) {
     return { delta, newLoggedMinutes: safeNew };
   }
-
-  // 週間タスクの作業実績データをDB上で更新
-  await client.updateWeeklyLogged({
-    taskId,
-    userId,
-    newLoggedMinutes: safeNew,
-  });
 
   if (!monthlyGoalId) {
     return { delta, newLoggedMinutes: safeNew };

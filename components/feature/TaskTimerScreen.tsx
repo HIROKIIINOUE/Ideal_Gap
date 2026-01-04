@@ -4,7 +4,7 @@ import * as Notifications from "expo-notifications";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
+import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
@@ -83,6 +83,11 @@ export default function TaskTimerScreen() {
   const [userNotificationOn, setUserNotificationOn] = useState(true);
   const [expectedEndAt, setExpectedEndAt] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [completionModalVisible, setCompletionModalVisible] = useState(false);
+  const [completionElapsedSeconds, setCompletionElapsedSeconds] = useState(0);
+  const [nextStartNote, setNextStartNote] = useState("");
+  const [isSavingCompletion, setIsSavingCompletion] = useState(false);
+  const [nextStartPoint, setNextStartPoint] = useState<string | null>(null);
 
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const completionFiredRef = useRef(false);
@@ -102,10 +107,15 @@ export default function TaskTimerScreen() {
     return Math.min(1, elapsed / inputSeconds);
   }, [hasDuration, inputSeconds, remainingSeconds]);
 
-
   // 進捗ドーナッツの中央部に表示する値
   const durationLabel = `${formatDigital(remainingSeconds)} / ${formatDigital(inputSeconds)}`;
   const endTimeText = useMemo(() => formatEndTimeLabel(expectedEndAt), [expectedEndAt]);
+  // 作業完了モーダル画面で表示する値
+  const completionDurationLabel = useMemo(() => formatDigital(completionElapsedSeconds), [completionElapsedSeconds]);
+  const completionMinutes = useMemo(
+    () => Math.max(0, Math.round(completionElapsedSeconds / 60)),
+    [completionElapsedSeconds],
+  );
 
   const fetchUserId = useCallback(async () => {
     if (userId) return userId;
@@ -119,7 +129,6 @@ export default function TaskTimerScreen() {
   // マウント時にユーザの端末がアプリ通知ONになっているか状態チェック
   useEffect(() => {
     let isMounted = true;
-
     const loadNotificationPermission = async () => {
       try {
         const { status, granted } = await Notifications.getPermissionsAsync();
@@ -144,7 +153,7 @@ export default function TaskTimerScreen() {
   const fetchLatestLogged = useCallback(async (uid: string, weeklyTaskId: string) => {
     const { data, error } = await supabase
       .from("weekly_tasks" as any)
-      .select("accumulated_time_week, monthly_goal_id")
+      .select("accumulated_time_week, monthly_goal_id, next_start_point")
       .eq("id", weeklyTaskId)
       .eq("user_id", uid)
       .single();
@@ -154,17 +163,39 @@ export default function TaskTimerScreen() {
     return {
       accumulated: Math.max(0, Math.round((data as any)?.accumulated_time_week ?? 0)),
       monthlyGoalId: ((data as any)?.monthly_goal_id ?? null) as string | null,
+      nextStartPoint: ((data as any)?.next_start_point ?? null) as string | null,
     };
   }, []);
 
 
   // 1秒ごとにカウントする役割を持つtickRef.currentをリセットする
-  const clearTick = () => {
+  const clearTick = useCallback(() => {
     if (tickRef.current) {
       clearInterval(tickRef.current);
       tickRef.current = null;
     }
-  };
+  }, []);
+
+  // 作業完了モーダルを開く処理
+  const openCompletionModal = useCallback(
+    (elapsedSeconds: number) => {
+      clearTick();
+      completionFiredRef.current = true;
+      const safeElapsed = Math.max(0, Math.round(elapsedSeconds));
+      setCompletionElapsedSeconds(safeElapsed);
+      setCompletionModalVisible(true);
+      setStatus("finished");
+      setExpectedEndAt(null);
+    },
+    [clearTick],
+  );
+
+  // 作業完了モーダルの「キャンセル」押下時の処理
+  const handleDismissCompletion = useCallback(() => {
+    setCompletionModalVisible(false);
+    setIsSavingCompletion(false);
+    completionFiredRef.current = false;
+  }, []);
 
   // 状態がidle,finishedの時のみ残り時間とユーザの設定作業時間を一致させる
   // paused時は残り時間とユーザ設定時間が異なるのでここの処理は走らせない
@@ -174,11 +205,32 @@ export default function TaskTimerScreen() {
     }
   }, [inputSeconds, status]);
 
+  // 初期表示時に最新の実績と次回スタート地点を取得
+  useEffect(() => {
+    let mounted = true;
+    const hydrate = async () => {
+      const uid = await fetchUserId();
+      if (!uid || !taskId) return;
+      try {
+        const latest = await fetchLatestLogged(uid, taskId);
+        if (!mounted) return;
+        setLoggedBaseline(latest.accumulated);
+        setNextStartPoint(latest.nextStartPoint ?? null);
+      } catch {
+        // エラー時もここで画面表示を止めない
+      }
+    };
+    hydrate();
+    return () => {
+      mounted = false;
+    };
+  }, [fetchLatestLogged, fetchUserId, taskId]);
+
   // クリーンアップ関数でアンマウント時(ページから離れた場合)はタイマーをリセット
   // アプリ離脱→アプリ再開をした時はシンプルにアンマウント→再マウントの流れで処理が走る
   useEffect(() => {
     return () => clearTick();
-  }, []);
+  }, [clearTick]);
 
   // 共通のトースト表示(ポップアップメッセージ)処理
   const showToast = useCallback((message: string) => {
@@ -228,6 +280,9 @@ export default function TaskTimerScreen() {
     setRemainingSeconds(0);
     setStatus("idle");
     setExpectedEndAt(null);
+    setCompletionModalVisible(false);
+    setIsSavingCompletion(false);
+    setNextStartNote("");
     completionFiredRef.current = false;
   };
 
@@ -237,10 +292,10 @@ export default function TaskTimerScreen() {
       showToast(t("feedback.startError"));
       return;
     }
+    completionFiredRef.current = false;
     setRemainingSeconds(inputSeconds);
     setStatus("running");
     setExpectedEndAt(Date.now() + inputSeconds * 1000);
-    completionFiredRef.current = false;
   };
 
   // 一時停止orリスタート ボタン押下時
@@ -258,13 +313,12 @@ export default function TaskTimerScreen() {
     }
   };
 
-  // タイマーカウントダウンが完了 or 作業完了ボタンが押下された時に発火
   // 「今回実行された作業時間」を紐づく週間タスクの最新の作業実績時間データに積み上げる
-  const persistElapsedAndExit = useCallback(async (elapsedSeconds: number) => {
+  const persistElapsedAndExit = useCallback(async (elapsedSeconds: number, nextStartPayload?: string | null) => {
     const uid = await fetchUserId();
     if (!uid || !taskId) {
       Alert.alert(t("controls.completeConfirmTitle"), t("feedback.startError"));
-      return;
+      return false;
     }
 
     const elapsedMinutes = Math.max(0, Math.round(elapsedSeconds / 60));
@@ -279,14 +333,22 @@ export default function TaskTimerScreen() {
         monthlyGoalId: latest.monthlyGoalId ?? monthlyGoalIdSafe,
         newLoggedMinutes,
         previousLoggedMinutes: baseLogged,
+        nextStartPoint: typeof nextStartPayload === "undefined" ? undefined : nextStartPayload,
       });
       setLoggedBaseline(newLoggedMinutes);
+      if (typeof nextStartPayload !== "undefined") {
+        setNextStartPoint(nextStartPayload || null);
+      } else {
+        setNextStartPoint(latest.nextStartPoint ?? null);
+      }
       setStatus("finished");
       setExpectedEndAt(null);
       showToast(t("controls.completeToast"));
       router.back();
+      return true;
     } catch (error) {
       Alert.alert(t("controls.completeConfirmTitle"), error instanceof Error ? error.message : String(error));
+      return false;
     }
   }, [fetchLatestLogged, fetchUserId, loggedBaseline, monthlyGoalIdSafe, showToast, t, taskId]);
 
@@ -303,11 +365,8 @@ export default function TaskTimerScreen() {
         if (prev <= 1) {
           clearTick();
           if (!completionFiredRef.current) {
-            completionFiredRef.current = true;
-            void persistElapsedAndExit(Math.max(0, inputSeconds));
+            openCompletionModal(Math.max(0, inputSeconds));
           }
-          setStatus("finished");
-          setExpectedEndAt(null);
           return 0;
         }
         return prev - 1;
@@ -315,7 +374,7 @@ export default function TaskTimerScreen() {
     }, 1000);
 
     return clearTick;
-  }, [status, inputSeconds, persistElapsedAndExit]);
+  }, [status, inputSeconds, clearTick, openCompletionModal]);
 
   // 作業完了ボタン押下時の処理
   const handleComplete = () => {
@@ -323,21 +382,24 @@ export default function TaskTimerScreen() {
       showToast(t("feedback.startError"));
       return;
     }
-    Alert.alert(t("controls.completeConfirmTitle"), t("controls.completeConfirmBody"), [
-      { text: t("controls.cancel"), style: "cancel" },
-      {
-        text: t("controls.confirm"),
-        style: "destructive",
-        onPress: async () => {
-          if (completionFiredRef.current) return;
-          completionFiredRef.current = true;
-          clearTick();
-          const elapsedSeconds = Math.max(0, inputSeconds - remainingSeconds);
-          await persistElapsedAndExit(elapsedSeconds);
-        },
-      },
-    ]);
+    if (completionModalVisible) return;
+    const elapsedSeconds = Math.max(0, inputSeconds - remainingSeconds);
+    openCompletionModal(elapsedSeconds);
   };
+
+  // 作業モーダルの「完了」ボタン押下時の処理
+  const handleConfirmCompletion = useCallback(async () => {
+    if (isSavingCompletion) return;
+    setIsSavingCompletion(true);
+    const trimmedNextStart = nextStartNote.trim();
+    const nextStartPayload = trimmedNextStart.length > 0 ? trimmedNextStart : null;
+    const success = await persistElapsedAndExit(completionElapsedSeconds, nextStartPayload);
+    if (success) {
+      setCompletionModalVisible(false);
+      setNextStartNote("");
+    }
+    setIsSavingCompletion(false);
+  }, [completionElapsedSeconds, isSavingCompletion, nextStartNote, persistElapsedAndExit]);
 
   const handleSelectMusic = (option: MusicOption) => {
     setSelectedMusic(option);
@@ -346,6 +408,7 @@ export default function TaskTimerScreen() {
   };
 
   const pauseResumeLabel = status === "running" ? t("controls.pause") : t("controls.resume");
+  const pauseResumeIcon = status === "running" ? "pause-circle" : "play-circle";
   const musicLabel = musicPlaying ? t("controls.musicPause") : t("controls.musicPlay");
   const statusLabel = status === "running" ? t("timerCard.running") : status === "paused" ? t("timerCard.paused") : undefined;
 
@@ -379,6 +442,14 @@ export default function TaskTimerScreen() {
           <Text style={styles.focusTitle} numberOfLines={2} ellipsizeMode="tail">
             {taskTitle}
           </Text>
+          {nextStartPoint && status !== "running" && (
+            <View style={styles.nextStartBox}>
+              <Text style={styles.nextStartLabel}>{t("completionModal.currentStartLabel")}</Text>
+              <Text style={styles.nextStartValue} numberOfLines={2} ellipsizeMode="tail">
+                {nextStartPoint}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.timerWrapper}>
             <View style={styles.progressWrapper}>
@@ -476,7 +547,7 @@ export default function TaskTimerScreen() {
                 (status === "idle" || status === "finished") && styles.buttonDisabled,
               ]}
             >
-              <MaterialCommunityIcons name="pause-circle" size={22} color={colors.textPrimary} />
+              <MaterialCommunityIcons name={pauseResumeIcon} size={22} color={colors.textPrimary} />
               <Text style={styles.secondaryButtonText}>{pauseResumeLabel}</Text>
             </Pressable>
 
@@ -515,6 +586,58 @@ export default function TaskTimerScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={completionModalVisible} transparent animationType="fade" onRequestClose={handleDismissCompletion}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, styles.completionCard, shadows.card]} testID="completion-modal">
+            <Text style={styles.modalTitle}>{t("completionModal.title")}</Text>
+            <Text style={styles.modalSubtitle}>{t("completionModal.description")}</Text>
+
+            <View style={styles.completionSummary}>
+              <Text style={styles.summaryLabel}>{t("completionModal.actualTimeLabel")}</Text>
+              <Text style={styles.summaryTime}>{completionDurationLabel}</Text>
+              <Text style={styles.summaryHint}>{t("completionModal.minutesLabel", { minutes: completionMinutes })}</Text>
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>{t("completionModal.nextStartLabel")}</Text>
+              <TextInput
+                value={nextStartNote}
+                onChangeText={setNextStartNote}
+                placeholder={t("completionModal.nextStartPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.textInput}
+                multiline
+              />
+              <Text style={styles.fieldHelper}>{t("completionModal.nextStartHelper")}</Text>
+            </View>
+
+            <View style={styles.completionActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleDismissCompletion}
+                style={({ pressed }) => [styles.secondaryButton, styles.controlButton, pressed && styles.secondaryPressed]}
+              >
+                <Text style={styles.secondaryButtonText}>{t("controls.cancel")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleConfirmCompletion}
+                disabled={isSavingCompletion}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  styles.controlButton,
+                  styles.completionPrimary,
+                  pressed && styles.primaryPressed,
+                  isSavingCompletion && styles.buttonDisabled,
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>{t("completionModal.confirm")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={musicModalVisible} transparent animationType="fade" onRequestClose={() => setMusicModalVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -707,6 +830,28 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: spacing.lg,
   },
+  nextStartBox: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    padding: spacing.md,
+    gap: spacing.xs / 2,
+    marginBottom: spacing.sm,
+    alignItems: "center",
+  },
+  nextStartLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    textAlign: "center",
+  },
+  nextStartValue: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+    lineHeight: typography.md * 1.4,
+    textAlign: "center",
+  },
   timerWrapper: {
     alignItems: "center",
     justifyContent: "center",
@@ -830,14 +975,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.overlay,
     alignItems: "center",
     justifyContent: "center",
-    padding: spacing.lg,
+    padding: spacing.xl,
   },
   modalCard: {
     width: "100%",
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.sm,
+    backgroundColor: "#1f3a63",
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
   },
@@ -849,6 +994,64 @@ const styles = StyleSheet.create({
   modalSubtitle: {
     color: colors.textSecondary,
     fontSize: typography.sm,
+  },
+  completionCard: {
+    gap: spacing.md,
+  },
+  completionSummary: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    gap: spacing.xs,
+  },
+  summaryLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+  },
+  summaryTime: {
+    color: colors.textPrimary,
+    fontSize: typography.xl,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+  },
+  summaryHint: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+  },
+  fieldBlock: {
+    gap: spacing.xs,
+  },
+  fieldLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    minHeight: 72,
+    textAlignVertical: "top",
+    lineHeight: typography.md * 1.4,
+  },
+  fieldHelper: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  completionActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  completionPrimary: {
+    backgroundColor: "rgba(30,94,255,0.2)",
+    borderColor: colors.accentPrimary,
   },
   musicList: {
     gap: spacing.sm,

@@ -50,6 +50,17 @@ export type TaskTimerTranslations = {
     musicModalSubtitle: string;
     musicSelected: string;
   };
+  completionModal: {
+    title: string;
+    description: string;
+    actualTimeLabel: string;
+    minutesLabel: string;
+    nextStartLabel: string;
+    currentStartLabel: string;
+    nextStartPlaceholder: string;
+    nextStartHelper: string;
+    confirm: string;
+  };
   feedback: {
     startError: string;
   };
@@ -106,6 +117,17 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       musicModalSubtitle: "ダウンロード済みの曲",
       musicSelected: "{{title}}を選択しました",
     },
+    completionModal: {
+      title: "実績を保存",
+      description: "週間タスクに戻る前に実績時間を確認し、次回のスタート地点をメモできます。",
+      actualTimeLabel: "今回の実績時間",
+      minutesLabel: "{{minutes}}分として記録されます",
+      nextStartLabel: "次回のスタート地点（任意）",
+      currentStartLabel: "今回のスタート地点",
+      nextStartPlaceholder: "例: 第2章から / 3番目のサブタスクから",
+      nextStartHelper: "メモを残すと次のセッションで迷いません。",
+      confirm: "完了して記録",
+    },
     feedback: {
       startError: "時間を設定してから開始してください",
     },
@@ -160,6 +182,17 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       musicModalSubtitle: "Downloaded tracks",
       musicSelected: "{{title}} selected",
     },
+    completionModal: {
+      title: "Review before saving",
+      description: "Check the logged time and note your next starting point before returning to weekly tasks.",
+      actualTimeLabel: "Elapsed this session",
+      minutesLabel: "Saved as {{minutes}} min",
+      nextStartLabel: "Next starting point (optional)",
+      currentStartLabel: "Starting point this session",
+      nextStartPlaceholder: "e.g. Resume from section 2 or subtask 3",
+      nextStartHelper: "Leave a short note so you can jump back in next time.",
+      confirm: "Save and finish",
+    },
     feedback: {
       startError: "Set a duration before starting",
     },
@@ -213,6 +246,17 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       musicModalTitle: "Choisir la musique de focus",
       musicModalSubtitle: "Morceaux téléchargés",
       musicSelected: "{{title}} sélectionné",
+    },
+    completionModal: {
+      title: "Revoir avant d'enregistrer",
+      description: "Vérifiez le temps enregistré et notez le prochain point de reprise avant de revenir aux tâches hebdomadaires.",
+      actualTimeLabel: "Temps passé sur cette session",
+      minutesLabel: "Enregistré en {{minutes}} min",
+      nextStartLabel: "Point de reprise (optionnel)",
+      currentStartLabel: "Point de départ de cette session",
+      nextStartPlaceholder: "ex. Reprendre à la section 2 ou à la sous-tâche 3",
+      nextStartHelper: "Ajoutez une note pour reprendre plus vite la prochaine fois.",
+      confirm: "Enregistrer et terminer",
     },
     feedback: {
       startError: "Définissez une durée avant de démarrer",

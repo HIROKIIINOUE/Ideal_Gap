@@ -30,8 +30,11 @@ const createMockClient = ({
   let yearlyStored = yearlyAccumulated;
 
   const client: TimeTrackingClient = {
-    updateWeeklyLogged: jest.fn(async ({ newLoggedMinutes }) => {
+    updateWeeklyLogged: jest.fn(async ({ newLoggedMinutes, nextStartPoint }) => {
       weeklyLogged = newLoggedMinutes;
+      if (typeof nextStartPoint !== "undefined") {
+        // no-op for now, just ensure value passes through
+      }
     }),
     getMonthlyGoal: jest.fn(async () => ({ accumulated: monthlyStored, yearlyGoalId })),
     updateMonthlyLogged: jest.fn(async ({ newAccumulated }) => {
@@ -127,6 +130,32 @@ describe("updateAccumulatedTimes", () => {
     expect(client.updateYearlyLogged).not.toHaveBeenCalled();
     expect(getState()).toEqual({
       weeklyLogged: 0,
+      monthlyStored: 120,
+      yearlyStored: 600,
+    });
+  });
+
+  it("updates only weekly task when delta is zero but nextStartPoint is provided", async () => {
+    const { client, getState } = createMockClient();
+
+    const result = await updateAccumulatedTimes(
+      {
+        userId: "user-1",
+        taskId: "task-1",
+        monthlyGoalId: "month-1",
+        newLoggedMinutes: 40,
+        previousLoggedMinutes: 40,
+        nextStartPoint: "Resume from chapter 2",
+      },
+      client,
+    );
+
+    expect(result).toEqual({ delta: 0, newLoggedMinutes: 40 });
+    expect(client.updateWeeklyLogged).toHaveBeenCalledTimes(1);
+    expect(client.updateMonthlyLogged).not.toHaveBeenCalled();
+    expect(client.updateYearlyLogged).not.toHaveBeenCalled();
+    expect(getState()).toEqual({
+      weeklyLogged: 40,
       monthlyStored: 120,
       yearlyStored: 600,
     });

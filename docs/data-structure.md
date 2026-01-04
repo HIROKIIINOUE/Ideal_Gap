@@ -132,6 +132,7 @@
     user_id uuid [not null, ref: > users.id]
     monthly_goal_id uuid [ref: > monthly_goals.id]
     description varchar [not null]
+    next_start_point varchar
     estimated_time_week int // 各週間タスクの目標作業時間
     accumulated_time_week int // 作業タイマーの実績
     "order" int
