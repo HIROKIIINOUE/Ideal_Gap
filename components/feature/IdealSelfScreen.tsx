@@ -1,6 +1,8 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useState } from "react";
+// ControllerはTextInputとRHFを繋ぐタグ、FieldErrorsはhandleSubmitが失敗したときのエラー型
+import { Controller, FieldErrors } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -16,6 +18,9 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { useAppZodForm } from "../../hooks/useAppZodForm";
+import { useDeleteMode } from "../../hooks/useDeleteMode";
+import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { supabase } from "../../lib/supabaseClient";
 import Loading from "../Loading";
 
@@ -38,9 +43,12 @@ const idealSchema = z.object({
   description: z.string().trim().min(1),
 });
 
+// Zodで定義したidealSchemaを型IdealFormValueとして取り出す
+type IdealFormValues = z.infer<typeof idealSchema>;
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 
+// 編集モーダルに表示する更新日の文章生成
 const formatUpdated = (iso?: string | null, updatedLabel?: string) => {
   if (!iso) return "";
   try {
@@ -51,6 +59,7 @@ const formatUpdated = (iso?: string | null, updatedLabel?: string) => {
   }
 };
 
+// DBから取得した「理想の自分」データをUI表示用に整形
 const toIdealCard = (row: { id: string; description: string; order: number | null; updated_at?: string | null }): IdealCard => ({
   id: row.id,
   description: row.description,
@@ -61,16 +70,23 @@ const toIdealCard = (row: { id: string; description: string; order: number | nul
 export default function IdealSelfScreen() {
   const { t } = useTranslation("idealSelf");
   const [ideals, setIdeals] = useState<IdealCard[]>([]);
-  const [deleteMode, setDeleteMode] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalDraft, setModalDraft] = useState("");
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingMeta, setEditingMeta] = useState<{ updatedAt: string | null } | null>(null);
+  const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
+  const [modalState, setModalState] = useState<ModalState>(closedModalState);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
   const updatedLabel = t("updatedSuffix");
+  const {
+    control, // Controller が使う“フォーム管理本体”
+    handleSubmit,
+    reset,
+    clearErrors, // Controller が使う“フォーム管理本体”
+    formState: { errors }, // バリデーション結果（Zodが作ったメッセージ等）
+  } = useAppZodForm({
+    schema: idealSchema,
+    defaultValues: { description: "" },  //初期表示時や reset() したときの値が " " ではなく "" になる
+  });
 
   const getUserId = useMemo(
     () => async () => {
@@ -118,13 +134,12 @@ export default function IdealSelfScreen() {
     };
   }, [getUserId, t]);
 
-  // 追加モーダル表示ボタン
+  // 追加インプットモーダル表示ボタン
   const handleAddPress = () => {
-    setEditingId(null);
-    setModalDraft("");
     setModalError(null);
-    setModalVisible(true);
-    setEditingMeta(null);
+    reset({ description: "" });
+    setModalState(createAddModalState());
+    clearErrors();
   };
 
   // 更新ボタンと削除ボタンを状況に応じて管理
@@ -152,23 +167,19 @@ export default function IdealSelfScreen() {
       ]);
       return;
     }
-    setEditingId(item.id);
-    setModalDraft(item.description);
+    reset({ description: item.description }); // モーダルオープン時にデータを表示できるようにセット
     setModalError(null);
-    setEditingMeta({ updatedAt: item.updatedAt });
-    setModalVisible(true);
+    setModalState(createEditModalState(item.id, { updatedAt: item.updatedAt }));
+    clearErrors();
   };
 
   // 保存・更新ボタン両方を管理するロジック
-  const handleSave = () => {
-    const parsed = idealSchema.safeParse({ description: modalDraft });
-    if (!parsed.success) {
-      setModalError(t("modal.errorRequired"));
-      return;
-    }
-    const run = async () => {
-      setSaving(true);
-      setModalError(null);
+  const onValidSubmit = async ({ description }: IdealFormValues) => {
+    setSaving(true);
+    setModalError(null);
+
+    try {
+      // ユーザ情報取得
       const uid = await getUserId();
       if (!uid) {
         setModalError(t("errors.loginMissing"));
@@ -176,11 +187,11 @@ export default function IdealSelfScreen() {
         return;
       }
       // ↓ 更新ボタンで保存した場合
-      if (editingId) {
+      if (modalState.editingId) {
         const { data, error } = await supabase
           .from("user_ideal" as any)
-          .update({ description: parsed.data.description })
-          .eq("id", editingId)
+          .update({ description })
+          .eq("id", modalState.editingId)
           .select("id, description, order, updated_at")
           .single();
         if (error) {
@@ -189,12 +200,12 @@ export default function IdealSelfScreen() {
           return;
         }
         const row = data as unknown as UserIdealRow;
-        setIdeals((prev) => prev.map((ideal) => (ideal.id === editingId ? toIdealCard(row) : ideal)));
+        setIdeals((prev) => prev.map((ideal) => (ideal.id === modalState.editingId ? toIdealCard(row) : ideal)));
       } else {
         // 追加ボタンで保存した場合（最上部に追加）
         const { data, error } = await supabase
           .from("user_ideal" as any)
-          .insert({ user_id: uid, description: parsed.data.description, order: 0 })
+          .insert({ user_id: uid, description, order: 0 })
           .select("id, description, order, updated_at")
           .single();
         if (error) {
@@ -225,20 +236,18 @@ export default function IdealSelfScreen() {
         }
         setIdeals((prev) => [toIdealCard(row), ...prev.map((ideal, idx) => ({ ...ideal, order: idx + 1 }))]);
       }
-      setModalVisible(false);
-      setEditingId(null);
-      setModalDraft("");
-      setEditingMeta(null);
+      setModalState(closedModalState);
+      reset({ description: "" });
       setSaving(false);
-    };
-    run().catch((err) => {
-      setModalError(err.message ?? t("errors.saveFailed"));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : t("errors.saveFailed");
+      setModalError(message);
       setSaving(false);
-    });
+    }
   };
 
-  const toggleDeleteMode = () => {
-    setDeleteMode((prev) => !prev);
+  const handleInvalidSubmit = (formErrors: FieldErrors<IdealFormValues>) => {
+    setModalError(formErrors.description?.message ?? t("modal.errorRequired"));
   };
 
   // ドラッグ並び替え終了時の配列データをセットする
@@ -311,9 +320,9 @@ export default function IdealSelfScreen() {
   };
 
   const hasIdeals = ideals.length > 0;
-  const modalTitle = editingId ? t("modal.editTitle") : t("modal.addTitle");
+  const modalTitle = modalState.editingId ? t("modal.editTitle") : t("modal.addTitle");
   // list label was removed
-  const modalUpdatedText = editingMeta?.updatedAt ? formatUpdated(editingMeta.updatedAt, updatedLabel) : null;
+  const modalUpdatedText = modalState.meta?.updatedAt ? formatUpdated(modalState.meta.updatedAt, updatedLabel) : null;
 
   if (loading) {
     return (
@@ -389,37 +398,60 @@ export default function IdealSelfScreen() {
         </View>
       )}
 
-      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        visible={modalState.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setModalState(closedModalState);
+          disableDeleteMode();
+        }}
+      >
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView behavior="padding" style={styles.modalContainer}>
             <View style={[styles.modalCard, shadows.card]}>
               <Text style={styles.modalTitle}>{modalTitle}</Text>
-              {editingMeta && (
+              {modalState.meta && (
                 <View style={styles.modalMeta}>
                   {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
                 </View>
               )}
-              <TextInput
-                autoFocus
-                multiline
-                placeholder={t("modal.placeholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.modalInput}
-                value={modalDraft}
-                onChangeText={(text) => {
-                  setModalDraft(text);
-                  setModalError(null);
-                }}
+              <Controller
+                control={control}
+                name="description"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    autoFocus
+                    multiline
+                    placeholder={t("modal.placeholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.modalInput}
+                    value={value}
+                    onChangeText={(text) => {
+                      onChange(text);
+                      setModalError(null);
+                      clearErrors("description");
+                    }}
+                    onBlur={onBlur}
+                  />
+                )}
               />
-              {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
+              {(modalError || errors.description?.message) && (
+                <Text style={styles.modalError}>{modalError ?? errors.description?.message}</Text>
+              )}
               <View style={styles.modalActions}>
-                <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.secondaryButton}
+                  onPress={() => setModalState(closedModalState)}
+                >
                   <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
                   style={[styles.primaryButton, saving && styles.buttonDisabled]}
-                  onPress={handleSave}
+                  // handleSubmitがフォーム全体を検証し、OKならonValidSubmit(values)、NGならhandleInvalidSubmit(error)を発火
+                  onPress={handleSubmit(onValidSubmit, handleInvalidSubmit)}
                   disabled={saving}
                 >
                   <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
