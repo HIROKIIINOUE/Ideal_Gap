@@ -911,6 +911,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.xl,
     fontWeight: "800",
+    lineHeight: typography.xl * 1.3,
   },
   pageSubtitle: {
     color: colors.textSecondary,
@@ -1040,25 +1041,26 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   goalCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    backgroundColor: "#1c3358",
+    borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: "rgba(110,168,255,0.25)",
     overflow: "hidden",
   },
   goalCardDragging: {
-    opacity: 0.9,
-    transform: [{ scale: 0.99 }],
+    borderColor: "rgba(110,168,255,0.6)",
+    backgroundColor: "rgba(30,94,255,0.08)",
   },
   goalCardDeleteMode: {
-    borderColor: colors.error,
+    borderColor: "rgba(242,95,92,0.5)",
   },
   goalTitle: {
     color: colors.textPrimary,
     fontSize: typography.lg,
     fontWeight: "700",
+    lineHeight: typography.lg * 1.5,
   },
   goalMetaRow: {
     flexDirection: "row",

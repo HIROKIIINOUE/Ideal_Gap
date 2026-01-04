@@ -58,6 +58,7 @@ const formatMinutes = (minutes: number) => {
   return `${hours}h ${mins}m`;
 };
 
+const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 
 export default function WeeklyTasksScreen() {
@@ -631,6 +632,7 @@ export default function WeeklyTasksScreen() {
           disabled={deleteMode && isActive}
           style={[
             styles.listRow,
+            shadows.card,
             deleteMode && styles.listRowDelete,
             isActive && styles.taskCardDragging,
             deleteMode && styles.taskCardDeleteMode,
@@ -784,7 +786,7 @@ export default function WeeklyTasksScreen() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={[styles.headerCard, shadows.card]}>
           <LinearGradient
-            colors={["rgba(30,94,255,0.26)", "rgba(12,18,32,0.92)"]}
+            colors={HEADER_CARD_GRADIENT}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -891,6 +893,12 @@ export default function WeeklyTasksScreen() {
 
         {tasks.length === 0 ? (
           <View style={[styles.emptyBox, shadows.card]}>
+            <LinearGradient
+              colors={LIST_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <Text style={styles.emptyTitle}>{t("list.emptyTitle")}</Text>
             <Text style={styles.emptyBody}>{t("list.emptyBody")}</Text>
           </View>
@@ -1177,11 +1185,10 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   headerCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: "#1c3358",
     borderRadius: radius.lg,
     overflow: "hidden",
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
+    padding: spacing.xl,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     gap: spacing.md,
@@ -1193,6 +1200,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.xl,
     fontWeight: "800",
+    lineHeight: typography.xl * 1.3,
   },
   actionsRow: {
     flexDirection: "row",
@@ -1314,9 +1322,10 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
-    gap: spacing.xs,
+    borderColor: "rgba(110,168,255,0.25)",
+    backgroundColor: "#1c3358",
+    gap: spacing.sm,
+    overflow: "hidden",
   },
   listContent: {
     paddingBottom: spacing.lg,
@@ -1325,17 +1334,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: spacing.md,
-    borderRadius: radius.md,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderColor: "rgba(110,168,255,0.25)",
+    backgroundColor: "#1c3358",
     marginBottom: spacing.sm,
-    gap: spacing.md,
+    gap: spacing.sm,
     overflow: "hidden",
   },
   listRowDelete: {
-    borderColor: colors.error,
+    borderColor: "rgba(242,95,92,0.5)",
     backgroundColor: "rgba(242,95,92,0.08)",
   },
   listRowContent: {
@@ -1368,37 +1377,37 @@ const styles = StyleSheet.create({
   },
   cardBorderOverlay: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.divider,
-    opacity: 0.7,
+    borderColor: "rgba(110,168,255,0.25)",
+    opacity: 0.85,
   },
   emptyTitle: {
     color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
+    fontSize: typography.lg,
+    fontWeight: "800",
   },
   emptyBody: {
     color: colors.textSecondary,
     fontSize: typography.md,
-    lineHeight: typography.md * 1.4,
+    lineHeight: typography.md * 1.5,
   },
   taskCard: {
     padding: spacing.lg,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderColor: "rgba(110,168,255,0.25)",
+    backgroundColor: "#1c3358",
     gap: spacing.sm,
     overflow: "hidden",
     marginBottom: spacing.sm,
   },
   taskCardDragging: {
-    opacity: 0.9,
-    transform: [{ scale: 0.99 }],
+    borderColor: "rgba(110,168,255,0.6)",
+    backgroundColor: "rgba(30,94,255,0.08)",
   },
   taskCardDeleteMode: {
-    borderColor: colors.error,
+    borderColor: "rgba(242,95,92,0.5)",
     backgroundColor: "rgba(242,95,92,0.08)",
   },
   taskHeader: {
@@ -1408,6 +1417,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.lg,
     fontWeight: "800",
+    lineHeight: typography.lg * 1.5,
   },
   taskFooterRow: {
     flexDirection: "row",
