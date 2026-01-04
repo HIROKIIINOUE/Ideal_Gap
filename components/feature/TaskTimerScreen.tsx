@@ -88,6 +88,7 @@ export default function TaskTimerScreen() {
   const [nextStartNote, setNextStartNote] = useState("");
   const [isSavingCompletion, setIsSavingCompletion] = useState(false);
   const [nextStartPoint, setNextStartPoint] = useState<string | null>(null);
+  const [viewStartModalVisible, setViewStartModalVisible] = useState(false);
 
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const completionFiredRef = useRef(false);
@@ -447,12 +448,16 @@ export default function TaskTimerScreen() {
             {taskTitle}
           </Text>
           {nextStartPoint && status !== "running" && (
-            <View style={styles.nextStartBox}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setViewStartModalVisible(true)}
+              style={({ pressed }) => [styles.nextStartBox, pressed && styles.pressed]}
+            >
               <Text style={styles.nextStartLabel}>{t("completionModal.currentStartLabel")}</Text>
               <Text style={styles.nextStartValue} numberOfLines={2} ellipsizeMode="tail">
                 {nextStartPoint}
               </Text>
-            </View>
+            </Pressable>
           )}
 
           <View style={styles.timerWrapper}>
@@ -639,6 +644,29 @@ export default function TaskTimerScreen() {
                 <Text style={styles.primaryButtonText}>{t("completionModal.confirm")}</Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={viewStartModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewStartModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, styles.startViewerCard, shadows.card]} testID="start-viewer-modal">
+            <Text style={styles.modalTitle}>{t("completionModal.currentStartLabel")}</Text>
+            <ScrollView style={styles.startScroll} contentContainerStyle={styles.startScrollContent}>
+              <Text style={styles.startFullText}>{nextStartPoint}</Text>
+            </ScrollView>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setViewStartModalVisible(false)}
+              style={({ pressed }) => [styles.primaryButton, styles.fullWidthButton, pressed && styles.primaryPressed]}
+            >
+              <Text style={styles.primaryButtonText}>{t("header.notificationDismiss")}</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -1056,6 +1084,24 @@ const styles = StyleSheet.create({
   completionPrimary: {
     backgroundColor: "rgba(30,94,255,0.2)",
     borderColor: colors.accentPrimary,
+  },
+  fullWidthButton: {
+    width: "100%",
+    marginTop: spacing.xs,
+  },
+  startViewerCard: {
+    gap: spacing.md,
+  },
+  startScroll: {
+    maxHeight: 320,
+  },
+  startScrollContent: {
+    paddingVertical: spacing.xs,
+  },
+  startFullText: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    lineHeight: typography.md * 1.5,
   },
   musicList: {
     gap: spacing.sm,
