@@ -184,7 +184,7 @@ export default function TaskTimerScreen() {
       const safeElapsed = Math.max(0, Math.round(elapsedSeconds));
       setCompletionElapsedSeconds(safeElapsed);
       setCompletionModalVisible(true);
-      setStatus("finished");
+      setStatus("paused");
       setExpectedEndAt(null);
     },
     [clearTick],
@@ -195,6 +195,7 @@ export default function TaskTimerScreen() {
     setCompletionModalVisible(false);
     setIsSavingCompletion(false);
     completionFiredRef.current = false;
+    setStatus("paused");
   }, []);
 
   // 状態がidle,finishedの時のみ残り時間とユーザの設定作業時間を一致させる
@@ -341,8 +342,11 @@ export default function TaskTimerScreen() {
       } else {
         setNextStartPoint(latest.nextStartPoint ?? null);
       }
+      // 完了時は状態とタイマーをリセットし、画面を閉じる
       setStatus("finished");
       setExpectedEndAt(null);
+      setRemainingSeconds(0);
+      setInputSeconds(0);
       showToast(t("controls.completeToast"));
       router.back();
       return true;
