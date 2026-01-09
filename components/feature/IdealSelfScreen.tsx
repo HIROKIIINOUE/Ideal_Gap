@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 // ControllerはTextInputとRHFを繋ぐタグ、FieldErrorsはhandleSubmitが失敗したときのエラー型
 import { Controller, FieldErrors } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -21,7 +21,8 @@ import { colors, radius, shadows, spacing, typography } from "../../constants/th
 import { useAppZodForm } from "../../hooks/useAppZodForm";
 import { useDeleteMode } from "../../hooks/useDeleteMode";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
-import { supabase } from "../../lib/supabaseClient";
+import { deleteIdeal, fetchIdealSelf, insertIdeal, updateIdeal, upsertIdeals } from "../../lib/api/supabase/idealSelf";
+import { getUserId } from "../../lib/api/supabase/common";
 import Loading from "../Loading";
 
 type IdealCard = {
@@ -88,14 +89,6 @@ export default function IdealSelfScreen() {
     defaultValues: { description: "" },  //初期表示時や reset() したときの値が " " ではなく "" になる
   });
 
-  const getUserId = useMemo(
-    () => async () => {
-      const { data } = await supabase.auth.getSession();
-      return data.session?.user?.id ?? null;
-    },
-    [],
-  );
-
   // ユーザを取得し「理想の自分リスト」を取得、表示
   useEffect(() => {
     let active = true;
@@ -108,11 +101,7 @@ export default function IdealSelfScreen() {
         setLoading(false);
         return;
       }
-      const { data, error } = await supabase
-        .from("user_ideal" as any)
-        .select("id, description, order, updated_at")
-        .eq("user_id", uid)
-        .order("order", { ascending: true });
+      const { data, error } = await fetchIdealSelf(uid);
       if (error) {
         if (active) setErrorMessage(error.message);
       } else if (active) {
@@ -132,7 +121,7 @@ export default function IdealSelfScreen() {
     return () => {
       active = false;
     };
-  }, [getUserId, t]);
+  }, [t]);
 
   // 追加インプットモーダル表示ボタン
   const handleAddPress = () => {
@@ -151,17 +140,13 @@ export default function IdealSelfScreen() {
           text: t("deleteConfirmYes"),
           style: "destructive",
           onPress: () => {
-            supabase
-              .from("user_ideal" as any)
-              .delete()
-              .eq("id", item.id)
-              .then(({ error }) => {
-                if (error) {
-                  Alert.alert(t("errors.deleteFailed"), error.message);
-                  return;
-                }
-                setIdeals((prev) => prev.filter((ideal) => ideal.id !== item.id));
-              });
+            deleteIdeal(item.id).then(({ error }) => {
+              if (error) {
+                Alert.alert(t("errors.deleteFailed"), error.message);
+                return;
+              }
+              setIdeals((prev) => prev.filter((ideal) => ideal.id !== item.id));
+            });
           },
         },
       ]);
@@ -188,12 +173,7 @@ export default function IdealSelfScreen() {
       }
       // ↓ 更新ボタンで保存した場合
       if (modalState.editingId) {
-        const { data, error } = await supabase
-          .from("user_ideal" as any)
-          .update({ description })
-          .eq("id", modalState.editingId)
-          .select("id, description, order, updated_at")
-          .single();
+        const { data, error } = await updateIdeal(modalState.editingId, { description });
         if (error) {
           setModalError(error.message);
           setSaving(false);
@@ -203,11 +183,7 @@ export default function IdealSelfScreen() {
         setIdeals((prev) => prev.map((ideal) => (ideal.id === modalState.editingId ? toIdealCard(row) : ideal)));
       } else {
         // 追加ボタンで保存した場合（最上部に追加）
-        const { data, error } = await supabase
-          .from("user_ideal" as any)
-          .insert({ user_id: uid, description, order: 0 })
-          .select("id, description, order, updated_at")
-          .single();
+        const { data, error } = await insertIdeal({ user_id: uid, description, order: 0 });
         if (error) {
           setModalError(error.message);
           setSaving(false);
@@ -220,15 +196,10 @@ export default function IdealSelfScreen() {
           order: idx + 1,
           user_id: uid,
         }));
-        const { error: upsertError } = await supabase
-          .from("user_ideal" as any)
-          .upsert(
-            [
-              ...shiftedExisting,
-              { id: row.id, description: row.description, order: 0, user_id: uid },
-            ],
-            { onConflict: "id" },
-          );
+        const { error: upsertError } = await upsertIdeals([
+          ...shiftedExisting,
+          { id: row.id, description: row.description, order: 0, user_id: uid },
+        ]);
         if (upsertError) {
           setModalError(upsertError.message);
           setSaving(false);
@@ -266,7 +237,7 @@ export default function IdealSelfScreen() {
       user_id: uid,
     }));
 
-    const { error } = await supabase.from("user_ideal" as any).upsert(updates, { onConflict: "id" });
+    const { error } = await upsertIdeals(updates);
     if (error) {
       Alert.alert(t("errors.reorderSaveFailed"), error.message);
     }
