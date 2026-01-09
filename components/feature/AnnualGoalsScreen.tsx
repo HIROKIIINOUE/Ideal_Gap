@@ -17,7 +17,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PieChart } from "react-native-gifted-charts";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
-import { deleteYearlyGoals } from "../../lib/goals/deleteGoals";
+import { deleteYearlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
 import { supabase } from "../../lib/supabaseClient";
 import { Database } from "../../types/database";
 import Loading from "../Loading";

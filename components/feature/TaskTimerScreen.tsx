@@ -9,7 +9,7 @@ import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { supabase } from "../../lib/supabaseClient";
-import { updateAccumulatedTimes } from "../../lib/timeTracking/updateAccumulatedTimes";
+import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
 

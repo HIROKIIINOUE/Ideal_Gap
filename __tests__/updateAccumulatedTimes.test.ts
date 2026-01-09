@@ -1,4 +1,4 @@
-import type { TimeTrackingClient } from "../lib/timeTracking/updateAccumulatedTimes";
+import type { TimeTrackingClient } from "../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 
 const ensureTestEnv = () => {
   process.env.EXPO_PUBLIC_SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "http://localhost:54321";
@@ -7,12 +7,12 @@ const ensureTestEnv = () => {
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV ?? "test-revenuecat-key";
 };
 
-let updateAccumulatedTimes: typeof import("../lib/timeTracking/updateAccumulatedTimes").updateAccumulatedTimes;
+let updateAccumulatedTimes: typeof import("../lib/api/supabase/timeTracking/updateAccumulatedTimes").updateAccumulatedTimes;
 
 beforeAll(async () => {
   ensureTestEnv();
   jest.isolateModules(() => {
-    ({ updateAccumulatedTimes } = require("../lib/timeTracking/updateAccumulatedTimes"));
+    ({ updateAccumulatedTimes } = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes"));
   });
 });
 

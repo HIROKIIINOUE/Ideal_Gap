@@ -26,7 +26,7 @@ jest.mock("../lib/supabaseClient", () => ({
   },
 }));
 
-jest.mock("../lib/timeTracking/updateAccumulatedTimes", () => ({
+jest.mock("../lib/api/supabase/timeTracking/updateAccumulatedTimes", () => ({
   updateAccumulatedTimes: jest.fn().mockResolvedValue({ delta: 0, newLoggedMinutes: 0 }),
 }));
 

@@ -1,6 +1,6 @@
 // 全件削除機能ファイル
 
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../../supabaseClient";
 
 type DeleteMonthlyGoalsParams = {
   userId: string;

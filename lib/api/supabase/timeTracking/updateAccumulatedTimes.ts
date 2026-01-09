@@ -1,8 +1,8 @@
 // 作業実績の手打ち入力と作業タイマー両方からインプットされる最新のデータをもとに、
 // 該当の週間タスク、紐づく月間目標と年間目標の作業実績時間データを更新する機能
 
-import { Database } from "../../types/database";
-import { supabase } from "../supabaseClient";
+import { Database } from "../../../../types/database";
+import { supabase } from "../../../supabaseClient";
 
 type MonthlyGoalRow = Database["public"]["Tables"]["monthly_goals"]["Row"];
 type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];

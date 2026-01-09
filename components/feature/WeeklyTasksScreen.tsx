@@ -10,9 +10,9 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
-import { deleteWeeklyTasks } from "../../lib/goals/deleteGoals";
+import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
 import { supabase } from "../../lib/supabaseClient";
-import { updateAccumulatedTimes } from "../../lib/timeTracking/updateAccumulatedTimes";
+import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
 
