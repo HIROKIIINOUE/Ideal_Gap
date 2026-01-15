@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Controller, FieldErrors } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -17,9 +18,12 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PieChart } from "react-native-gifted-charts";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { useAppZodForm } from "../../hooks/useAppZodForm";
+import { useDeleteMode } from "../../hooks/useDeleteMode";
+import { deleteYearlyGoal, fetchYearlyGoals, insertYearlyGoal, updateYearlyGoal, upsertYearlyGoals, YearlyGoalRow } from "../../lib/api/supabase/annualGoals";
+import { getUserId } from "../../lib/api/supabase/common";
 import { deleteYearlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
-import { supabase } from "../../lib/supabaseClient";
-import { Database } from "../../types/database";
+import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import Loading from "../Loading";
 
 type AnnualGoal = {
@@ -30,8 +34,6 @@ type AnnualGoal = {
   order: number;
   updatedAt: string | null;
 };
-
-type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
@@ -53,6 +55,14 @@ const goalSchema = z.object({
   goalColor: z.string().trim().min(1),
 });
 
+type GoalFormValues = z.infer<typeof goalSchema>;
+
+const DEFAULT_FORM_VALUES: GoalFormValues = {
+  description: "",
+  goalColor: COLOR_OPTIONS[0],
+};
+
+// 更新日表示の文章を生成
 const formatUpdatedDate = (iso?: string | null, suffix?: string) => {
   if (!iso) return "";
   try {
@@ -90,27 +100,26 @@ const toAnnualGoal = (row: YearlyGoalRow): AnnualGoal => ({
 export default function AnnualGoalsScreen() {
   const { t } = useTranslation("annualGoals");
   const [goals, setGoals] = useState<AnnualGoal[]>([]);
-  const [deleteMode, setDeleteMode] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
+  const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
+  const [modalState, setModalState] = useState<ModalState>(closedModalState);
   const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingUpdatedAt, setEditingUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ description: string; goalColor: string }>({
-    description: "",
-    goalColor: COLOR_OPTIONS[0],
+  const updatedLabel = t("updatedSuffix");
+  const {
+    control, // Controller が使う“フォーム管理本体”
+    handleSubmit,
+    reset,
+    clearErrors,
+    setValue,
+    watch,
+    formState: { errors }, // バリデーション結果（Zodが作ったメッセージ等）
+  } = useAppZodForm({
+    schema: goalSchema,
+    defaultValues: DEFAULT_FORM_VALUES,
   });
-
-  // Supabase Authからログインユーザ情報を取得
-  const fetchUserId = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-    const uid = data.session?.user?.id ?? null;
-    setUserId(uid);
-    return uid;
-  }, []);
+  const goalColor = watch("goalColor");
 
   // データベースからユーザの年間目標データを取得し必要なデータのみに絞った上で状態変数goalsにセットするロジック
   useEffect(() => {
@@ -118,18 +127,13 @@ export default function AnnualGoalsScreen() {
     const fetchGoals = async () => {
       setLoading(true);
       setErrorMessage(null);
-      const uid = await fetchUserId();
+      const uid = await getUserId();
       if (!uid) {
         if (active) setErrorMessage(t("errors.loginMissing"));
         setLoading(false);
         return;
       }
-
-      const { data, error } = await supabase
-        .from("yearly_goals")
-        .select("id, description, year_goal_color, accumulated_time_year, order, updated_at")
-        .eq("user_id", uid)
-        .order("order", { ascending: true });
+      const { data, error } = await fetchYearlyGoals(uid);
 
       if (error) {
         if (active) setErrorMessage(error.message ?? t("errors.fetchFailed"));
@@ -144,14 +148,7 @@ export default function AnnualGoalsScreen() {
     return () => {
       active = false;
     };
-  }, [fetchUserId, t]);
-
-  // インストールから何日後か計算(92日前を仮のインストール日として計算している）
-  const installDate = useMemo(() => new Date(Date.now() - 1000 * 60 * 60 * 24 * 92), []);
-  const daysSinceInstall = useMemo(
-    () => Math.max(1, Math.ceil((Date.now() - installDate.getTime()) / (1000 * 60 * 60 * 24))),
-    [installDate],
-  );
+  }, [t]);
 
   // ドーナツ型円グラフ作成のためのデータ取得
   const chartData = useMemo(() => {
@@ -169,22 +166,17 @@ export default function AnnualGoalsScreen() {
     () => goals.reduce((sum, goal) => sum + Math.max(goal.accumulatedMinutes, 0), 0),
     [goals],
   );
-  const averagePerDay = totalMinutes / daysSinceInstall;
 
   const handleAddPress = () => {
-    setEditingId(null);
-    setDraft({ description: "", goalColor: COLOR_OPTIONS[0] });
     setModalError(null);
-    setModalVisible(true);
-  };
-
-  const handleToggleDeleteMode = () => {
-    setDeleteMode((prev) => !prev);
+    reset(DEFAULT_FORM_VALUES);
+    setModalState(createAddModalState());
+    clearErrors();
   };
 
   // 全ての年間目標削除機能
   const handleBulkDelete = async () => {
-    const uid = userId ?? (await fetchUserId());
+    const uid = await getUserId();
     if (!uid) {
       Alert.alert(t("deleteConfirmTitle"), t("errors.loginMissing"));
       return;
@@ -214,14 +206,13 @@ export default function AnnualGoalsScreen() {
   };
 
   const handleEditPress = (goal: AnnualGoal) => {
-    setEditingId(goal.id);
-    setDraft({
+    reset({
       description: goal.description,
       goalColor: goal.goalColor,
     });
-    setEditingUpdatedAt(goal.updatedAt);
+    setModalState(createEditModalState(goal.id, { updatedAt: goal.updatedAt }));
     setModalError(null);
-    setModalVisible(true);
+    clearErrors();
   };
 
   const handleDelete = (goal: AnnualGoal) => {
@@ -231,13 +222,13 @@ export default function AnnualGoalsScreen() {
         text: t("deleteConfirmYes"),
         style: "destructive",
         onPress: async () => {
-          const uid = userId ?? (await fetchUserId());
+          const uid = await getUserId();
           if (!uid) {
             Alert.alert(t("errors.deleteFailed"), t("errors.loginMissing"));
             return;
           }
           // データベースから削除するロジック
-          const { error } = await supabase.from("yearly_goals").delete().eq("id", goal.id);
+          const { error } = await deleteYearlyGoal(goal.id);
           if (error) {
             Alert.alert(t("errors.deleteFailed"), error.message);
             return;
@@ -262,7 +253,7 @@ export default function AnnualGoalsScreen() {
               user_id: uid,
             }));
 
-            const { error: upsertError } = await supabase.from("yearly_goals").upsert(updates, { onConflict: "id" });
+            const { error: upsertError } = await upsertYearlyGoals(updates);
             if (upsertError) {
               Alert.alert(t("errors.reorderSaveFailed"), upsertError.message);
             }
@@ -273,17 +264,11 @@ export default function AnnualGoalsScreen() {
   };
 
   // 新規追加・アップデートの「追加ボタン」ロジック
-  const handleSave = async () => {
-    const parsed = goalSchema.safeParse(draft);
-    if (!parsed.success) {
-      setModalError(t("modal.errorRequired"));
-      return;
-    }
-
+  const onValidSubmit = async ({ description, goalColor }: GoalFormValues) => {
     setSaving(true);
     setModalError(null);
     try {
-      const uid = userId ?? (await fetchUserId());
+      const uid = await getUserId();
       if (!uid) {
         setModalError(t("errors.loginMissing"));
         setSaving(false);
@@ -291,53 +276,44 @@ export default function AnnualGoalsScreen() {
       }
 
       // 「編集ボタン」からモーダルを開いた場合の処理
-      if (editingId) {
-        const { data, error } = await supabase
-          .from("yearly_goals")
-          .update({
-            description: parsed.data.description,
-            year_goal_color: parsed.data.goalColor,
-          })
-          .eq("id", editingId)
-          .select("id, description, year_goal_color, accumulated_time_year, order, updated_at")
-          .single();
+      if (modalState.editingId) {
+        const { data, error } = await updateYearlyGoal(modalState.editingId, {
+          description,
+          year_goal_color: goalColor,
+        });
         if (error) {
           setModalError(error.message);
           setSaving(false);
           return;
         }
         const row = data as unknown as YearlyGoalRow;
-        setGoals((prev) => prev.map((goal) => (goal.id === editingId ? toAnnualGoal(row) : goal)));
+        setGoals((prev) => prev.map((goal) => (goal.id === modalState.editingId ? toAnnualGoal(row) : goal)));
       } else {
         // 「新規追加ボタン」からモーダルを開いた場合の処理
         // ↓ 既存のgoalsのorderを＋１に更新し、新しいデータをorder0として処理する準備をする
-        const nextOrderGoals = goals.map((goal, idx) => ({ ...goal, order: idx + 1 }));
-        const { data, error } = await supabase
-          .from("yearly_goals")
-          .insert({
-            user_id: uid,
-            description: parsed.data.description,
-            year_goal_color: parsed.data.goalColor,
-            accumulated_time_year: 0,
-            order: 0,
-          })
-          .select("id, description, year_goal_color, accumulated_time_year, order, updated_at")
-          .single();
+        const shiftedExisting = goals.map((goal, idx) => ({
+          id: goal.id,
+          description: goal.description,
+          year_goal_color: goal.goalColor,
+          accumulated_time_year: goal.accumulatedMinutes,
+          order: idx + 1,
+          user_id: uid,
+        }));
+        const { data, error } = await insertYearlyGoal({
+          user_id: uid,
+          description,
+          year_goal_color: goalColor,
+          accumulated_time_year: 0,
+          order: 0,
+        });
         if (error) {
           setModalError(error.message);
           setSaving(false);
           return;
         }
         const row = data as unknown as YearlyGoalRow;
-        const upsertPayload = [
-          ...nextOrderGoals.map((goal, idx) => ({
-            id: goal.id,
-            description: goal.description,
-            year_goal_color: goal.goalColor,
-            accumulated_time_year: goal.accumulatedMinutes,
-            order: idx + 1,
-            user_id: uid,
-          })),
+        const { error: upsertError } = await upsertYearlyGoals([
+          ...shiftedExisting,
           {
             id: row.id,
             description: row.description,
@@ -346,11 +322,8 @@ export default function AnnualGoalsScreen() {
             order: 0,
             user_id: uid,
           },
-        ];
+        ]);
 
-        // ここで更新された情報(upsertPayload)をデータベースに反映
-        // upsert → onConflictで指定したキーがDBに存在すれば更新、存在しなければ挿入を実行
-        const { error: upsertError } = await supabase.from("yearly_goals").upsert(upsertPayload, { onConflict: "id" });
         if (upsertError) {
           setModalError(upsertError.message);
           setSaving(false);
@@ -358,15 +331,18 @@ export default function AnnualGoalsScreen() {
         }
         setGoals((prev) => [toAnnualGoal(row), ...prev.map((goal, idx) => ({ ...goal, order: idx + 1 }))]);
       }
-      setModalVisible(false);
-      setEditingId(null);
-      setEditingUpdatedAt(null);
+      setModalState(closedModalState);
+      reset(DEFAULT_FORM_VALUES);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : t("errors.saveFailed");
       setModalError(message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const onInvalidSubmit = (formErrors: FieldErrors<GoalFormValues>) => {
+    setModalError(t("modal.errorRequired"));
   };
 
   // ドラッグの順番並び替えが終わった時に発火
@@ -377,7 +353,7 @@ export default function AnnualGoalsScreen() {
         order: idx,
       })),
     );
-    const uid = userId ?? (await fetchUserId());
+    const uid = await getUserId();
     if (!uid) {
       Alert.alert(t("errors.reorderSaveFailed"), t("errors.loginMissing"));
       return;
@@ -393,7 +369,7 @@ export default function AnnualGoalsScreen() {
     }));
 
     //　ここで更新された情報をデータベースに反映
-    const { error } = await supabase.from("yearly_goals").upsert(updates, { onConflict: "id" });
+    const { error } = await upsertYearlyGoals(updates);
     if (error) {
       Alert.alert(t("errors.reorderSaveFailed"), error.message);
     }
@@ -444,7 +420,8 @@ export default function AnnualGoalsScreen() {
   );
 
   const hasGoals = goals.length > 0;
-  const modalTitle = editingId ? t("modal.editTitle") : t("modal.addTitle");
+  const modalTitle = modalState.editingId ? t("modal.editTitle") : t("modal.addTitle");
+  const modalUpdatedText = modalState.meta?.updatedAt ? formatUpdatedDate(modalState.meta.updatedAt, updatedLabel) : null;
 
   if (loading) {
     return (
@@ -487,9 +464,6 @@ export default function AnnualGoalsScreen() {
               <View style={styles.chartSummary}>
                 <Text style={styles.centerLabelSubTitle}>{t("chart.totalLabel")}</Text>
                 <Text style={styles.centerLabelValue}>{formatMinutes(totalMinutes)}</Text>
-                <Text style={styles.centerLabelCaption}>
-                  {t("chart.avgPerDayLabel", { value: formatMinutes(averagePerDay) })}
-                </Text>
               </View>
             </View>
           </View>
@@ -505,7 +479,7 @@ export default function AnnualGoalsScreen() {
           <Pressable
             accessibilityRole="button"
             style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
-            onPress={handleToggleDeleteMode}
+            onPress={toggleDeleteMode}
           >
             <MaterialCommunityIcons
               name={deleteMode ? "close" : "trash-can-outline"}
@@ -560,7 +534,15 @@ export default function AnnualGoalsScreen() {
         </View>
       )}
 
-      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        visible={modalState.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setModalState(closedModalState);
+          disableDeleteMode();
+        }}
+      >
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView behavior="padding" style={styles.modalContainer}>
             <View style={[styles.modalCard, shadows.card]}>
@@ -570,24 +552,30 @@ export default function AnnualGoalsScreen() {
                 <View style={styles.labelRow}>
                   <Text style={styles.label}>{t("modal.descriptionLabel")}</Text>
                 </View>
-                {editingUpdatedAt ? (
+                {modalUpdatedText ? (
                   <View style={styles.modalMeta}>
-                    <Text style={styles.modalMetaText}>
-                      {formatUpdatedDate(editingUpdatedAt, t("updatedSuffix"))}
-                    </Text>
+                    <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>
                   </View>
                 ) : null}
-                <TextInput
-                  autoFocus
-                  multiline
-                  placeholder={t("modal.placeholder")}
-                  placeholderTextColor={colors.textSecondary}
-                  style={styles.modalInput}
-                  value={draft.description}
-                  onChangeText={(text) => {
-                    setDraft((prev) => ({ ...prev, description: text }));
-                    setModalError(null);
-                  }}
+                <Controller
+                  control={control}
+                  name="description"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      autoFocus
+                      multiline
+                      placeholder={t("modal.placeholder")}
+                      placeholderTextColor={colors.textSecondary}
+                      style={styles.modalInput}
+                      value={value}
+                      onChangeText={(text) => {
+                        onChange(text);
+                        setModalError(null);
+                        clearErrors("description");
+                      }}
+                      onBlur={onBlur}
+                    />
+                  )}
                 />
               </View>
 
@@ -599,14 +587,18 @@ export default function AnnualGoalsScreen() {
                       key={option}
                       accessibilityRole="button"
                       accessibilityLabel={t("modal.colorA11y", { color: option })}
-                      onPress={() => setDraft((prev) => ({ ...prev, goalColor: option }))}
+                      onPress={() => {
+                        setValue("goalColor", option, { shouldValidate: true });
+                        setModalError(null);
+                        clearErrors("goalColor");
+                      }}
                       style={[
                         styles.colorSwatch,
                         { backgroundColor: option },
-                        draft.goalColor === option && styles.colorSwatchActive,
+                        goalColor === option && styles.colorSwatchActive,
                       ]}
                     >
-                      {draft.goalColor === option && (
+                      {goalColor === option && (
                         <MaterialCommunityIcons name="check" size={16} color={colors.textPrimary} />
                       )}
                     </Pressable>
@@ -614,15 +606,23 @@ export default function AnnualGoalsScreen() {
                 </View>
               </View>
 
-              {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
+              {(modalError || errors.description?.message || errors.goalColor?.message) && (
+                <Text style={styles.modalError}>
+                  {modalError ?? errors.description?.message ?? errors.goalColor?.message}
+                </Text>
+              )}
               <View style={styles.modalActions}>
-                <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.secondaryButton}
+                  onPress={() => setModalState(closedModalState)}
+                >
                   <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
                   style={[styles.primaryButton, saving && styles.buttonDisabled]}
-                  onPress={handleSave}
+                  onPress={handleSubmit(onValidSubmit, onInvalidSubmit)}
                   disabled={saving}
                 >
                   <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />

@@ -14,7 +14,6 @@ export type AnnualGoalsTranslations = {
   chart: {
     title: string;
     totalLabel: string;
-    avgPerDayLabel: string;
   };
   modal: {
     addTitle: string;
@@ -65,7 +64,6 @@ export const annualGoalsTranslations: Record<
     chart: {
       title: "タスクの内訳",
       totalLabel: "総作業時間",
-      avgPerDayLabel: "1日の平均 {{value}}",
     },
     modal: {
       addTitle: "年間目標を追加",
@@ -111,7 +109,6 @@ export const annualGoalsTranslations: Record<
     chart: {
       title: "Task breakdown",
       totalLabel: "Total focus time",
-      avgPerDayLabel: "Avg per day {{value}}",
     },
     modal: {
       addTitle: "Add annual goal",
@@ -159,7 +156,6 @@ export const annualGoalsTranslations: Record<
     chart: {
       title: "Répartition des tâches",
       totalLabel: "Temps total de focus",
-      avgPerDayLabel: "Moyenne par jour {{value}}",
     },
     modal: {
       addTitle: "Ajouter un objectif annuel",

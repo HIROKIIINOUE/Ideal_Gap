@@ -20,9 +20,9 @@ import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useAppZodForm } from "../../hooks/useAppZodForm";
 import { useDeleteMode } from "../../hooks/useDeleteMode";
-import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
-import { deleteIdeal, fetchIdealSelf, insertIdeal, updateIdeal, upsertIdeals } from "../../lib/api/supabase/idealSelf";
 import { getUserId } from "../../lib/api/supabase/common";
+import { deleteIdeal, fetchIdealSelf, insertIdeal, updateIdeal, upsertIdeals } from "../../lib/api/supabase/idealSelf";
+import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import Loading from "../Loading";
 
 type IdealCard = {
@@ -82,7 +82,7 @@ export default function IdealSelfScreen() {
     control, // Controller が使う“フォーム管理本体”
     handleSubmit,
     reset,
-    clearErrors, // Controller が使う“フォーム管理本体”
+    clearErrors,
     formState: { errors }, // バリデーション結果（Zodが作ったメッセージ等）
   } = useAppZodForm({
     schema: idealSchema,
