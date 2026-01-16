@@ -1,6 +1,7 @@
 import { LanguageKey } from "../types/i18n";
 
 export type CommonTranslations = {
+  loading: string;
   footer: {
     language: string;
     dashboard: string;
@@ -38,6 +39,7 @@ export type CommonTranslations = {
 
 export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
   ja: {
+    loading: "ローディング中...",
     footer: {
       language: "言語",
       dashboard: "ダッシュボード",
@@ -87,6 +89,7 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
     },
   },
   en: {
+    loading: "Loading...",
     footer: {
       language: "Language",
       dashboard: "Dashboard",
@@ -130,6 +133,7 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
     },
   },
   fr: {
+    loading: "Chargement...",
     footer: {
       language: "Langue",
       dashboard: "Tableau de bord",

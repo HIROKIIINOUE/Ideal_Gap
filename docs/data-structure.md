@@ -97,9 +97,9 @@
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
     description varchar [not null]
-    year int [not null] //UI表示用
+    year_goal_color varchar [not null]
     "order" int // ソート用
-    accumulated_time_year int //円グラフ計算用
+    accumulated_time_year int // 円グラフ計算用
     created_at timestamptz
     updated_at timestamptz
 
@@ -128,11 +128,11 @@
 
 
   Table weekly_tasks {
-    monthly_goal_id uuid [ref: > monthly_goals.id] //来週メモ選択時はnull
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
-    bucket week_bucket [not null, default: "current"]
+    monthly_goal_id uuid [ref: > monthly_goals.id]
     description varchar [not null]
+    next_start_point varchar
     estimated_time_week int // 各週間タスクの目標作業時間
     accumulated_time_week int // 作業タイマーの実績
     "order" int
@@ -140,16 +140,9 @@
     updated_at timestamptz
 
     Indexes {
-      (user_id, bucket)
       (monthly_goal_id)
     }
   }
-
-enum week_bucket {
-  "current"   // 今週
-  "next_memo" // 来週メモ
-  "archived"  // 過去のタスク（履歴）
-}
 
   // 作業タイマーデータ
 
@@ -198,12 +191,12 @@ enum week_bucket {
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
     description varchar [not null]
-    scheduled_at timestamptz [not null]
+    "order" int
     created_at   timestamptz
     updated_at   timestamptz
 
     Indexes {
-      (user_id, scheduled_at)
+      (user_id)
     }
   }
 

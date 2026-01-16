@@ -152,6 +152,169 @@ export type Database = {
           },
         ];
       };
+      user_ideal: {
+        Row: {
+          created_at: string | null;
+          description: string;
+          id: string;
+          order: number | null;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          description: string;
+          id?: string;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string;
+          id?: string;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_ideal_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      yearly_goals: {
+        Row: {
+          accumulated_time_year: number | null;
+          year_goal_color: string;
+          created_at: string | null;
+          description: string;
+          id: string;
+          order: number | null;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          accumulated_time_year?: number | null;
+          year_goal_color: string;
+          created_at?: string | null;
+          description: string;
+          id?: string;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          accumulated_time_year?: number | null;
+          year_goal_color?: string;
+          created_at?: string | null;
+          description?: string;
+          id?: string;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "yearly_goals_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      monthly_goals: {
+        Row: {
+          accumulated_time_month: number | null;
+          created_at: string | null;
+          description: string;
+          estimated_time_month: number | null;
+          id: string;
+          month: number;
+          order: number | null;
+          updated_at: string | null;
+          user_id: string;
+          yearly_goal_id: string;
+        };
+        Insert: {
+          accumulated_time_month?: number | null;
+          created_at?: string | null;
+          description: string;
+          estimated_time_month?: number | null;
+          id?: string;
+          month: number;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id: string;
+          yearly_goal_id: string;
+        };
+        Update: {
+          accumulated_time_month?: number | null;
+          created_at?: string | null;
+          description?: string;
+          estimated_time_month?: number | null;
+          id?: string;
+          month?: number;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id?: string;
+          yearly_goal_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "monthly_goals_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "monthly_goals_yearly_goal_id_fkey";
+            columns: ["yearly_goal_id"];
+            referencedRelation: "yearly_goals";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      fun_plans: {
+        Row: {
+          created_at: string | null;
+          description: string;
+          id: string;
+          order: number | null;
+          scheduled_at: string | null;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          description: string;
+          id?: string;
+          order?: number | null;
+          scheduled_at?: string | null;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string;
+          id?: string;
+          order?: number | null;
+          scheduled_at?: string | null;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fun_plans_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {};
     Functions: {};

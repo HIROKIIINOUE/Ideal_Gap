@@ -3,20 +3,30 @@ import i18n, { Resource } from "i18next";
 import { initReactI18next } from "react-i18next";
 import { commonTranslations } from "../content/commonTranslations";
 import { dashboardTranslations } from "../content/dashboardTranslations";
+import { idealSelfTranslations } from "../content/idealSelfTranslations";
+import { annualGoalsTranslations } from "../content/annualGoalsTranslations";
+import { monthlyGoalsTranslations } from "../content/monthlyGoalsTranslations";
 import { landingTranslations } from "../content/landingTranslations";
 import { loginTranslations } from "../content/loginTranslations";
 import { purchasesTranslations } from "../content/purchasesTranslations";
+import { funPlanTranslations } from "../content/funPlanTranslations";
 import { profileUpdateTranslations } from "../content/profileUpdateTranslations";
 import { resetPasswordTranslations } from "../content/resetPasswordTranslations";
 import { signupTranslations } from "../content/signupTranslations";
 import { contactTranslations } from "../content/contactTranslations";
+import { weeklyTasksTranslations } from "../content/weeklyTasksTranslations";
+import { taskTimerTranslations } from "../content/taskTimerTranslations";
 import { LanguageKey, SUPPORTED_LANGUAGES } from "../types/i18n";
+import { breakReminderTranslations } from "../content/breakReminderTranslations";
 
 const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
   // useTranslationの参照先をコントロール
   acc[lang] = {
     common: commonTranslations[lang],
     dashboard: dashboardTranslations[lang],
+    idealSelf: idealSelfTranslations[lang],
+    annualGoals: annualGoalsTranslations[lang],
+    monthlyGoals: monthlyGoalsTranslations[lang],
     landing: landingTranslations[lang],
     login: loginTranslations[lang],
     profileUpdate: profileUpdateTranslations[lang],
@@ -24,6 +34,10 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     resetPassword: resetPasswordTranslations[lang],
     signup: signupTranslations[lang],
     contact: contactTranslations[lang],
+    weeklyTasks: weeklyTasksTranslations[lang],
+    taskTimer: taskTimerTranslations[lang],
+    funPlan: funPlanTranslations[lang],
+    breakReminder: breakReminderTranslations[lang],
   };
   return acc;
 }, {} as Resource);
@@ -39,6 +53,9 @@ if (!i18n.isInitialized) {
     ns: [
       "common",
       "dashboard",
+      "idealSelf",
+      "annualGoals",
+      "monthlyGoals",
       "landing",
       "login",
       "resetPassword",
@@ -46,6 +63,10 @@ if (!i18n.isInitialized) {
       "purchases",
       "profileUpdate",
       "contact",
+      "weeklyTasks",
+      "taskTimer",
+      "funPlan",
+      "breakReminder",
     ],
     interpolation: {
       escapeValue: false,

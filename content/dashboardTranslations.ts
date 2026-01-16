@@ -37,7 +37,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
     pageSubtitle: "理想への進捗をひと目で確認し、今日のフォーカスを決めましょう。",
     nextFunPlan: {
       title: "次回の楽しい予定",
-      subtitle: "モチベーションの源を手帳より先にここで思い出せるように。",
+      subtitle: "",
       cta: "予定を追加",
       emptyLabel: "まだ予定がありません。",
     },
@@ -55,8 +55,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         subtitle: "今月の到達点を決め、負荷を最適化。",
       },
       weeklyGoals: {
-        title: "週間目標",
-        subtitle: "週単位でタスク化し、進捗を滑らかに。",
+        title: "週間タスク",
+        subtitle: "週単位のタスクで、目標を行動まで落とし込む。",
       },
       focusMusic: {
         title: "タスク集中音楽",
@@ -82,7 +82,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
     pageSubtitle: "See your path at a glance and decide what to focus on today.",
     nextFunPlan: {
       title: "Next Fun Plan",
-      subtitle: "Keep your motivation visible before you open your calendar.",
+      subtitle: "",
       cta: "Add a plan",
       emptyLabel: "No plan is set yet.",
     },
@@ -100,8 +100,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         subtitle: "Define this month’s targets and load.",
       },
       weeklyGoals: {
-        title: "Weekly Goals",
-        subtitle: "Turn goals into weekly, actionable steps.",
+        title: "Weekly Tasks",
+        subtitle: "Turn goals into focused weekly tasks.",
       },
       focusMusic: {
         title: "Focus Music",
@@ -127,7 +127,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
     pageSubtitle: "Visualisez votre trajectoire et choisissez votre focus du jour.",
     nextFunPlan: {
       title: "Prochain moment plaisir",
-      subtitle: "Gardez la motivation en vue avant d’ouvrir votre agenda.",
+      subtitle: "",
       cta: "Ajouter un moment",
       emptyLabel: "Aucun moment prévu pour l’instant.",
     },
@@ -145,8 +145,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         subtitle: "Fixer les cibles du mois et la charge.",
       },
       weeklyGoals: {
-        title: "Objectifs hebdomadaires",
-        subtitle: "Transformer en actions hebdomadaires concrètes.",
+        title: "Tâches hebdomadaires",
+        subtitle: "Transformer les objectifs en tâches de la semaine.",
       },
       focusMusic: {
         title: "Musique de focus",
