@@ -10,6 +10,7 @@ import { supabase } from "../lib/supabaseClient";
 import { LanguageProvider } from "../providers/LanguageProvider";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { RevenueCatProvider } from "../providers/RevenueCatProvider";
+import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 
 
 //　URLの＃以降からトークン(access_tokenとrefresh_token)を抽出するロジック。両方とも揃ってなければnullを返す。
@@ -101,9 +102,11 @@ export default function RootLayout() {
     <I18nextProvider i18n={i18n}>
       <LanguageProvider>
         <FunPlanProvider>
-          <RevenueCatProvider>
-            <Stack />
-          </RevenueCatProvider>
+          <FocusMusicProvider>
+            <RevenueCatProvider>
+              <Stack />
+            </RevenueCatProvider>
+          </FocusMusicProvider>
         </FunPlanProvider>
       </LanguageProvider>
     </I18nextProvider>

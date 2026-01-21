@@ -18,6 +18,7 @@ import { weeklyTasksTranslations } from "../content/weeklyTasksTranslations";
 import { taskTimerTranslations } from "../content/taskTimerTranslations";
 import { LanguageKey, SUPPORTED_LANGUAGES } from "../types/i18n";
 import { breakReminderTranslations } from "../content/breakReminderTranslations";
+import { focusMusicTranslations } from "../content/focusMusicTranslations";
 
 const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
   // useTranslationの参照先をコントロール
@@ -38,6 +39,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     taskTimer: taskTimerTranslations[lang],
     funPlan: funPlanTranslations[lang],
     breakReminder: breakReminderTranslations[lang],
+    focusMusic: focusMusicTranslations[lang],
   };
   return acc;
 }, {} as Resource);
@@ -67,6 +69,7 @@ if (!i18n.isInitialized) {
       "taskTimer",
       "funPlan",
       "breakReminder",
+      "focusMusic",
     ],
     interpolation: {
       escapeValue: false,

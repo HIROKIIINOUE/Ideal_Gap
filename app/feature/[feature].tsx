@@ -9,6 +9,7 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid,
 import { SafeAreaView } from "react-native-safe-area-context";
 import AnnualGoalsScreen from "../../components/feature/AnnualGoalsScreen";
 import BreakReminderScreen from "../../components/feature/BreakReminderScreen";
+import FocusMusicScreen from "../../components/feature/FocusMusicScreen";
 import FunPlanScreen from "../../components/feature/FunPlanScreen";
 import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
 import MonthlyGoalsScreen from "../../components/feature/MonthlyGoalsScreen";
@@ -108,6 +109,7 @@ export default function FeatureScreen() {
       "weekly-goals": WeeklyTasksScreen,
       "next-fun-plan": FunPlanScreen,
       "break-reminders": BreakReminderScreen,
+      "focus-music": FocusMusicScreen,
     };
     return mapping[featureId] ?? null;
   }, [featureId]);

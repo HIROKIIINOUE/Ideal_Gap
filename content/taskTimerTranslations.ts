@@ -45,10 +45,15 @@ export type TaskTimerTranslations = {
     completeToast: string;
     musicPlay: string;
     musicPause: string;
+    musicUnavailable: string;
     musicSelect: string;
     musicModalTitle: string;
     musicModalSubtitle: string;
     musicSelected: string;
+    musicNone: string;
+    musicEmptyTitle: string;
+    musicEmptyBody: string;
+    musicEmptyCta: string;
   };
   completionModal: {
     title: string;
@@ -112,10 +117,15 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       completeToast: "経過時間を記録しました",
       musicPlay: "音楽再生",
       musicPause: "音楽停止",
+      musicUnavailable: "音楽未設定",
       musicSelect: "音楽を選ぶ",
       musicModalTitle: "集中用の音楽を選択",
       musicModalSubtitle: "ダウンロード済みの曲",
       musicSelected: "{{title}}を選択しました",
+      musicNone: "音楽が選択されていません",
+      musicEmptyTitle: "集中音楽がありません",
+      musicEmptyBody: "タスク集中音楽ページからインストールしてください。",
+      musicEmptyCta: "タスク集中音楽へ",
     },
     completionModal: {
       title: "実績を保存",
@@ -177,10 +187,15 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       completeToast: "Elapsed time recorded",
       musicPlay: "Play music",
       musicPause: "Pause music",
+      musicUnavailable: "No music",
       musicSelect: "Choose track",
       musicModalTitle: "Pick focus music",
       musicModalSubtitle: "Downloaded tracks",
       musicSelected: "{{title}} selected",
+      musicNone: "No track selected",
+      musicEmptyTitle: "No focus music installed",
+      musicEmptyBody: "Install a track from the focus music page.",
+      musicEmptyCta: "Go to focus music",
     },
     completionModal: {
       title: "Review before saving",
@@ -242,10 +257,15 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       completeToast: "Temps écoulé enregistré",
       musicPlay: "Lancer la musique",
       musicPause: "Mettre la musique en pause",
+      musicUnavailable: "Aucune musique",
       musicSelect: "Choisir un morceau",
       musicModalTitle: "Choisir la musique de focus",
       musicModalSubtitle: "Morceaux téléchargés",
       musicSelected: "{{title}} sélectionné",
+      musicNone: "Aucun morceau sélectionné",
+      musicEmptyTitle: "Aucune musique installée",
+      musicEmptyBody: "Installez un morceau depuis la page musique de focus.",
+      musicEmptyCta: "Aller à la musique",
     },
     completionModal: {
       title: "Revoir avant d'enregistrer",

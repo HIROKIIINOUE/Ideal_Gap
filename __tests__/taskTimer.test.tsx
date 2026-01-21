@@ -5,6 +5,7 @@ import * as Notifications from "expo-notifications";
 import { Linking } from "react-native";
 import TaskTimerScreen from "../components/feature/TaskTimerScreen";
 import i18n from "../i18n";
+import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 
 jest.useFakeTimers();
 
@@ -58,7 +59,9 @@ jest.mock("react-native-svg", () => {
 const renderScreen = () =>
   render(
     <I18nextProvider i18n={i18n}>
-      <TaskTimerScreen />
+      <FocusMusicProvider>
+        <TaskTimerScreen />
+      </FocusMusicProvider>
     </I18nextProvider>,
   );
 
@@ -111,9 +114,9 @@ describe("TaskTimerScreen", () => {
 
     expect(getByText("Pick focus music")).toBeTruthy();
 
-    fireEvent.press(getByText("Night Drive"));
+    fireEvent.press(getByText("example1"));
 
-    expect(getByText("Night Drive selected")).toBeTruthy();
+    expect(getByText("example1 selected")).toBeTruthy();
   });
 
   test("shows notification prompt when notifications are off", async () => {

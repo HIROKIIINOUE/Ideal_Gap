@@ -2,22 +2,41 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from "react-native";
+import {
+  Alert,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  ToastAndroid,
+  View,
+} from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
-import { supabase } from "../../lib/supabaseClient";
+import {
+  colors,
+  radius,
+  shadows,
+  spacing,
+  typography,
+} from "../../constants/theme";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
+import { supabase } from "../../lib/supabaseClient";
+import { FocusTrack, useFocusMusic } from "../../providers/FocusMusicProvider";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
-
-type MusicOption = {
-  id: string;
-  title: string;
-  duration: string;
-};
 
 const PRESETS = [
   // { label: "add10s", minutes: 10 / 60 }, // これはテスト用
@@ -28,14 +47,6 @@ const PRESETS = [
   { label: "add1h", minutes: 60 },
   { label: "add2h", minutes: 120 },
 ] as const;
-
-const MUSIC_OPTIONS: MusicOption[] = [
-  { id: "calm-sea", title: "Calm Sea", duration: "2:12" },
-  { id: "night-drive", title: "Night Drive", duration: "2:48" },
-  { id: "lofi-rain", title: "Lo-fi Rain", duration: "3:05" },
-  { id: "piano-drift", title: "Piano Drift", duration: "2:34" },
-  { id: "wave-bloom", title: "Wave Bloom", duration: "2:26" },
-];
 
 // 〇〇〇〇秒から「〇時間〇分〇秒」の表示用フォーマットに変換する
 const formatDigital = (seconds: number) => {
@@ -54,7 +65,7 @@ const gradientCard = ["rgba(30,94,255,0.18)", "rgba(12,18,32,0.95)"] as const;
 // カウントダウン終了時刻を算出するロジック
 const formatEndTimeLabel = (timestamp: number | null) => {
   if (!timestamp) return "--:--";
-  const date = new Date(timestamp);  // カウントダウンスタートもしくは再開時の時刻
+  const date = new Date(timestamp); // カウントダウンスタートもしくは再開時の時刻
   const hours = String(date.getHours()).padStart(2, "0"); //
   const minutes = String(date.getMinutes()).padStart(2, "0");
   return `${hours}:${minutes}`;
@@ -62,6 +73,7 @@ const formatEndTimeLabel = (timestamp: number | null) => {
 
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
+  const { installedTracks, selectedTrack, selectTrack } = useFocusMusic();
   const params = useLocalSearchParams<{
     title?: string;
     monthlyGoal?: string;
@@ -79,7 +91,6 @@ export default function TaskTimerScreen() {
   const [status, setStatus] = useState<TimerStatus>("idle");
   const [musicModalVisible, setMusicModalVisible] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
-  const [selectedMusic, setSelectedMusic] = useState<MusicOption>(MUSIC_OPTIONS[0]);
   const [userNotificationOn, setUserNotificationOn] = useState(true);
   const [expectedEndAt, setExpectedEndAt] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -97,9 +108,14 @@ export default function TaskTimerScreen() {
   const taskId = params.taskId ?? null;
   const monthlyGoalId = params.monthlyGoalId ?? null;
   const monthlyGoalIdSafe = monthlyGoalId || null;
-  const previousLoggedMinutes = useMemo(() => Math.max(0, Math.round(Number(params.logged ?? 0))), [params.logged]);
+  const previousLoggedMinutes = useMemo(
+    () => Math.max(0, Math.round(Number(params.logged ?? 0))),
+    [params.logged],
+  );
   const [loggedBaseline, setLoggedBaseline] = useState(previousLoggedMinutes);
   const hasDuration = inputSeconds > 0;
+  const hasInstalledMusic = installedTracks.length > 0;
+  const activeTrack = selectedTrack;
 
   // 「経過した時間 / 設定作業時間」からどの割合進んだかを算出してリターンする
   const progress = useMemo(() => {
@@ -110,9 +126,15 @@ export default function TaskTimerScreen() {
 
   // 進捗ドーナッツの中央部に表示する値
   const durationLabel = `${formatDigital(remainingSeconds)} / ${formatDigital(inputSeconds)}`;
-  const endTimeText = useMemo(() => formatEndTimeLabel(expectedEndAt), [expectedEndAt]);
+  const endTimeText = useMemo(
+    () => formatEndTimeLabel(expectedEndAt),
+    [expectedEndAt],
+  );
   // 作業完了モーダル画面で表示する値
-  const completionDurationLabel = useMemo(() => formatDigital(completionElapsedSeconds), [completionElapsedSeconds]);
+  const completionDurationLabel = useMemo(
+    () => formatDigital(completionElapsedSeconds),
+    [completionElapsedSeconds],
+  );
   const completionMinutes = useMemo(
     () => Math.max(0, Math.round(completionElapsedSeconds / 60)),
     [completionElapsedSeconds],
@@ -125,7 +147,6 @@ export default function TaskTimerScreen() {
     setUserId(uid);
     return uid;
   }, [userId]);
-
 
   // マウント時にユーザの端末がアプリ通知ONになっているか状態チェック
   useEffect(() => {
@@ -149,25 +170,33 @@ export default function TaskTimerScreen() {
     };
   }, []);
 
-
   // 初回レンダリング時に紐づく週間タスクの最新データをDBから取得
-  const fetchLatestLogged = useCallback(async (uid: string, weeklyTaskId: string) => {
-    const { data, error } = await supabase
-      .from("weekly_tasks" as any)
-      .select("accumulated_time_week, monthly_goal_id, next_start_point")
-      .eq("id", weeklyTaskId)
-      .eq("user_id", uid)
-      .single();
-    if (error) {
-      throw new Error(error.message);
-    }
-    return {
-      accumulated: Math.max(0, Math.round((data as any)?.accumulated_time_week ?? 0)),
-      monthlyGoalId: ((data as any)?.monthly_goal_id ?? null) as string | null,
-      nextStartPoint: ((data as any)?.next_start_point ?? null) as string | null,
-    };
-  }, []);
-
+  const fetchLatestLogged = useCallback(
+    async (uid: string, weeklyTaskId: string) => {
+      const { data, error } = await supabase
+        .from("weekly_tasks" as any)
+        .select("accumulated_time_week, monthly_goal_id, next_start_point")
+        .eq("id", weeklyTaskId)
+        .eq("user_id", uid)
+        .single();
+      if (error) {
+        throw new Error(error.message);
+      }
+      return {
+        accumulated: Math.max(
+          0,
+          Math.round((data as any)?.accumulated_time_week ?? 0),
+        ),
+        monthlyGoalId: ((data as any)?.monthly_goal_id ?? null) as
+          | string
+          | null,
+        nextStartPoint: ((data as any)?.next_start_point ?? null) as
+          | string
+          | null,
+      };
+    },
+    [],
+  );
 
   // 1秒ごとにカウントする役割を持つtickRef.currentをリセットする
   const clearTick = useCallback(() => {
@@ -316,46 +345,66 @@ export default function TaskTimerScreen() {
   };
 
   // 「今回実行された作業時間」を紐づく週間タスクの最新の作業実績時間データに積み上げる
-  const persistElapsedAndExit = useCallback(async (elapsedSeconds: number, nextStartPayload?: string | null) => {
-    const uid = await fetchUserId();
-    if (!uid || !taskId) {
-      Alert.alert(t("controls.completeConfirmTitle"), t("feedback.startError"));
-      return false;
-    }
-
-    const elapsedMinutes = Math.max(0, Math.round(elapsedSeconds / 60));
-    const latest = await fetchLatestLogged(uid, taskId);
-    const baseLogged = latest.accumulated ?? loggedBaseline;
-    const newLoggedMinutes = baseLogged + elapsedMinutes;
-
-    try {
-      await updateAccumulatedTimes({
-        userId: uid,
-        taskId,
-        monthlyGoalId: latest.monthlyGoalId ?? monthlyGoalIdSafe,
-        newLoggedMinutes,
-        previousLoggedMinutes: baseLogged,
-        nextStartPoint: typeof nextStartPayload === "undefined" ? undefined : nextStartPayload,
-      });
-      setLoggedBaseline(newLoggedMinutes);
-      if (typeof nextStartPayload !== "undefined") {
-        setNextStartPoint(nextStartPayload || null);
-      } else {
-        setNextStartPoint(latest.nextStartPoint ?? null);
+  const persistElapsedAndExit = useCallback(
+    async (elapsedSeconds: number, nextStartPayload?: string | null) => {
+      const uid = await fetchUserId();
+      if (!uid || !taskId) {
+        Alert.alert(
+          t("controls.completeConfirmTitle"),
+          t("feedback.startError"),
+        );
+        return false;
       }
-      // 完了時は状態とタイマーをリセットし、画面を閉じる
-      setStatus("finished");
-      setExpectedEndAt(null);
-      setRemainingSeconds(0);
-      setInputSeconds(0);
-      showToast(t("controls.completeToast"));
-      router.back();
-      return true;
-    } catch (error) {
-      Alert.alert(t("controls.completeConfirmTitle"), error instanceof Error ? error.message : String(error));
-      return false;
-    }
-  }, [fetchLatestLogged, fetchUserId, loggedBaseline, monthlyGoalIdSafe, showToast, t, taskId]);
+
+      const elapsedMinutes = Math.max(0, Math.round(elapsedSeconds / 60));
+      const latest = await fetchLatestLogged(uid, taskId);
+      const baseLogged = latest.accumulated ?? loggedBaseline;
+      const newLoggedMinutes = baseLogged + elapsedMinutes;
+
+      try {
+        await updateAccumulatedTimes({
+          userId: uid,
+          taskId,
+          monthlyGoalId: latest.monthlyGoalId ?? monthlyGoalIdSafe,
+          newLoggedMinutes,
+          previousLoggedMinutes: baseLogged,
+          nextStartPoint:
+            typeof nextStartPayload === "undefined"
+              ? undefined
+              : nextStartPayload,
+        });
+        setLoggedBaseline(newLoggedMinutes);
+        if (typeof nextStartPayload !== "undefined") {
+          setNextStartPoint(nextStartPayload || null);
+        } else {
+          setNextStartPoint(latest.nextStartPoint ?? null);
+        }
+        // 完了時は状態とタイマーをリセットし、画面を閉じる
+        setStatus("finished");
+        setExpectedEndAt(null);
+        setRemainingSeconds(0);
+        setInputSeconds(0);
+        showToast(t("controls.completeToast"));
+        router.back();
+        return true;
+      } catch (error) {
+        Alert.alert(
+          t("controls.completeConfirmTitle"),
+          error instanceof Error ? error.message : String(error),
+        );
+        return false;
+      }
+    },
+    [
+      fetchLatestLogged,
+      fetchUserId,
+      loggedBaseline,
+      monthlyGoalIdSafe,
+      showToast,
+      t,
+      taskId,
+    ],
+  );
 
   // タイマーがカウント中(running)に切り替わった時に発火しsetIntervalをスタートさせる
   useEffect(() => {
@@ -397,64 +446,120 @@ export default function TaskTimerScreen() {
     if (isSavingCompletion) return;
     setIsSavingCompletion(true);
     const trimmedNextStart = nextStartNote.trim();
-    const nextStartPayload = trimmedNextStart.length > 0 ? trimmedNextStart : null;
-    const success = await persistElapsedAndExit(completionElapsedSeconds, nextStartPayload);
+    const nextStartPayload =
+      trimmedNextStart.length > 0 ? trimmedNextStart : null;
+    const success = await persistElapsedAndExit(
+      completionElapsedSeconds,
+      nextStartPayload,
+    );
     if (success) {
       setCompletionModalVisible(false);
       setNextStartNote("");
     }
     setIsSavingCompletion(false);
-  }, [completionElapsedSeconds, isSavingCompletion, nextStartNote, persistElapsedAndExit]);
+  }, [
+    completionElapsedSeconds,
+    isSavingCompletion,
+    nextStartNote,
+    persistElapsedAndExit,
+  ]);
 
-  const handleSelectMusic = (option: MusicOption) => {
-    setSelectedMusic(option);
+  const handleSelectMusic = (option: FocusTrack) => {
+    selectTrack(option.id);
     setMusicPlaying(true);
     setMusicModalVisible(false);
   };
 
-  const pauseResumeLabel = status === "running" ? t("controls.pause") : t("controls.resume");
+  const pauseResumeLabel =
+    status === "running" ? t("controls.pause") : t("controls.resume");
   const pauseResumeIcon = status === "running" ? "pause-circle" : "play-circle";
-  const musicLabel = musicPlaying ? t("controls.musicPause") : t("controls.musicPlay");
-  const statusLabel = status === "running" ? t("timerCard.running") : status === "paused" ? t("timerCard.paused") : undefined;
+  const musicLabel = !hasInstalledMusic
+    ? t("controls.musicUnavailable")
+    : musicPlaying
+      ? t("controls.musicPause")
+      : t("controls.musicPlay");
+  const statusLabel =
+    status === "running"
+      ? t("timerCard.running")
+      : status === "paused"
+        ? t("timerCard.paused")
+        : undefined;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]} testID="task-timer-screen">
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={["left", "right", "bottom"]}
+      testID="task-timer-screen"
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         {!userNotificationOn && (
           <View style={[styles.noticeCard, shadows.card]}>
-            <Text style={styles.noticeText}>{t("header.notificationTitle")}</Text>
+            <Text style={styles.noticeText}>
+              {t("header.notificationTitle")}
+            </Text>
             <View style={styles.noticeActions}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setUserNotificationOn(true)}
-                style={({ pressed }) => [styles.noticeButton, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.noticeButton,
+                  pressed && styles.pressed,
+                ]}
               >
-                <Text style={styles.noticeButtonText}>{t("header.notificationDismiss")}</Text>
+                <Text style={styles.noticeButtonText}>
+                  {t("header.notificationDismiss")}
+                </Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 onPress={handleOpenSettings}
-                style={({ pressed }) => [styles.noticePrimary, pressed && styles.primaryPressed]}
+                style={({ pressed }) => [
+                  styles.noticePrimary,
+                  pressed && styles.primaryPressed,
+                ]}
               >
-                <Text style={styles.noticePrimaryText}>{t("header.notificationAction")}</Text>
+                <Text style={styles.noticePrimaryText}>
+                  {t("header.notificationAction")}
+                </Text>
               </Pressable>
             </View>
           </View>
         )}
 
         <View style={[styles.card, styles.timerCard, shadows.card]}>
-          <LinearGradient colors={gradientCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-          <Text style={styles.focusTitle} numberOfLines={2} ellipsizeMode="tail">
+          <LinearGradient
+            colors={gradientCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Text
+            style={styles.focusTitle}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
             {taskTitle}
           </Text>
           {nextStartPoint && status !== "running" && (
             <Pressable
               accessibilityRole="button"
               onPress={() => setViewStartModalVisible(true)}
-              style={({ pressed }) => [styles.nextStartBox, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.nextStartBox,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text style={styles.nextStartLabel}>{t("completionModal.currentStartLabel")}</Text>
-              <Text style={styles.nextStartValue} numberOfLines={2} ellipsizeMode="tail">
+              <Text style={styles.nextStartLabel}>
+                {t("completionModal.currentStartLabel")}
+              </Text>
+              <Text
+                style={styles.nextStartValue}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
                 {nextStartPoint}
               </Text>
             </Pressable>
@@ -481,7 +586,9 @@ export default function TaskTimerScreen() {
                     <Text style={styles.remainingLabel}>
                       {t("timerCard.endTimeLabel", { time: endTimeText })}
                     </Text>
-                    {statusLabel && <Text style={styles.statusInline}>{statusLabel}</Text>}
+                    {statusLabel && (
+                      <Text style={styles.statusInline}>{statusLabel}</Text>
+                    )}
                   </View>
                 )}
               </AnimatedCircularProgress>
@@ -502,7 +609,9 @@ export default function TaskTimerScreen() {
                   status === "running" && styles.buttonDisabled,
                 ]}
               >
-                <Text style={styles.secondaryButtonText}>{t(`presets.${preset.label}`)}</Text>
+                <Text style={styles.secondaryButtonText}>
+                  {t(`presets.${preset.label}`)}
+                </Text>
               </Pressable>
             ))}
             <Pressable
@@ -535,8 +644,14 @@ export default function TaskTimerScreen() {
                 !hasDuration && styles.primaryButtonDisabled,
               ]}
             >
-              <Text style={styles.primaryButtonText}>{t("timerCard.start")}</Text>
-              {!hasDuration && <Text style={styles.startHelper}>{t("timerCard.startDisabled")}</Text>}
+              <Text style={styles.primaryButtonText}>
+                {t("timerCard.start")}
+              </Text>
+              {!hasDuration && (
+                <Text style={styles.startHelper}>
+                  {t("timerCard.startDisabled")}
+                </Text>
+              )}
             </Pressable>
           )}
         </View>
@@ -553,28 +668,55 @@ export default function TaskTimerScreen() {
                 styles.secondaryButton,
                 styles.controlButton,
                 pressed && styles.secondaryPressed,
-                (status === "idle" || status === "finished") && styles.buttonDisabled,
+                (status === "idle" || status === "finished") &&
+                styles.buttonDisabled,
               ]}
             >
-              <MaterialCommunityIcons name={pauseResumeIcon} size={22} color={colors.textPrimary} />
+              <MaterialCommunityIcons
+                name={pauseResumeIcon}
+                size={22}
+                color={colors.textPrimary}
+              />
               <Text style={styles.secondaryButtonText}>{pauseResumeLabel}</Text>
             </Pressable>
 
             <Pressable
               accessibilityRole="button"
               onPress={handleComplete}
-              style={({ pressed }) => [styles.secondaryButton, styles.controlButton, pressed && styles.secondaryPressed]}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                styles.controlButton,
+                pressed && styles.secondaryPressed,
+              ]}
             >
-              <MaterialCommunityIcons name="check-circle-outline" size={22} color={colors.textPrimary} />
-              <Text style={styles.secondaryButtonText}>{t("controls.complete")}</Text>
+              <MaterialCommunityIcons
+                name="check-circle-outline"
+                size={22}
+                color={colors.textPrimary}
+              />
+              <Text style={styles.secondaryButtonText}>
+                {t("controls.complete")}
+              </Text>
             </Pressable>
 
             <Pressable
               accessibilityRole="button"
-              onPress={() => setMusicPlaying((prev) => !prev)}
-              style={({ pressed }) => [styles.secondaryButton, styles.controlButton, pressed && styles.secondaryPressed]}
+              onPress={() => {
+                if (!hasInstalledMusic) return;
+                setMusicPlaying((prev) => !prev);
+              }}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                styles.controlButton,
+                pressed && styles.secondaryPressed,
+                !hasInstalledMusic && styles.buttonDisabled,
+              ]}
             >
-              <MaterialCommunityIcons name={musicPlaying ? "music-off" : "music"} size={22} color={colors.textPrimary} />
+              <MaterialCommunityIcons
+                name={musicPlaying ? "music-off" : "music"}
+                size={22}
+                color={colors.textPrimary}
+              />
               <Text style={styles.secondaryButtonText}>{musicLabel}</Text>
             </Pressable>
 
@@ -582,34 +724,66 @@ export default function TaskTimerScreen() {
               testID="music-select-button"
               accessibilityRole="button"
               onPress={() => setMusicModalVisible(true)}
-              style={({ pressed }) => [styles.secondaryButton, styles.controlButton, pressed && styles.secondaryPressed]}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                styles.controlButton,
+                pressed && styles.secondaryPressed,
+                !hasInstalledMusic && styles.buttonDisabled,
+              ]}
             >
-              <MaterialCommunityIcons name="music-note" size={22} color={colors.textPrimary} />
-              <Text style={styles.secondaryButtonText}>{t("controls.musicSelect")}</Text>
+              <MaterialCommunityIcons
+                name="music-note"
+                size={22}
+                color={colors.textPrimary}
+              />
+              <Text style={styles.secondaryButtonText}>
+                {t("controls.musicSelect")}
+              </Text>
             </Pressable>
           </View>
 
           <View style={styles.musicFooter}>
-            <Text style={styles.musicLabel}>{t("controls.musicSelected", { title: selectedMusic.title })}</Text>
-            <Text style={styles.musicDuration}>{selectedMusic.duration}</Text>
+            <Text style={styles.musicLabel}>
+              {activeTrack
+                ? t("controls.musicSelected", { title: activeTrack.title })
+                : t("controls.musicNone")}
+            </Text>
           </View>
         </View>
       </ScrollView>
 
-      <Modal visible={completionModalVisible} transparent animationType="fade" onRequestClose={handleDismissCompletion}>
+      <Modal
+        visible={completionModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleDismissCompletion}
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, styles.completionCard, shadows.card]} testID="completion-modal">
+          <View
+            style={[styles.modalCard, styles.completionCard, shadows.card]}
+            testID="completion-modal"
+          >
             <Text style={styles.modalTitle}>{t("completionModal.title")}</Text>
-            <Text style={styles.modalSubtitle}>{t("completionModal.description")}</Text>
+            <Text style={styles.modalSubtitle}>
+              {t("completionModal.description")}
+            </Text>
 
             <View style={styles.completionSummary}>
-              <Text style={styles.summaryLabel}>{t("completionModal.actualTimeLabel")}</Text>
+              <Text style={styles.summaryLabel}>
+                {t("completionModal.actualTimeLabel")}
+              </Text>
               <Text style={styles.summaryTime}>{completionDurationLabel}</Text>
-              <Text style={styles.summaryHint}>{t("completionModal.minutesLabel", { minutes: completionMinutes })}</Text>
+              <Text style={styles.summaryHint}>
+                {t("completionModal.minutesLabel", {
+                  minutes: completionMinutes,
+                })}
+              </Text>
             </View>
 
             <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>{t("completionModal.nextStartLabel")}</Text>
+              <Text style={styles.fieldLabel}>
+                {t("completionModal.nextStartLabel")}
+              </Text>
               <TextInput
                 value={nextStartNote}
                 onChangeText={setNextStartNote}
@@ -618,16 +792,24 @@ export default function TaskTimerScreen() {
                 style={styles.textInput}
                 multiline
               />
-              <Text style={styles.fieldHelper}>{t("completionModal.nextStartHelper")}</Text>
+              <Text style={styles.fieldHelper}>
+                {t("completionModal.nextStartHelper")}
+              </Text>
             </View>
 
             <View style={styles.completionActions}>
               <Pressable
                 accessibilityRole="button"
                 onPress={handleDismissCompletion}
-                style={({ pressed }) => [styles.secondaryButton, styles.controlButton, pressed && styles.secondaryPressed]}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  styles.controlButton,
+                  pressed && styles.secondaryPressed,
+                ]}
               >
-                <Text style={styles.secondaryButtonText}>{t("controls.cancel")}</Text>
+                <Text style={styles.secondaryButtonText}>
+                  {t("controls.cancel")}
+                </Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -641,7 +823,9 @@ export default function TaskTimerScreen() {
                   isSavingCompletion && styles.buttonDisabled,
                 ]}
               >
-                <Text style={styles.primaryButtonText}>{t("completionModal.confirm")}</Text>
+                <Text style={styles.primaryButtonText}>
+                  {t("completionModal.confirm")}
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -655,54 +839,114 @@ export default function TaskTimerScreen() {
         onRequestClose={() => setViewStartModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, styles.startViewerCard, shadows.card]} testID="start-viewer-modal">
-            <Text style={styles.modalTitle}>{t("completionModal.currentStartLabel")}</Text>
-            <ScrollView style={styles.startScroll} contentContainerStyle={styles.startScrollContent}>
+          <View
+            style={[styles.modalCard, styles.startViewerCard, shadows.card]}
+            testID="start-viewer-modal"
+          >
+            <Text style={styles.modalTitle}>
+              {t("completionModal.currentStartLabel")}
+            </Text>
+            <ScrollView
+              style={styles.startScroll}
+              contentContainerStyle={styles.startScrollContent}
+            >
               <Text style={styles.startFullText}>{nextStartPoint}</Text>
             </ScrollView>
             <Pressable
               accessibilityRole="button"
               onPress={() => setViewStartModalVisible(false)}
-              style={({ pressed }) => [styles.primaryButton, styles.fullWidthButton, pressed && styles.primaryPressed]}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                styles.fullWidthButton,
+                pressed && styles.primaryPressed,
+              ]}
             >
-              <Text style={styles.primaryButtonText}>{t("header.notificationDismiss")}</Text>
+              <Text style={styles.primaryButtonText}>
+                {t("header.notificationDismiss")}
+              </Text>
             </Pressable>
           </View>
         </View>
       </Modal>
 
-      <Modal visible={musicModalVisible} transparent animationType="fade" onRequestClose={() => setMusicModalVisible(false)}>
+      <Modal
+        visible={musicModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMusicModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, shadows.card]} testID="music-modal">
-            <Text style={styles.modalTitle}>{t("controls.musicModalTitle")}</Text>
-            <Text style={styles.modalSubtitle}>{t("controls.musicModalSubtitle")}</Text>
+            <Text style={styles.modalTitle}>
+              {t("controls.musicModalTitle")}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              {t("controls.musicModalSubtitle")}
+            </Text>
             <View style={styles.musicList}>
-              {MUSIC_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.id}
-                  accessibilityRole="button"
-                  onPress={() => handleSelectMusic(option)}
-                  style={({ pressed }) => [
-                    styles.musicItem,
-                    pressed && styles.pressed,
-                    option.id === selectedMusic.id && styles.musicItemActive,
-                  ]}
-                >
-                  <View style={styles.musicItemHeader}>
-                    <Text style={styles.musicItemTitle}>{option.title}</Text>
-                    <Text style={styles.musicItemDuration}>{option.duration}</Text>
-                  </View>
-                  {option.id === selectedMusic.id && <Text style={styles.musicSelected}>{t("controls.musicSelected", { title: option.title })}</Text>}
-                </Pressable>
-              ))}
+              {installedTracks.length === 0 ? (
+                <View style={styles.musicEmpty}>
+                  <Text style={styles.musicEmptyTitle}>
+                    {t("controls.musicEmptyTitle")}
+                  </Text>
+                  <Text style={styles.musicEmptyBody}>
+                    {t("controls.musicEmptyBody")}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setMusicModalVisible(false);
+                      router.push({
+                        pathname: "/feature/[feature]",
+                        params: { feature: "focus-music" },
+                      });
+                    }}
+                    style={({ pressed }) => [
+                      styles.musicEmptyButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.musicEmptyButtonText}>
+                      {t("controls.musicEmptyCta")}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                installedTracks.map((option) => (
+                  <Pressable
+                    key={option.id}
+                    accessibilityRole="button"
+                    onPress={() => handleSelectMusic(option)}
+                    style={({ pressed }) => [
+                      styles.musicItem,
+                      pressed && styles.pressed,
+                      option.id === activeTrack?.id && styles.musicItemActive,
+                    ]}
+                  >
+                    <View style={styles.musicItemHeader}>
+                      <Text style={styles.musicItemTitle}>{option.title}</Text>
+                    </View>
+                    {option.id === activeTrack?.id && (
+                      <Text style={styles.musicSelected}>
+                        {t("controls.musicSelected", { title: option.title })}
+                      </Text>
+                    )}
+                  </Pressable>
+                ))
+              )}
             </View>
 
             <Pressable
               accessibilityRole="button"
               onPress={() => setMusicModalVisible(false)}
-              style={({ pressed }) => [styles.modalClose, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.modalClose,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text style={styles.modalCloseText}>{t("header.notificationDismiss")}</Text>
+              <Text style={styles.modalCloseText}>
+                {t("header.notificationDismiss")}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -935,7 +1179,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
-    marginTop: -spacing.lg,  //【ここチェック】 他のデバイスでもデザインが崩れないかどうか
+    marginTop: -spacing.lg, //【ここチェック】 他のデバイスでもデザインが崩れないかどうか
   },
   presetButton: {
     minWidth: 92,
@@ -1106,6 +1350,38 @@ const styles = StyleSheet.create({
   musicList: {
     gap: spacing.sm,
     marginTop: spacing.sm,
+  },
+  musicEmpty: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    gap: spacing.xs,
+  },
+  musicEmptyTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+  },
+  musicEmptyBody: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  musicEmptyButton: {
+    marginTop: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    alignSelf: "flex-start",
+  },
+  musicEmptyButtonText: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    fontWeight: "600",
   },
   musicItem: {
     padding: spacing.md,
