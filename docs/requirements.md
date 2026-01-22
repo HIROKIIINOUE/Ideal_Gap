@@ -355,7 +355,25 @@ NetInfo を使用してユーザーは WiFI 環境下のみでダウンロード
 
 ### 2-13-3, タスク集中音楽機能(バック)
 
-事前に用意した mp3 ファイルを Supabase Storage に置き、expo-file-system でアプリから URL を叩いて端末に保存する。
+事前に用意した mp3 ファイルを Supabase Storage に置く。
+「有料ユーザーだけが mp3 をDLできる」ようにするために、signed URLで期限付きURLを発行する。
+フロントから音楽のダウンロードリクエストとが来た時、サーバー側（Supabase）でログイン済みかどうかとサブスクが有効かどうかをチェック。
+→ OKの場合signed URLを生成し、そのURLでダウンロードが始まる。
+→→→→　Supabase Edge Functionsを使用。auth.getUser()でユーザ情報を取得、該当テーブルからサブスク状態を確認し、
+　　　 Storage の createSignedUrl で期限付きURLを生成する。有効期限は30分。
+
+Supabase DB上にfocus_music_trackテーブルを作り、そこで管理することでアプリ起動時にAPIで最新のカタログ(曲リスト)を取得できる。
+(さもなければカタログを増やすたびにアプリを更新しなければいけない。)
+データベース構造はdata-structure.mdに記載。
+
+端末へのインストールの際はまずNetInfo で回線状態チェック。( Wi‑Fi ならそのままDL、セルラーなら確認ダイアログ → OKならDL)
+expo-file-system でアプリから URL を叩いて端末に保存する。
+(コスト面のリスク回避のため同一ファイルの短時間連続発行をブロックする仕様)
+保存先はAsyncStorage。
+端末からインストール済みの曲を削除する場合はexpo-file-systemで削除。
+保存していたインストール情報を更新し、DB/AsyncStorageから削除。その後UIに反映。
+再生時は選択した曲のローカルファイルパスで再生、 expo-audio を使ってループ再生。
+※バックグラウンド再生は EAS 設定が必要
 
 ### 2-13-4, 作業中の音楽再生機能
 

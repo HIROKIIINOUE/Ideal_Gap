@@ -162,31 +162,7 @@
     }
   }
 
-  // 作業集中用ミュージック
-  Table focus_musics {
-    id uuid [pk]
-    title varchar [not null]
-    duration_seconds int
-    file_url text
-    created_at  timestamptz
-    updated_at  timestamptz
-  }
-
-  Table user_musics {
-    id uuid [pk]
-    user_id uuid [not null, ref: > users.id]
-    focus_music_id uuid [not null, ref: > focus_musics.id]
-    is_downloaded boolean
-    created_at timestamptz
-    updated_at timestamptz
-
-    Indexes {
-      (user_id)
-      (focus_music_id)
-    }
-  }
-
-  // 次回の楽しい予定データ(実装は検討段階)
+  // 次回の楽しい予定データ
   Table fun_plans {
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
@@ -200,6 +176,16 @@
     }
   }
 
+  Table focus_music_tracks {
+    id uuid [pk]
+    title varchar
+    bucket varchar
+    storage_path varchar
+    music_category varchar[]
+    duration int
+    created_at  timestamptz
+    updated_at  timestamptz
+  }
 
   Table feedbacks {
     id uuid [pk]
