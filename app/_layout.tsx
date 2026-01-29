@@ -1,5 +1,6 @@
 //アプリがリンク付きで開かれたとき、そのURLを解析して「Supabase ログイン状態を作る」「購入画面へ飛ばす」処理を実行
 
+import { setAudioModeAsync } from "expo-audio";
 import * as Linking from "expo-linking";
 import { Stack, router } from "expo-router";
 import { useEffect } from "react";
@@ -7,17 +8,21 @@ import { I18nextProvider } from "react-i18next";
 import i18n from "../i18n";
 import { ensureSignupAwaitSubscription } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
-import { LanguageProvider } from "../providers/LanguageProvider";
-import { FunPlanProvider } from "../providers/FunPlanProvider";
-import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
+import { FunPlanProvider } from "../providers/FunPlanProvider";
+import { LanguageProvider } from "../providers/LanguageProvider";
+import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 
 
 //　URLの＃以降からトークン(access_tokenとrefresh_token)を抽出するロジック。両方とも揃ってなければnullを返す。
+// access_token: 認証済みユーザであることを示すJWT(APIアクセス時に使う)
+// refresh_token: access_token が切れたときに 新しいセッション/トークンを再取得するためのトークン
+// どちらのトークンもサイン後のマジックリンク(メール内のURL)クリック時に生成される。
 const parseTokensFromUrl = (url: string) => {
   const hashIndex = url.indexOf("#");
   if (hashIndex === -1) return null;
   const fragment = url.slice(hashIndex + 1);
+  // URLSearchParams()は「クエリ文字列形式 (key=value&key2=value2) を解析する標準API」
   const params = new URLSearchParams(fragment);
   const accessToken = params.get("access_token");
   const refreshToken = params.get("refresh_token");
@@ -32,19 +37,34 @@ const isPurchasePath = (url: string) => {
   return rawPath.startsWith("purchases");
 };
 
-//　URLのクエリにsignup+1があれば"?signup+1"を返す。
-//　購入画面へリダイレクトする時サインアップ状態のフラグを引き継ぐため
+//　URLのクエリに「signup」があれば"?signup+1"を返す。
+//　「サインアップ直後の購入フロー」かどうかを判定し、購入画面へリダイレクトする時サインアップ状態のフラグを引き継ぐため
 const getSignupQuery = (url: string) => {
   const parsed = Linking.parse(url);
   const signup = parsed.queryParams?.signup;
   return signup ? "?signup=1" : "";
 };
 
-//ディープリンクの監視
 export default function RootLayout() {
+  // 音楽再生についてのルール設定
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: "mixWithOthers",
+      allowsRecording: false,
+      shouldRouteThroughEarpiece: false,
+    }).catch((error) => {
+      console.warn("Failed to set audio mode", error);
+    });
+  }, []);
+
   useEffect(() => {
     let handledInitial = false;
 
+
+    // Supabaseによって発行されたトークンをユーザ端末のAsyncStorageにローカル保存する処理
+    // また同時にsubscription行も確実に作成する
     const handleUrl = async (url: string) => {
       const tokens = parseTokensFromUrl(url);
       if (tokens) {
@@ -68,6 +88,7 @@ export default function RootLayout() {
         }
       }
 
+      // URLを解析し必要に応じて’購入画面(purchases.tsx)へ遷移させる
       if (isPurchasePath(url)) {
         const signupQuery = getSignupQuery(url);
         router.replace(`/purchases${signupQuery}`);
@@ -86,7 +107,7 @@ export default function RootLayout() {
 
     processInitial();
 
-    //　バックグランド復帰や外部リンクから戻った際のURLを監視
+    //　「アプリが起動中に新しいURLが渡ってきた」タイミングで発火。今回は「アプリ起動後に入ってきたディープリンク」を拾う役割
     const subscription = Linking.addEventListener("url", ({ url }) => {
       handleUrl(url).catch((error) => {
         console.warn("Failed to handle deep link", error);

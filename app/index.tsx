@@ -91,7 +91,7 @@ const CTAButtonsRow = ({ shimmerStyle, primary, secondary, onPrimaryPress }: CTA
 );
 
 export default function Index() {
-  useRedirectAuthenticated();
+  useRedirectAuthenticated(); // ログインユーザをダッシュボードへ強制遷移
   const scrollY = useRef(new Animated.Value(0)).current;
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const { t } = useTranslation("landing");

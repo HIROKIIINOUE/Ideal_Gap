@@ -91,6 +91,39 @@ export type Database = {
           },
         ];
       };
+      focus_music_tracks: {
+        Row: {
+          bucket: string | null;
+          created_at: string | null;
+          duration: number | null;
+          id: string;
+          music_category: string[] | null;
+          storage_path: string | null;
+          title: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          bucket?: string | null;
+          created_at?: string | null;
+          duration?: number | null;
+          id?: string;
+          music_category?: string[] | null;
+          storage_path?: string | null;
+          title?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          bucket?: string | null;
+          created_at?: string | null;
+          duration?: number | null;
+          id?: string;
+          music_category?: string[] | null;
+          storage_path?: string | null;
+          title?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null;

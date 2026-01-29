@@ -1,6 +1,7 @@
 // データベース統合が完了してからコードを全て確認
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,6 +21,7 @@ import {
   spacing,
   typography,
 } from "../../constants/theme";
+import { createFocusMusicSignedUrl } from "../../lib/focus-music/signedUrl";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 
 const HEADER_CARD_GRADIENT = [
@@ -39,13 +41,17 @@ export default function FocusMusicScreen() {
     selectedTrackId,
     maxInstalled,
     canInstall,
+    isInstalling,
+    isLoadingCatalog,
     installTrack,
     removeTrack,
     selectTrack,
     isInstalled,
   } = useFocusMusic();
+  const previewPlayer = useAudioPlayer(null);
   const [catalogVisible, setCatalogVisible] = useState(false);
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [limitMessageVisible, setLimitMessageVisible] = useState(false);
 
   const installedCountLabel = useMemo(
@@ -60,6 +66,7 @@ export default function FocusMusicScreen() {
     }
   }, [canInstall]);
 
+  // カタログモーダルオープン処理
   const handleOpenCatalog = () => {
     if (!canInstall) {
       setLimitMessageVisible(true);
@@ -69,18 +76,84 @@ export default function FocusMusicScreen() {
     setCatalogVisible(true);
   };
 
-  const handleInstall = (trackId: string) => {
+  // タスク集中音楽のインストールロジック
+  const handleInstall = async (trackId: string) => {
     if (!canInstall) {
       Alert.alert(t("installLimitTitle"), t("installLimitBody"));
       return;
     }
-    installTrack(trackId);
-    setLimitMessageVisible(false);
+    const result = await installTrack(trackId); //ここでインストール。これ以降は結果に応じたユーザへのメッセージ出力。
+    if (result.ok) {
+      setLimitMessageVisible(false);
+      return;
+    }
+    if (result.reason === "cellular") {
+      Alert.alert(t("cellularConfirmTitle"), t("cellularConfirmBody"), [
+        { text: t("cellularConfirmNo"), style: "cancel" },
+        {
+          text: t("cellularConfirmYes"),
+          style: "default",
+          onPress: async () => {
+            const retry = await installTrack(trackId, { allowCellular: true });
+            if (!retry.ok) {
+              Alert.alert(t("downloadFailedTitle"), t("downloadFailedBody"));
+            }
+          },
+        },
+      ]);
+      return;
+    }
+    if (result.reason === "offline") {
+      Alert.alert(t("offlineTitle"), t("offlineBody"));
+      return;
+    }
+    if (result.reason === "limit") {
+      Alert.alert(t("installLimitTitle"), t("installLimitBody"));
+      return;
+    }
+    if (result.reason === "download_failed") {
+      Alert.alert(t("downloadFailedTitle"), t("downloadFailedBody"));
+    }
   };
 
-  const handlePreview = (trackId: string) => {
-    setPreviewTrackId((prev) => (prev === trackId ? null : trackId));
+  // カタログ音楽の再生・停止を操作するトグルボタン。
+  // edge functionで発行したsignedURLを元にexpo-audioのpreviewPlayerで再生する。(端末ローカル保存はしない)
+  const handlePreview = async (trackId: string) => {
+    // 該当音楽が再生中なら音楽を停止する
+    if (previewTrackId === trackId) {
+      previewPlayer.pause();
+      setPreviewTrackId(null);
+      return;
+    }
+    setPreviewLoadingId(trackId);
+    try {
+      const url = await createFocusMusicSignedUrl(trackId);  //edge function
+      previewPlayer.loop = false;
+      previewPlayer.replace(url);
+      previewPlayer.play();
+      setPreviewTrackId(trackId);
+    } catch (error) {
+      Alert.alert(t("previewFailedTitle"), t("previewFailedBody"));
+    } finally {
+      setPreviewLoadingId(null);
+    }
   };
+
+  // インストール済み音楽の削除
+  const handleRemove = async (trackId: string) => {
+    const result = await removeTrack(trackId);
+    if (!result.ok) {
+      Alert.alert(t("removeFailedTitle"), t("removeFailedBody"));
+    }
+  };
+
+  // トラックのカタログモーダルを閉じた場合に試聴再生を強制的にストップ
+  useEffect(() => {
+    if (!catalogVisible) {
+      previewPlayer.pause();
+      setPreviewTrackId(null);
+    }
+  }, [catalogVisible, previewPlayer]);
 
   return (
     <View style={styles.container}>
@@ -152,7 +225,7 @@ export default function FocusMusicScreen() {
                           {
                             text: t("removeConfirmYes", { ns: "focusMusic" }),
                             style: "destructive",
-                            onPress: () => removeTrack(track.id),
+                            onPress: () => handleRemove(track.id),
                           },
                         ],
                       )
@@ -184,7 +257,9 @@ export default function FocusMusicScreen() {
           ]}
           testID="focus-music-catalog-button"
         >
-          <Text style={styles.primaryButtonText}>{t("installButton")}</Text>
+          <Text style={styles.primaryButtonText}>
+            {isLoadingCatalog ? t("loadingCatalog") : t("installButton")}
+          </Text>
         </Pressable>
         {limitMessageVisible && (
           <Text style={styles.limitMessage}>{t("limitMessage")}</Text>
@@ -214,6 +289,7 @@ export default function FocusMusicScreen() {
               {catalog.map((track) => {
                 const installed = isInstalled(track.id);
                 const isPreviewing = previewTrackId === track.id;
+                const isPreviewLoading = previewLoadingId === track.id;
                 return (
                   <View
                     key={track.id}
@@ -233,6 +309,7 @@ export default function FocusMusicScreen() {
                           styles.secondaryButton,
                           pressed && styles.secondaryButtonPressed,
                         ]}
+                        disabled={isPreviewLoading}
                       >
                         <MaterialCommunityIcons
                           name={
@@ -244,7 +321,11 @@ export default function FocusMusicScreen() {
                           color={colors.textPrimary}
                         />
                         <Text style={styles.secondaryButtonText}>
-                          {isPreviewing ? t("previewStop") : t("preview")}
+                          {isPreviewLoading
+                            ? t("previewLoading")
+                            : isPreviewing
+                              ? t("previewStop")
+                              : t("preview")}
                         </Text>
                       </Pressable>
                       <Pressable
@@ -253,13 +334,18 @@ export default function FocusMusicScreen() {
                         style={({ pressed }) => [
                           styles.installButton,
                           pressed && styles.installButtonPressed,
-                          installed && styles.installButtonDisabled,
+                          (installed || isInstalling(track.id)) &&
+                          styles.installButtonDisabled,
                         ]}
-                        disabled={installed}
+                        disabled={installed || isInstalling(track.id)}
                         testID={`focus-music-install-${track.id}`}
                       >
                         <Text style={styles.installButtonText}>
-                          {installed ? t("installedLabel") : t("installLabel")}
+                          {installed
+                            ? t("installedLabel")
+                            : isInstalling(track.id)
+                              ? t("downloadingLabel")
+                              : t("installLabel")}
                         </Text>
                       </Pressable>
                     </View>

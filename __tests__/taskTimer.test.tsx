@@ -3,9 +3,12 @@ import React from "react";
 import { I18nextProvider } from "react-i18next";
 import * as Notifications from "expo-notifications";
 import { Linking } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTimerScreen from "../components/feature/TaskTimerScreen";
 import i18n from "../i18n";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
+import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
+import { FocusMusicTrack } from "../types/focus-music";
 
 jest.useFakeTimers();
 
@@ -20,6 +23,54 @@ jest.mock("expo-linear-gradient", () => {
   MockLinearGradient.displayName = "MockLinearGradient";
   return { LinearGradient: MockLinearGradient };
 });
+
+const mockCatalog: FocusMusicTrack[] = [
+  {
+    id: "track-1",
+    title: "Deep Focus",
+    bucket: "focus-music",
+    storagePath: "tracks/deep-focus.mp3",
+    durationSeconds: 150,
+  },
+];
+
+const mockFetchCatalog = jest.fn(async () => mockCatalog);
+const mockSignedUrl = jest.fn(async () => "https://example.com/focus.mp3");
+
+jest.mock("../lib/focus-music/catalog", () => ({
+  fetchFocusMusicCatalog: () => mockFetchCatalog(),
+}));
+
+jest.mock("../lib/focus-music/signedUrl", () => ({
+  createFocusMusicSignedUrl: (trackId: string) => mockSignedUrl(trackId),
+}));
+
+jest.mock("@react-native-community/netinfo", () => ({
+  fetch: jest.fn().mockResolvedValue({
+    type: "wifi",
+    isConnected: true,
+    isInternetReachable: true,
+  }),
+}));
+
+jest.mock("expo-file-system/legacy", () => ({
+  documentDirectory: "file://test/",
+  makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+  downloadAsync: jest.fn().mockResolvedValue({ uri: "file://test/focus-music/track-1.mp3" }),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("expo-audio", () => ({
+  useAudioPlayer: () => ({
+    loop: false,
+    playing: false,
+    play: jest.fn(),
+    pause: jest.fn(),
+    replace: jest.fn(),
+    seekTo: jest.fn().mockResolvedValue(undefined),
+    remove: jest.fn(),
+  }),
+}));
 
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
@@ -71,7 +122,8 @@ const mockGetPermissionsAsync = Notifications.getPermissionsAsync as jest.Mocked
 const mockOpenSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
 
 describe("TaskTimerScreen", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
     mockGetPermissionsAsync.mockResolvedValue({
       status: Notifications.PermissionStatus.GRANTED,
       granted: true,
@@ -107,16 +159,29 @@ describe("TaskTimerScreen", () => {
     expect(getByText("Pause")).toBeTruthy();
   });
 
-  test("opens music modal and selects a track", () => {
+  test("opens music modal and selects a track", async () => {
+    await AsyncStorage.setItem(
+      FOCUS_MUSIC_INSTALLED_KEY,
+      JSON.stringify([
+        {
+          trackId: "track-1",
+          localPath: "file://test/focus-music/track-1.mp3",
+          downloadedAt: new Date().toISOString(),
+        },
+      ]),
+    );
+
     const { getByTestId, getByText } = renderScreen();
+
+    await waitFor(() => expect(getByText("Deep Focus selected")).toBeTruthy());
 
     fireEvent.press(getByTestId("music-select-button"));
 
     expect(getByText("Pick focus music")).toBeTruthy();
 
-    fireEvent.press(getByText("example1"));
+    fireEvent.press(getByText("Deep Focus"));
 
-    expect(getByText("example1 selected")).toBeTruthy();
+    expect(getByText("Deep Focus selected")).toBeTruthy();
   });
 
   test("shows notification prompt when notifications are off", async () => {

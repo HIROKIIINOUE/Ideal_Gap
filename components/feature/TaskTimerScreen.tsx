@@ -34,7 +34,8 @@ import {
 } from "../../constants/theme";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import { supabase } from "../../lib/supabaseClient";
-import { FocusTrack, useFocusMusic } from "../../providers/FocusMusicProvider";
+import { useFocusMusic } from "../../providers/FocusMusicProvider";
+import { InstalledFocusTrack } from "../../types/focus-music";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
 
@@ -73,7 +74,8 @@ const formatEndTimeLabel = (timestamp: number | null) => {
 
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
-  const { installedTracks, selectedTrack, selectTrack } = useFocusMusic();
+  const { installedTracks, selectedTrack, selectTrack, playSelected, pause } =
+    useFocusMusic();
   const params = useLocalSearchParams<{
     title?: string;
     monthlyGoal?: string;
@@ -464,7 +466,7 @@ export default function TaskTimerScreen() {
     persistElapsedAndExit,
   ]);
 
-  const handleSelectMusic = (option: FocusTrack) => {
+  const handleSelectMusic = (option: InstalledFocusTrack) => {
     selectTrack(option.id);
     setMusicPlaying(true);
     setMusicModalVisible(false);
@@ -484,6 +486,19 @@ export default function TaskTimerScreen() {
       : status === "paused"
         ? t("timerCard.paused")
         : undefined;
+
+  //「音楽再生フラグが ON のときに、選択中の曲を再生し続ける」ための同期処理 
+  // 選択が無い／再生失敗なら自動停止
+  useEffect(() => {
+    if (!musicPlaying) return;
+    if (!selectedTrack) {
+      setMusicPlaying(false);
+      return;
+    }
+    playSelected().catch(() => {
+      setMusicPlaying(false);
+    });
+  }, [musicPlaying, playSelected, selectedTrack]);
 
   return (
     <SafeAreaView
@@ -703,7 +718,18 @@ export default function TaskTimerScreen() {
               accessibilityRole="button"
               onPress={() => {
                 if (!hasInstalledMusic) return;
-                setMusicPlaying((prev) => !prev);
+                if (musicPlaying) {
+                  pause();
+                  setMusicPlaying(false);
+                  return;
+                }
+                playSelected()
+                  .then((played) => {
+                    setMusicPlaying(played);
+                  })
+                  .catch(() => {
+                    setMusicPlaying(false);
+                  });
               }}
               style={({ pressed }) => [
                 styles.secondaryButton,

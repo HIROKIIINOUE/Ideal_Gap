@@ -28,6 +28,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.ios,
     supportsTablet: true,
     bundleIdentifier,
+    infoPlist: {
+      ...config.ios?.infoPlist,
+      UIBackgroundModes: ["audio"],
+    },
   },
   android: {
     ...config.android,
