@@ -29,7 +29,7 @@ const loginSchema = z.object({
 });
 
 export default function Login() {
-  useRedirectAuthenticated();
+  useRedirectAuthenticated(); // ログインユーザをダッシュボードへ強制遷移
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -23,7 +23,7 @@ const signupSchema = z.object({
 });
 
 export default function Signup() {
-  useRedirectAuthenticated();
+  useRedirectAuthenticated(); // ログインユーザをダッシュボードへ強制遷移
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const { t } = useTranslation("signup");
   const { language } = useLanguage();

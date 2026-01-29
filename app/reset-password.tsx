@@ -35,7 +35,7 @@ const newPasswordSchema = z.object({
 });
 
 export default function ResetPassword() {
-  useRedirectAuthenticated();
+  useRedirectAuthenticated(); // ログインユーザをダッシュボードへ強制遷移
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");

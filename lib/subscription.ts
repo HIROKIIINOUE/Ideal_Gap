@@ -23,7 +23,7 @@ const ensureInFlight = new Map<string, Promise<SubscriptionRow>>();
 
 // Subscriptionsテーブルから該当のユーザの情報を取得
 export const getSubscriptionForUser = async (
-  userId: string
+  userId: string,
 ): Promise<SubscriptionRow | null> => {
   const { data, error } = await supabase
     .from("subscriptions")
@@ -41,21 +41,22 @@ export const getSubscriptionForUser = async (
   return data as SubscriptionRow | null;
 };
 
+// ユーザのサブスクリプションデータが存在していなかった場合、ユーザに紐づくサブスクリプションデータを新規作成するロジック
 export const ensureSignupAwaitSubscription = async (
-  userId: string
+  userId: string,
 ): Promise<SubscriptionRow> => {
   // 既に同じuserIdの非同期処理が進行中ならそれに相乗りする新しい処理を発生させないためのロジック。複数非同期処理の制御
   const inFlight = ensureInFlight.get(userId);
   if (inFlight) return inFlight;
 
-  // ユーザ情報の取得、取得できた場合は新規作成はさせないためのロジック。複数データ生成の制御。
+  // ユーザ情報からそのユーザのサブスクリプション情報を取得、取得できた場合は新規作成はさせないためのロジック。
+  // １ユーザにつき複数サブスクリプションデータが生成されるのを防止。
   const existing = await getSubscriptionForUser(userId);
   if (existing) return existing;
 
   const promise = (async () => {
     const timestamp = nowIso();
     // 新規作成時は had_account_before を明示的に false に初期化する
-    // 【ここ疑問】毎回falseにしてしまっては再入会時のフリートライアル判定がおかしくなる？
     await supabase
       .from("users")
       .update({ had_account_before: false, updated_at: timestamp })
@@ -81,13 +82,14 @@ export const ensureSignupAwaitSubscription = async (
 
     if (error || !data) {
       throw new Error(
-        error?.message ?? "Failed to ensure signupAwait subscription"
+        error?.message ?? "Failed to ensure signupAwait subscription",
       );
     }
 
     return data as SubscriptionRow;
   })();
 
+  // 非同期処理promise()を走らせる前にensureFlightに値をセットすることでisFlightがtrueになり、現行のensureSignupAwaitSubscriptionが走り切るまで重複したensureSignupAwaitSubscriptionが走ることのないように制御。
   ensureInFlight.set(userId, promise);
 
   // 非同期処理が終わったら成功・失敗関係なく非同期処理制御を停止する
@@ -100,7 +102,7 @@ export const ensureSignupAwaitSubscription = async (
 // 成功後、初回ユーザーなら users.had_account_before をtrueに更新
 export const updateSubscriptionAfterPurchase = async (
   userId: string,
-  hadAccountBefore: boolean
+  hadAccountBefore: boolean,
 ): Promise<SubscriptionRow> => {
   const timestamp = nowIso();
   // ここで初期ユーザか再サインアップかを判定
@@ -142,7 +144,7 @@ export const updateSubscriptionAfterPurchase = async (
     if (userUpdateError) {
       console.warn(
         "Failed to mark had_account_before",
-        userUpdateError.message
+        userUpdateError.message,
       );
     }
   }
@@ -152,7 +154,7 @@ export const updateSubscriptionAfterPurchase = async (
 
 // Usersテーブルからid, had_account_beforeだけを取得
 export const getUserProfile = async (
-  userId: string
+  userId: string,
 ): Promise<UserRow | null> => {
   const { data, error } = await supabase
     .from("users")

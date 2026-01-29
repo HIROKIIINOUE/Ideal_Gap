@@ -1,5 +1,5 @@
 // ログインユーザを強制的にダッシュボードに遷移させるロジック。
-//  → ログインユーザは「ホーム画面・サインアップ画面・ログイン画面・パス変更画面・決済画面」にはアクセスできない
+//  → ログインユーザは「LP画面・サインアップ画面・ログイン画面・パス変更画面」にはアクセスできない
 import { router } from "expo-router";
 import { useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
