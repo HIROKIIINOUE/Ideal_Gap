@@ -144,24 +144,6 @@
     }
   }
 
-  // 作業タイマーデータ
-
-  Table work_sessions {
-    id uuid [pk]
-    user_id uuid [not null, ref: > users.id]
-    weekly_task_id uuid [not null, ref: > weekly_tasks.id]
-    started_at timestamptz [not null]
-    ended_at timestamptz [not null]
-    duration_minutes int [not null]  //分に換算 年間月間週間全てのaccumulatedの積上げに利用
-    created_at timestamptz
-    updated_at timestamptz
-
-    Indexes {
-      (weekly_task_id)
-      (user_id, started_at)
-    }
-  }
-
   // 次回の楽しい予定データ
   Table fun_plans {
     id uuid [pk]
