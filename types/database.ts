@@ -350,7 +350,14 @@ export type Database = {
       };
     };
     Views: {};
-    Functions: {};
+    Functions: {
+      check_user_exists: {
+        Args: {
+          p_email: string;
+        };
+        Returns: boolean;
+      };
+    };
     Enums: {
       language: "ja" | "en" | "fr";
       status: "trial" | "active" | "canceled" | "expired" | "signupAwait";

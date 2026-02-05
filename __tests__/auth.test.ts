@@ -28,6 +28,7 @@ jest.mock("../lib/supabaseClient", () => ({
       setSession: jest.fn(),
     },
     from: jest.fn(),
+    rpc: jest.fn(),
   },
 }));
 
@@ -40,13 +41,8 @@ jest.mock("expo-localization", () => ({
   getCalendars: () => [{ timeZone: "Asia/Tokyo" }],
 }));
 
-const selectMock = jest.fn();
-const eqMock = jest.fn();
-
 beforeEach(() => {
   jest.clearAllMocks();
-  (supabase.from as jest.Mock).mockReturnValue({ select: selectMock });
-  selectMock.mockReturnValue({ eq: eqMock });
 });
 
 describe("signUpWithEmailConfirmation", () => {
@@ -117,14 +113,16 @@ describe("signInWithEmailPassword", () => {
   });
 
   test("returns user_not_found when email does not exist", async () => {
-    eqMock.mockResolvedValue({ count: 0, error: null });
+    (supabase.rpc as jest.Mock).mockResolvedValue({ data: false, error: null });
 
     const result = await signInWithEmailPassword({
       email: "missing@example.com",
       password: "password123",
     });
 
-    expect(eqMock).toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith("check_user_exists", {
+      p_email: "missing@example.com",
+    });
     expect(result).toEqual({
       ok: false,
       reason: "user_not_found",
@@ -133,7 +131,7 @@ describe("signInWithEmailPassword", () => {
   });
 
   test("returns invalid_password when user exists but password is wrong", async () => {
-    eqMock.mockResolvedValue({ count: 1, error: null });
+    (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
     (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({
       error: { status: 400, message: "Invalid login credentials" } as AuthError,
     });
@@ -151,7 +149,7 @@ describe("signInWithEmailPassword", () => {
   });
 
   test("returns ok true on successful sign in", async () => {
-    eqMock.mockResolvedValue({ count: 1, error: null });
+    (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
     (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({ error: null });
 
     const result = await signInWithEmailPassword({
@@ -165,11 +163,11 @@ describe("signInWithEmailPassword", () => {
 
 describe("requestPasswordResetEmail", () => {
   beforeEach(() => {
-    eqMock.mockResolvedValue({ count: 1, error: null });
+    (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
   });
 
   test("returns user_not_found when email is missing", async () => {
-    eqMock.mockResolvedValue({ count: 0, error: null });
+    (supabase.rpc as jest.Mock).mockResolvedValue({ data: false, error: null });
 
     const result = await requestPasswordResetEmail("missing@example.com");
 

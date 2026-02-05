@@ -128,7 +128,7 @@ export const signUpWithEmailConfirmation = async ({
 
 // パスワードリセットメール送信
 export const requestPasswordResetEmail = async (
-  email: string
+  email: string,
 ): Promise<ResetPasswordRequestResult> => {
   try {
     const userExistsResult = await checkUserExists(email);
@@ -189,7 +189,7 @@ export const setSessionFromRecoveryLink = async (url?: string | null) => {
 
 // セッションが復元されている前提でパスワードを更新
 export const completePasswordReset = async (
-  newPassword: string
+  newPassword: string,
 ): Promise<CompletePasswordResetResult> => {
   try {
     const { data, error } = await supabase.auth.getSession();
@@ -224,19 +224,18 @@ const isUserNotFoundError = (error: AuthError) => {
   return message.includes("not found") || message.includes("no user");
 };
 
-// ユーザー存在チェック
+// ユーザー存在チェック (RLS 対応: RPC 経由)
+// セキュリティ上サーバ側で呼ぶ(全ユーザのメアドを漏洩させないため)
 const checkUserExists = async (email: string) => {
-  // 以下のクエリ文は行データを返さずHTTPヘッダーで件数のみ取得しcountにより条件に合致する件数を返している。idはダミーで実際にデータは返されていない。eqの条件に合ったデータの件数のみが拾える。(最小限の送信量にできる)
-  const { count, error } = await supabase
-    .from("users")
-    .select("id", { count: "exact", head: true })
-    .eq("email", email);
+  const { data, error } = await supabase.rpc("check_user_exists", {
+    p_email: email,
+  });
 
   if (error) {
     return { ok: false as const, message: error.message };
   }
 
-  return { ok: true as const, exists: (count ?? 0) > 0 };
+  return { ok: true as const, exists: Boolean(data) };
 };
 
 // サインインロジック
