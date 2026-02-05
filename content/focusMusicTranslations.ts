@@ -28,6 +28,8 @@ export type FocusMusicTranslations = {
   cellularConfirmNo: string;
   downloadFailedTitle: string;
   downloadFailedBody: string;
+  downloadBusyTitle: string;
+  downloadBusyBody: string;
   catalogTitle: string;
   catalogSubtitle: string;
   preview: string;
@@ -72,6 +74,8 @@ export const focusMusicTranslations: Record<LanguageKey, FocusMusicTranslations>
     cellularConfirmNo: "キャンセル",
     downloadFailedTitle: "ダウンロードに失敗しました",
     downloadFailedBody: "回線状況を確認して、もう一度お試しください。",
+    downloadBusyTitle: "ダウンロード中です",
+    downloadBusyBody: "他の曲のダウンロードが完了するまでお待ちください。",
     catalogTitle: "作業用音楽カタログ",
     catalogSubtitle: "試聴して追加できます。",
     preview: "試聴",
@@ -114,6 +118,8 @@ export const focusMusicTranslations: Record<LanguageKey, FocusMusicTranslations>
     cellularConfirmNo: "Cancel",
     downloadFailedTitle: "Download failed",
     downloadFailedBody: "Check your connection and try again.",
+    downloadBusyTitle: "Download in progress",
+    downloadBusyBody: "Please wait until the current download finishes.",
     catalogTitle: "Focus music catalog",
     catalogSubtitle: "Preview and add your favorites.",
     preview: "Preview",
@@ -156,6 +162,8 @@ export const focusMusicTranslations: Record<LanguageKey, FocusMusicTranslations>
     cellularConfirmNo: "Annuler",
     downloadFailedTitle: "Échec du téléchargement",
     downloadFailedBody: "Vérifiez la connexion et réessayez.",
+    downloadBusyTitle: "Téléchargement en cours",
+    downloadBusyBody: "Veuillez attendre la fin du téléchargement en cours.",
     catalogTitle: "Catalogue de musiques",
     catalogSubtitle: "Écoutez un extrait et ajoutez vos favoris.",
     preview: "Écouter",

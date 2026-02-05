@@ -36,6 +36,7 @@ type FocusMusicContextValue = {
   maxInstalled: number;
   canInstall: boolean;
   isInstalling: (id: string) => boolean;
+  isDownloadInProgress: boolean;
   isLoadingCatalog: boolean;
   installTrack: (
     id: string,
@@ -92,6 +93,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   const isCrossfadingRef = useRef(false);
   const currentTrackIdRef = useRef<string | null>(null);
   const currentTrackPathRef = useRef<string | null>(null);
+  const isDownloadingRef = useRef(false);
   useEffect(() => {
     return () => {
       if (monitorTimerRef.current) {
@@ -158,6 +160,9 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     [installingIds],
   );
 
+  // 曲のダウンロード中は他の曲のダウンロードを制御するための関数
+  const isDownloadInProgress = installingIds.length > 0;
+
   const persistInstalledEntries = useCallback(async (next: InstalledTrack[]) => {
     setInstalledEntries(next);
     await saveInstalledTracks(next);
@@ -169,6 +174,9 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       id: string,
       options: { allowCellular?: boolean } = {},
     ): Promise<InstallResult> => {
+      if (isDownloadingRef.current) {
+        return { ok: false, reason: "busy" };
+      }
       if (installedEntries.some((entry) => entry.trackId === id)) {
         return { ok: false, reason: "already_installed" };
       }
@@ -189,6 +197,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       }
 
       // 該当の音楽をインストール中リストに追加
+      isDownloadingRef.current = true;
       setInstallingIds((prev) => [...prev, id]);
       try {
         const signedUrl = await createFocusMusicSignedUrl(id); // signedUrl発行
@@ -212,6 +221,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       } finally {
         // ダウンロードが成功しても失敗してもダウンロード完了待ちリストから実行終了データを削除する
         setInstallingIds((prev) => prev.filter((trackId) => trackId !== id));
+        isDownloadingRef.current = false;
       }
     },
     [catalog, installedEntries, persistInstalledEntries, selectedTrackId],
@@ -438,6 +448,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       maxInstalled: FOCUS_MUSIC_MAX_INSTALLED,
       canInstall: installedEntries.length < FOCUS_MUSIC_MAX_INSTALLED,
       isInstalling,
+      isDownloadInProgress,
       isLoadingCatalog,
       installTrack,
       removeTrack,
@@ -453,6 +464,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       installedEntries,
       installedTracks,
       isInstalling,
+      isDownloadInProgress,
       isLoadingCatalog,
       installTrack,
       isInstalled,

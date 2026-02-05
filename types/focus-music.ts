@@ -32,7 +32,8 @@ export type InstallResult =
         | "offline"
         | "not_found"
         | "download_failed"
-        | "already_installed";
+        | "already_installed"
+        | "busy";
     };
 
 export type RemoveResult =

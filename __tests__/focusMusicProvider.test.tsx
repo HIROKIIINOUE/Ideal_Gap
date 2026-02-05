@@ -4,6 +4,7 @@ import React from "react";
 import { FocusMusicProvider, useFocusMusic } from "../providers/FocusMusicProvider";
 import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
 import { FocusMusicTrack, InstallResult } from "../types/focus-music";
+import * as FileSystem from "expo-file-system/legacy";
 
 const mockCatalog: FocusMusicTrack[] = [
   {
@@ -264,5 +265,54 @@ describe("FocusMusicProvider", () => {
     act(() => {
       result.current.pause();
     });
+  });
+
+  test("blocks concurrent downloads", async () => {
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+    });
+
+    let resolveDownload: ((value: { uri: string }) => void) | null = null;
+    (FileSystem.downloadAsync as jest.Mock).mockImplementation(
+      () =>
+        new Promise<{ uri: string }>((resolve) => {
+          resolveDownload = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    let firstInstall: Promise<InstallResult> | null = null;
+    await act(async () => {
+      firstInstall = result.current.installTrack("track-1");
+    });
+
+    await waitFor(() => expect(result.current.isInstalling("track-1")).toBe(true));
+
+    let secondAttempt: InstallResult | undefined;
+    await act(async () => {
+      secondAttempt = await result.current.installTrack("track-2");
+    });
+
+    expect(secondAttempt?.ok).toBe(false);
+    if (secondAttempt && !secondAttempt.ok) {
+      expect(secondAttempt.reason).toBe("busy");
+    }
+
+    act(() => {
+      resolveDownload?.({ uri: "file://test/focus-music/track-1.mp3" });
+    });
+
+    if (firstInstall) {
+      await act(async () => {
+        await firstInstall;
+      });
+    }
   });
 });

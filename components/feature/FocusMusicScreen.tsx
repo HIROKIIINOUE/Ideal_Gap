@@ -42,6 +42,7 @@ export default function FocusMusicScreen() {
     maxInstalled,
     canInstall,
     isInstalling,
+    isDownloadInProgress,
     isLoadingCatalog,
     installTrack,
     removeTrack,
@@ -113,6 +114,10 @@ export default function FocusMusicScreen() {
     }
     if (result.reason === "download_failed") {
       Alert.alert(t("downloadFailedTitle"), t("downloadFailedBody"));
+      return;
+    }
+    if (result.reason === "busy") {
+      Alert.alert(t("downloadBusyTitle"), t("downloadBusyBody"));
     }
   };
 
@@ -336,8 +341,15 @@ export default function FocusMusicScreen() {
                           pressed && styles.installButtonPressed,
                           (installed || isInstalling(track.id)) &&
                           styles.installButtonDisabled,
+                          isDownloadInProgress &&
+                          !isInstalling(track.id) &&
+                          styles.installButtonDisabled,
                         ]}
-                        disabled={installed || isInstalling(track.id)}
+                        disabled={
+                          installed ||
+                          isInstalling(track.id) ||
+                          (isDownloadInProgress && !isInstalling(track.id))
+                        }
                         testID={`focus-music-install-${track.id}`}
                       >
                         <Text style={styles.installButtonText}>
