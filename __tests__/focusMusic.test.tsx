@@ -1,4 +1,5 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { Alert } from "react-native";
@@ -53,7 +54,9 @@ const mockCatalog: FocusMusicTrack[] = [
 ];
 
 const mockFetchCatalog = jest.fn(async () => mockCatalog);
-const mockSignedUrl = jest.fn(async () => "https://example.com/focus.mp3");
+const mockSignedUrl = jest.fn(
+  async (_trackId: string) => "https://example.com/focus.mp3",
+);
 const mockNetInfoFetch = jest.fn();
 
 jest.mock("@expo/vector-icons", () => {
@@ -91,11 +94,22 @@ jest.mock("expo-audio", () => ({
   useAudioPlayer: () => ({
     loop: false,
     playing: false,
+    paused: false,
+    isLoaded: true,
+    isBuffering: false,
+    currentTime: 0,
+    duration: 10,
+    volume: 1,
     play: jest.fn(),
     pause: jest.fn(),
     replace: jest.fn(),
     seekTo: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn(),
+  }),
+  useAudioPlayerStatus: () => ({
+    playing: false,
+    currentTime: 0,
+    duration: 0,
   }),
 }));
 
@@ -109,7 +123,8 @@ const renderScreen = () =>
   );
 
 describe("FocusMusicScreen", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockFetchCatalog.mockClear();
     mockSignedUrl.mockClear();

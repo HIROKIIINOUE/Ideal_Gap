@@ -35,7 +35,9 @@ const mockCatalog: FocusMusicTrack[] = [
 ];
 
 const mockFetchCatalog = jest.fn(async () => mockCatalog);
-const mockSignedUrl = jest.fn(async () => "https://example.com/focus.mp3");
+const mockSignedUrl = jest.fn(
+  async (_trackId: string) => "https://example.com/focus.mp3",
+);
 
 jest.mock("../lib/focus-music/catalog", () => ({
   fetchFocusMusicCatalog: () => mockFetchCatalog(),
@@ -64,11 +66,22 @@ jest.mock("expo-audio", () => ({
   useAudioPlayer: () => ({
     loop: false,
     playing: false,
+    paused: false,
+    isLoaded: true,
+    isBuffering: false,
+    currentTime: 0,
+    duration: 10,
+    volume: 1,
     play: jest.fn(),
     pause: jest.fn(),
     replace: jest.fn(),
     seekTo: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn(),
+  }),
+  useAudioPlayerStatus: () => ({
+    playing: false,
+    currentTime: 0,
+    duration: 0,
   }),
 }));
 

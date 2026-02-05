@@ -132,7 +132,7 @@ export default function FocusMusicScreen() {
       previewPlayer.replace(url);
       previewPlayer.play();
       setPreviewTrackId(trackId);
-    } catch (error) {
+    } catch {
       Alert.alert(t("previewFailedTitle"), t("previewFailedBody"));
     } finally {
       setPreviewLoadingId(null);

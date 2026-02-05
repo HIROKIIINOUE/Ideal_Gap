@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
 import { FocusMusicProvider, useFocusMusic } from "../providers/FocusMusicProvider";
 import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
-import { FocusMusicTrack } from "../types/focus-music";
+import { FocusMusicTrack, InstallResult } from "../types/focus-music";
 
 const mockCatalog: FocusMusicTrack[] = [
   {
@@ -44,8 +44,30 @@ const mockCatalog: FocusMusicTrack[] = [
 ];
 
 const mockFetchCatalog = jest.fn(async () => mockCatalog);
-const mockSignedUrl = jest.fn(async () => "https://example.com/focus.mp3");
+const mockSignedUrl = jest.fn(
+  async (_trackId: string) => "https://example.com/focus.mp3",
+);
 const mockNetInfoFetch = jest.fn();
+
+const createMockPlayer = () => ({
+  loop: false,
+  playing: false,
+  paused: false,
+  isLoaded: true,
+  isBuffering: false,
+  currentTime: 0,
+  duration: 10,
+  volume: 1,
+  play: jest.fn(),
+  pause: jest.fn(),
+  replace: jest.fn(),
+  seekTo: jest.fn().mockResolvedValue(undefined),
+  remove: jest.fn(),
+});
+
+const mockPlayerA = createMockPlayer();
+const mockPlayerB = createMockPlayer();
+let mockPlayerIndex = 0;
 
 jest.mock("../lib/focus-music/catalog", () => ({
   fetchFocusMusicCatalog: () => mockFetchCatalog(),
@@ -67,14 +89,15 @@ jest.mock("expo-file-system/legacy", () => ({
 }));
 
 jest.mock("expo-audio", () => ({
-  useAudioPlayer: () => ({
-    loop: false,
-    playing: false,
-    play: jest.fn(),
-    pause: jest.fn(),
-    replace: jest.fn(),
-    seekTo: jest.fn().mockResolvedValue(undefined),
-    remove: jest.fn(),
+  useAudioPlayer: () => {
+    const player = mockPlayerIndex % 2 === 0 ? mockPlayerA : mockPlayerB;
+    mockPlayerIndex += 1;
+    return player;
+  },
+  useAudioPlayerStatus: () => ({
+    playing: true,
+    currentTime: 0,
+    duration: 10,
   }),
 }));
 
@@ -84,6 +107,31 @@ describe("FocusMusicProvider", () => {
     mockFetchCatalog.mockClear();
     mockSignedUrl.mockClear();
     mockNetInfoFetch.mockReset();
+    mockPlayerIndex = 0;
+    mockPlayerA.loop = false;
+    mockPlayerA.playing = false;
+    mockPlayerA.paused = false;
+    mockPlayerA.isLoaded = true;
+    mockPlayerA.isBuffering = false;
+    mockPlayerA.currentTime = 0;
+    mockPlayerA.duration = 10;
+    mockPlayerA.volume = 1;
+    mockPlayerA.play.mockClear();
+    mockPlayerA.pause.mockClear();
+    mockPlayerA.replace.mockClear();
+    mockPlayerA.seekTo.mockClear();
+    mockPlayerB.loop = false;
+    mockPlayerB.playing = false;
+    mockPlayerB.paused = false;
+    mockPlayerB.isLoaded = true;
+    mockPlayerB.isBuffering = false;
+    mockPlayerB.currentTime = 0;
+    mockPlayerB.duration = 10;
+    mockPlayerB.volume = 1;
+    mockPlayerB.play.mockClear();
+    mockPlayerB.pause.mockClear();
+    mockPlayerB.replace.mockClear();
+    mockPlayerB.seekTo.mockClear();
   });
 
   test("installs a track on wifi and persists metadata", async () => {
@@ -99,7 +147,7 @@ describe("FocusMusicProvider", () => {
 
     await waitFor(() => expect(result.current.catalog.length).toBe(5));
 
-    let installResult;
+    let installResult: InstallResult | undefined;
     await act(async () => {
       installResult = await result.current.installTrack("track-1");
     });
@@ -124,7 +172,7 @@ describe("FocusMusicProvider", () => {
 
     await waitFor(() => expect(result.current.catalog.length).toBe(5));
 
-    let firstAttempt;
+    let firstAttempt: InstallResult | undefined;
     await act(async () => {
       firstAttempt = await result.current.installTrack("track-1");
     });
@@ -134,7 +182,7 @@ describe("FocusMusicProvider", () => {
       expect(firstAttempt.reason).toBe("cellular");
     }
 
-    let secondAttempt;
+    let secondAttempt: InstallResult | undefined;
     await act(async () => {
       secondAttempt = await result.current.installTrack("track-1", {
         allowCellular: true,
@@ -168,14 +216,53 @@ describe("FocusMusicProvider", () => {
 
     await waitFor(() => expect(result.current.catalog.length).toBe(5));
 
-    let installResult;
+    let installResult: InstallResult | undefined;
     await act(async () => {
-      installResult = await result.current.installTrack("track-2");
+      installResult = await result.current.installTrack("track-6");
     });
 
     expect(installResult?.ok).toBe(false);
     if (installResult && !installResult.ok) {
       expect(installResult.reason).toBe("limit");
     }
+  });
+
+  test("playSelected primes dual players for crossfade looping", async () => {
+    const installed = [
+      {
+        trackId: "track-1",
+        localPath: "file://test/focus-music/track-1.mp3",
+        downloadedAt: new Date().toISOString(),
+      },
+    ];
+
+    await AsyncStorage.setItem(
+      FOCUS_MUSIC_INSTALLED_KEY,
+      JSON.stringify(installed),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    await act(async () => {
+      await result.current.playSelected();
+    });
+
+    expect(mockPlayerA.replace).toHaveBeenCalledWith(
+      "file://test/focus-music/track-1.mp3",
+    );
+    expect(mockPlayerA.play).toHaveBeenCalled();
+    expect(mockPlayerB.replace).toHaveBeenCalledWith(
+      "file://test/focus-music/track-1.mp3",
+    );
+    expect(mockPlayerA.volume).toBe(1);
+    expect(mockPlayerB.volume).toBe(0);
+
+    act(() => {
+      result.current.pause();
+    });
   });
 });
