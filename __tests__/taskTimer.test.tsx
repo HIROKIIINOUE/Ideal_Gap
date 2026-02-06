@@ -7,8 +7,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTimerScreen from "../components/feature/TaskTimerScreen";
 import i18n from "../i18n";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
+import * as FocusMusicProviderModule from "../providers/FocusMusicProvider";
 import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
-import { FocusMusicTrack } from "../types/focus-music";
+import { FocusMusicTrack, InstalledFocusTrack } from "../types/focus-music";
 
 jest.useFakeTimers();
 
@@ -128,6 +129,33 @@ const renderScreen = () =>
       </FocusMusicProvider>
     </I18nextProvider>,
   );
+
+const buildFocusMusicStub = (
+  overrides: Partial<ReturnType<typeof FocusMusicProviderModule.useFocusMusic>> = {},
+) => ({
+  catalog: [],
+  installedTracks: [],
+  installedIds: [],
+  selectedTrackId: null,
+  selectedTrack: null,
+  maxInstalled: 0,
+  monthlyDownloadLimit: 0,
+  monthlyDownloadRemaining: null,
+  downloadResetAt: null,
+  canInstall: false,
+  isInstalling: jest.fn(() => false),
+  isDownloadInProgress: false,
+  isLoadingCatalog: false,
+  installTrack: jest.fn(),
+  removeTrack: jest.fn(),
+  selectTrack: jest.fn(),
+  isInstalled: jest.fn(() => false),
+  playSelected: jest.fn().mockResolvedValue(false),
+  pause: jest.fn(),
+  stop: jest.fn().mockResolvedValue(undefined),
+  refreshCatalog: jest.fn().mockResolvedValue(undefined),
+  ...overrides,
+});
 
 const mockGetPermissionsAsync = Notifications.getPermissionsAsync as jest.MockedFunction<
   typeof Notifications.getPermissionsAsync
@@ -266,5 +294,128 @@ describe("TaskTimerScreen", () => {
     } finally {
       jest.useFakeTimers();
     }
+  });
+
+  test("stops focus music when manually completing the timer", async () => {
+    const stop = jest.fn().mockResolvedValue(undefined);
+    const playSelected = jest.fn().mockResolvedValue(true);
+    const installedTrack: InstalledFocusTrack = {
+      id: "track-1",
+      trackId: "track-1",
+      title: "Deep Focus",
+      bucket: "focus-music",
+      storagePath: "tracks/deep-focus.mp3",
+      durationSeconds: 150,
+      localPath: "file://test/focus-music/track-1.mp3",
+      downloadedAt: new Date().toISOString(),
+    };
+
+    const spy = jest
+      .spyOn(FocusMusicProviderModule, "useFocusMusic")
+      .mockReturnValue(
+        buildFocusMusicStub({
+          installedTracks: [installedTrack],
+          selectedTrackId: installedTrack.id,
+          selectedTrack: installedTrack,
+          playSelected,
+          stop,
+        }),
+      );
+
+    const { getByText } = render(
+      <I18nextProvider i18n={i18n}>
+        <TaskTimerScreen />
+      </I18nextProvider>,
+    );
+
+    fireEvent.press(getByText("Play music"));
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByText("Mark done"));
+
+    await waitFor(() => expect(stop).toHaveBeenCalled());
+    spy.mockRestore();
+  });
+
+  test("stops focus music when countdown finishes", async () => {
+    const stop = jest.fn().mockResolvedValue(undefined);
+    const playSelected = jest.fn().mockResolvedValue(true);
+    const installedTrack: InstalledFocusTrack = {
+      id: "track-1",
+      trackId: "track-1",
+      title: "Deep Focus",
+      bucket: "focus-music",
+      storagePath: "tracks/deep-focus.mp3",
+      durationSeconds: 150,
+      localPath: "file://test/focus-music/track-1.mp3",
+      downloadedAt: new Date().toISOString(),
+    };
+
+    const spy = jest
+      .spyOn(FocusMusicProviderModule, "useFocusMusic")
+      .mockReturnValue(
+        buildFocusMusicStub({
+          installedTracks: [installedTrack],
+          selectedTrackId: installedTrack.id,
+          selectedTrack: installedTrack,
+          playSelected,
+          stop,
+        }),
+      );
+
+    const { getByText, getByTestId } = render(
+      <I18nextProvider i18n={i18n}>
+        <TaskTimerScreen />
+      </I18nextProvider>,
+    );
+
+    fireEvent.press(getByText("Play music"));
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    act(() => {
+      jest.advanceTimersByTime(300_000);
+    });
+
+    await waitFor(() => expect(stop).toHaveBeenCalled());
+    spy.mockRestore();
+  });
+
+  test("stops focus music when leaving the task timer screen", async () => {
+    const stop = jest.fn().mockResolvedValue(undefined);
+    const playSelected = jest.fn().mockResolvedValue(true);
+    const installedTrack: InstalledFocusTrack = {
+      id: "track-1",
+      trackId: "track-1",
+      title: "Deep Focus",
+      bucket: "focus-music",
+      storagePath: "tracks/deep-focus.mp3",
+      durationSeconds: 150,
+      localPath: "file://test/focus-music/track-1.mp3",
+      downloadedAt: new Date().toISOString(),
+    };
+
+    const spy = jest
+      .spyOn(FocusMusicProviderModule, "useFocusMusic")
+      .mockReturnValue(
+        buildFocusMusicStub({
+          installedTracks: [installedTrack],
+          selectedTrackId: installedTrack.id,
+          selectedTrack: installedTrack,
+          playSelected,
+          stop,
+        }),
+      );
+
+    const { getByText, unmount } = render(
+      <I18nextProvider i18n={i18n}>
+        <TaskTimerScreen />
+      </I18nextProvider>,
+    );
+
+    fireEvent.press(getByText("Play music"));
+    unmount();
+
+    await waitFor(() => expect(stop).toHaveBeenCalled());
+    spy.mockRestore();
   });
 });

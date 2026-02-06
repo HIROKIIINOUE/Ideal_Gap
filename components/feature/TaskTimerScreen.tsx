@@ -74,7 +74,7 @@ const formatEndTimeLabel = (timestamp: number | null) => {
 
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
-  const { installedTracks, selectedTrack, selectTrack, playSelected, pause } =
+  const { installedTracks, selectedTrack, selectTrack, playSelected, pause, stop } =
     useFocusMusic();
   const params = useLocalSearchParams<{
     title?: string;
@@ -208,10 +208,17 @@ export default function TaskTimerScreen() {
     }
   }, []);
 
-  // 作業完了モーダルを開く処理
+  // ページから離れた時やタイマー完了時に音楽を止めるためのロジック
+  const stopFocusMusic = useCallback(() => {
+    setMusicPlaying(false);
+    void stop();
+  }, [stop]);
+
+  // 「カウントダウン終了モーダル」「手動でタイマー終了モーダル」の両方を開く時に実行される処理
   const openCompletionModal = useCallback(
     (elapsedSeconds: number) => {
       clearTick();
+      stopFocusMusic();
       completionFiredRef.current = true;
       const safeElapsed = Math.max(0, Math.round(elapsedSeconds));
       setCompletionElapsedSeconds(safeElapsed);
@@ -219,7 +226,7 @@ export default function TaskTimerScreen() {
       setStatus("paused");
       setExpectedEndAt(null);
     },
-    [clearTick],
+    [clearTick, stopFocusMusic],
   );
 
   // 作業完了モーダルの「キャンセル」押下時の処理
@@ -262,8 +269,11 @@ export default function TaskTimerScreen() {
   // クリーンアップ関数でアンマウント時(ページから離れた場合)はタイマーをリセット
   // アプリ離脱→アプリ再開をした時はシンプルにアンマウント→再マウントの流れで処理が走る
   useEffect(() => {
-    return () => clearTick();
-  }, [clearTick]);
+    return () => {
+      clearTick();
+      stopFocusMusic();
+    };
+  }, [clearTick, stopFocusMusic]);
 
   // 共通のトースト表示(ポップアップメッセージ)処理
   const showToast = useCallback((message: string) => {
