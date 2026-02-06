@@ -2,7 +2,10 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
 import { FocusMusicProvider, useFocusMusic } from "../providers/FocusMusicProvider";
-import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
+import {
+  FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX,
+  FOCUS_MUSIC_INSTALLED_KEY,
+} from "../lib/focus-music/constants";
 import { FocusMusicTrack, InstallResult } from "../types/focus-music";
 import * as FileSystem from "expo-file-system/legacy";
 
@@ -76,6 +79,12 @@ jest.mock("../lib/focus-music/catalog", () => ({
 
 jest.mock("../lib/focus-music/signedUrl", () => ({
   createFocusMusicSignedUrl: (trackId: string) => mockSignedUrl(trackId),
+}));
+
+const mockGetUserId = jest.fn(async () => "user-1");
+
+jest.mock("../lib/api/supabase/common", () => ({
+  getUserId: () => mockGetUserId(),
 }));
 
 jest.mock("@react-native-community/netinfo", () => ({
@@ -313,6 +322,38 @@ describe("FocusMusicProvider", () => {
       await act(async () => {
         await firstInstall;
       });
+    }
+  });
+
+  test("blocks install when monthly download limit is reached", async () => {
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+    });
+
+    await AsyncStorage.setItem(
+      `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.user-1`,
+      JSON.stringify({
+        resetAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        count: 10,
+      }),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    let installResult: InstallResult | undefined;
+    await act(async () => {
+      installResult = await result.current.installTrack("track-1");
+    });
+
+    expect(installResult?.ok).toBe(false);
+    if (installResult && !installResult.ok) {
+      expect(installResult.reason).toBe("monthly_limit");
     }
   });
 });

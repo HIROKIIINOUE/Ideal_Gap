@@ -3,7 +3,9 @@ import { LanguageKey } from "../types/i18n";
 export type FocusMusicTranslations = {
   title: string;
   description: string;
+  subDescription: string;
   installedTitle: string;
+  installedTitleWithCount: string;
   installedSubtitle: string;
   installedEmptyTitle: string;
   installedEmptyBody: string;
@@ -30,6 +32,8 @@ export type FocusMusicTranslations = {
   downloadFailedBody: string;
   downloadBusyTitle: string;
   downloadBusyBody: string;
+  monthlyLimitTitle: string;
+  monthlyLimitBody: string;
   catalogTitle: string;
   catalogSubtitle: string;
   preview: string;
@@ -43,11 +47,17 @@ export type FocusMusicTranslations = {
   close: string;
 };
 
-export const focusMusicTranslations: Record<LanguageKey, FocusMusicTranslations> = {
+export const focusMusicTranslations: Record<
+  LanguageKey,
+  FocusMusicTranslations
+> = {
   ja: {
     title: "タスク集中音楽",
     description: "集中を途切れさせないための音楽を5曲まで管理できます。",
+    subDescription:
+      "最大ダウンロード数は30日につき10回までです。{{resetAt}}にリセットされます。(残り{{count}}回)",
     installedTitle: "手持ちの集中音楽",
+    installedTitleWithCount: "手持ちの集中音楽 ({{count}} / {{max}})",
     installedSubtitle: "タイマーで使う曲を選択できます。",
     installedEmptyTitle: "まだ集中音楽がありません。",
     installedEmptyBody: "カタログからお気に入りの音楽を追加しましょう。",
@@ -76,6 +86,9 @@ export const focusMusicTranslations: Record<LanguageKey, FocusMusicTranslations>
     downloadFailedBody: "回線状況を確認して、もう一度お試しください。",
     downloadBusyTitle: "ダウンロード中です",
     downloadBusyBody: "他の曲のダウンロードが完了するまでお待ちください。",
+    monthlyLimitTitle: "月間ダウンロード上限",
+    monthlyLimitBody:
+      "今月のダウンロード上限に達しました。翌月に再度お試しください。",
     catalogTitle: "作業用音楽カタログ",
     catalogSubtitle: "試聴して追加できます。",
     preview: "試聴",
@@ -91,7 +104,10 @@ export const focusMusicTranslations: Record<LanguageKey, FocusMusicTranslations>
   en: {
     title: "Focus music",
     description: "Manage up to five tracks that keep you in flow.",
+    subDescription:
+      "You can download up to 10 tracks every 30 days. Resets on {{resetAt}}. (Remaining {{count}})",
     installedTitle: "Installed focus music",
+    installedTitleWithCount: "Installed focus music ({{count}} / {{max}})",
     installedSubtitle: "Choose which track to use in the timer.",
     installedEmptyTitle: "No focus music yet.",
     installedEmptyBody: "Add a track from the catalog to get started.",
@@ -120,6 +136,9 @@ export const focusMusicTranslations: Record<LanguageKey, FocusMusicTranslations>
     downloadFailedBody: "Check your connection and try again.",
     downloadBusyTitle: "Download in progress",
     downloadBusyBody: "Please wait until the current download finishes.",
+    monthlyLimitTitle: "Monthly download limit",
+    monthlyLimitBody:
+      "You've reached this month's download limit. Please try again next month.",
     catalogTitle: "Focus music catalog",
     catalogSubtitle: "Preview and add your favorites.",
     preview: "Preview",
@@ -135,7 +154,10 @@ export const focusMusicTranslations: Record<LanguageKey, FocusMusicTranslations>
   fr: {
     title: "Musique de focus",
     description: "Gérez jusqu’à cinq morceaux pour rester concentré.",
+    subDescription:
+      "La limite est de 10 téléchargements tous les 30 jours. Réinitialisation le {{resetAt}}. ({{count}} restants)",
     installedTitle: "Musiques installées",
+    installedTitleWithCount: "Musiques installées ({{count}} / {{max}})",
     installedSubtitle: "Sélectionnez le morceau utilisé par le minuteur.",
     installedEmptyTitle: "Aucune musique pour le moment.",
     installedEmptyBody: "Ajoutez un morceau depuis le catalogue.",
@@ -164,6 +186,9 @@ export const focusMusicTranslations: Record<LanguageKey, FocusMusicTranslations>
     downloadFailedBody: "Vérifiez la connexion et réessayez.",
     downloadBusyTitle: "Téléchargement en cours",
     downloadBusyBody: "Veuillez attendre la fin du téléchargement en cours.",
+    monthlyLimitTitle: "Limite mensuelle",
+    monthlyLimitBody:
+      "Vous avez atteint la limite mensuelle. Réessayez le mois prochain.",
     catalogTitle: "Catalogue de musiques",
     catalogSubtitle: "Écoutez un extrait et ajoutez vos favoris.",
     preview: "Écouter",

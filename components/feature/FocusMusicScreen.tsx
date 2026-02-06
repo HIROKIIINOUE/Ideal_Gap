@@ -1,5 +1,3 @@
-// データベース統合が完了してからコードを全て確認
-
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,6 +19,7 @@ import {
   spacing,
   typography,
 } from "../../constants/theme";
+import { FOCUS_MUSIC_MAX_INSTALLED } from "../../lib/focus-music/constants";
 import { createFocusMusicSignedUrl } from "../../lib/focus-music/signedUrl";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 
@@ -39,7 +38,9 @@ export default function FocusMusicScreen() {
     catalog,
     installedTracks,
     selectedTrackId,
-    maxInstalled,
+    monthlyDownloadLimit,
+    monthlyDownloadRemaining,
+    downloadResetAt,
     canInstall,
     isInstalling,
     isDownloadInProgress,
@@ -55,10 +56,23 @@ export default function FocusMusicScreen() {
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [limitMessageVisible, setLimitMessageVisible] = useState(false);
 
-  const installedCountLabel = useMemo(
+  const monthlyDownloadLabel = useMemo(() => {
+    if (monthlyDownloadRemaining === null || !downloadResetAt) return null;
+    const resetLabel = new Date(downloadResetAt).toLocaleDateString("ja-JP");
+    return t("subDescription", {
+      count: monthlyDownloadRemaining,
+      max: monthlyDownloadLimit,
+      resetAt: resetLabel,
+    });
+  }, [downloadResetAt, monthlyDownloadLimit, monthlyDownloadRemaining, t]);
+
+  const installedTitleLabel = useMemo(
     () =>
-      t("installedCount", { count: installedTracks.length, max: maxInstalled }),
-    [installedTracks.length, maxInstalled, t],
+      t("installedTitleWithCount", {
+        count: installedTracks.length,
+        max: FOCUS_MUSIC_MAX_INSTALLED,
+      }),
+    [installedTracks.length, t],
   );
 
   useEffect(() => {
@@ -118,6 +132,10 @@ export default function FocusMusicScreen() {
     }
     if (result.reason === "busy") {
       Alert.alert(t("downloadBusyTitle"), t("downloadBusyBody"));
+      return;
+    }
+    if (result.reason === "monthly_limit") {
+      Alert.alert(t("monthlyLimitTitle"), t("monthlyLimitBody"));
     }
   };
 
@@ -170,11 +188,11 @@ export default function FocusMusicScreen() {
       >
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>{t("title")}</Text>
-          <View style={styles.pill}>
-            <Text style={styles.pillText}>{installedCountLabel}</Text>
-          </View>
         </View>
         <Text style={styles.headerBody}>{t("description")}</Text>
+        {monthlyDownloadLabel && (
+          <Text style={styles.subDescription}>{monthlyDownloadLabel}</Text>
+        )}
       </LinearGradient>
 
       <View style={[styles.card, shadows.card]}>
@@ -185,7 +203,7 @@ export default function FocusMusicScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t("installedTitle")}</Text>
+          <Text style={styles.sectionTitle}>{installedTitleLabel}</Text>
           <Text style={styles.sectionSubtitle}>{t("installedSubtitle")}</Text>
         </View>
         {installedTracks.length === 0 ? (
@@ -410,20 +428,11 @@ const styles = StyleSheet.create({
   headerBody: {
     color: colors.textSecondary,
     fontSize: typography.sm,
-    lineHeight: typography.sm * 1.5,
   },
-  pill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: radius.full,
-    backgroundColor: "rgba(30,94,255,0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.35)",
-  },
-  pillText: {
-    color: colors.textPrimary,
+  subDescription: {
+    color: colors.textSecondary,
     fontSize: typography.sm,
-    fontWeight: "600",
+    lineHeight: typography.sm,
   },
   sectionHeader: {
     gap: spacing.xs,

@@ -58,6 +58,7 @@ const mockSignedUrl = jest.fn(
   async (_trackId: string) => "https://example.com/focus.mp3",
 );
 const mockNetInfoFetch = jest.fn();
+const mockGetUserId = jest.fn(async () => "user-1");
 
 jest.mock("@expo/vector-icons", () => {
   const MockIcon = () => null;
@@ -77,6 +78,10 @@ jest.mock("../lib/focus-music/catalog", () => ({
 
 jest.mock("../lib/focus-music/signedUrl", () => ({
   createFocusMusicSignedUrl: (trackId: string) => mockSignedUrl(trackId),
+}));
+
+jest.mock("../lib/api/supabase/common", () => ({
+  getUserId: () => mockGetUserId(),
 }));
 
 jest.mock("@react-native-community/netinfo", () => ({

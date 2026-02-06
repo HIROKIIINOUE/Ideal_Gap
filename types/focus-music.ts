@@ -33,7 +33,8 @@ export type InstallResult =
         | "not_found"
         | "download_failed"
         | "already_installed"
-        | "busy";
+        | "busy"
+        | "monthly_limit";
     };
 
 export type RemoveResult =
