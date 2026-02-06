@@ -2,12 +2,23 @@
 
 import { z } from "zod";
 
+export const FocusMusicCategorySchema = z.enum([
+  "study",
+  "chill",
+  "nature",
+  "music",
+  "workout",
+]);
+
+export type FocusMusicCategory = z.infer<typeof FocusMusicCategorySchema>;
+
 export const FocusMusicTrackSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   bucket: z.string().min(1),
   storagePath: z.string().min(1),
   durationSeconds: z.number().int().nonnegative().nullable().optional(),
+  musicCategories: z.array(FocusMusicCategorySchema).default([]),
 });
 
 export type FocusMusicTrack = z.infer<typeof FocusMusicTrackSchema>;

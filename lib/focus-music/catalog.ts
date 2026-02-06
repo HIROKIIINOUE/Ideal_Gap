@@ -12,6 +12,7 @@ const mapRowToTrack = (row: {
   bucket: string | null;
   storage_path: string | null;
   duration: number | null;
+  music_category: string[] | null;
 }): FocusMusicTrack | null => {
   if (!row.title || !row.bucket || !row.storage_path) return null;
   const parsed = FocusMusicTrackSchema.safeParse({
@@ -20,6 +21,7 @@ const mapRowToTrack = (row: {
     bucket: row.bucket,
     storagePath: row.storage_path,
     durationSeconds: row.duration,
+    musicCategories: row.music_category ?? [],
   });
   if (!parsed.success) return null;
   return parsed.data;
@@ -30,7 +32,7 @@ const mapRowToTrack = (row: {
 export const fetchFocusMusicCatalog = async (): Promise<FocusMusicTrack[]> => {
   const { data, error } = await supabase
     .from(FOCUS_MUSIC_CATALOG_TABLE)
-    .select("id,title,bucket,storage_path,duration")
+    .select("id,title,bucket,storage_path,duration,music_category")
     .order("created_at", { ascending: true });
 
   if (error) {

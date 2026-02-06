@@ -36,6 +36,8 @@ export type FocusMusicTranslations = {
   monthlyLimitBody: string;
   catalogTitle: string;
   catalogSubtitle: string;
+  categoryFilterTitle: string;
+  categoryFilterEmpty: string;
   preview: string;
   previewStop: string;
   previewLoading: string;
@@ -45,6 +47,13 @@ export type FocusMusicTranslations = {
   installedLabel: string;
   downloadingLabel: string;
   close: string;
+  categories: {
+    study: string;
+    chill: string;
+    nature: string;
+    music: string;
+    workout: string;
+  };
 };
 
 export const focusMusicTranslations: Record<
@@ -91,6 +100,8 @@ export const focusMusicTranslations: Record<
       "今月のダウンロード上限に達しました。翌月に再度お試しください。",
     catalogTitle: "作業用音楽カタログ",
     catalogSubtitle: "試聴して追加できます。",
+    categoryFilterTitle: "カテゴリで絞り込み",
+    categoryFilterEmpty: "該当する音楽がありません。",
     preview: "試聴",
     previewStop: "停止",
     previewLoading: "読み込み中",
@@ -100,6 +111,13 @@ export const focusMusicTranslations: Record<
     installedLabel: "追加済み",
     downloadingLabel: "ダウンロード中",
     close: "閉じる",
+    categories: {
+      study: "学習",
+      chill: "チル",
+      nature: "自然",
+      music: "音楽",
+      workout: "運動",
+    },
   },
   en: {
     title: "Focus music",
@@ -141,6 +159,8 @@ export const focusMusicTranslations: Record<
       "You've reached this month's download limit. Please try again next month.",
     catalogTitle: "Focus music catalog",
     catalogSubtitle: "Preview and add your favorites.",
+    categoryFilterTitle: "Filter by category",
+    categoryFilterEmpty: "No tracks match the selected categories.",
     preview: "Preview",
     previewStop: "Stop",
     previewLoading: "Loading",
@@ -150,6 +170,13 @@ export const focusMusicTranslations: Record<
     installedLabel: "Installed",
     downloadingLabel: "Downloading",
     close: "Close",
+    categories: {
+      study: "Study",
+      chill: "Chill",
+      nature: "Nature",
+      music: "Music",
+      workout: "Workout",
+    },
   },
   fr: {
     title: "Musique de focus",
@@ -191,6 +218,8 @@ export const focusMusicTranslations: Record<
       "Vous avez atteint la limite mensuelle. Réessayez le mois prochain.",
     catalogTitle: "Catalogue de musiques",
     catalogSubtitle: "Écoutez un extrait et ajoutez vos favoris.",
+    categoryFilterTitle: "Filtrer par catégorie",
+    categoryFilterEmpty: "Aucune musique ne correspond.",
     preview: "Écouter",
     previewStop: "Arrêter",
     previewLoading: "Chargement",
@@ -200,5 +229,12 @@ export const focusMusicTranslations: Record<
     installedLabel: "Installé",
     downloadingLabel: "Téléchargement",
     close: "Fermer",
+    categories: {
+      study: "Étude",
+      chill: "Détente",
+      nature: "Nature",
+      music: "Musique",
+      workout: "Entraînement",
+    },
   },
 };

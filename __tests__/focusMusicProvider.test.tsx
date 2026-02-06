@@ -16,6 +16,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/deep-focus.mp3",
     durationSeconds: 150,
+    musicCategories: ["study"],
   },
   {
     id: "track-2",
@@ -23,6 +24,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/flow-state.mp3",
     durationSeconds: 160,
+    musicCategories: ["study"],
   },
   {
     id: "track-3",
@@ -30,6 +32,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/night-river.mp3",
     durationSeconds: 170,
+    musicCategories: ["chill"],
   },
   {
     id: "track-4",
@@ -37,6 +40,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/quiet-orbit.mp3",
     durationSeconds: 180,
+    musicCategories: ["chill"],
   },
   {
     id: "track-5",
@@ -44,6 +48,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/soft-horizon.mp3",
     durationSeconds: 190,
+    musicCategories: ["nature"],
   },
 ];
 
@@ -336,7 +341,7 @@ describe("FocusMusicProvider", () => {
       `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.user-1`,
       JSON.stringify({
         resetAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-        count: 10,
+        count: 100,
       }),
     );
 

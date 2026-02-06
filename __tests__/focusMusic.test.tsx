@@ -15,6 +15,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/deep-focus.mp3",
     durationSeconds: 150,
+    musicCategories: ["study", "music"],
   },
   {
     id: "track-2",
@@ -22,6 +23,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/flow-state.mp3",
     durationSeconds: 160,
+    musicCategories: ["study"],
   },
   {
     id: "track-3",
@@ -29,6 +31,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/night-river.mp3",
     durationSeconds: 170,
+    musicCategories: ["chill", "nature"],
   },
   {
     id: "track-4",
@@ -36,6 +39,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/quiet-orbit.mp3",
     durationSeconds: 180,
+    musicCategories: ["study", "chill"],
   },
   {
     id: "track-5",
@@ -43,6 +47,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/soft-horizon.mp3",
     durationSeconds: 190,
+    musicCategories: ["nature"],
   },
   {
     id: "track-6",
@@ -50,6 +55,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/morning-grain.mp3",
     durationSeconds: 200,
+    musicCategories: ["workout"],
   },
 ];
 
@@ -197,5 +203,23 @@ describe("FocusMusicScreen", () => {
       "Install limit reached",
       "You can install up to 5 tracks. Remove a track from your list to install another one.",
     );
+  });
+
+  test("filters catalog by selected categories", async () => {
+    const { getByTestId, getByText, queryByText } = renderScreen();
+
+    fireEvent.press(getByTestId("focus-music-catalog-button"));
+    await waitFor(() => expect(getByText("Deep Focus")).toBeTruthy());
+
+    fireEvent.press(getByTestId("focus-music-category-filter-study"));
+    expect(getByText("Deep Focus")).toBeTruthy();
+    expect(getByText("Flow State")).toBeTruthy();
+    expect(getByText("Quiet Orbit")).toBeTruthy();
+    expect(queryByText("Night River")).toBeNull();
+
+    fireEvent.press(getByTestId("focus-music-category-filter-music"));
+    expect(getByText("Deep Focus")).toBeTruthy();
+    expect(queryByText("Flow State")).toBeNull();
+    expect(queryByText("Quiet Orbit")).toBeNull();
   });
 });

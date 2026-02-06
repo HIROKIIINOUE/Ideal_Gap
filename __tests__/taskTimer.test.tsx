@@ -32,6 +32,7 @@ const mockCatalog: FocusMusicTrack[] = [
     bucket: "focus-music",
     storagePath: "tracks/deep-focus.mp3",
     durationSeconds: 150,
+    musicCategories: ["study"],
   },
 ];
 
@@ -306,6 +307,7 @@ describe("TaskTimerScreen", () => {
       bucket: "focus-music",
       storagePath: "tracks/deep-focus.mp3",
       durationSeconds: 150,
+      musicCategories: ["study"],
       localPath: "file://test/focus-music/track-1.mp3",
       downloadedAt: new Date().toISOString(),
     };
@@ -346,6 +348,7 @@ describe("TaskTimerScreen", () => {
       bucket: "focus-music",
       storagePath: "tracks/deep-focus.mp3",
       durationSeconds: 150,
+      musicCategories: ["study"],
       localPath: "file://test/focus-music/track-1.mp3",
       downloadedAt: new Date().toISOString(),
     };
@@ -390,6 +393,7 @@ describe("TaskTimerScreen", () => {
       bucket: "focus-music",
       storagePath: "tracks/deep-focus.mp3",
       durationSeconds: 150,
+      musicCategories: ["study"],
       localPath: "file://test/focus-music/track-1.mp3",
       downloadedAt: new Date().toISOString(),
     };
