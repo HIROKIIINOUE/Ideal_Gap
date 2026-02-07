@@ -5,6 +5,8 @@ import AnnualGoalsScreen from "../components/feature/AnnualGoalsScreen";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
+let lastPieData: Array<{ value: number; color: string }> | null = null;
+
 jest.mock("@expo/vector-icons", () => {
   const MockIcon = () => null;
   MockIcon.displayName = "MockMaterialCommunityIcons";
@@ -27,9 +29,16 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 jest.mock("react-native-gifted-charts", () => {
-  const MockPieChart = ({ centerLabelComponent }: { centerLabelComponent?: () => React.ReactNode }) => (
-    <>{centerLabelComponent ? centerLabelComponent() : null}</>
-  );
+  const MockPieChart = ({
+    centerLabelComponent,
+    data,
+  }: {
+    centerLabelComponent?: () => React.ReactNode;
+    data?: Array<{ value: number; color: string }>;
+  }) => {
+    lastPieData = data ?? null;
+    return <>{centerLabelComponent ? centerLabelComponent() : null}</>;
+  };
   MockPieChart.displayName = "MockPieChart";
   return { PieChart: MockPieChart };
 });
@@ -94,6 +103,7 @@ describe("AnnualGoalsScreen", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    lastPieData = null;
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
     });
@@ -273,5 +283,38 @@ describe("AnnualGoalsScreen", () => {
     const { findByText } = renderScreen();
 
     expect(await findByText("Session not found. Please log in again.")).toBeTruthy();
+  });
+
+  test("renders equal donut slices when all accumulated times are zero", async () => {
+    mockOrder.mockResolvedValueOnce({
+      data: [
+        {
+          id: "goal-1",
+          description: "Reset routine",
+          year_goal_color: "#1E5EFF",
+          accumulated_time_year: 0,
+          order: 0,
+          updated_at: "2025-01-06T09:30:00Z",
+        },
+        {
+          id: "goal-2",
+          description: "Build core habits",
+          year_goal_color: "#6EA8FF",
+          accumulated_time_year: 0,
+          order: 1,
+          updated_at: "2025-01-08T13:10:00Z",
+        },
+      ],
+      error: null,
+    });
+
+    renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const values = (lastPieData ?? []).map((item) => item.value);
+    const colors = (lastPieData ?? []).map((item) => item.color).sort();
+    expect(values).toEqual([1, 1]);
+    expect(colors).toEqual(["#1E5EFF", "#6EA8FF"].sort());
   });
 });

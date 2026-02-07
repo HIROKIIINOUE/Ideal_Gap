@@ -150,22 +150,23 @@ export default function AnnualGoalsScreen() {
     };
   }, [t]);
 
-  // ドーナツ型円グラフ作成のためのデータ取得
-  const chartData = useMemo(() => {
-    if (goals.length === 0) {
-      return [{ value: 1, color: "#000000" }];
-    }
-    return goals.map((goal, idx) => ({
-      value: Math.max(goal.accumulatedMinutes, 0),
-      color: goal.goalColor || COLOR_OPTIONS[idx % COLOR_OPTIONS.length],
-    }));
-  }, [goals]);
-
   // 合計時間の算出
   const totalMinutes = useMemo(
     () => goals.reduce((sum, goal) => sum + Math.max(goal.accumulatedMinutes, 0), 0),
     [goals],
   );
+
+  // ドーナツ型円グラフ作成のためのデータ取得
+  const chartData = useMemo(() => {
+    if (goals.length === 0) {
+      return [{ value: 1, color: "#000000" }];
+    }
+    const hasAnyProgress = totalMinutes > 0;
+    return goals.map((goal, idx) => ({
+      value: hasAnyProgress ? Math.max(goal.accumulatedMinutes, 0) : 1,
+      color: goal.goalColor || COLOR_OPTIONS[idx % COLOR_OPTIONS.length],
+    }));
+  }, [goals, totalMinutes]);
 
   const handleAddPress = () => {
     setModalError(null);
@@ -228,9 +229,11 @@ export default function AnnualGoalsScreen() {
             return;
           }
           // データベースから削除するロジック
-          const { error } = await deleteYearlyGoal(goal.id);
-          if (error) {
-            Alert.alert(t("errors.deleteFailed"), error.message);
+          try {
+            await deleteYearlyGoal(goal.id);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : t("errors.deleteFailed");
+            Alert.alert(t("errors.deleteFailed"), message);
             return;
           }
           // 削除したデータを表示しないようにタイムリーにUIに反映させるロジック
