@@ -1,9 +1,11 @@
 import React from "react";
+import { Alert } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import MonthlyGoalsScreen from "../components/feature/MonthlyGoalsScreen";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
+import { deleteMonthlyGoalWithWeeklyTasks } from "../lib/api/supabase/goals/cascadeDelete";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 jest.useFakeTimers().setSystemTime(new Date("2025-02-10T00:00:00Z"));
@@ -52,6 +54,10 @@ jest.mock("../lib/supabaseClient", () => ({
     },
     from: jest.fn(),
   },
+}));
+
+jest.mock("../lib/api/supabase/goals/cascadeDelete", () => ({
+  deleteMonthlyGoalWithWeeklyTasks: jest.fn(),
 }));
 
 jest.mock("@react-native-async-storage/async-storage", () => {
@@ -119,6 +125,10 @@ describe("MonthlyGoalsScreen", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Alert, "alert").mockImplementation((_, __, buttons) => {
+      const destructive = buttons?.find((button) => button.style === "destructive");
+      destructive?.onPress?.();
+    });
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
     });
@@ -168,6 +178,8 @@ describe("MonthlyGoalsScreen", () => {
       }
       return {};
     });
+
+    (deleteMonthlyGoalWithWeeklyTasks as jest.Mock).mockResolvedValue({ deletedCount: 0 });
   });
 
   test("shows summary and current month goals with progress totals", async () => {
@@ -202,5 +214,39 @@ describe("MonthlyGoalsScreen", () => {
     await waitFor(() => expect(mockOrderMonthlySecond).toHaveBeenCalled());
 
     expect(await findByText("No monthly goals for this month yet.")).toBeTruthy();
+  });
+
+  test("deletes weekly tasks when deleting a monthly goal", async () => {
+    const mockDeleteMonthly = jest.fn().mockResolvedValue({ error: null });
+    const mockUpsertMonthly = jest.fn().mockResolvedValue({ error: null });
+
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table === "monthly_goals") {
+        return {
+          select: mockSelectMonthly,
+          insert: jest.fn(),
+          update: jest.fn(),
+          delete: mockDeleteMonthly,
+          upsert: mockUpsertMonthly,
+        };
+      }
+      if (table === "yearly_goals") {
+        return {
+          select: mockSelectYearly,
+          order: mockOrderYearly,
+          eq: mockEqYearly,
+        };
+      }
+      return {};
+    });
+
+    const { getAllByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrderMonthlySecond).toHaveBeenCalled());
+
+    fireEvent.press(getAllByRole("button", { name: "Delete" })[0]);
+    fireEvent.press(getAllByRole("button", { name: "Delete" })[0]);
+
+    await waitFor(() => expect(deleteMonthlyGoalWithWeeklyTasks).toHaveBeenCalledWith("mg-feb-1"));
   });
 });

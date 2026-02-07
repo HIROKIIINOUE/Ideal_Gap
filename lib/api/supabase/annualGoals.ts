@@ -3,6 +3,7 @@
 import { Database } from "../../../types/database";
 import { supabase } from "../../supabaseClient";
 import { upsertRows } from "./common";
+import { deleteYearlyGoalWithCascade } from "./goals/cascadeDelete";
 
 export type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
 export type YearlyGoalInsert =
@@ -45,7 +46,7 @@ export const updateYearlyGoal = async (
 };
 
 export const deleteYearlyGoal = async (id: string) => {
-  return supabase.from("yearly_goals").delete().eq("id", id);
+  return deleteYearlyGoalWithCascade(id);
 };
 
 export const upsertYearlyGoals = async (rows: YearlyGoalInsert[]) => {

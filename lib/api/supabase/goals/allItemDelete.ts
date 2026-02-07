@@ -32,26 +32,64 @@ export const deleteMonthlyGoals = async ({
   if (month) {
     filters.month = month;
   }
+  const { data: monthlyRows, error: selectError } = await supabase
+    .from("monthly_goals" as any)
+    .select("id")
+    .match(filters);
+  if (selectError) {
+    throw new Error(selectError.message);
+  }
+
+  const monthlyIds = ((monthlyRows as unknown as { id: string }[] | null | undefined) ?? [])
+    .map((row) => row.id)
+    .filter(Boolean);
+  if (monthlyIds.length > 0) {
+    const { error: weeklyError } = await supabase
+      .from("weekly_tasks" as any)
+      .delete()
+      .in("monthly_goal_id", monthlyIds);
+    if (weeklyError) {
+      throw new Error(weeklyError.message);
+    }
+  }
+
   // eq()ではなくmatch()を使用することで複数の条件でもフィルターできる(「ユーザ」「指定の月」二つのデータを参照する場合に対応)
-  const { error } = await supabase
+  const { error: deleteError } = await supabase
     .from("monthly_goals" as any)
     .delete()
     .match(filters);
-  if (error) {
-    throw new Error(error.message);
+  if (deleteError) {
+    throw new Error(deleteError.message);
   }
   return { deletedCount: 0 };
 };
 
 // 年間目標を全削除
 export const deleteYearlyGoals = async ({ userId }: DeleteByUserParams) => {
-  const { error } = await supabase
+  const { error: weeklyError } = await supabase
+    .from("weekly_tasks" as any)
+    .delete()
+    .eq("user_id", userId);
+  if (weeklyError) {
+    throw new Error(weeklyError.message);
+  }
+
+  const { error: monthlyError } = await supabase
+    .from("monthly_goals" as any)
+    .delete()
+    .eq("user_id", userId);
+  if (monthlyError) {
+    throw new Error(monthlyError.message);
+  }
+
+  const { error: yearlyError } = await supabase
     .from("yearly_goals" as any)
     .delete()
     .eq("user_id", userId);
-  if (error) {
-    throw new Error(error.message);
+  if (yearlyError) {
+    throw new Error(yearlyError.message);
   }
+
   return { deletedCount: 0 };
 };
 

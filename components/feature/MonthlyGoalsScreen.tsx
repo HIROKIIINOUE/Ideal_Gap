@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { deleteMonthlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
+import { deleteMonthlyGoalWithWeeklyTasks } from "../../lib/api/supabase/goals/cascadeDelete";
 import { supabase } from "../../lib/supabaseClient";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
@@ -363,9 +364,11 @@ export default function MonthlyGoalsScreen() {
             Alert.alert(t("deleteConfirmTitle"), t("errors.loginMissing"));
             return;
           }
-          const { error } = await supabase.from("monthly_goals").delete().eq("id", goal.id);
-          if (error) {
-            Alert.alert(t("deleteConfirmTitle"), error.message ?? t("errors.saveFailed"));
+          try {
+            await deleteMonthlyGoalWithWeeklyTasks(goal.id);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : t("errors.saveFailed");
+            Alert.alert(t("deleteConfirmTitle"), message);
             return;
           }
 
