@@ -738,6 +738,7 @@ export default function WeeklyTasksScreen() {
           </View>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={deleteMode ? t("actions.delete") : t("modal.editTitle")}
             style={[styles.editButton, deleteMode && styles.dangerButton]}
             onPress={() => {
               if (deleteMode) {
@@ -1468,8 +1469,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)",
     alignSelf: "flex-end",
     marginLeft: "auto",
-    borderWidth: 1,
-    borderColor: colors.accentPrimary,
   },
   editButtonText: {
     color: colors.textPrimary,
@@ -1693,7 +1692,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   selectListScroll: {
-    maxHeight: 260,
+    maxHeight: 140,
   },
   selectOption: {
     paddingVertical: spacing.sm,

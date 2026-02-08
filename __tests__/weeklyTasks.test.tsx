@@ -170,13 +170,16 @@ describe("WeeklyTasksScreen", () => {
     });
     mockOrderWeekly.mockResolvedValue({ data: [], error: null });
 
-    const { findByText, getByText, queryByText } = renderScreen();
+    const { findByText, getByText, getByPlaceholderText, queryByText } = renderScreen();
 
     await waitFor(() => expect(mockOrderMonthly).toHaveBeenCalled());
 
     fireEvent.press(await findByText("Add"));
 
+    const titlePlaceholder = i18n.t("modal.titlePlaceholder", { ns: "weeklyTasks" }) as string;
+
     await waitFor(() => expect(getByText("Month to show monthly goals")).toBeTruthy());
+    expect(getByPlaceholderText(titlePlaceholder)).toBeTruthy();
 
     expect(getByText(monthLabel)).toBeTruthy();
     expect(getByText(`${monthLabel}: Focus this month`)).toBeTruthy();

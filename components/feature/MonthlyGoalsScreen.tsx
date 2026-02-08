@@ -576,6 +576,7 @@ export default function MonthlyGoalsScreen() {
           </View>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={deleteMode ? t("delete") : t("modal.editTitle")}
             onPress={() => (deleteMode ? handleDelete(item) : handleEditPress(item))}
             style={[deleteMode ? styles.dangerButton : styles.editButton, styles.iconButtonRow]}
           >
