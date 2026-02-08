@@ -11,8 +11,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
-import { supabase } from "../../lib/supabaseClient";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
+import { supabase } from "../../lib/supabaseClient";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
 
@@ -656,6 +656,15 @@ export default function WeeklyTasksScreen() {
             <Text style={styles.listRowTitle} numberOfLines={1} ellipsizeMode="tail">
               {item.title}
             </Text>
+            {!deleteMode && <Pressable
+              accessibilityRole="button"
+              disabled={deleteMode}
+              onPress={() => handleOpenTimer(item)}
+              style={styles.listRowButton}
+            >
+              <MaterialCommunityIcons name="timer-outline" size={18} color={colors.textPrimary} />
+
+            </Pressable>}
             <Pressable
               accessibilityRole="button"
               style={[styles.listRowButton, deleteMode && styles.dangerButton]}
@@ -672,9 +681,6 @@ export default function WeeklyTasksScreen() {
                 size={16}
                 color={deleteMode ? colors.error : colors.textPrimary}
               />
-              <Text style={deleteMode ? styles.dangerButtonText : styles.listRowButtonText}>
-                {deleteMode ? t("actions.delete") : t("task.edit")}
-              </Text>
             </Pressable>
           </View>
         </Pressable>
@@ -746,9 +752,6 @@ export default function WeeklyTasksScreen() {
               size={18}
               color={deleteMode ? colors.error : colors.textPrimary}
             />
-            <Text style={deleteMode ? styles.dangerButtonText : styles.editButtonText}>
-              {deleteMode ? t("actions.delete") : t("task.edit")}
-            </Text>
           </Pressable>
         </View>
 
@@ -1465,6 +1468,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)",
     alignSelf: "flex-end",
     marginLeft: "auto",
+    borderWidth: 1,
+    borderColor: colors.accentPrimary,
   },
   editButtonText: {
     color: colors.textPrimary,

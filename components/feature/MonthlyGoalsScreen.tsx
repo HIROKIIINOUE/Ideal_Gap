@@ -584,9 +584,6 @@ export default function MonthlyGoalsScreen() {
               size={16}
               color={deleteMode ? colors.error : colors.textPrimary}
             />
-            <Text style={deleteMode ? styles.dangerButtonText : styles.editButtonText}>
-              {deleteMode ? t("delete") : t("modal.editTitle")}
-            </Text>
           </Pressable>
         </View>
       </Pressable>
@@ -1139,6 +1136,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,
     backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: colors.accentPrimary,
   },
   dangerButton: {
     flexDirection: "row",

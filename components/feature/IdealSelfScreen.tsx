@@ -562,6 +562,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
     backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: colors.accentPrimary,
   },
   editButtonText: {
     color: colors.textPrimary,
