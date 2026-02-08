@@ -30,6 +30,14 @@ export type AnnualGoalsTranslations = {
   deleteConfirmBody: string;
   deleteConfirmYes: string;
   deleteConfirmNo: string;
+  deleteSuccess: {
+    title: string;
+    body: string;
+  };
+  bulkDeleteSuccess: {
+    title: string;
+    body: string;
+  };
   bulkDelete: {
     button: string;
     title: string;
@@ -80,6 +88,14 @@ export const annualGoalsTranslations: Record<
     deleteConfirmBody: "この年間目標を削除すると元に戻せません。\n紐づく月間目標・週間タスクも削除されます。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
+    deleteSuccess: {
+      title: "削除しました",
+      body: "削除が完了しました。",
+    },
+    bulkDeleteSuccess: {
+      title: "全て削除しました",
+      body: "年間目標を全て削除しました。",
+    },
     bulkDelete: {
       button: "全削除",
       title: "年間目標を全て削除しますか？",
@@ -125,6 +141,14 @@ export const annualGoalsTranslations: Record<
     deleteConfirmBody: "You can’t undo this action after deleting.\nLinked monthly goals and weekly tasks will also be deleted.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
+    deleteSuccess: {
+      title: "Deleted",
+      body: "Deletion completed.",
+    },
+    bulkDeleteSuccess: {
+      title: "Deleted all",
+      body: "All annual goals were removed.",
+    },
     bulkDelete: {
       button: "Delete all",
       title: "Delete all annual goals?",
@@ -173,6 +197,14 @@ export const annualGoalsTranslations: Record<
     deleteConfirmBody: "Cette action est définitive après suppression.\nLes objectifs mensuels et les tâches hebdomadaires liés seront également supprimés.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
+    deleteSuccess: {
+      title: "Supprimé",
+      body: "Suppression terminée.",
+    },
+    bulkDeleteSuccess: {
+      title: "Tout supprimé",
+      body: "Tous les objectifs annuels ont été supprimés.",
+    },
     bulkDelete: {
       button: "Tout supprimer",
       title: "Supprimer tous les objectifs annuels ?",

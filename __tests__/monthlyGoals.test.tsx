@@ -6,6 +6,7 @@ import MonthlyGoalsScreen from "../components/feature/MonthlyGoalsScreen";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 import { deleteMonthlyGoalWithWeeklyTasks } from "../lib/api/supabase/goals/cascadeDelete";
+import { deleteMonthlyGoals } from "../lib/api/supabase/goals/allItemDelete";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 jest.useFakeTimers().setSystemTime(new Date("2025-02-10T00:00:00Z"));
@@ -58,6 +59,10 @@ jest.mock("../lib/supabaseClient", () => ({
 
 jest.mock("../lib/api/supabase/goals/cascadeDelete", () => ({
   deleteMonthlyGoalWithWeeklyTasks: jest.fn(),
+}));
+
+jest.mock("../lib/api/supabase/goals/allItemDelete", () => ({
+  deleteMonthlyGoals: jest.fn(),
 }));
 
 jest.mock("@react-native-async-storage/async-storage", () => {
@@ -248,5 +253,23 @@ describe("MonthlyGoalsScreen", () => {
     fireEvent.press(getAllByRole("button", { name: "Delete" })[0]);
 
     await waitFor(() => expect(deleteMonthlyGoalWithWeeklyTasks).toHaveBeenCalledWith("mg-feb-1"));
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted", "Deletion completed.");
+    });
+  });
+
+  test("shows a bulk delete success alert when deleting all monthly goals", async () => {
+    (deleteMonthlyGoals as jest.Mock).mockResolvedValue(undefined);
+
+    const { getByRole, getAllByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrderMonthlySecond).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+    fireEvent.press(getAllByRole("button", { name: "Delete all" })[0]);
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted all", "All monthly goals were removed.");
+    });
   });
 });

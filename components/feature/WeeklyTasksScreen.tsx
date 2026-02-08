@@ -173,15 +173,21 @@ export default function WeeklyTasksScreen() {
           const reordered = reorderTasks(remaining);
           setTasks(reordered);
 
+          let reorderFailed = false;
           // 削除後に既存のタスクがあれば、上で処理した新しいorderをDBに反映する
           if (reordered.length > 0) {
             const updates = reordered.map((item) => toWeeklyRow(item, uid));
-            const { error: reorderError } = await supabase
+            const { error: upsertError } = await supabase
               .from("weekly_tasks" as any)
               .upsert(updates, { onConflict: "id" });
-            if (reorderError) {
-              Alert.alert(t("deleteConfirm.title"), reorderError.message ?? t("modal.errorRequired"));
+            if (upsertError) {
+              Alert.alert(t("deleteConfirm.title"), upsertError.message ?? t("modal.errorRequired"));
+              reorderFailed = true;
             }
+          }
+
+          if (!reorderFailed) {
+            Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
           }
         },
       },
@@ -379,6 +385,7 @@ export default function WeeklyTasksScreen() {
     try {
       await deleteWeeklyTasks({ userId: uid });
       setTasks([]);
+      Alert.alert(t("bulkDeleteSuccess.title"), t("bulkDeleteSuccess.body"));
     } catch (error) {
       const message = error instanceof Error ? error.message : t("modal.errorRequired");
       Alert.alert(t("deleteConfirm.title"), message);

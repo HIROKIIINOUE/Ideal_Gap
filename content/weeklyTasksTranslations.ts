@@ -19,6 +19,14 @@ export type WeeklyTasksTranslations = {
     yes: string;
     no: string;
   };
+  deleteSuccess: {
+    title: string;
+    body: string;
+  };
+  bulkDeleteSuccess: {
+    title: string;
+    body: string;
+  };
   summary: {
     target: string;
     logged: string;
@@ -105,6 +113,14 @@ export const weeklyTasksTranslations: Record<
       yes: "削除する",
       no: "キャンセル",
     },
+    deleteSuccess: {
+      title: "削除しました",
+      body: "削除が完了しました。",
+    },
+    bulkDeleteSuccess: {
+      title: "全て削除しました",
+      body: "週間タスクを全て削除しました。",
+    },
     summary: {
       target: "目標",
       logged: "実績",
@@ -187,6 +203,14 @@ export const weeklyTasksTranslations: Record<
       yes: "Delete",
       no: "Cancel",
     },
+    deleteSuccess: {
+      title: "Deleted",
+      body: "Deletion completed.",
+    },
+    bulkDeleteSuccess: {
+      title: "Deleted all",
+      body: "All weekly tasks were removed.",
+    },
     summary: {
       target: "Target",
       logged: "Logged",
@@ -268,6 +292,14 @@ export const weeklyTasksTranslations: Record<
       body: "Cette action est définitive après suppression.",
       yes: "Supprimer",
       no: "Annuler",
+    },
+    deleteSuccess: {
+      title: "Supprimé",
+      body: "Suppression terminée.",
+    },
+    bulkDeleteSuccess: {
+      title: "Tout supprimé",
+      body: "Toutes les tâches hebdomadaires ont été supprimées.",
     },
     summary: {
       target: "Objectif",

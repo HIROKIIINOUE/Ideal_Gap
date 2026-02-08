@@ -1,9 +1,11 @@
 import React from "react";
+import { Alert } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import AnnualGoalsScreen from "../components/feature/AnnualGoalsScreen";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
+import { deleteYearlyGoals } from "../lib/api/supabase/goals/allItemDelete";
 
 let lastPieData: Array<{ value: number; color: string }> | null = null;
 
@@ -79,6 +81,10 @@ jest.mock("react-native-draggable-flatlist", () => {
   MockFlatList.displayName = "MockDraggableFlatList";
   return MockFlatList;
 });
+
+jest.mock("../lib/api/supabase/goals/allItemDelete", () => ({
+  deleteYearlyGoals: jest.fn(),
+}));
 
 describe("AnnualGoalsScreen", () => {
   const mockSelect = jest.fn();
@@ -316,5 +322,46 @@ describe("AnnualGoalsScreen", () => {
     const colors = (lastPieData ?? []).map((item) => item.color).sort();
     expect(values).toEqual([1, 1]);
     expect(colors).toEqual(["#1E5EFF", "#6EA8FF"].sort());
+  });
+
+  test("shows a success alert after deleting an annual goal", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation((_, __, buttons) => {
+      const destructive = buttons?.find((button) => button.style === "destructive");
+      destructive?.onPress?.();
+    });
+
+    const { getAllByRole, getByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+    fireEvent.press(getAllByRole("button", { name: "Delete" })[0]);
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenLastCalledWith("Deleted", "Deletion completed.");
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  test("shows a bulk delete success alert when deleting all annual goals", async () => {
+    (deleteYearlyGoals as jest.Mock).mockResolvedValue(undefined);
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation((_, __, buttons) => {
+      const destructive = buttons?.find((button) => button.style === "destructive");
+      destructive?.onPress?.();
+    });
+
+    const { getByRole, getAllByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+    fireEvent.press(getAllByRole("button", { name: "Delete all" })[0]);
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenLastCalledWith("Deleted all", "All annual goals were removed.");
+    });
+
+    alertSpy.mockRestore();
   });
 });

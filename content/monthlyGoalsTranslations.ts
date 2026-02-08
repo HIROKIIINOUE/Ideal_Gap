@@ -39,6 +39,14 @@ export type MonthlyGoalsTranslations = {
   deleteConfirmBody: string;
   deleteConfirmYes: string;
   deleteConfirmNo: string;
+  deleteSuccess: {
+    title: string;
+    body: string;
+  };
+  bulkDeleteSuccess: {
+    title: string;
+    body: string;
+  };
   bulkDelete: {
     button: string;
     title: string;
@@ -111,6 +119,14 @@ export const monthlyGoalsTranslations: Record<
     deleteConfirmBody: "この月間目標を削除すると元に戻せません。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
+    deleteSuccess: {
+      title: "削除しました",
+      body: "削除が完了しました。",
+    },
+    bulkDeleteSuccess: {
+      title: "全て削除しました",
+      body: "月間目標を全て削除しました。",
+    },
     bulkDelete: {
       button: "全削除",
       title: "どの目標を削除しますか？",
@@ -178,6 +194,14 @@ export const monthlyGoalsTranslations: Record<
     deleteConfirmBody: "You can’t undo this action after deleting.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
+    deleteSuccess: {
+      title: "Deleted",
+      body: "Deletion completed.",
+    },
+    bulkDeleteSuccess: {
+      title: "Deleted all",
+      body: "All monthly goals were removed.",
+    },
     bulkDelete: {
       button: "Delete all",
       title: "What would you like to delete?",
@@ -246,6 +270,14 @@ export const monthlyGoalsTranslations: Record<
     deleteConfirmBody: "Cette action est définitive après suppression.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
+    deleteSuccess: {
+      title: "Supprimé",
+      body: "Suppression terminée.",
+    },
+    bulkDeleteSuccess: {
+      title: "Tout supprimé",
+      body: "Tous les objectifs mensuels ont été supprimés.",
+    },
     bulkDelete: {
       button: "Tout supprimer",
       title: "Que souhaitez-vous supprimer ?",

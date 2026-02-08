@@ -314,6 +314,11 @@ export default function MonthlyGoalsScreen() {
         await deleteMonthlyGoals({ userId: uid, month: selectedMonth });
         setGoals((prev) => prev.filter((goal) => goal.month !== selectedMonth));
       }
+      if (scope === "all") {
+        Alert.alert(t("bulkDeleteSuccess.title"), t("bulkDeleteSuccess.body"));
+      } else {
+        Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : t("errors.saveFailed");
       Alert.alert(t("deleteConfirmTitle"), message);
@@ -378,12 +383,18 @@ export default function MonthlyGoalsScreen() {
 
           const monthGoals = reordered.filter((g) => g.month === goal.month);
 
+          let reorderError = false;
           if (monthGoals.length > 0) {
             const updates = monthGoals.map((g) => toMonthlyRow(g, uid));
             const { error: upsertError } = await supabase.from("monthly_goals").upsert(updates, { onConflict: "id" });
             if (upsertError) {
               Alert.alert(t("deleteConfirmTitle"), upsertError.message ?? t("errors.reorderSaveFailed"));
+              reorderError = true;
             }
+          }
+
+          if (!reorderError) {
+            Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
           }
         },
       },

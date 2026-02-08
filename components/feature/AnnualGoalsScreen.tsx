@@ -185,6 +185,7 @@ export default function AnnualGoalsScreen() {
     try {
       await deleteYearlyGoals({ userId: uid });
       setGoals([]);
+      Alert.alert(t("bulkDeleteSuccess.title"), t("bulkDeleteSuccess.body"));
     } catch (error) {
       const message = error instanceof Error ? error.message : t("errors.deleteFailed");
       Alert.alert(t("deleteConfirmTitle"), message);
@@ -245,6 +246,7 @@ export default function AnnualGoalsScreen() {
             }));
           setGoals(nextGoals);
 
+          let reorderError = false;
           if (nextGoals.length > 0) {
             // 定数updatesに正しい順番の年間目標をセットし、データベース更新に使用
             const updates = nextGoals.map((item, idx) => ({
@@ -259,7 +261,12 @@ export default function AnnualGoalsScreen() {
             const { error: upsertError } = await upsertYearlyGoals(updates);
             if (upsertError) {
               Alert.alert(t("errors.reorderSaveFailed"), upsertError.message);
+              reorderError = true;
             }
+          }
+
+          if (!reorderError) {
+            Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
           }
         },
       },

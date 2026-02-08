@@ -5,6 +5,7 @@ import { Alert } from "react-native";
 import WeeklyTasksScreen from "../components/feature/WeeklyTasksScreen";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
+import { deleteWeeklyTasks } from "../lib/api/supabase/goals/allItemDelete";
 
 jest.useFakeTimers().setSystemTime(new Date("2025-02-10T00:00:00Z"));
 
@@ -33,6 +34,10 @@ jest.mock("../lib/supabaseClient", () => ({
   },
 }));
 
+jest.mock("../lib/api/supabase/goals/allItemDelete", () => ({
+  deleteWeeklyTasks: jest.fn(),
+}));
+
 const renderScreen = () =>
   render(
     <I18nextProvider i18n={i18n}>
@@ -47,10 +52,16 @@ describe("WeeklyTasksScreen", () => {
   const mockSelectMonthly = jest.fn();
   const mockEqMonthly = jest.fn();
   const mockOrderMonthly = jest.fn();
+  const mockDeleteWeekly = jest.fn();
+  const mockEqDeleteWeekly = jest.fn();
+  const mockUpsertWeekly = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(Alert, "alert").mockImplementation(() => { });
+    jest.spyOn(Alert, "alert").mockImplementation((_, __, buttons) => {
+      const destructive = buttons?.find((button) => button.style === "destructive");
+      destructive?.onPress?.();
+    });
 
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
@@ -58,13 +69,22 @@ describe("WeeklyTasksScreen", () => {
 
     mockSelectWeekly.mockReturnValue({ eq: mockEqWeekly });
     mockEqWeekly.mockReturnValue({ order: mockOrderWeekly });
+    mockDeleteWeekly.mockReturnValue({ eq: mockEqDeleteWeekly });
+    mockEqDeleteWeekly.mockResolvedValue({ error: null });
+    mockUpsertWeekly.mockResolvedValue({ error: null });
 
     mockSelectMonthly.mockReturnValue({ eq: mockEqMonthly });
     mockEqMonthly.mockReturnValue({ order: mockOrderMonthly });
 
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       if (table === "weekly_tasks") {
-        return { select: mockSelectWeekly, insert: jest.fn(), update: jest.fn(), delete: jest.fn() };
+        return {
+          select: mockSelectWeekly,
+          insert: jest.fn(),
+          update: jest.fn(),
+          delete: mockDeleteWeekly,
+          upsert: mockUpsertWeekly,
+        };
       }
       if (table === "monthly_goals") {
         return { select: mockSelectMonthly };
@@ -161,5 +181,84 @@ describe("WeeklyTasksScreen", () => {
     expect(getByText(monthLabel)).toBeTruthy();
     expect(getByText(`${monthLabel}: Focus this month`)).toBeTruthy();
     expect(queryByText(`${currentMonth}月`)).toBeFalsy();
+  });
+
+  test("shows a success alert after deleting a weekly task", async () => {
+    mockOrderMonthly.mockResolvedValue({
+      data: [
+        {
+          id: "m1",
+          description: "April UX",
+          month: 4,
+          yearly_goal_id: "y1",
+          yearly_goals: { year_goal_color: "#1E5EFF" },
+        },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          monthly_goal_id: "m1",
+          estimated_time_week: 600,
+          accumulated_time_week: 180,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { getAllByRole, getByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+    fireEvent.press(getAllByRole("button", { name: "Delete" })[0]);
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted", "Deletion completed.");
+    });
+  });
+
+  test("shows a bulk delete success alert when deleting all weekly tasks", async () => {
+    (deleteWeeklyTasks as jest.Mock).mockResolvedValue(undefined);
+    mockOrderMonthly.mockResolvedValue({
+      data: [
+        {
+          id: "m1",
+          description: "April UX",
+          month: 4,
+          yearly_goal_id: "y1",
+          yearly_goals: { year_goal_color: "#1E5EFF" },
+        },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          monthly_goal_id: "m1",
+          estimated_time_week: 600,
+          accumulated_time_week: 180,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { getByRole, getAllByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+    fireEvent.press(getAllByRole("button", { name: "Delete all" })[0]);
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted all", "All weekly tasks were removed.");
+    });
   });
 });
