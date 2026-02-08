@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import Dashboard from "../app/dashboard";
@@ -170,6 +170,21 @@ describe("FunPlanScreen interactions", () => {
     const addButton = await findByRole("button", { name: "Add" });
     expect(addButton.props.accessibilityState?.disabled).toBe(true);
     expect(await findByText("Up to 5 plans can be added")).toBeTruthy();
+  });
+
+  test("adds a new fun plan using the updated placeholder", async () => {
+    const { getByPlaceholderText, getByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    fireEvent.changeText(
+      getByPlaceholderText("e.g. Dinner with friends on Friday"),
+      "New Plan",
+    );
+    fireEvent.press(getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(mockInsert).toHaveBeenCalled());
   });
 });
 

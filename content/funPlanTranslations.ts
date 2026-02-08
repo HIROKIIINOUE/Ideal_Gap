@@ -50,7 +50,7 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     limitReached: "上限に達しました。削除してから追加してください。",
     modal: {
       addTitle: "追加",
-      editTitle: "予定を編集",
+      editTitle: "編集",
       placeholder: "例）金曜の友人とのディナー",
       cancel: "キャンセル",
       save: "保存",
@@ -83,7 +83,7 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     limitReached: "You’ve reached the limit. Remove one to add another.",
     modal: {
       addTitle: "Add",
-      editTitle: "Edit plan",
+      editTitle: "Edit",
       placeholder: "e.g. Dinner with friends on Friday",
       cancel: "Cancel",
       save: "Save",
@@ -116,7 +116,7 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     limitReached: "Limite atteinte. Supprimez-en un pour en ajouter un autre.",
     modal: {
       addTitle: "Ajouter",
-      editTitle: "Modifier le moment",
+      editTitle: "Modifier",
       placeholder: "ex. Dîner avec des amis vendredi",
       cancel: "Annuler",
       save: "Enregistrer",
