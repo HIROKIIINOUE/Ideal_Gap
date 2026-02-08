@@ -50,9 +50,14 @@ export type TimeTrackingClient = {
   }) => Promise<void>;
 };
 
-// 各データベース処理をパッケージ化したもの
+// 各データベース処理をパッケージ化したもの(オブジェクト形式)
 const supabaseTimeTrackingClient: TimeTrackingClient = {
-  async updateWeeklyLogged({ taskId, userId, newLoggedMinutes, nextStartPoint }) {
+  async updateWeeklyLogged({
+    taskId,
+    userId,
+    newLoggedMinutes,
+    nextStartPoint,
+  }) {
     const payload: Record<string, unknown> = {
       accumulated_time_week: newLoggedMinutes,
     };
@@ -136,7 +141,7 @@ export type UpdateAccumulatedTimesResult = {
 // クライアント計算で差分だけを加算/減算する最小実装。
 export const updateAccumulatedTimes = async (
   params: UpdateAccumulatedTimesParams, //オブジェクトを一つ受け取りあとで分割代入
-  client: TimeTrackingClient = supabaseTimeTrackingClient //テスト用にデフォルト引数でclientを定義
+  client: TimeTrackingClient = supabaseTimeTrackingClient, //テスト用にデフォルト引数でclientを定義
 ): Promise<UpdateAccumulatedTimesResult> => {
   const {
     userId,
@@ -152,7 +157,8 @@ export const updateAccumulatedTimes = async (
   const delta = safeNew - safePrev;
 
   // 値が変わらない場合は何も更新しない
-  const shouldPersistWeekly = delta !== 0 || typeof nextStartPoint !== "undefined";
+  const shouldPersistWeekly =
+    delta !== 0 || typeof nextStartPoint !== "undefined";
 
   if (shouldPersistWeekly) {
     // 週間タスクの作業実績データをDB上で更新
@@ -188,7 +194,7 @@ export const updateAccumulatedTimes = async (
     return { delta, newLoggedMinutes: safeNew };
   }
 
-  // 上で取得した月間目標ないのYearIDから紐づく年間目標を取得
+  // 上で取得した月間目標内のYearIDから紐づく年間目標を取得
   const yearly = await client.getYearlyGoal({
     yearlyGoalId: monthly.yearlyGoalId,
     userId,
