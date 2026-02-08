@@ -50,7 +50,7 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       modal: {
         addTitle: "理想を追加",
         editTitle: "理想を編集",
-        placeholder: "例）毎朝5時に起きて静かな時間に読書をする",
+        placeholder: "例）世界中を旅しながら仕事をする",
         cancel: "キャンセル",
         save: "保存",
         errorRequired: "1文字以上入力してください",
@@ -82,7 +82,7 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       modal: {
         addTitle: "Add ideal",
         editTitle: "Edit ideal",
-        placeholder: "e.g. Wake up at 5am and read in quiet time",
+        placeholder: "e.g. Travel around the world as nomad worker",
         cancel: "Cancel",
         save: "Save",
         errorRequired: "Please enter at least 1 character",
@@ -113,8 +113,8 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       updatedSuffix: "Mis à jour",
       modal: {
         addTitle: "Ajouter un idéal",
-        editTitle: "Modifier l’idéal",
-        placeholder: "ex. Se lever à 5h et lire dans le calme",
+        editTitle: "Modifier",
+        placeholder: "ex. Voyager à travers le monde en travaillant",
         cancel: "Annuler",
         save: "Enregistrer",
         errorRequired: "Saisissez au moins 1 caractère",

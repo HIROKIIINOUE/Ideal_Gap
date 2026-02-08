@@ -230,7 +230,7 @@ describe("AnnualGoalsScreen", () => {
 
     fireEvent.press(getByRole("button", { name: "Add" }));
     fireEvent.changeText(
-      getByPlaceholderText("e.g. Build a stable sleep routine and prioritize recovery"),
+      getByPlaceholderText("e.g. Get a overall score 8 in IELTS"),
       "Launch a side product",
     );
     fireEvent.press(getByRole("button", { name: "Save" }));

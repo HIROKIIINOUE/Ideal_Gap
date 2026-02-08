@@ -132,9 +132,14 @@ export default function FeatureScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    // 白帯ヘッダーとタイトルカードの余白を狭める方法→edges={["left", "right", "bottom"]}
+    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: featureTitle }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="never"
+        showsVerticalScrollIndicator={false}
+      >
         {ScreenComponent ? <ScreenComponent /> : <Placeholder />}
       </ScrollView>
       <Footer
@@ -158,6 +163,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
+    paddingVertical: spacing.xl,
   },
   content: {
     paddingHorizontal: spacing.xl,

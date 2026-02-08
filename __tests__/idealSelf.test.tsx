@@ -171,7 +171,7 @@ describe("IdealSelfScreen reordering", () => {
     await waitFor(() => expect(mockOrder).toHaveBeenCalled());
 
     fireEvent.press(getByRole("button", { name: "Add" }));
-    fireEvent.changeText(getByPlaceholderText("e.g. Wake up at 5am and read in quiet time"), "New Ideal");
+    fireEvent.changeText(getByPlaceholderText("e.g. Travel around the world as nomad worker"), "New Ideal");
     fireEvent.press(getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(mockInsert).toHaveBeenCalled());
