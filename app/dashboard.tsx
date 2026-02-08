@@ -146,11 +146,12 @@ export default function Dashboard() {
           style={styles.tileGradient}
         />
         <View style={styles.tileHeader}>
-          <Text style={styles.tileTitle}>{t(`cards.${card.key}.title`)}</Text>
-          <Text style={styles.tileSubtitle}>{t(`cards.${card.key}.subtitle`)}</Text>
-        </View>
-        <View style={styles.pill}>
-          <Text style={styles.pillText}>{t("pageTitle")}</Text>
+          <Text style={styles.tileTitle} >
+            {t(`cards.${card.key}.title`)}
+          </Text>
+          <Text style={styles.tileSubtitle} >
+            {t(`cards.${card.key}.subtitle`)}
+          </Text>
         </View>
       </Pressable>
     );
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     borderRadius: radius.lg,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.divider,
     overflow: "hidden",
     backgroundColor: colors.surface,
@@ -295,11 +296,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   tile: {
-    width: "48%",
+    width: "49%",
+    height: 170,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.divider,
     padding: spacing.lg,
     gap: spacing.sm,
@@ -322,21 +324,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
-  },
-  pill: {
-    alignSelf: "flex-start",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  pillText: {
-    color: colors.textPrimary,
-    fontSize: typography.sm,
-    fontWeight: "600",
-    letterSpacing: 0.2,
   },
   tilePressed: {
     opacity: 0.9,
