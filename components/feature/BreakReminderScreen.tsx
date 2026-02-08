@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useLanguage } from "../../providers/LanguageProvider";
 
@@ -57,8 +57,20 @@ export default function BreakReminderScreen() {
   // onChangeで通知スケジュールの設定
   const handleDateChange = (_event: any, date?: Date) => {
     if (!date) return;
-    setSelectedDate(date);
+    const normalized = new Date(date);
+    normalized.setSeconds(0, 0);  // 引数でs、ms共に0にし指定の分単位で通知セットができる
+    setSelectedDate(normalized);
   };
+
+  // ユーザを端末の通知設定画面へ遷移
+  const handleOpenSettings = useCallback(async () => {
+    try {
+      await Linking.openSettings();
+    } catch (error) {
+      console.warn("Failed to open settings", error);
+      Alert.alert(t("permissionDenied"));
+    }
+  }, [t]);
 
   // 設定した通知スクジュールをキャンセルする
   const clearSchedule = useCallback(async () => {
@@ -90,6 +102,10 @@ export default function BreakReminderScreen() {
       const list = await Notifications.getAllScheduledNotificationsAsync();
       const exists = Array.isArray(list) && list.some((item: any) => item.identifier === parsed.notificationId);
       if (exists) {
+        if (parsed.fireDate <= Date.now()) {
+          await AsyncStorage.removeItem(STORAGE_KEY);
+          return;
+        }
         setScheduled(parsed);
         setSelectedDate(new Date(parsed.fireDate));
       } else {
@@ -98,10 +114,22 @@ export default function BreakReminderScreen() {
     } catch { }
   }, []);
 
-  // 通知完了を受け取った時に設定時刻をクリアする処理
+  // 端末が通知完了を受け取った時に設定時刻をクリアする処理
   const handleNotificationReceived = useCallback(
     (notification: Notifications.Notification) => {
       const id = notification?.request?.identifier;
+      if (id && scheduledRef.current?.notificationId === id) {
+        clearSchedule();
+      }
+    },
+    [clearSchedule],
+  );
+
+  // ユーザがバックグラウンドで通知を受け取り、それをタップした時に発火される
+  // → アプリが バックグラウンド or 停止状態から戻ってきた時にも発火する
+  const handleNotificationResponse = useCallback(
+    (response: Notifications.NotificationResponse) => {
+      const id = response?.notification?.request?.identifier;
       if (id && scheduledRef.current?.notificationId === id) {
         clearSchedule();
       }
@@ -118,9 +146,13 @@ export default function BreakReminderScreen() {
     }
     const diff = current.fireDate - Date.now();
     // diffの単位はmsなので分に変換するために60000倍する
+    if (diff <= 0) {
+      clearSchedule();
+      return;
+    }
     const minutes = Math.max(0, Math.ceil(diff / 60000));
     setRemainingMinutes(minutes);
-  }, []);
+  }, [clearSchedule]);
 
 
   // ページがマウントされた時にデータを正しく復元し、通知機能発火のタイミングの監視をスタートする処理
@@ -128,14 +160,15 @@ export default function BreakReminderScreen() {
     restoreSchedule();
     // アプリに通知が行ったかどうかを監視、通知が入った瞬間に引数内のコールバック関数を実行する( 今回はhandleNotificationReceive() )
     const subscription = Notifications.addNotificationReceivedListener(handleNotificationReceived);
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
     return () => {
       // アンマウント時に監視をストップ
       subscription?.remove();
+      responseSubscription?.remove();
     };
-  }, [handleNotificationReceived, restoreSchedule]);
+  }, [handleNotificationReceived, handleNotificationResponse, restoreSchedule]);
 
-
-  // 30000ごとにカウントダウンが走るupdateRemainingをセット
+  // 残り時間の表示を30秒ごとに更新し、不要なタイマーは残さない
   useEffect(() => {
     updateRemaining();
     if (!scheduled) return;
@@ -153,30 +186,35 @@ export default function BreakReminderScreen() {
     const granted = request.granted || request.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
     if (!granted) {
       setPermissionError(true);
+      Alert.alert(t("permissionDenied"), undefined, [
+        { text: t("permissionAction"), onPress: handleOpenSettings },
+        { text: t("cancel"), style: "cancel" },
+      ]);
       return false;
     }
     return true;
-  }, []);
+  }, [handleOpenSettings, t]);
 
 
   // 通知機能実行ロジック
   const scheduleReminder = useCallback(async () => {
     const now = Date.now();
-    if (selectedDate.getTime() <= now) {
+    const normalizedDate = new Date(selectedDate);
+    normalizedDate.setSeconds(0, 0);
+    if (normalizedDate.getTime() <= now) {
       Alert.alert(t("errorPast"));
       return;
     }
 
     const permitted = await ensurePermission();
     if (!permitted) {
-      Alert.alert(t("permissionDenied"));
       return;
     }
 
     try {
       const trigger: Notifications.DateTriggerInput = {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: selectedDate,
+        date: normalizedDate,
       };
       const id = await Notifications.scheduleNotificationAsync({
         content: {
@@ -185,11 +223,11 @@ export default function BreakReminderScreen() {
         },
         trigger,
       });
-      const next: StoredReminder = { fireDate: selectedDate.getTime(), notificationId: id };
+      const next: StoredReminder = { fireDate: normalizedDate.getTime(), notificationId: id };
       setScheduled(next);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
-      Alert.alert(t("permissionDenied"));
+      setPermissionError(true);
     }
   }, [ensurePermission, selectedDate, t]);
 

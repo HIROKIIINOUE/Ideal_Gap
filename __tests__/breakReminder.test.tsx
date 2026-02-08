@@ -61,10 +61,10 @@ describe("BreakReminderScreen", () => {
   test("shows explanation and input when no reminder is set", () => {
     const { getByText, getByTestId } = renderScreen();
 
-    expect(getByText("Break reminder")).toBeTruthy();
-    expect(getByText("Set when to end your break and we’ll notify you. Only one reminder can be active.")).toBeTruthy();
+    expect(getByText(i18n.t("title", { ns: "breakReminder" }))).toBeTruthy();
+    expect(getByText(i18n.t("description", { ns: "breakReminder" }))).toBeTruthy();
     expect(getByTestId("break-reminder-datetime")).toBeTruthy();
-    expect(getByText("Schedule reminder")).toBeTruthy();
+    expect(getByText(i18n.t("schedule", { ns: "breakReminder" }))).toBeTruthy();
   });
 
   test("schedules a reminder and hides the input", async () => {
