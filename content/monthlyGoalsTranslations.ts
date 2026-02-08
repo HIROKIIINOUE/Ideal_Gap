@@ -14,6 +14,7 @@ export type MonthlyGoalsTranslations = {
     targetLabel: string;
     loggedLabel: string;
     remainingLabel: string;
+    remainingToGoalLabel: string;
   };
   empty: {
     title: string;
@@ -94,6 +95,7 @@ export const monthlyGoalsTranslations: Record<
       targetLabel: "目標",
       loggedLabel: "実績",
       remainingLabel: "残り",
+      remainingToGoalLabel: "目標まで",
     },
     empty: {
       title: "この月の月間目標はまだありません。",
@@ -169,6 +171,7 @@ export const monthlyGoalsTranslations: Record<
       targetLabel: "Target",
       loggedLabel: "Logged",
       remainingLabel: "Remaining",
+      remainingToGoalLabel: "To goal",
     },
     empty: {
       title: "No monthly goals for this month yet.",
@@ -244,6 +247,7 @@ export const monthlyGoalsTranslations: Record<
       targetLabel: "Objectif",
       loggedLabel: "Réalisé",
       remainingLabel: "Restant",
+      remainingToGoalLabel: "Reste",
     },
     empty: {
       title: "Aucun objectif mensuel pour ce mois.",

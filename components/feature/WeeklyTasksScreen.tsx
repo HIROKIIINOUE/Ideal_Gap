@@ -714,15 +714,21 @@ export default function WeeklyTasksScreen() {
         <View style={styles.taskFooterRow}>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.target")}</Text>
-            <Text style={styles.statValue}>{formatMinutes(item.estimatedMinutes)}</Text>
+            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
+              {formatMinutes(item.estimatedMinutes)}
+            </Text>
           </View>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.logged")}</Text>
-            <Text style={styles.statValue}>{formatMinutes(item.loggedMinutes)}</Text>
+            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
+              {formatMinutes(item.loggedMinutes)}
+            </Text>
           </View>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.remaining")}</Text>
-            <Text style={styles.statValue}>{formatMinutes(remaining)}</Text>
+            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
+              {formatMinutes(remaining)}
+            </Text>
           </View>
           <Pressable
             accessibilityRole="button"

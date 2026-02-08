@@ -259,6 +259,7 @@ export default function MonthlyGoalsScreen() {
   // 各月の作業目標の合計と作業時間の合計、それらをもとにしたプログレスバーの算出ロジック
   const totalTarget = filteredGoals.reduce((sum, goal) => sum + goal.estimatedMinutes, 0);
   const totalLogged = filteredGoals.reduce((sum, goal) => sum + goal.accumulatedMinutes, 0);
+  const totalRemaining = Math.max(0, totalTarget - totalLogged);
   const progressRatio = totalTarget > 0 ? Math.min(1, totalLogged / totalTarget) : 0;
 
   // 月間目標に紐づいた年間目標idから年間目標データを抽出
@@ -557,15 +558,21 @@ export default function MonthlyGoalsScreen() {
         <View style={styles.goalFooterRow}>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.targetLabel")}</Text>
-            <Text style={styles.statValue}>{formatMinutes(item.estimatedMinutes)}</Text>
+            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
+              {formatMinutes(item.estimatedMinutes)}
+            </Text>
           </View>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.loggedLabel")}</Text>
-            <Text style={styles.statValue}>{formatMinutes(item.accumulatedMinutes)}</Text>
+            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
+              {formatMinutes(item.accumulatedMinutes)}
+            </Text>
           </View>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.remainingLabel", { defaultValue: "Remaining" })}</Text>
-            <Text style={styles.statValue}>{formatMinutes(remaining)}</Text>
+            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
+              {formatMinutes(remaining)}
+            </Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -659,6 +666,10 @@ export default function MonthlyGoalsScreen() {
             <View style={styles.goalStat}>
               <Text style={styles.statLabel}>{t("summary.loggedLabel")}</Text>
               <Text style={styles.statValue}>{formatMinutes(totalLogged)}</Text>
+            </View>
+            <View style={styles.goalStat}>
+              <Text style={styles.statLabel}>{t("summary.remainingToGoalLabel")}</Text>
+              <Text style={styles.statValue}>{formatMinutes(totalRemaining)}</Text>
             </View>
           </View>
         </View>

@@ -303,7 +303,7 @@ export const weeklyTasksTranslations: Record<
     },
     summary: {
       target: "Objectif",
-      logged: "Enregistré",
+      logged: "Réalisé",
       remaining: "Restant",
     },
     list: {

@@ -159,7 +159,7 @@ describe("IdealSelfScreen reordering", () => {
     expect(queryByText("Write down who you want to become so you can stay aligned every day.")).toBeNull();
     await findByText("Second Ideal");
 
-    const editButtons = await findAllByRole("button", { name: "Edit ideal" });
+    const editButtons = await findAllByRole("button", { name: "Edit" });
     fireEvent.press(editButtons[0]);
 
     expect(getByText(/Updated/)).toBeTruthy();

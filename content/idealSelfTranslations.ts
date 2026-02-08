@@ -48,8 +48,8 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       handleA11y: "長押しで並び替え",
       updatedSuffix: "更新",
       modal: {
-        addTitle: "理想を追加",
-        editTitle: "理想を編集",
+        addTitle: "追加",
+        editTitle: "編集",
         placeholder: "例）世界中を旅しながら仕事をする",
         cancel: "キャンセル",
         save: "保存",
@@ -80,8 +80,8 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       handleA11y: "Long press to reorder",
       updatedSuffix: "Updated",
       modal: {
-        addTitle: "Add ideal",
-        editTitle: "Edit ideal",
+        addTitle: "Add",
+        editTitle: "Edit",
         placeholder: "e.g. Travel around the world as nomad worker",
         cancel: "Cancel",
         save: "Save",
@@ -112,7 +112,7 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       handleA11y: "Appui long pour réordonner",
       updatedSuffix: "Mis à jour",
       modal: {
-        addTitle: "Ajouter un idéal",
+        addTitle: "Ajouter",
         editTitle: "Modifier",
         placeholder: "ex. Voyager à travers le monde en travaillant",
         cancel: "Annuler",

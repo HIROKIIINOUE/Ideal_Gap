@@ -197,7 +197,9 @@ describe("MonthlyGoalsScreen", () => {
     expect((await findAllByText("Target"))[0]).toBeTruthy();
     expect(await findByText("50h")).toBeTruthy();
     expect((await findAllByText("Logged"))[0]).toBeTruthy();
-    expect(await findByText("25h")).toBeTruthy();
+    expect(await findByText("To goal")).toBeTruthy();
+    const totals = await findAllByText("25h");
+    expect(totals.length).toBeGreaterThan(1);
   });
 
   test("truncates long yearly goal labels in the selector", async () => {
