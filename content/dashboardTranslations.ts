@@ -57,7 +57,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         monthlyGoals: {
           title: "月間目標",
           subtitle:
-            "年間目標へ向かう道標を明確にする。年間目標達成に向けての短期目標。",
+            "年間目標へ向かう道標を明確にする。達成度バーで毎月の進捗を確認。年間目標達成に向けての短期目標。",
         },
         weeklyGoals: {
           title: "週間タスク",
@@ -155,12 +155,12 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
             "Imaginez votre moi idéal et mettez-le en mots. Votre objectif long terme et destination finale.",
         },
         annualGoals: {
-          title: "Objectifs annuels",
+          title: "Objectif annuel",
           subtitle:
             "Listez les objectifs de l’année à partir du moi idéal. Des objectifs à moyen terme vers cet idéal.",
         },
         monthlyGoals: {
-          title: "Objectifs mensuels",
+          title: "Objectif mensuel",
           subtitle:
             "Clarifiez les repères vers les objectifs annuels. Des objectifs à court terme pour réussir l’année.",
         },

@@ -26,8 +26,8 @@ type DashboardCard = {
 };
 
 const alternatingGradients: readonly [readonly [string, string], readonly [string, string]] = [
-  ["rgba(77,125,255,0.16)", "rgba(15,28,47,0.92)"],
-  ["rgba(160,195,255,0.12)", "rgba(15,28,47,0.9)"],
+  ["rgba(110,152,255,0.26)", "rgba(24,44,72,0.84)"],
+  ["rgba(198,225,255,0.2)", "rgba(24,44,72,0.82)"],
 ];
 const HERO_GRADIENT: readonly [string, string] = ["rgba(110,168,255,0.4)", "rgba(15,28,47,0.92)"];
 
@@ -181,7 +181,13 @@ export default function Dashboard() {
             <View style={styles.heroContent}>
               <Text style={styles.heroLabel}>{t("nextFunPlan.title")}</Text>
               <View style={styles.heroFooter}>
-                <Text style={styles.heroCta}>{nextFunPlan ?? t("nextFunPlan.cta")}</Text>
+                <Text
+                  style={styles.heroCta}
+                  numberOfLines={3}
+                  ellipsizeMode="tail"
+                >
+                  {nextFunPlan ?? t("nextFunPlan.cta")}
+                </Text>
               </View>
             </View>
           </Pressable>
@@ -262,7 +268,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   heroContent: {
-    padding: spacing.xl,
+    padding: spacing.lg,
     gap: spacing.sm,
   },
   heroLabel: {
@@ -297,20 +303,19 @@ const styles = StyleSheet.create({
   },
   tile: {
     width: "49%",
-    height: 170,
+    height: 180,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1.5,
     borderColor: colors.divider,
-    padding: spacing.lg,
+    padding: spacing.md,
     gap: spacing.sm,
     overflow: "hidden",
     position: "relative",
   },
   tileGradient: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.9,
   },
   tileHeader: {
     gap: spacing.xs,
@@ -321,7 +326,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   tileSubtitle: {
-    color: colors.textSecondary,
+    color: "rgba(233,237,247,0.76)",
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
   },
