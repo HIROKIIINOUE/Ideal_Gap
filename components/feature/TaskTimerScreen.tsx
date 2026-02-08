@@ -12,6 +12,7 @@ import React, {
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  AppState,
   Linking,
   Modal,
   Platform,
@@ -62,6 +63,7 @@ const formatDigital = (seconds: number) => {
 };
 
 const gradientCard = ["rgba(30,94,255,0.18)", "rgba(12,18,32,0.95)"] as const;
+const TIMER_NOTIFICATION_CHANNEL = "task-timer";
 
 // カウントダウン終了時刻を算出するロジック
 const formatEndTimeLabel = (timestamp: number | null) => {
@@ -105,6 +107,8 @@ export default function TaskTimerScreen() {
 
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const completionFiredRef = useRef(false);
+  const scheduledNotificationIdRef = useRef<string | null>(null);
+  const lastScheduledEndAtRef = useRef<number | null>(null);
 
   const taskTitle = params.title || t("pageTitle");
   const taskId = params.taskId ?? null;
@@ -214,10 +218,86 @@ export default function TaskTimerScreen() {
     void stop();
   }, [stop]);
 
+  // 通知機能の予約をキャンセルする
+  const clearScheduledNotification = useCallback(async () => {
+    const currentId = scheduledNotificationIdRef.current;
+    if (!currentId) return;
+    try {
+      await Notifications.cancelScheduledNotificationAsync(currentId);
+    } catch {
+      // ignore cancel failures
+    } finally {
+      scheduledNotificationIdRef.current = null;
+      lastScheduledEndAtRef.current = null;
+    }
+  }, []);
+
+
+  // ユーザが端末で本アプリの通知機をONにしているかチェック
+  const ensureNotificationPermission = useCallback(async () => {
+    try {
+      const current = await Notifications.getPermissionsAsync();
+      const granted =
+        current.granted ||
+        current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+      if (granted) {
+        setUserNotificationOn(true);
+        return true;
+      }
+      const request = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
+      const requestGranted =
+        request.granted ||
+        request.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+      setUserNotificationOn(requestGranted);
+      return requestGranted;
+    } catch {
+      setUserNotificationOn(false);
+      return false;
+    }
+  }, []);
+
+  // 通知機のスケージュールを予約する(iOS)
+  const scheduleTimerNotification = useCallback(
+    async (endAt: number) => {
+      if (endAt <= Date.now()) return;
+      if (lastScheduledEndAtRef.current === endAt) return;
+      const permitted = await ensureNotificationPermission();
+      if (!permitted) return;
+
+      await clearScheduledNotification();
+      const seconds = Math.max(1, Math.ceil((endAt - Date.now()) / 1000));
+      try {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: t("timerNotification.title"),
+            body: t("timerNotification.body"),
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds,
+            channelId: TIMER_NOTIFICATION_CHANNEL,
+          },
+        });
+        scheduledNotificationIdRef.current = id;
+        lastScheduledEndAtRef.current = endAt;
+      } catch {
+        // scheduling failed
+      }
+    },
+    [clearScheduledNotification, ensureNotificationPermission, t],
+  );
+
   // 「カウントダウン終了モーダル」「手動でタイマー終了モーダル」の両方を開く時に実行される処理
   const openCompletionModal = useCallback(
     (elapsedSeconds: number) => {
       clearTick();
+      void clearScheduledNotification();
       stopFocusMusic();
       completionFiredRef.current = true;
       const safeElapsed = Math.max(0, Math.round(elapsedSeconds));
@@ -226,7 +306,7 @@ export default function TaskTimerScreen() {
       setStatus("paused");
       setExpectedEndAt(null);
     },
-    [clearTick, stopFocusMusic],
+    [clearScheduledNotification, clearTick, stopFocusMusic],
   );
 
   // 作業完了モーダルの「キャンセル」押下時の処理
@@ -319,6 +399,7 @@ export default function TaskTimerScreen() {
   const handleClear = () => {
     if (status === "running") return;
     clearTick();
+    void clearScheduledNotification();
     setInputSeconds(0);
     setRemainingSeconds(0);
     setStatus("idle");
@@ -422,6 +503,7 @@ export default function TaskTimerScreen() {
   useEffect(() => {
     if (status !== "running") {
       clearTick();
+      void clearScheduledNotification();
       return;
     }
 
@@ -440,7 +522,43 @@ export default function TaskTimerScreen() {
     }, 1000);
 
     return clearTick;
-  }, [status, inputSeconds, clearTick, openCompletionModal]);
+  }, [status, inputSeconds, clearTick, clearScheduledNotification, openCompletionModal]);
+
+
+  // タイマーstatusが変更された時に新しく通知スケジュールをセットする
+  useEffect(() => {
+    if (status !== "running") return;
+    if (!expectedEndAt) return;
+    void scheduleTimerNotification(expectedEndAt);
+  }, [expectedEndAt, scheduleTimerNotification, status]);
+
+
+  // 端末OSがAndroidの場合、以下の処理で最初にチャンネルを作成し、通知を予約するscheduleTimerNotificationでそのチャンネルに通知スケジュールをセットする。
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    Notifications.setNotificationChannelAsync(TIMER_NOTIFICATION_CHANNEL, {
+      name: "Task Timer",
+      importance: Notifications.AndroidImportance.MAX,
+    }).catch(() => { });
+  }, []);
+
+  // ユーザがアプリに戻ってきた時に発火し、残り秒数を計算、残り時間が0秒なら完了モーダルを表示し、それ以外なら残り時間をセットしてカウントダウンUI復帰
+  // AppStateには「active」「background」の二つがある。(細かい他の状態もあるがほとんど使わない)
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") return;
+      if (status !== "running" || !expectedEndAt) return;
+      const remaining = Math.max(0, Math.round((expectedEndAt - Date.now()) / 1000));
+      if (remaining <= 0) {
+        if (!completionFiredRef.current) {
+          openCompletionModal(Math.max(0, inputSeconds));
+        }
+        return;
+      }
+      setRemainingSeconds(remaining);
+    });
+    return () => subscription.remove();
+  }, [expectedEndAt, inputSeconds, openCompletionModal, status]);
 
   // 作業完了ボタン押下時の処理
   const handleComplete = () => {
