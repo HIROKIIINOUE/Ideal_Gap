@@ -119,10 +119,11 @@ export default function BreakReminderScreen() {
     (notification: Notifications.Notification) => {
       const id = notification?.request?.identifier;
       if (id && scheduledRef.current?.notificationId === id) {
+        Alert.alert(t("notificationTitle"), t("notificationBody"));
         clearSchedule();
       }
     },
-    [clearSchedule],
+    [clearSchedule, t],
   );
 
   // ユーザがバックグラウンドで通知を受け取り、それをタップした時に発火される
