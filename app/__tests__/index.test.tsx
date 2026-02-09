@@ -35,9 +35,9 @@ describe("Index screen", () => {
       </I18nextProvider>,
     );
 
-    expect(await screen.findByText(/初月無料・次月以降 8.5 CAD/)).toBeOnTheScreen();
+    expect(await screen.findByText(/40日間無料、無料期間以降490円\/月/)).toBeOnTheScreen();
     const startButtons = await screen.findAllByRole("button", { name: "無料で始める" });
-    const signInButtons = await screen.findAllByRole("button", { name: /サインイン/ });
+    const signInButtons = await screen.findAllByRole("button", { name: "ログイン" });
     expect(startButtons[0]).toBeOnTheScreen();
     expect(signInButtons[0]).toBeOnTheScreen();
   });

@@ -45,7 +45,7 @@ const CTAButton = ({ href, label, gradient, shimmerStyle, onPress }: CTAButtonPr
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [pressed && styles.buttonPressed]}
+      style={({ pressed }) => [styles.buttonShell, pressed && styles.buttonPressed]}
     >
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.buttonInner}>
         <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
@@ -74,19 +74,23 @@ type CTAButtonsRowProps = {
 
 const CTAButtonsRow = ({ shimmerStyle, primary, secondary, onPrimaryPress }: CTAButtonsRowProps) => (
   <View style={styles.actions}>
-    <CTAButton
-      href={primary.href}
-      label={primary.label}
-      gradient={primary.gradient ?? CTA_PRIMARY_GRADIENT}
-      shimmerStyle={shimmerStyle}
-      onPress={onPrimaryPress}
-    />
-    <CTAButton
-      href={secondary.href}
-      label={secondary.label}
-      gradient={secondary.gradient ?? CTA_SECONDARY_GRADIENT}
-      shimmerStyle={shimmerStyle}
-    />
+    <View style={styles.ctaSlot}>
+      <CTAButton
+        href={primary.href}
+        label={primary.label}
+        gradient={primary.gradient ?? CTA_PRIMARY_GRADIENT}
+        shimmerStyle={shimmerStyle}
+        onPress={onPrimaryPress}
+      />
+    </View>
+    <View style={styles.ctaSlot}>
+      <CTAButton
+        href={secondary.href}
+        label={secondary.label}
+        gradient={secondary.gradient ?? CTA_SECONDARY_GRADIENT}
+        shimmerStyle={shimmerStyle}
+      />
+    </View>
   </View>
 );
 
@@ -329,7 +333,7 @@ export default function Index() {
           </Card>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(440, 600)]}>
+        <Animated.View style={[styles.section, fadeUp(540, 700)]}>
           <Text style={styles.sectionLabel}>{translations.membership.label}</Text>
           <Text style={styles.sectionTitle}>{translations.membership.title}</Text>
           <View style={styles.cardRow}>
@@ -349,7 +353,7 @@ export default function Index() {
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(820, 980)]}>
+        <Animated.View style={[styles.section, fadeUp(920, 1080)]}>
           <Text style={styles.sectionLabel}>{translations.getStarted.label}</Text>
           <Text style={styles.sectionTitle}>{translations.getStarted.title}</Text>
           <Card>
@@ -440,8 +444,10 @@ const styles = StyleSheet.create({
   buttonShell: {
     borderRadius: radius.lg,
     overflow: "hidden",
-    flex: 1,
-    minWidth: 0,
+    width: "100%",
+  },
+  ctaSlot: {
+    width: "48%",
   },
 
   buttonInner: {
