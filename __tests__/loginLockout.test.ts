@@ -31,14 +31,15 @@ describe("loginLockout", () => {
 
   it("clears lockout after duration", async () => {
     const now = 1_700_000_000_000;
+    const lockStart = now + (MAX_FAILED_ATTEMPTS - 1) * 1000;
     for (let i = 0; i < MAX_FAILED_ATTEMPTS; i += 1) {
       await registerFailedAttempt(email, now + i * 1000);
     }
 
-    const locked = await getLockoutStatus(email, now + LOCKOUT_DURATION_MS - 1);
+    const locked = await getLockoutStatus(email, lockStart + LOCKOUT_DURATION_MS - 1);
     expect(locked.locked).toBe(true);
 
-    const after = await getLockoutStatus(email, now + LOCKOUT_DURATION_MS + 1);
+    const after = await getLockoutStatus(email, lockStart + LOCKOUT_DURATION_MS + 1);
     expect(after.locked).toBe(false);
     expect(after.attempts).toBe(0);
   });

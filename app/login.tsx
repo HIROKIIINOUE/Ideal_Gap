@@ -114,7 +114,7 @@ export default function Login() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [disabled, email, password, showToast, t]);
+  }, [checkLockout, clearLockout, disabled, email, password, recordFailure, showToast, t]);
 
   const errorLabel = useMemo(() => errorMessage, [errorMessage]);
 
