@@ -41,9 +41,9 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     backToHome: "ホームへ戻る",
     heroTitle: "無料で始める",
     heroBody:
-      "プラン: {{planCopy}}。登録日から自動更新。再サインアップ時は無料プランが適用されません。",
+      "プラン: {{planCopy}}。無料期間終了日から自動更新。再サインアップ時は無料プランが適用されず、再登録日から自動更新スタート",
     planTitle: "スタンダードプラン",
-    planDescription: "アプリストアに登録済みの支払い方法を利用します。",
+    planDescription: "アプリストアに登録済み支払い方法を利用します",
     planPriceWithTrial: "{{trial}}・その後 {{price}}/30日",
     planPriceNoTrial: "{{price}}/30日",
     planUnavailable: "プラン情報を取得できませんでした",
@@ -51,7 +51,8 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     trialLabelWeek: "{{count}}週間無料",
     trialLabelMonth: "{{count}}か月無料",
     trialLabelYear: "{{count}}年間無料",
-    planLoadError: "価格の取得に失敗しました。少し待ってから再度お試しください。",
+    planLoadError:
+      "価格の取得に失敗しました。少し待ってから再度お試しください。",
     usernameLabel: "ユーザ名",
     usernamePlaceholder: "Your name",
     usernameInvalid: "ユーザ名を入力してください",
@@ -80,7 +81,7 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     backToHome: "Back to Home",
     heroTitle: "Start free",
     heroBody:
-      "Plan: {{planCopy}}. Auto-renews from your sign-up date. Re-signups start on the paid plan.",
+      "Plan: {{planCopy}}. Auto-renews from the date your trial ends. Re-signup starts on the paid plan.",
     planTitle: "Standard plan",
     planDescription: "We’ll use your App Store/Google Play billing method.",
     planPriceWithTrial: "{{trial}} • then {{price}}/30 days",
@@ -120,7 +121,8 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     heroBody:
       "Offre : {{planCopy}}. Renouvellement automatique à partir de la date d’inscription. Une réinscription démarre sur l’offre payante.",
     planTitle: "Forfait standard",
-    planDescription: "Nous utilisons votre moyen de paiement App Store/Google Play.",
+    planDescription:
+      "Nous utilisons votre moyen de paiement App Store/Google Play.",
     planPriceWithTrial: "{{trial}} • puis {{price}}/30 jours",
     planPriceNoTrial: "{{price}}/30 jours",
     planUnavailable: "Tarification indisponible",

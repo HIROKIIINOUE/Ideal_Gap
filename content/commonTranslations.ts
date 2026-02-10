@@ -71,10 +71,22 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
             subtitle: "カードを一時的に隠します",
           },
         },
-        payment: { title: "支払い方法の確認・変更", subtitle: "ストアの設定画面を開きます" },
-        timezone: { title: "タイムゾーンの変更", subtitle: "時刻の表示を合わせます" },
-        profile: { title: "プロフィール変更", subtitle: "名前やメールを更新します" },
-        contact: { title: "お問い合わせ", subtitle: "不具合や要望を送信します" },
+        payment: {
+          title: "支払い方法の確認・変更",
+          subtitle: "ストアの設定画面を開きます",
+        },
+        timezone: {
+          title: "タイムゾーンの変更",
+          subtitle: "時刻の表示を合わせます",
+        },
+        profile: {
+          title: "プロフィール変更",
+          subtitle: "名前やメールを更新します",
+        },
+        contact: {
+          title: "お問い合わせ",
+          subtitle: "不具合や要望を送信します",
+        },
       },
     },
     languageNames: {
@@ -104,19 +116,31 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
     moreSheet: {
       title: "More",
       close: "Close",
-      confirmTitle: "Sign out?",
+      confirmTitle: "Log out?",
       confirmBody: "Your session will end. Do you want to continue?",
-      confirmYes: "Sign out",
+      confirmYes: "Log out",
       confirmNo: "Cancel",
-      logoutSuccess: "Signed out successfully",
+      logoutSuccess: "Logged out successfully",
       items: {
         logout: { title: "Log out", subtitle: "End your current session" },
         toggleFunPlan: {
-          show: { title: "Show Next Fun Plan", subtitle: "Bring the card back to dashboard" },
-          hide: { title: "Hide Next Fun Plan", subtitle: "Temporarily hide the card" },
+          show: {
+            title: "Show Next Fun Plan",
+            subtitle: "Bring the card back to dashboard",
+          },
+          hide: {
+            title: "Hide Next Fun Plan",
+            subtitle: "Temporarily hide the card",
+          },
         },
-        payment: { title: "Manage payment", subtitle: "Open the store settings" },
-        timezone: { title: "Change time zone", subtitle: "Align time displays" },
+        payment: {
+          title: "Manage payment",
+          subtitle: "Open the store settings",
+        },
+        timezone: {
+          title: "Change time zone",
+          subtitle: "Align time displays",
+        },
         profile: { title: "Edit profile", subtitle: "Update name or email" },
         contact: { title: "Contact us", subtitle: "Send feedback or issues" },
       },
@@ -154,7 +178,10 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
       confirmNo: "Annuler",
       logoutSuccess: "Déconnexion réussie",
       items: {
-        logout: { title: "Déconnexion", subtitle: "Terminer la session en cours" },
+        logout: {
+          title: "Déconnexion",
+          subtitle: "Terminer la session en cours",
+        },
         toggleFunPlan: {
           show: {
             title: "Afficher le prochain moment plaisir",
@@ -165,10 +192,22 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
             subtitle: "Masquer la carte temporairement",
           },
         },
-        payment: { title: "Gérer le paiement", subtitle: "Ouvrir les réglages de la boutique" },
-        timezone: { title: "Changer le fuseau horaire", subtitle: "Aligner l’affichage de l’heure" },
-        profile: { title: "Modifier le profil", subtitle: "Mettre à jour nom ou e-mail" },
-        contact: { title: "Contactez-nous", subtitle: "Envoyer vos retours ou problèmes" },
+        payment: {
+          title: "Gérer le paiement",
+          subtitle: "Ouvrir les réglages de la boutique",
+        },
+        timezone: {
+          title: "Changer le fuseau horaire",
+          subtitle: "Aligner l’affichage de l’heure",
+        },
+        profile: {
+          title: "Modifier le profil",
+          subtitle: "Mettre à jour nom ou e-mail",
+        },
+        contact: {
+          title: "Contactez-nous",
+          subtitle: "Envoyer vos retours ou problèmes",
+        },
       },
     },
     languageNames: {
