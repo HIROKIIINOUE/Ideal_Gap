@@ -32,7 +32,7 @@ export const resetPasswordTranslations: Record<
     backToLogin: "ログインへ戻る",
     introTitle: "パスワードをリセットしますか？",
     introBody:
-      "登録メールアドレスを入力してください。安全なリンクを送信します。この端末でリンクを開くと新しいパスワードを設定できます。",
+      "登録しているメールアドレスを入力してください。メールアドレス宛にリンクを送信します。この端末でリンクを開くと新しいパスワードを設定できます。",
     emailLabel: "メールアドレス",
     emailPlaceholder: "you@example.com",
     sendCta: "リセットメールを送信",
@@ -57,7 +57,7 @@ export const resetPasswordTranslations: Record<
     backToLogin: "Back to Log In",
     introTitle: "Need a reset?",
     introBody:
-      "Enter your email to receive a secure link. Open it on this device to set a new password.",
+      "Enter your email to receive a link. Open it on this device to set a new password.",
     emailLabel: "Email",
     emailPlaceholder: "you@example.com",
     sendCta: "Send reset email",
@@ -82,10 +82,10 @@ export const resetPasswordTranslations: Record<
     backToLogin: "Retour à la connexion",
     introTitle: "Besoin de réinitialiser ?",
     introBody:
-      "Saisissez votre e-mail pour recevoir un lien sécurisé. Ouvrez-le sur cet appareil pour définir un nouveau mot de passe.",
+      "Saisissez votre e-mail pour recevoir un lien. Ouvrez-le sur cet appareil pour définir un nouveau mot de passe.",
     emailLabel: "E-mail",
     emailPlaceholder: "vous@example.com",
-    sendCta: "Envoyer l’e-mail de réinitialisation",
+    sendCta: "Envoyer l’e-mail",
     sending: "Envoi...",
     linkSent: "E-mail envoyé. Consultez votre boîte de réception.",
     newPasswordTitle: "Définir un nouveau mot de passe",
