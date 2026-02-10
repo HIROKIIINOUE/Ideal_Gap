@@ -16,6 +16,8 @@ export type LoginTranslations = {
   signupCta: string;
   errorUserNotFound: string;
   errorWrongPassword: string;
+  errorLocked: string;
+  lockoutRemaining: string;
   loginSuccess: string;
   loggingIn: string;
 };
@@ -38,6 +40,8 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     signupCta: "無料でサインアップへ",
     errorUserNotFound: "アカウントが見つかりません。サインアップしてください。",
     errorWrongPassword: "パスワードが間違っています。再入力してください。",
+    errorLocked: "一定数ログインに失敗したので５分間ログインできません",
+    lockoutRemaining: "再試行まであと{{minutes}}分{{seconds}}秒",
     loginSuccess: "ログインに成功しました。",
     loggingIn: "ログイン中…",
   },
@@ -58,6 +62,8 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     signupCta: "Go to Sign Up For Free",
     errorUserNotFound: "No account found. Please sign up.",
     errorWrongPassword: "Incorrect password. Please try again.",
+    errorLocked: "Too many failed attempts. Please try again in 5 minutes.",
+    lockoutRemaining: "Try again in {{minutes}}m {{seconds}}s.",
     loginSuccess: "Logged in successfully",
     loggingIn: "Logging in…",
   },
@@ -78,6 +84,9 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     signupCta: "Aller à l’inscription gratuit",
     errorUserNotFound: "Aucun compte trouvé. Veuillez vous inscrire.",
     errorWrongPassword: "Mot de passe incorrect. Veuillez réessayer.",
+    errorLocked:
+      "Trop de tentatives échouées. Veuillez réessayer dans 5 minutes.",
+    lockoutRemaining: "Réessayez dans {{minutes}} min {{seconds}} s.",
     loginSuccess: "Connexion réussie",
     loggingIn: "Connexion…",
   },

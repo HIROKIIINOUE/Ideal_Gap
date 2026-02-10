@@ -19,6 +19,7 @@ import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
+import { useLoginLockout } from "../hooks/useLoginLockout";
 import { signInWithEmailPassword } from "../lib/auth";
 import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
@@ -37,6 +38,10 @@ export default function Login() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation("login");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
+  const { isLocked, remainingText, checkLockout, recordFailure, clearLockout } = useLoginLockout({
+    email,
+    t,
+  });
   const loginValidation = useMemo(() => {
     const result = loginSchema.safeParse({ email, password });
     if (result.success) {
@@ -44,7 +49,7 @@ export default function Login() {
     }
     return { isValid: false };
   }, [email, password]);
-  const disabled = !loginValidation.isValid || isSubmitting;
+  const disabled = !loginValidation.isValid || isSubmitting || isLocked;
 
   const showToast = useCallback((message: string) => {
     if (Platform.OS === "android") {
@@ -60,6 +65,11 @@ export default function Login() {
     setErrorMessage(null);
     try {
       const parsed = loginSchema.parse({ email, password });
+      const lockoutStatus = await checkLockout(parsed.email);
+      if (lockoutStatus.locked) {
+        setErrorMessage(t("errorLocked"));
+        return;
+      }
       const result = await signInWithEmailPassword({
         email: parsed.email,
         password: parsed.password,
@@ -67,17 +77,21 @@ export default function Login() {
 
       //　打ち込んだEmailのユーザが存在するか、パスワードは正しいかを検証
       if (!result.ok) {
+        const lockout = await recordFailure(parsed.email);
         const message =
-          result.reason === "user_not_found"
-            ? t("errorUserNotFound")
-            : result.reason === "invalid_password"
-              ? t("errorWrongPassword")
-              : result.message ?? t("errorWrongPassword");
+          lockout.locked
+            ? t("errorLocked")
+            : result.reason === "user_not_found"
+              ? t("errorUserNotFound")
+              : result.reason === "invalid_password"
+                ? t("errorWrongPassword")
+                : result.message ?? t("errorWrongPassword");
         setErrorMessage(message);
         return;
       }
 
       setErrorMessage(null);
+      await clearLockout(parsed.email);
 
       // ログイン情報が正しい時、Authのユーザ情報からSubscriptionデータを取得し、それに応じてユーザを各ページに遷移させる
       const { data } = await supabase.auth.getSession();
@@ -177,6 +191,11 @@ export default function Login() {
           {!!errorLabel && (
             <View style={[styles.alertBox, styles.errorBox]}>
               <Text style={styles.alertBody}>{errorLabel}</Text>
+            </View>
+          )}
+          {!!remainingText && (
+            <View style={[styles.alertBox, styles.infoBox]}>
+              <Text style={styles.alertBody}>{remainingText}</Text>
             </View>
           )}
 
@@ -354,6 +373,10 @@ const styles = StyleSheet.create({
   },
   errorBox: {
     borderColor: "#ff8a8a",
+  },
+  infoBox: {
+    backgroundColor: "rgba(110,168,255,0.12)",
+    borderColor: "rgba(110,168,255,0.28)",
   },
   subtleButton: {
     alignItems: "center",
