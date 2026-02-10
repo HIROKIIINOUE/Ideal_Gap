@@ -22,6 +22,7 @@ const contactSchema = z.object({
   email: z.string().trim().check(z.email()),
   category: z.enum(categoryKeys),
   message: z.string().trim().min(6),
+  honeypot: z.string().trim().max(0),
 });
 
 export default function Contact() {
@@ -35,6 +36,7 @@ export default function Contact() {
   const [email, setEmail] = useState("");
   const [category, setCategory] = useState<CategoryKey | null>(null);
   const [message, setMessage] = useState("");
+  const [honeypot, setHoneypot] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitted">("idle");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,8 +58,8 @@ export default function Contact() {
   );
 
   const validation = useMemo(
-    () => contactSchema.safeParse({ name, email, category, message }),
-    [name, email, category, message],
+    () => contactSchema.safeParse({ name, email, category, message, honeypot }),
+    [name, email, category, message, honeypot],
   );
   const fieldErrors = useMemo(() => {
     if (validation.success) return {};
@@ -208,6 +210,17 @@ export default function Contact() {
               <Text style={styles.errorText}>{t("validation.name")}</Text>
             )}
           </View>
+
+          <TextInput
+            value={honeypot}
+            onChangeText={setHoneypot}
+            autoCapitalize="none"
+            autoCorrect={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            testID="contact-honeypot"
+            style={styles.honeypot}
+          />
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>{t("fields.emailLabel")}</Text>
@@ -405,6 +418,13 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 140,
+  },
+  honeypot: {
+    position: "absolute",
+    height: 0,
+    width: 0,
+    opacity: 0,
+    left: -9999,
   },
   selectButton: {
     backgroundColor: "rgba(255,255,255,0.05)",
