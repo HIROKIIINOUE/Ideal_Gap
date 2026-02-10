@@ -44,7 +44,7 @@ export const profileUpdateTranslations: Record<
     successTitle: "更新しました",
     successBody: "プロフィールが更新されました。",
     errorUnknown:
-      "エラーが発生しました。時間をおいて再度お試しください。前回と同じパスワードは指定できません。",
+      "エラーが発生しました。時間をおいて再度お試しください。前回と同じパスワード、既に登録済みのメールアドレスは指定できません。",
     errorEmailExists: "このメールアドレスは既に登録されています。",
     validation: {
       username: "ユーザ名を入力してください",
