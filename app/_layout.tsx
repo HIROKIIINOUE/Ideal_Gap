@@ -3,9 +3,12 @@
 import { setAudioModeAsync } from "expo-audio";
 import * as Linking from "expo-linking";
 import { Stack, router } from "expo-router";
-import { useEffect } from "react";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect, useState } from "react";
 import { I18nextProvider } from "react-i18next";
+import SplashOverlay from "../components/SplashOverlay";
 import i18n from "../i18n";
+import { restoreSession } from "../lib/authBootstrap";
 import { parseAuthTokensFromUrl } from "../lib/deepLink";
 import { ensureSignupAwaitSubscription } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
@@ -14,6 +17,7 @@ import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
 import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 
+SplashScreen.preventAutoHideAsync();
 
 //　URLの＃以降からトークン(access_tokenとrefresh_token)を抽出するロジック。両方とも揃ってなければnullを返す。
 // access_token: 認証済みユーザであることを示すJWT(APIアクセス時に使う)
@@ -37,7 +41,10 @@ const getSignupQuery = (url: string) => {
   return signup ? "?signup=1" : "";
 };
 
+const MIN_SPLASH_DURATION_MS = 1000;  // スプラッシュ画面の最短表示時間を調整
+
 export default function RootLayout() {
+  const [showSplash, setShowSplash] = useState(true);
   // 音楽再生についてのルール設定
   useEffect(() => {
     setAudioModeAsync({
@@ -52,9 +59,7 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    let handledInitial = false;
-
-
+    let active = true;
     // Supabaseによって発行されたトークンをユーザ端末のAsyncStorageにローカル保存する処理
     // また同時にsubscription行も確実に作成する
     const handleUrl = async (url: string) => {
@@ -87,17 +92,27 @@ export default function RootLayout() {
       }
     };
 
-    // アプリ起動直後の初期URLを取得
-    const processInitial = async () => {
-      if (handledInitial) return;
+    const bootstrap = async () => {
+      const start = Date.now();
       const initialUrl = await Linking.getInitialURL();
       if (initialUrl) {
-        handledInitial = true;
         await handleUrl(initialUrl);
       }
+      await restoreSession();
+      const elapsed = Date.now() - start;
+      const remaining = Math.max(0, MIN_SPLASH_DURATION_MS - elapsed);
+      setTimeout(() => {
+        if (!active) return;
+        setShowSplash(false);
+        SplashScreen.hideAsync().catch(() => { });
+      }, remaining);
     };
 
-    processInitial();
+    bootstrap().catch((error) => {
+      console.warn("Failed to bootstrap app", error);
+      setShowSplash(false);
+      SplashScreen.hideAsync().catch(() => { });
+    });
 
     //　「アプリが起動中に新しいURLが渡ってきた」タイミングで発火。今回は「アプリ起動後に入ってきたディープリンク」を拾う役割
     const subscription = Linking.addEventListener("url", ({ url }) => {
@@ -107,6 +122,7 @@ export default function RootLayout() {
     });
 
     return () => {
+      active = false;
       subscription.remove();
     };
   }, []);
@@ -118,6 +134,7 @@ export default function RootLayout() {
           <FocusMusicProvider>
             <RevenueCatProvider>
               <Stack />
+              <SplashOverlay visible={showSplash} />
             </RevenueCatProvider>
           </FocusMusicProvider>
         </FunPlanProvider>
