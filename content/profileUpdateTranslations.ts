@@ -43,7 +43,8 @@ export const profileUpdateTranslations: Record<
     emailPendingBody: "メール内のリンクを開いて本人確認を完了してください。",
     successTitle: "更新しました",
     successBody: "プロフィールが更新されました。",
-    errorUnknown: "エラーが発生しました。時間をおいて再度お試しください。",
+    errorUnknown:
+      "エラーが発生しました。時間をおいて再度お試しください。前回と同じパスワードは指定できません。",
     errorEmailExists: "このメールアドレスは既に登録されています。",
     validation: {
       username: "ユーザ名を入力してください",
@@ -66,7 +67,8 @@ export const profileUpdateTranslations: Record<
     emailPendingBody: "Open the link in the email to confirm your address.",
     successTitle: "Updated",
     successBody: "Your profile has been updated.",
-    errorUnknown: "Something went wrong. Please try again later.",
+    errorUnknown:
+      "Something went wrong. Please try again later. Your new password must be different from previous one",
     errorEmailExists: "This email is already registered.",
     validation: {
       username: "Please enter a username",
@@ -90,7 +92,8 @@ export const profileUpdateTranslations: Record<
       "Ouvrez le lien dans l’e-mail pour confirmer votre adresse.",
     successTitle: "Mis à jour",
     successBody: "Votre profil a été mis à jour.",
-    errorUnknown: "Une erreur est survenue. Réessayez plus tard.",
+    errorUnknown:
+      "Une erreur est survenue. Réessayez plus tard. Votre nouveau mot de passe doit être différent du précédent.",
     errorEmailExists: "Cet e-mail est déjà enregistré.",
     validation: {
       username: "Veuillez saisir un nom d’utilisateur",
