@@ -33,6 +33,9 @@ export type CommonTranslations = {
       contact: { title: string; subtitle: string };
     };
   };
+  navigation: {
+    back: string;
+  };
   languageNames: Record<LanguageKey, string>;
   languageHelpers: Record<LanguageKey, string>;
 };
@@ -89,6 +92,9 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
         },
       },
     },
+    navigation: {
+      back: "戻る",
+    },
     languageNames: {
       ja: "日本語",
       en: "English",
@@ -144,6 +150,9 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
         profile: { title: "Edit profile", subtitle: "Update name or email" },
         contact: { title: "Contact us", subtitle: "Send feedback or issues" },
       },
+    },
+    navigation: {
+      back: "Back",
     },
     languageNames: {
       ja: "日本語",
@@ -209,6 +218,9 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           subtitle: "Envoyer vos retours ou problèmes",
         },
       },
+    },
+    navigation: {
+      back: "retour",
     },
     languageNames: {
       ja: "日本語",

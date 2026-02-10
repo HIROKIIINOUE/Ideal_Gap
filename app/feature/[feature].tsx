@@ -46,6 +46,7 @@ export default function FeatureScreen() {
   const params = useLocalSearchParams<{ feature?: FeatureId }>();
   const { t: tDashboard } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
+  const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
   const { toggleFunPlan, funPlanVisible } = useFunPlan();
@@ -134,7 +135,7 @@ export default function FeatureScreen() {
   return (
     // 白帯ヘッダーとタイトルカードの余白を狭める方法→edges={["left", "right", "bottom"]}
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
-      <Stack.Screen options={{ title: featureTitle }} />
+      <Stack.Screen options={{ title: featureTitle, headerBackTitle: tCommonNav("back") }} />
       <ScrollView
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="never"

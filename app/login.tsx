@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, router } from "expo-router";
+import { Link, Stack, router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -36,6 +36,7 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation("login");
+  const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
   const loginValidation = useMemo(() => {
     const result = loginSchema.safeParse({ email, password });
     if (result.success) {
@@ -105,6 +106,7 @@ export default function Login() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ title: t("pageLabel"), headerBackTitle: tCommon("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.label}>{t("pageLabel")}</Text>

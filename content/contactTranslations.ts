@@ -40,8 +40,10 @@ export type ContactTranslations = {
 export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
   ja: {
     pageTitle: "お問い合わせ",
-    intro: "不具合の報告や改善のリクエストをお送りください。ログイン前でもご利用いただけます。",
-    demoNotice: "現在はデモ送信です。内容は記録されませんが、いただいた声を確認し製品改善に活かします。",
+    intro:
+      "不具合の報告や改善のリクエストをお送りください。ログイン前でもご利用いただけます。",
+    demoNotice:
+      "現在はデモ送信です。内容は記録されませんが、いただいた声を確認し製品改善に活かします。",
     fields: {
       nameLabel: "お名前",
       namePlaceholder: "お名前",
@@ -65,7 +67,8 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
       sent: "送信済み",
       successTitle: "送信が完了しました",
       successBody: "いただいた内容は順次確認させていただきます。",
-      error: "送信に失敗しました。ネットワーク環境を確認して、もう一度お試しください。",
+      error:
+        "送信に失敗しました。ネットワーク環境を確認して、もう一度お試しください。",
     },
     validation: {
       name: "お名前を入力してください",
@@ -76,8 +79,10 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
   },
   en: {
     pageTitle: "Contact us",
-    intro: "Tell us about bugs, feature ideas, or general feedback. You can reach out even before signing in.",
-    demoNotice: "Demo submission only for now. Messages are not stored, but we’ll review your notes for improvements.",
+    intro:
+      "Tell us about bugs, feature ideas, or general feedback. You can reach out even before signing in.",
+    demoNotice:
+      "Demo submission only for now. Messages are not stored, but we’ll review your notes for improvements.",
     fields: {
       nameLabel: "Name",
       namePlaceholder: "Your name",
@@ -101,7 +106,8 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
       sent: "Sent",
       successTitle: "Message sent",
       successBody: "We’ll review your submission shortly.",
-      error: "Could not send your message. Please check your connection and try again.",
+      error:
+        "Could not send your message. Please check your connection and try again.",
     },
     validation: {
       name: "Please enter your name",
@@ -112,8 +118,10 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
   },
   fr: {
     pageTitle: "Contact",
-    intro: "Signalez un bug, demandez une fonctionnalité ou partagez votre avis. Accessible même sans connexion.",
-    demoNotice: "Formulaire de démonstration pour le moment. Les messages ne sont pas enregistrés, mais nous les examinons.",
+    intro:
+      "Signalez un bug, demandez une fonctionnalité ou partagez votre avis. Accessible même sans connexion.",
+    demoNotice:
+      "Formulaire de démonstration pour le moment. Les messages ne sont pas enregistrés, mais nous les examinons.",
     fields: {
       nameLabel: "Nom",
       namePlaceholder: "Votre nom",
@@ -137,7 +145,8 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
       sent: "Envoyé",
       successTitle: "Message envoyé",
       successBody: "Nous examinerons votre demande prochainement.",
-      error: "Impossible d’envoyer votre message. Vérifiez votre connexion et réessayez.",
+      error:
+        "Impossible d’envoyer votre message. Vérifiez votre connexion et réessayez.",
     },
     validation: {
       name: "Veuillez saisir votre nom",

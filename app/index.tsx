@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Href, Link, router } from "expo-router";
+import { Href, Link, Stack, router } from "expo-router";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
@@ -261,6 +261,13 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen
+        options={{
+          title: "Ideal Gap",
+          headerBackVisible: false,
+          headerLeft: () => null,
+        }}
+      />
       <Animated.ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}

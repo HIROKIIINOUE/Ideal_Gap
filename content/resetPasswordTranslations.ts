@@ -53,7 +53,7 @@ export const resetPasswordTranslations: Record<
       "エラーが発生しました。もう一度お試しください。前回と同じパスワードは使用できません。",
   },
   en: {
-    pageLabel: "Reset Password",
+    pageLabel: "Reset-password",
     backToLogin: "Back to Log In",
     introTitle: "Need a reset?",
     introBody:
@@ -78,7 +78,7 @@ export const resetPasswordTranslations: Record<
       "Something went wrong. Please try again. Your new password must be different from previous one",
   },
   fr: {
-    pageLabel: "Réinitialiser le mot de passe",
+    pageLabel: "Reset-password",
     backToLogin: "Retour à la connexion",
     introTitle: "Besoin de réinitialiser ?",
     introBody:

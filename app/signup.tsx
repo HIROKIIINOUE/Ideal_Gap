@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, router } from "expo-router";
+import { Link, Stack, router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -26,6 +26,7 @@ export default function Signup() {
   useRedirectAuthenticated(); // ログインユーザをダッシュボードへ強制遷移
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const { t } = useTranslation("signup");
+  const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
   const { language } = useLanguage();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -145,6 +146,7 @@ export default function Signup() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ title: t("pageLabel"), headerBackTitle: tCommon("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.label}>{t("pageLabel")}</Text>

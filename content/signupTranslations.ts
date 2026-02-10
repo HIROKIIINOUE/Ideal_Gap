@@ -37,7 +37,7 @@ export type SignupTranslations = {
 
 export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
   ja: {
-    pageLabel: "Sign Up",
+    pageLabel: "サインアップ",
     backToHome: "ホームへ戻る",
     heroTitle: "無料で始める",
     heroBody:
@@ -77,7 +77,7 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
       "確認メールを{{email}}に送信しました。リンクを開いてサインアップを完了してください。",
   },
   en: {
-    pageLabel: "Sign Up",
+    pageLabel: "Signup",
     backToHome: "Back to Home",
     heroTitle: "Start free",
     heroBody:

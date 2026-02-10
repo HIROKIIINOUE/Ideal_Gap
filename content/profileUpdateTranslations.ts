@@ -24,7 +24,10 @@ export type ProfileUpdateTranslations = {
   };
 };
 
-export const profileUpdateTranslations: Record<LanguageKey, ProfileUpdateTranslations> = {
+export const profileUpdateTranslations: Record<
+  LanguageKey,
+  ProfileUpdateTranslations
+> = {
   ja: {
     title: "プロフィール変更",
     subtitle: "アカウント情報を最新に保ちましょう。",
@@ -49,7 +52,7 @@ export const profileUpdateTranslations: Record<LanguageKey, ProfileUpdateTransla
     },
   },
   en: {
-    title: "Edit Profile",
+    title: "Profile-update",
     subtitle: "Keep your account details up to date.",
     usernameLabel: "Username",
     emailLabel: "Email",
@@ -72,7 +75,7 @@ export const profileUpdateTranslations: Record<LanguageKey, ProfileUpdateTransla
     },
   },
   fr: {
-    title: "Modifier le profil",
+    title: "Profile-update",
     subtitle: "Gardez vos informations de compte à jour.",
     usernameLabel: "Nom d’utilisateur",
     emailLabel: "E-mail",
@@ -83,7 +86,8 @@ export const profileUpdateTranslations: Record<LanguageKey, ProfileUpdateTransla
     save: "Enregistrer les modifications",
     saving: "Enregistrement…",
     emailPendingTitle: "E-mail de vérification envoyé",
-    emailPendingBody: "Ouvrez le lien dans l’e-mail pour confirmer votre adresse.",
+    emailPendingBody:
+      "Ouvrez le lien dans l’e-mail pour confirmer votre adresse.",
     successTitle: "Mis à jour",
     successBody: "Votre profil a été mis à jour.",
     errorUnknown: "Une erreur est survenue. Réessayez plus tard.",

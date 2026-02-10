@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { Stack, router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from "react-native";
@@ -26,6 +26,7 @@ const contactSchema = z.object({
 
 export default function Contact() {
   const { t } = useTranslation("contact");
+  const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
@@ -177,6 +178,7 @@ export default function Contact() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
+      <Stack.Screen options={{ title: t("pageTitle"), headerBackTitle: tCommonNav("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, shadows.card]}>
           <LinearGradient

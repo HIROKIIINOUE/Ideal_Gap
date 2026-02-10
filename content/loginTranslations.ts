@@ -22,7 +22,7 @@ export type LoginTranslations = {
 
 export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
   ja: {
-    pageLabel: "Log In",
+    pageLabel: "ログイン",
     backToHome: "ホームへ戻る",
     welcomeTitle: "おかえりなさい",
     welcomeBody: "メールアドレスとパスワードでログイン。",
@@ -42,7 +42,7 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     loggingIn: "ログイン中…",
   },
   en: {
-    pageLabel: "Log In",
+    pageLabel: "Login",
     backToHome: "Back to Home",
     welcomeTitle: "Welcome back",
     welcomeBody: "Log in with your email and password.",

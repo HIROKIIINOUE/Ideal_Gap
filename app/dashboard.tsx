@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Href, router, useFocusEffect } from "expo-router";
+import { Href, Stack, router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
@@ -159,6 +159,13 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
+      <Stack.Screen
+        options={{
+          title: t("pageTitle"),
+          headerBackVisible: false,
+          headerLeft: () => null,
+        }}
+      />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.headerTextGroup}>

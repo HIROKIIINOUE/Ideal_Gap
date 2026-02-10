@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { Stack, router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -32,6 +32,7 @@ const profileSchema = z.object({
 
 export default function ProfileUpdate() {
   const { t } = useTranslation("profileUpdate");
+  const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
@@ -244,6 +245,7 @@ export default function ProfileUpdate() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ title: t("title"), headerBackTitle: tCommonNav("back") }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: "padding", android: undefined })}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={[styles.card, shadows.card]}>

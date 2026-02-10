@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -32,6 +32,7 @@ import { supabase } from "../lib/supabaseClient";
 
 export default function Purchases() {
   const { t } = useTranslation("purchases");
+  const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const params = useLocalSearchParams();
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [plan, setPlan] = useState<TestStorePlan | null>(null);
@@ -147,6 +148,7 @@ export default function Purchases() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ title: t("pageLabel"), headerBackTitle: tCommonNav("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.label}>{t("pageLabel")}</Text>

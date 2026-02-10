@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
-import { Link, useRouter } from "expo-router";
+import { Link, Stack, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -46,6 +46,7 @@ export default function ResetPassword() {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const { t } = useTranslation("resetPassword");
+  const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
   const { replace, push } = useRouter();
 
   const sendValidation = useMemo(() => resetEmailSchema.safeParse({ email }), [email]);
@@ -148,6 +149,7 @@ export default function ResetPassword() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ title: t("pageLabel"), headerBackTitle: tCommon("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.label}>{t("pageLabel")}</Text>
