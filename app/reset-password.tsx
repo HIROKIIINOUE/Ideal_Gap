@@ -42,7 +42,8 @@ export default function ResetPassword() {
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const { t } = useTranslation("resetPassword");
   const { replace, push } = useRouter();
@@ -71,7 +72,7 @@ export default function ResetPassword() {
       if (mounted && ready) {
         setRecoveryReady(true);
         setStatusMessage(t("sessionReady"));
-        setErrorMessage(null);
+        setUpdateError(null);
       }
     };
 
@@ -89,7 +90,7 @@ export default function ResetPassword() {
   const handleSendReset = useCallback(async () => {
     if (sendDisabled) return;
     setIsSending(true);
-    setErrorMessage(null);
+    setSendError(null);
     setStatusMessage(null);
     try {
       const parsed = resetEmailSchema.parse({ email });
@@ -97,8 +98,12 @@ export default function ResetPassword() {
 
       if (!result.ok) {
         const message =
-          result.reason === "user_not_found" ? t("errorUserNotFound") : result.message ?? t("errorUnknown");
-        setErrorMessage(message);
+          result.reason === "user_not_found"
+            ? t("errorUserNotFound")
+            : result.reason === "rate_limited"
+              ? t("errorRateLimited")
+              : t("errorUnknown");
+        setSendError(message);
         return;
       }
 
@@ -112,14 +117,19 @@ export default function ResetPassword() {
   const handleUpdatePassword = useCallback(async () => {
     if (updateDisabled) return;
     setIsUpdating(true);
-    setErrorMessage(null);
+    setUpdateError(null);
     try {
       const parsed = newPasswordSchema.parse({ newPassword });
       const result = await completePasswordReset(parsed.newPassword);
 
       if (!result.ok) {
-        const message = result.reason === "missing_session" ? t("sessionNotReady") : result.message ?? t("errorUnknown");
-        setErrorMessage(message);
+        const message =
+          result.reason === "missing_session"
+            ? t("sessionNotReady")
+            : result.reason === "rate_limited"
+              ? t("errorRateLimited")
+              : t("errorUnknown");
+        setUpdateError(message);
         return;
       }
 
@@ -197,61 +207,68 @@ export default function ResetPassword() {
               <Text style={styles.alertBody}>{statusMessage}</Text>
             </View>
           )}
-        </View>
-
-        <View style={[styles.card, shadows.card]}>
-          <LinearGradient
-            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.cardHeading}>{t("newPasswordTitle")}</Text>
-          <Text style={styles.body}>{recoveryHint}</Text>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("newPasswordLabel")}</Text>
-            <TextInput
-              placeholder={t("newPasswordPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              secureTextEntry
-              keyboardAppearance="dark"
-              value={newPassword}
-              onChangeText={setNewPassword}
-            />
-          </View>
-
-          {!!errorMessage && (
+          {!!sendError && (
             <View style={[styles.alertBox, styles.errorBox]}>
-              <Text style={styles.alertBody}>{errorMessage}</Text>
+              <Text style={styles.alertBody}>{sendError}</Text>
             </View>
           )}
+        </View>
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleUpdatePassword}
-            accessibilityState={{ disabled: updateDisabled }}
-            disabled={updateDisabled}
-            style={({ pressed }) => [
-              styles.ctaButton,
-              styles.secondaryButton,
-              styles.buttonShadow,
-              pressed && styles.buttonPressed,
-              updateDisabled && styles.buttonDisabled,
-            ]}
-          >
+        {recoveryReady && (
+          <View style={[styles.card, shadows.card]}>
             <LinearGradient
-              colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
+              colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.buttonGlass, styles.secondaryOverlay]}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.secondaryLabel}>
-              {isUpdating ? t("updating") : t("updateCta")}
-            </Text>
-          </Pressable>
-        </View>
+            <Text style={styles.cardHeading}>{t("newPasswordTitle")}</Text>
+            <Text style={styles.body}>{recoveryHint}</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t("newPasswordLabel")}</Text>
+              <TextInput
+                placeholder={t("newPasswordPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                secureTextEntry
+                keyboardAppearance="dark"
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
+            </View>
+
+            {!!updateError && (
+              <View style={[styles.alertBox, styles.errorBox]}>
+                <Text style={styles.alertBody}>{updateError}</Text>
+              </View>
+            )}
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleUpdatePassword}
+              accessibilityState={{ disabled: updateDisabled }}
+              disabled={updateDisabled}
+              style={({ pressed }) => [
+                styles.ctaButton,
+                styles.secondaryButton,
+                styles.buttonShadow,
+                pressed && styles.buttonPressed,
+                updateDisabled && styles.buttonDisabled,
+              ]}
+            >
+              <LinearGradient
+                colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.buttonGlass, styles.secondaryOverlay]}
+              />
+              <Text style={styles.secondaryLabel}>
+                {isUpdating ? t("updating") : t("updateCta")}
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
       <Footer
         isAuthenticated={false}

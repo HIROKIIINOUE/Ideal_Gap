@@ -6,7 +6,7 @@ import {
   signInWithEmailPassword,
   signUpWithEmailConfirmation,
 } from "../lib/auth";
-import { supabase } from "../lib/supabaseClient";
+import { supabase, supabaseRecovery } from "../lib/supabaseClient";
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -29,6 +29,14 @@ jest.mock("../lib/supabaseClient", () => ({
     },
     from: jest.fn(),
     rpc: jest.fn(),
+  },
+  supabaseRecovery: {
+    auth: {
+      updateUser: jest.fn(),
+      getSession: jest.fn(),
+      setSession: jest.fn(),
+      signOut: jest.fn(),
+    },
   },
 }));
 
@@ -203,7 +211,7 @@ describe("requestPasswordResetEmail", () => {
 
     expect(result).toEqual({
       ok: false,
-      reason: "unknown",
+      reason: "rate_limited",
       message: "Rate limited",
     });
   });
@@ -213,17 +221,17 @@ describe("setSessionFromRecoveryLink", () => {
   test("returns false when tokens are missing", async () => {
     const result = await setSessionFromRecoveryLink("idealgap://reset-password");
     expect(result).toBe(false);
-    expect(supabase.auth.setSession).not.toHaveBeenCalled();
+    expect(supabaseRecovery.auth.setSession).not.toHaveBeenCalled();
   });
 
   test("sets session when tokens are present", async () => {
-    (supabase.auth.setSession as jest.Mock).mockResolvedValue({ data: {}, error: null });
+    (supabaseRecovery.auth.setSession as jest.Mock).mockResolvedValue({ data: {}, error: null });
 
     const url =
       "idealgap://reset-password#access_token=access123&refresh_token=refresh456&type=recovery";
     const result = await setSessionFromRecoveryLink(url);
 
-    expect(supabase.auth.setSession).toHaveBeenCalledWith({
+    expect(supabaseRecovery.auth.setSession).toHaveBeenCalledWith({
       access_token: "access123",
       refresh_token: "refresh456",
     });
@@ -233,14 +241,14 @@ describe("setSessionFromRecoveryLink", () => {
 
 describe("completePasswordReset", () => {
   beforeEach(() => {
-    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+    (supabaseRecovery.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { access_token: "token" } },
       error: null,
     });
   });
 
   test("returns missing_session when no active session exists", async () => {
-    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+    (supabaseRecovery.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: null },
       error: null,
     });
@@ -255,16 +263,17 @@ describe("completePasswordReset", () => {
   });
 
   test("updates password when session exists", async () => {
-    (supabase.auth.updateUser as jest.Mock).mockResolvedValue({ data: {}, error: null });
+    (supabaseRecovery.auth.updateUser as jest.Mock).mockResolvedValue({ data: {}, error: null });
 
     const result = await completePasswordReset("new-password");
 
-    expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: "new-password" });
+    expect(supabaseRecovery.auth.updateUser).toHaveBeenCalledWith({ password: "new-password" });
+    expect(supabaseRecovery.auth.signOut).toHaveBeenCalled();
     expect(result).toEqual({ ok: true });
   });
 
   test("returns unknown when Supabase returns an error", async () => {
-    (supabase.auth.updateUser as jest.Mock).mockResolvedValue({
+    (supabaseRecovery.auth.updateUser as jest.Mock).mockResolvedValue({
       data: null,
       error: { message: "Password too weak", status: 400 } as AuthError,
     });

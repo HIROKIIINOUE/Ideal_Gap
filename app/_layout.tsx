@@ -6,6 +6,7 @@ import { Stack, router } from "expo-router";
 import { useEffect } from "react";
 import { I18nextProvider } from "react-i18next";
 import i18n from "../i18n";
+import { parseAuthTokensFromUrl } from "../lib/deepLink";
 import { ensureSignupAwaitSubscription } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
@@ -18,17 +19,8 @@ import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 // access_token: 認証済みユーザであることを示すJWT(APIアクセス時に使う)
 // refresh_token: access_token が切れたときに 新しいセッション/トークンを再取得するためのトークン
 // どちらのトークンもサイン後のマジックリンク(メール内のURL)クリック時に生成される。
-const parseTokensFromUrl = (url: string) => {
-  const hashIndex = url.indexOf("#");
-  if (hashIndex === -1) return null;
-  const fragment = url.slice(hashIndex + 1);
-  // URLSearchParams()は「クエリ文字列形式 (key=value&key2=value2) を解析する標準API」
-  const params = new URLSearchParams(fragment);
-  const accessToken = params.get("access_token");
-  const refreshToken = params.get("refresh_token");
-  if (!accessToken || !refreshToken) return null;
-  return { accessToken, refreshToken };
-};
+const parseTokensFromUrl = (url: string) =>
+  parseAuthTokensFromUrl(url, { disallowTypes: ["recovery"] });
 
 // URLでパスを解析しpurchasesまたはpurchaseで始まっていると「購入関連のパス」と判断しtrueを返す。
 const isPurchasePath = (url: string) => {

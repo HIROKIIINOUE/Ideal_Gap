@@ -5,7 +5,7 @@ import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import * as Localization from "expo-localization";
 import { LanguageKey } from "../types/i18n";
-import { supabase } from "./supabaseClient";
+import { supabase, supabaseRecovery } from "./supabaseClient";
 
 type SignUpParams = {
   email: string;
@@ -35,7 +35,7 @@ type ResetPasswordRequestResult =
   | { ok: true }
   | {
       ok: false;
-      reason: "user_not_found" | "unknown";
+      reason: "user_not_found" | "rate_limited" | "unknown";
       message: string;
     };
 
@@ -43,7 +43,7 @@ type CompletePasswordResetResult =
   | { ok: true }
   | {
       ok: false;
-      reason: "missing_session" | "unknown";
+      reason: "missing_session" | "rate_limited" | "unknown";
       message: string;
     };
 
@@ -149,6 +149,10 @@ export const requestPasswordResetEmail = async (
     });
 
     if (error) {
+      const message = error.message ?? "";
+      if (error.status === 429 || message.toLowerCase().includes("rate")) {
+        return { ok: false, reason: "rate_limited", message };
+      }
       return { ok: false, reason: "unknown", message: error.message };
     }
 
@@ -160,6 +164,7 @@ export const requestPasswordResetEmail = async (
 };
 
 // supabaseが生成したリカバリートークンを解析
+// → type="recovery"を検知し「パスワード再設定リンク」と判断できたら、accessToken, refreshTokenを取り出す
 const parseRecoveryTokens = (url?: string | null) => {
   if (!url) return null;
   const hashIndex = url.indexOf("#");
@@ -174,14 +179,17 @@ const parseRecoveryTokens = (url?: string | null) => {
   return { accessToken, refreshToken };
 };
 
-// リカバリメールリンクが有効かどうかbooleanで返す
+// アプリ側(ローカル端末ストレージ)にトークン(ユーザのアプリ入場証)をセット
+// セットが完了したらtrueを返し、パスワードリセット(reset-password.tsx)でパスワード変更状態がreadyになる
 export const setSessionFromRecoveryLink = async (url?: string | null) => {
   const tokens = parseRecoveryTokens(url);
   if (!tokens) return false;
 
-  const { error } = await supabase.auth.setSession({
-    access_token: tokens.accessToken,
-    refresh_token: tokens.refreshToken,
+  // クライアント側(端末ストレージ)にaccess_tokenとrefresh_tokenを保存(復元)する操作。
+  //  → supabaseRecoveryでgetSession()やupdateUser()が使える状態になる
+  const { error } = await supabaseRecovery.auth.setSession({
+    access_token: tokens.accessToken, //短命JWT、ユーザとしてAPIを叩くための身分証
+    refresh_token: tokens.refreshToken, //access_tokenを再発行するための長命トークン
   });
 
   return !error;
@@ -192,7 +200,7 @@ export const completePasswordReset = async (
   newPassword: string,
 ): Promise<CompletePasswordResetResult> => {
   try {
-    const { data, error } = await supabase.auth.getSession();
+    const { data, error } = await supabaseRecovery.auth.getSession();
     if (error) {
       return { ok: false, reason: "unknown", message: error.message };
     }
@@ -204,13 +212,21 @@ export const completePasswordReset = async (
       };
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({
+    const { error: updateError } = await supabaseRecovery.auth.updateUser({
       password: newPassword,
     });
     if (updateError) {
+      const message = updateError.message ?? "";
+      if (
+        updateError.status === 429 ||
+        message.toLowerCase().includes("rate")
+      ) {
+        return { ok: false, reason: "rate_limited", message };
+      }
       return { ok: false, reason: "unknown", message: updateError.message };
     }
 
+    await supabaseRecovery.auth.signOut();
     return { ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";

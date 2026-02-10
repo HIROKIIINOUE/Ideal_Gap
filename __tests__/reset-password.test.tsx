@@ -70,6 +70,18 @@ describe("ResetPassword screen", () => {
     await waitFor(() => expect(mockRequestPasswordResetEmail).toHaveBeenCalledWith("user@example.com"));
   });
 
+  test("shows error message when email is not found", async () => {
+    mockRequestPasswordResetEmail.mockResolvedValue({ ok: false, reason: "user_not_found" });
+    mockSetSessionFromRecoveryLink.mockResolvedValue(false);
+    (Linking.getInitialURL as jest.Mock).mockResolvedValue(null);
+    const { getByPlaceholderText, getByRole, findByText } = renderScreen();
+
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "missing@example.com");
+    fireEvent.press(getByRole("button", { name: "Send reset email" }));
+
+    expect(await findByText("No account found for that email.")).toBeOnTheScreen();
+  });
+
   test("updates password after recovery session is ready", async () => {
     mockSetSessionFromRecoveryLink.mockResolvedValue(true);
     mockCompletePasswordReset.mockResolvedValue({ ok: true });

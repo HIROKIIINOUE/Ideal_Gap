@@ -26,21 +26,29 @@ describe("supabase client", () => {
     process.env = originalEnv;
   });
 
-  test("creates client with AsyncStorage and auth settings", () => {
+  test("creates clients with AsyncStorage and auth settings", () => {
     jest.isolateModules(() => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       require("../lib/supabaseClient");
     });
 
-    expect(mockCreateClient).toHaveBeenCalledTimes(1);
+    expect(mockCreateClient).toHaveBeenCalledTimes(2);
     const [url, key, options] = mockCreateClient.mock.calls[0];
+    const [recoveryUrl, recoveryKey, recoveryOptions] = mockCreateClient.mock.calls[1];
 
     expect(url).toBe("https://example.supabase.co");
     expect(key).toBe("anon-key");
+    expect(recoveryUrl).toBe("https://example.supabase.co");
+    expect(recoveryKey).toBe("anon-key");
 
     expect(options?.auth?.storage).toBeDefined();
     expect(options?.auth?.autoRefreshToken).toBe(true);
     expect(options?.auth?.persistSession).toBe(true);
     expect(options?.auth?.detectSessionInUrl).toBe(false);
+
+    expect(recoveryOptions?.auth?.storage).toBeDefined();
+    expect(recoveryOptions?.auth?.autoRefreshToken).toBe(false);
+    expect(recoveryOptions?.auth?.persistSession).toBe(false);
+    expect(recoveryOptions?.auth?.detectSessionInUrl).toBe(false);
   });
 });
