@@ -41,7 +41,7 @@ const getSignupQuery = (url: string) => {
   return signup ? "?signup=1" : "";
 };
 
-const MIN_SPLASH_DURATION_MS = 1000;  // スプラッシュ画面の最短表示時間を調整
+const MIN_SPLASH_DURATION_MS = 1500;  // スプラッシュ画面の最短表示時間を調整
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
