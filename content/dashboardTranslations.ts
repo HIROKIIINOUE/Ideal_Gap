@@ -17,6 +17,9 @@ type CardCopy = {
 export type DashboardTranslations = {
   pageTitle: string;
   pageSubtitle: string;
+  notifications: {
+    emailUpdated: string;
+  };
   nextFunPlan: {
     title: string;
     subtitle: string;
@@ -37,6 +40,9 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
       pageTitle: "ダッシュボード",
       pageSubtitle:
         "理想への進捗をひと目で確認し、今日のフォーカスを決めましょう。",
+      notifications: {
+        emailUpdated: "メールアドレス変更が完了しました",
+      },
       nextFunPlan: {
         title: "次回の楽しい予定",
         subtitle: "",
@@ -89,6 +95,9 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
       pageTitle: "Dashboard",
       pageSubtitle:
         "See your progress toward the ideal at a glance and choose today's focus.",
+      notifications: {
+        emailUpdated: "Your email address has been updated.",
+      },
       nextFunPlan: {
         title: "Next Fun Plan",
         subtitle: "",
@@ -142,6 +151,9 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
       pageTitle: "Tableau de bord",
       pageSubtitle:
         "Voyez d’un coup d’œil vos progrès vers l’idéal et choisissez le focus du jour.",
+      notifications: {
+        emailUpdated: "Votre adresse e-mail a bien été modifiée.",
+      },
       nextFunPlan: {
         title: "Prochain moment plaisir",
         subtitle: "",

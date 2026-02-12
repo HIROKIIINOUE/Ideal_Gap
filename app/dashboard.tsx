@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Href, Stack, router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { Href, Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,6 +34,7 @@ const HERO_GRADIENT: readonly [string, string] = ["rgba(110,168,255,0.4)", "rgba
 export default function Dashboard() {
   const { t } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
+  const { emailUpdated } = useLocalSearchParams<{ emailUpdated?: string }>();
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
   const [nextFunPlan, setNextFunPlan] = useState<string | null>(null);
@@ -47,6 +48,13 @@ export default function Dashboard() {
       Alert.alert(message);
     }
   };
+
+  //　メールアドレス更新完了のポップアップメッセージ
+  useEffect(() => {
+    if (!emailUpdated) return;
+    Alert.alert(t("notifications.emailUpdated"));
+    router.replace("/dashboard");
+  }, [emailUpdated, t]);
 
 
   // ハンバーガーメニューのハンドラー

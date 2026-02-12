@@ -6,8 +6,11 @@ import { ConfigContext, ExpoConfig } from "@expo/config";
 const APP_ENV = process.env.APP_ENV ?? "dev";
 const isProd = APP_ENV === "prod";
 
-// 本番用: idealgap, 開発用: ideal-gap-dev
-const scheme = isProd ? "idealgap" : "ideal-gap-dev";
+// 認証ディープリンクは環境差異で詰まりやすいため、常に本番スキームを優先しつつ開発スキームも許可する
+const primaryScheme = "idealgap";
+const devScheme = "ideal-gap-dev";
+const schemes = isProd ? [primaryScheme, devScheme] : [primaryScheme, devScheme];
+const scheme = schemes[0];
 const name = isProd ? "Ideal_Gap" : "Ideal_Gap (Dev)"; // アプリ名
 const bundleIdentifier = isProd
   ? "com.hirokiiinoue.appIdealGap"
@@ -21,7 +24,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
-  scheme,
+  scheme: schemes,
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
@@ -48,11 +51,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         action: "VIEW",
         category: ["BROWSABLE", "DEFAULT"],
-        data: [
-          { scheme, host: "auth", pathPrefix: "/callback" },
-          { scheme, host: "reset-password" },
-          { scheme, host: "purchases" },
-        ],
+        data: schemes.flatMap((registeredScheme) => [
+          { scheme: registeredScheme, host: "auth", pathPrefix: "/callback" },
+          { scheme: registeredScheme, host: "reset-password" },
+          { scheme: registeredScheme, host: "purchases" },
+        ]),
       },
     ],
   },

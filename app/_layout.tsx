@@ -1,4 +1,5 @@
-//アプリがリンク付きで開かれたとき、そのURLを解析して「Supabase ログイン状態を作る」「購入画面へ飛ばす」処理を実行
+//アプリの根幹となるページ。各条件を並べ条件ごとにどのページへ遷移させるかを操作している。
+//アプリがリンク付きで開かれたとき、そのURLを解析して「Supabase ログイン状態を作る」「購入画面へ飛ばす」などの処理を実行
 
 import { setAudioModeAsync } from "expo-audio";
 import * as Linking from "expo-linking";
@@ -9,6 +10,7 @@ import { I18nextProvider } from "react-i18next";
 import SplashOverlay from "../components/SplashOverlay";
 import i18n from "../i18n";
 import { restoreSession } from "../lib/authBootstrap";
+import { getNormalizedLinkPath, resolveAuthCallbackTarget } from "../lib/authCallbackRouting";
 import { parseAuthTokensFromUrl } from "../lib/deepLink";
 import { ensureSignupAwaitSubscription } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
@@ -28,9 +30,7 @@ const parseTokensFromUrl = (url: string) =>
 
 // URLでパスを解析しpurchasesまたはpurchaseで始まっていると「購入関連のパス」と判断しtrueを返す。
 const isPurchasePath = (url: string) => {
-  const parsed = Linking.parse(url);
-  const rawPath = (parsed.path ?? parsed.hostname ?? "").replace(/^\/+/, "");
-  return rawPath.startsWith("purchases");
+  return getNormalizedLinkPath(url).startsWith("purchases");
 };
 
 //　URLのクエリに「signup」があれば"?signup+1"を返す。
@@ -89,6 +89,13 @@ export default function RootLayout() {
       if (isPurchasePath(url)) {
         const signupQuery = getSignupQuery(url);
         router.replace(`/purchases${signupQuery}`);
+        return;
+      }
+
+      // メールアドレス変更ページかどうかを確認
+      const authCallbackTarget = resolveAuthCallbackTarget(url);
+      if (authCallbackTarget) {
+        router.replace(authCallbackTarget);
       }
     };
 

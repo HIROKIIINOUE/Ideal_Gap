@@ -48,6 +48,7 @@ export default function ProfileUpdate() {
   const [emailTouched, setEmailTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [initialEmail, setInitialEmail] = useState<string | null>(null);
+  const [emailChangeRequested, setEmailChangeRequested] = useState(false);
 
   const validation = useMemo(() => profileSchema.safeParse({ username, email, password }), [email, password, username]);
   const fieldErrors = validation.success ? {} : z.flattenError(validation.error).fieldErrors;
@@ -165,7 +166,7 @@ export default function ProfileUpdate() {
         }
       }
 
-      const redirectTo = buildRedirectUrl("/profile-update?email=1");
+      const redirectTo = buildRedirectUrl("/auth/callback?next=profile-update&email=1");
       const updatePayload: Parameters<typeof supabase.auth.updateUser>[0] = {
         data: { name: trimmedUsername },
       };
@@ -182,6 +183,7 @@ export default function ProfileUpdate() {
         emailChanged ? { emailRedirectTo: redirectTo } : undefined,
       );
       if (updateError) {
+        console.warn("Failed to update profile", updateError.message);
         setError(t("errorUnknown"));
         return;
       }
@@ -194,7 +196,8 @@ export default function ProfileUpdate() {
         .eq("id", userId);
 
       if (emailChanged) {
-        setInfo(`${t("emailPendingTitle")}\n${t("emailPendingBody")}`);
+        setInfo(`${t("emailPendingTitle")}\n${t("emailPendingVerificationNotice")}`);
+        setEmailChangeRequested(true);
       } else {
         setInfo(`${t("successTitle")}\n${t("successBody")}`);
       }
@@ -319,12 +322,12 @@ export default function ProfileUpdate() {
             <Pressable
               accessibilityRole="button"
               onPress={handleSubmit}
-              disabled={!isFormValid || submitting || loading}
+              disabled={!isFormValid || submitting || loading || emailChangeRequested}
               style={({ pressed }) => [
                 styles.ctaButton,
                 styles.primaryButton,
                 styles.buttonShadow,
-                (!isFormValid || submitting || loading) && styles.buttonDisabled,
+                (!isFormValid || submitting || loading || emailChangeRequested) && styles.buttonDisabled,
                 pressed && styles.buttonPressed,
               ]}
             >

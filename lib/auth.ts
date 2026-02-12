@@ -1,4 +1,6 @@
-// supabaseのサインアップ・サインインロジック・パスワード変更
+// supabaseのAuth 関連の処理をまとめたユーティリティ
+// サインアップ、ログイン、パスワードリセット、環境(本番or開発)に応じたリダイレクトURL生成
+// メールアドレスの変更はapp/profile-update.tsxで直接supabase.auth.updateUserを呼んでいるためここには切り出されていない。
 
 import { AuthError } from "@supabase/supabase-js";
 import Constants from "expo-constants";
@@ -50,10 +52,19 @@ type CompletePasswordResetResult =
 const resolveTimeZone = () =>
   Localization.getCalendars?.()[0]?.timeZone ?? "UTC";
 
+// redirectTo/emailRedirectTo に使うアプリURLスキームを、環境(本番or開発)に応じて決める関数
 const getAppScheme = () => {
-  const scheme = Constants.expoConfig?.scheme; //app.config.tsから本番・開発環境のスキーマを取得
-  if (!scheme) return undefined;
-  return Array.isArray(scheme) ? scheme[0] : scheme;
+  const configuredScheme = Constants.expoConfig?.scheme; //app.config.tsから本番・開発環境のスキーマを取得
+  const schemes = Array.isArray(configuredScheme)
+    ? configuredScheme
+    : configuredScheme
+      ? [configuredScheme]
+      : [];
+  const appEnv = Constants.expoConfig?.extra?.appEnv;
+  const preferredScheme = appEnv === "prod" ? "idealgap" : "ideal-gap-dev";
+
+  if (schemes.includes(preferredScheme)) return preferredScheme;
+  return schemes[0] ?? preferredScheme;
 };
 
 // 本番環境か開発環境かを判断し、それに応じてリダイレクト先を決定する機能

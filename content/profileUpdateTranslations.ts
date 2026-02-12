@@ -13,6 +13,7 @@ export type ProfileUpdateTranslations = {
   saving: string;
   emailPendingTitle: string;
   emailPendingBody: string;
+  emailPendingVerificationNotice: string;
   successTitle: string;
   successBody: string;
   errorUnknown: string;
@@ -41,6 +42,8 @@ export const profileUpdateTranslations: Record<
     saving: "保存中…",
     emailPendingTitle: "確認メールを送信しました",
     emailPendingBody: "メール内のリンクを開いて本人確認を完了してください。",
+    emailPendingVerificationNotice:
+      "新しいメールアドレスに届いたリンクから本人確認をしてください。本人確認完了までメールアドレスは変更されません。",
     successTitle: "更新しました",
     successBody: "プロフィールが更新されました。",
     errorUnknown:
@@ -65,6 +68,8 @@ export const profileUpdateTranslations: Record<
     saving: "Saving…",
     emailPendingTitle: "Verification email sent",
     emailPendingBody: "Open the link in the email to confirm your address.",
+    emailPendingVerificationNotice:
+      "Please verify your identity from the link sent to your new email address. Your email address will not be changed until verification is complete.",
     successTitle: "Updated",
     successBody: "Your profile has been updated.",
     errorUnknown:
@@ -90,6 +95,8 @@ export const profileUpdateTranslations: Record<
     emailPendingTitle: "E-mail de vérification envoyé",
     emailPendingBody:
       "Ouvrez le lien dans l’e-mail pour confirmer votre adresse.",
+    emailPendingVerificationNotice:
+      "Veuillez vérifier votre identité à partir du lien envoyé à votre nouvelle adresse e-mail. Votre adresse e-mail ne sera pas modifiée tant que la vérification n’est pas terminée.",
     successTitle: "Mis à jour",
     successBody: "Votre profil a été mis à jour.",
     errorUnknown:
