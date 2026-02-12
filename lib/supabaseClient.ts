@@ -13,3 +13,12 @@ export const supabase = createClient<Database>(env.supabaseUrl, env.supabaseAnon
     detectSessionInUrl: false,
   },
 });
+
+export const supabaseRecovery = createClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false,
+  },
+});

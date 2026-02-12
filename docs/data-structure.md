@@ -68,6 +68,7 @@
     "active"
     "canceled"
     "expired"
+    "signupAwait"
   }
 
   Table user_settings {
@@ -96,9 +97,9 @@
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
     description varchar [not null]
-    year int [not null] //UI表示用
+    year_goal_color varchar [not null]
     "order" int // ソート用
-    accumulated_time_year int //円グラフ計算用
+    accumulated_time_year int // 円グラフ計算用
     created_at timestamptz
     updated_at timestamptz
 
@@ -127,11 +128,11 @@
 
 
   Table weekly_tasks {
-    monthly_goal_id uuid [ref: > monthly_goals.id] //来週メモ選択時はnull
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
-    bucket week_bucket [not null, default: "current"]
+    monthly_goal_id uuid [ref: > monthly_goals.id]
     description varchar [not null]
+    next_start_point varchar
     estimated_time_week int // 各週間タスクの目標作業時間
     accumulated_time_week int // 作業タイマーの実績
     "order" int
@@ -139,70 +140,61 @@
     updated_at timestamptz
 
     Indexes {
-      (user_id, bucket)
       (monthly_goal_id)
     }
   }
 
-enum week_bucket {
-  "current"   // 今週
-  "next_memo" // 来週メモ
-  "archived"  // 過去のタスク（履歴）
-}
-
-  // 作業タイマーデータ
-
-  Table work_sessions {
-    id uuid [pk]
-    user_id uuid [not null, ref: > users.id]
-    weekly_task_id uuid [not null, ref: > weekly_tasks.id]
-    started_at timestamptz [not null]
-    ended_at timestamptz [not null]
-    duration_minutes int [not null]  //分に換算 年間月間週間全てのaccumulatedの積上げに利用
-    created_at timestamptz
-    updated_at timestamptz
-
-    Indexes {
-      (weekly_task_id)
-      (user_id, started_at)
-    }
-  }
-
-  // 作業集中用ミュージック
-  Table focus_musics {
-    id uuid [pk]
-    title varchar [not null]
-    duration_seconds int
-    file_url text
-    created_at  timestamptz
-    updated_at  timestamptz
-  }
-
-  Table user_musics {
-    id uuid [pk]
-    user_id uuid [not null, ref: > users.id]
-    focus_music_id uuid [not null, ref: > focus_musics.id]
-    is_downloaded boolean
-    created_at timestamptz
-    updated_at timestamptz
-
-    Indexes {
-      (user_id)
-      (focus_music_id)
-    }
-  }
-
-  // 次回の楽しい予定データ(実装は検討段階)
+  // 次回の楽しい予定データ
   Table fun_plans {
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
     description varchar [not null]
-    scheduled_at timestamptz [not null]
+    "order" int
     created_at   timestamptz
     updated_at   timestamptz
 
     Indexes {
-      (user_id, scheduled_at)
+      (user_id)
     }
   }
+
+  Table focus_music_tracks {
+    id uuid [pk]
+    title varchar
+    bucket varchar
+    storage_path varchar
+    music_category varchar[]
+    duration int
+    created_at  timestamptz
+    updated_at  timestamptz
+  }
+
+  Table feedbacks {
+    id uuid [pk]
+    user_id uuid [ref: > users.id] // ログイン済みユーザの場合のみ紐づく（未ログインなら null）
+    user_name varchar
+    user_email varchar  // 返信用アドレス
+    message text [not null]
+    category category
+    is_login_user boolean  // ログインユーザからの送信なら true
+    app_version varchar
+    platform os_type
+    created_at timestamptz
+
+    Indexes {
+      (user_id)
+    }
+  }
+
+  enum category {
+    "bug"
+    "request"
+    "feedback"
+    "other"
+  }
+  enum os_type {
+    "ios"
+    "android"
+  }
+
 ```

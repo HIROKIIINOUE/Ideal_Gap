@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Href, Link } from "expo-router";
+import { Href, Link, Stack, router } from "expo-router";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
@@ -9,6 +9,8 @@ import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { LandingSections } from "../content/landingTranslations";
+import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
+import { supabase } from "../lib/supabaseClient";
 
 type GradientPair = readonly [string, string];
 
@@ -20,7 +22,7 @@ const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<View
   <View style={[styles.cardShell, style]}>
     <View style={styles.card}>
       <LinearGradient
-        colors={["rgba(24, 25, 28, 0.18)", "rgba(15,28,47,0.8)"]}
+        colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -35,13 +37,15 @@ type CTAButtonProps = {
   label: string;
   gradient: GradientPair;
   shimmerStyle: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+  onPress?: () => void | Promise<void>;
 };
 
-const CTAButton = ({ href, label, gradient, shimmerStyle }: CTAButtonProps) => (
-  <Link href={href} asChild>
+const CTAButton = ({ href, label, gradient, shimmerStyle, onPress }: CTAButtonProps) => {
+  const content = (
     <Pressable
       accessibilityRole="button"
-      style={({ pressed }) => [pressed && styles.buttonPressed]}
+      onPress={onPress}
+      style={({ pressed }) => [styles.buttonShell, pressed && styles.buttonPressed]}
     >
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.buttonInner}>
         <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
@@ -55,33 +59,43 @@ const CTAButton = ({ href, label, gradient, shimmerStyle }: CTAButtonProps) => (
         <Text style={styles.primaryLabel}>{label}</Text>
       </LinearGradient>
     </Pressable>
-  </Link>
-);
+  );
+
+  if (onPress) return content;
+  return <Link href={href} asChild>{content}</Link>;
+};
 
 type CTAButtonsRowProps = {
   shimmerStyle: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   primary: { href: Href; label: string; gradient?: GradientPair };
   secondary: { href: Href; label: string; gradient?: GradientPair };
+  onPrimaryPress?: () => void | Promise<void>;
 };
 
-const CTAButtonsRow = ({ shimmerStyle, primary, secondary }: CTAButtonsRowProps) => (
+const CTAButtonsRow = ({ shimmerStyle, primary, secondary, onPrimaryPress }: CTAButtonsRowProps) => (
   <View style={styles.actions}>
-    <CTAButton
-      href={primary.href}
-      label={primary.label}
-      gradient={primary.gradient ?? CTA_PRIMARY_GRADIENT}
-      shimmerStyle={shimmerStyle}
-    />
-    <CTAButton
-      href={secondary.href}
-      label={secondary.label}
-      gradient={secondary.gradient ?? CTA_SECONDARY_GRADIENT}
-      shimmerStyle={shimmerStyle}
-    />
+    <View style={styles.ctaSlot}>
+      <CTAButton
+        href={primary.href}
+        label={primary.label}
+        gradient={primary.gradient ?? CTA_PRIMARY_GRADIENT}
+        shimmerStyle={shimmerStyle}
+        onPress={onPrimaryPress}
+      />
+    </View>
+    <View style={styles.ctaSlot}>
+      <CTAButton
+        href={secondary.href}
+        label={secondary.label}
+        gradient={secondary.gradient ?? CTA_SECONDARY_GRADIENT}
+        shimmerStyle={shimmerStyle}
+      />
+    </View>
   </View>
 );
 
 export default function Index() {
+  useRedirectAuthenticated(); // ログインユーザをダッシュボードへ強制遷移
   const scrollY = useRef(new Animated.Value(0)).current;
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const { t } = useTranslation("landing");
@@ -129,6 +143,15 @@ export default function Index() {
     }),
     [bottomShimmerAnim],
   );
+
+  const handleStartSignup = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn("failed to sign out before signup", error);
+    }
+    router.push("/signup");
+  }, []);
 
   // スクロールで指定地点到達時1秒後にCTAボタンの光沢を1度だけ発火
   const handleScroll = useCallback(
@@ -238,6 +261,13 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen
+        options={{
+          title: "Ideal Gap",
+          headerBackVisible: false,
+          headerLeft: () => null,
+        }}
+      />
       <Animated.ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -276,7 +306,12 @@ export default function Index() {
             <Text style={styles.subtitle}>{translations.hero.subtitle}</Text>
             <CTAButtonsRow
               shimmerStyle={shimmerStyle}
-              primary={{ href: "/signup", label: translations.hero.ctaPrimary, gradient: CTA_PRIMARY_GRADIENT }}
+              primary={{
+                href: "/signup",
+                label: translations.hero.ctaPrimary,
+                gradient: CTA_PRIMARY_GRADIENT,
+              }}
+              onPrimaryPress={handleStartSignup}
               secondary={{ href: "/login", label: translations.hero.ctaSecondary, gradient: CTA_SECONDARY_GRADIENT }}
             />
           </View>
@@ -305,7 +340,7 @@ export default function Index() {
           </Card>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(440, 600)]}>
+        <Animated.View style={[styles.section, fadeUp(540, 700)]}>
           <Text style={styles.sectionLabel}>{translations.membership.label}</Text>
           <Text style={styles.sectionTitle}>{translations.membership.title}</Text>
           <View style={styles.cardRow}>
@@ -325,14 +360,19 @@ export default function Index() {
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(820, 980)]}>
+        <Animated.View style={[styles.section, fadeUp(920, 1080)]}>
           <Text style={styles.sectionLabel}>{translations.getStarted.label}</Text>
           <Text style={styles.sectionTitle}>{translations.getStarted.title}</Text>
           <Card>
             <Text style={styles.cardBody}>{translations.getStarted.description}</Text>
             <CTAButtonsRow
               shimmerStyle={bottomShimmerStyle}
-              primary={{ href: "/signup", label: translations.getStarted.ctaPrimary, gradient: CTA_PRIMARY_GRADIENT }}
+              primary={{
+                href: "/signup",
+                label: translations.getStarted.ctaPrimary,
+                gradient: CTA_PRIMARY_GRADIENT,
+              }}
+              onPrimaryPress={handleStartSignup}
               secondary={{
                 href: "/login",
                 label: translations.getStarted.ctaSecondary,
@@ -342,7 +382,11 @@ export default function Index() {
           </Card>
         </Animated.View>
       </Animated.ScrollView>
-      <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <Footer
+        isAuthenticated={false}
+        onLanguagePress={() => setLanguageSheetVisible(true)}
+        onContactPress={() => router.push("/contact")}
+      />
       <LanguageSheet
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}
@@ -354,7 +398,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   heroShell: {
     borderRadius: radius.xl,
@@ -407,8 +451,10 @@ const styles = StyleSheet.create({
   buttonShell: {
     borderRadius: radius.lg,
     overflow: "hidden",
-    flex: 1,
-    minWidth: 0,
+    width: "100%",
+  },
+  ctaSlot: {
+    width: "48%",
   },
 
   buttonInner: {
@@ -468,15 +514,15 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.18)",
+    borderColor: "rgba(110,168,255,0.25)",
     gap: spacing.md,
     overflow: "hidden",
   },
   cardShell: {
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     ...shadows.card,
   },
   cardRow: {

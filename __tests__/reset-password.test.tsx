@@ -12,11 +12,22 @@ const mockReplace = jest.fn();
 
 jest.mock("../components/LanguageSheet", () => () => null);
 jest.mock("../components/Footer", () => () => null);
+jest.mock("../lib/supabaseClient", () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: jest.fn().mockReturnValue({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      }),
+    },
+  },
+}));
 
 jest.mock("expo-router", () => {
   const React = require("react");
   return {
     Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    Stack: { Screen: () => null },
     router: { push: jest.fn(), replace: mockReplace, back: jest.fn() },
     useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: jest.fn() }),
     useLocalSearchParams: () => ({}),
@@ -58,6 +69,18 @@ describe("ResetPassword screen", () => {
     fireEvent.press(getByRole("button", { name: "Send reset email" }));
 
     await waitFor(() => expect(mockRequestPasswordResetEmail).toHaveBeenCalledWith("user@example.com"));
+  });
+
+  test("shows error message when email is not found", async () => {
+    mockRequestPasswordResetEmail.mockResolvedValue({ ok: false, reason: "user_not_found" });
+    mockSetSessionFromRecoveryLink.mockResolvedValue(false);
+    (Linking.getInitialURL as jest.Mock).mockResolvedValue(null);
+    const { getByPlaceholderText, getByRole, findByText } = renderScreen();
+
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "missing@example.com");
+    fireEvent.press(getByRole("button", { name: "Send reset email" }));
+
+    expect(await findByText("No account found for that email.")).toBeOnTheScreen();
   });
 
   test("updates password after recovery session is ready", async () => {

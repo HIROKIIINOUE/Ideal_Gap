@@ -19,16 +19,20 @@ export type ResetPasswordTranslations = {
   sessionNotReady: string;
   updateSuccess: string;
   errorUserNotFound: string;
+  errorRateLimited: string;
   errorUnknown: string;
 };
 
-export const resetPasswordTranslations: Record<LanguageKey, ResetPasswordTranslations> = {
+export const resetPasswordTranslations: Record<
+  LanguageKey,
+  ResetPasswordTranslations
+> = {
   ja: {
     pageLabel: "パスワード再設定",
     backToLogin: "ログインへ戻る",
     introTitle: "パスワードをリセットしますか？",
     introBody:
-      "登録メールアドレスを入力してください。安全なリンクを送信します。この端末でリンクを開くと新しいパスワードを設定できます。",
+      "登録しているメールアドレスを入力してください。メールアドレス宛にリンクを送信します。この端末でリンクを開くと新しいパスワードを設定できます。",
     emailLabel: "メールアドレス",
     emailPlaceholder: "you@example.com",
     sendCta: "リセットメールを送信",
@@ -42,15 +46,18 @@ export const resetPasswordTranslations: Record<LanguageKey, ResetPasswordTransla
     sessionReady: "認証リンクを確認しました。新しいパスワードを設定できます。",
     sessionNotReady: "メールのリンクをこの端末で開いてから続行してください。",
     updateSuccess: "パスワードを更新しました。ログインし直してください。",
-    errorUserNotFound: "そのメールアドレスのアカウントが見つかりません。",
-    errorUnknown: "エラーが発生しました。もう一度お試しください。",
+    errorUserNotFound: "アカウントが見つかりません。",
+    errorRateLimited:
+      "短時間にリクエストが集中しています。1分ほど待ってから再度お試しください。",
+    errorUnknown:
+      "エラーが発生しました。もう一度お試しください。前回と同じパスワードは使用できません。",
   },
   en: {
-    pageLabel: "Reset Password",
+    pageLabel: "Reset-password",
     backToLogin: "Back to Log In",
     introTitle: "Need a reset?",
     introBody:
-      "Enter your email to receive a secure link. Open it on this device to set a new password.",
+      "Enter your email to receive a link. Open it on this device to set a new password.",
     emailLabel: "Email",
     emailPlaceholder: "you@example.com",
     sendCta: "Send reset email",
@@ -65,17 +72,20 @@ export const resetPasswordTranslations: Record<LanguageKey, ResetPasswordTransla
     sessionNotReady: "Open the email link on this device to continue.",
     updateSuccess: "Password updated. Please log in again.",
     errorUserNotFound: "No account found for that email.",
-    errorUnknown: "Something went wrong. Please try again.",
+    errorRateLimited:
+      "Too many requests. Please wait around 1 minutes and try again.",
+    errorUnknown:
+      "Something went wrong. Please try again. Your new password must be different from previous one",
   },
   fr: {
-    pageLabel: "Réinitialiser le mot de passe",
+    pageLabel: "Reset-password",
     backToLogin: "Retour à la connexion",
     introTitle: "Besoin de réinitialiser ?",
     introBody:
-      "Saisissez votre e-mail pour recevoir un lien sécurisé. Ouvrez-le sur cet appareil pour définir un nouveau mot de passe.",
+      "Saisissez votre e-mail pour recevoir un lien. Ouvrez-le sur cet appareil pour définir un nouveau mot de passe.",
     emailLabel: "E-mail",
     emailPlaceholder: "vous@example.com",
-    sendCta: "Envoyer l’e-mail de réinitialisation",
+    sendCta: "Envoyer l’e-mail",
     sending: "Envoi...",
     linkSent: "E-mail envoyé. Consultez votre boîte de réception.",
     newPasswordTitle: "Définir un nouveau mot de passe",
@@ -83,10 +93,14 @@ export const resetPasswordTranslations: Record<LanguageKey, ResetPasswordTransla
     newPasswordPlaceholder: "Nouveau mot de passe",
     updateCta: "Mettre à jour et revenir à la connexion",
     updating: "Mise à jour...",
-    sessionReady: "Lien de récupération confirmé. Vous pouvez définir un nouveau mot de passe.",
+    sessionReady:
+      "Lien de récupération confirmé. Vous pouvez définir un nouveau mot de passe.",
     sessionNotReady: "Ouvrez le lien reçu sur cet appareil pour continuer.",
     updateSuccess: "Mot de passe mis à jour. Connectez-vous à nouveau.",
     errorUserNotFound: "Aucun compte trouvé pour cet e-mail.",
-    errorUnknown: "Un problème est survenu. Veuillez réessayer.",
+    errorRateLimited:
+      "Trop de demandes. Veuillez patienter 1 minutes puis réessayer.",
+    errorUnknown:
+      "Un problème est survenu. Veuillez réessayer. Votre nouveau mot de passe doit être différent du précédent.",
   },
 };

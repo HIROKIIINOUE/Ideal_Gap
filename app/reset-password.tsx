@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
-import { Link, useRouter } from "expo-router";
+import { Link, Stack, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -15,29 +15,47 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import {
   completePasswordReset,
   requestPasswordResetEmail,
   setSessionFromRecoveryLink,
 } from "../lib/auth";
 
+const resetEmailSchema = z.object({
+  email: z.string().trim().check(z.email()),
+});
+
+const newPasswordSchema = z.object({
+  newPassword: z.string().min(6),
+});
+
 export default function ResetPassword() {
+  useRedirectAuthenticated(); // ログインユーザをダッシュボードへ強制遷移
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const { t } = useTranslation("resetPassword");
-  const { replace } = useRouter();
+  const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
+  const { replace, push } = useRouter();
 
-  const sendDisabled = email.trim() === "" || isSending;
-  const updateDisabled = newPassword.trim() === "" || isUpdating || !recoveryReady;
+  const sendValidation = useMemo(() => resetEmailSchema.safeParse({ email }), [email]);
+  const updateValidation = useMemo(
+    () => newPasswordSchema.safeParse({ newPassword }),
+    [newPassword],
+  );
+  const sendDisabled = !sendValidation.success || isSending;
+  const updateDisabled = !updateValidation.success || isUpdating || !recoveryReady;
 
   const showToast = useCallback((message: string) => {
     if (Platform.OS === "android") {
@@ -55,7 +73,7 @@ export default function ResetPassword() {
       if (mounted && ready) {
         setRecoveryReady(true);
         setStatusMessage(t("sessionReady"));
-        setErrorMessage(null);
+        setUpdateError(null);
       }
     };
 
@@ -73,37 +91,54 @@ export default function ResetPassword() {
   const handleSendReset = useCallback(async () => {
     if (sendDisabled) return;
     setIsSending(true);
-    setErrorMessage(null);
+    setSendError(null);
     setStatusMessage(null);
-    const result = await requestPasswordResetEmail(email.trim());
-    setIsSending(false);
+    try {
+      const parsed = resetEmailSchema.parse({ email });
+      const result = await requestPasswordResetEmail(parsed.email);
 
-    if (!result.ok) {
-      const message =
-        result.reason === "user_not_found" ? t("errorUserNotFound") : result.message ?? t("errorUnknown");
-      setErrorMessage(message);
-      return;
+      if (!result.ok) {
+        const message =
+          result.reason === "user_not_found"
+            ? t("errorUserNotFound")
+            : result.reason === "rate_limited"
+              ? t("errorRateLimited")
+              : t("errorUnknown");
+        setSendError(message);
+        return;
+      }
+
+      setStatusMessage(t("linkSent"));
+    } finally {
+      setIsSending(false);
     }
-
-    setStatusMessage(t("linkSent"));
   }, [email, sendDisabled, t]);
 
   // パスワード更新機能
   const handleUpdatePassword = useCallback(async () => {
     if (updateDisabled) return;
     setIsUpdating(true);
-    setErrorMessage(null);
-    const result = await completePasswordReset(newPassword);
-    setIsUpdating(false);
+    setUpdateError(null);
+    try {
+      const parsed = newPasswordSchema.parse({ newPassword });
+      const result = await completePasswordReset(parsed.newPassword);
 
-    if (!result.ok) {
-      const message = result.reason === "missing_session" ? t("sessionNotReady") : result.message ?? t("errorUnknown");
-      setErrorMessage(message);
-      return;
+      if (!result.ok) {
+        const message =
+          result.reason === "missing_session"
+            ? t("sessionNotReady")
+            : result.reason === "rate_limited"
+              ? t("errorRateLimited")
+              : t("errorUnknown");
+        setUpdateError(message);
+        return;
+      }
+
+      showToast(t("updateSuccess"));
+      replace("/login");
+    } finally {
+      setIsUpdating(false);
     }
-
-    showToast(t("updateSuccess"));
-    replace("/login");
   }, [newPassword, replace, showToast, t, updateDisabled]);
 
   // メールリンククリック後のアプリ再遷移時に表示(要確認)
@@ -114,6 +149,7 @@ export default function ResetPassword() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ title: t("pageLabel"), headerBackTitle: tCommon("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.label}>{t("pageLabel")}</Text>
@@ -123,6 +159,12 @@ export default function ResetPassword() {
         </View>
 
         <View style={[styles.card, shadows.card]}>
+          <LinearGradient
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={styles.title}>{t("introTitle")}</Text>
           <Text style={styles.body}>{t("introBody")}</Text>
 
@@ -167,57 +209,74 @@ export default function ResetPassword() {
               <Text style={styles.alertBody}>{statusMessage}</Text>
             </View>
           )}
-        </View>
-
-        <View style={[styles.card, shadows.card]}>
-          <Text style={styles.cardHeading}>{t("newPasswordTitle")}</Text>
-          <Text style={styles.body}>{recoveryHint}</Text>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("newPasswordLabel")}</Text>
-            <TextInput
-              placeholder={t("newPasswordPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              secureTextEntry
-              keyboardAppearance="dark"
-              value={newPassword}
-              onChangeText={setNewPassword}
-            />
-          </View>
-
-          {!!errorMessage && (
+          {!!sendError && (
             <View style={[styles.alertBox, styles.errorBox]}>
-              <Text style={styles.alertBody}>{errorMessage}</Text>
+              <Text style={styles.alertBody}>{sendError}</Text>
             </View>
           )}
+        </View>
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleUpdatePassword}
-            accessibilityState={{ disabled: updateDisabled }}
-            disabled={updateDisabled}
-            style={({ pressed }) => [
-              styles.ctaButton,
-              styles.secondaryButton,
-              styles.buttonShadow,
-              pressed && styles.buttonPressed,
-              updateDisabled && styles.buttonDisabled,
-            ]}
-          >
+        {recoveryReady && (
+          <View style={[styles.card, shadows.card]}>
             <LinearGradient
-              colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
+              colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.buttonGlass, styles.secondaryOverlay]}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.secondaryLabel}>
-              {isUpdating ? t("updating") : t("updateCta")}
-            </Text>
-          </Pressable>
-        </View>
+            <Text style={styles.cardHeading}>{t("newPasswordTitle")}</Text>
+            <Text style={styles.body}>{recoveryHint}</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t("newPasswordLabel")}</Text>
+              <TextInput
+                placeholder={t("newPasswordPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                secureTextEntry
+                keyboardAppearance="dark"
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
+            </View>
+
+            {!!updateError && (
+              <View style={[styles.alertBox, styles.errorBox]}>
+                <Text style={styles.alertBody}>{updateError}</Text>
+              </View>
+            )}
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleUpdatePassword}
+              accessibilityState={{ disabled: updateDisabled }}
+              disabled={updateDisabled}
+              style={({ pressed }) => [
+                styles.ctaButton,
+                styles.secondaryButton,
+                styles.buttonShadow,
+                pressed && styles.buttonPressed,
+                updateDisabled && styles.buttonDisabled,
+              ]}
+            >
+              <LinearGradient
+                colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.buttonGlass, styles.secondaryOverlay]}
+              />
+              <Text style={styles.secondaryLabel}>
+                {isUpdating ? t("updating") : t("updateCta")}
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
-      <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <Footer
+        isAuthenticated={false}
+        onLanguagePress={() => setLanguageSheetVisible(true)}
+        onContactPress={() => push("/contact")}
+      />
       <LanguageSheet
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}
@@ -229,7 +288,7 @@ export default function ResetPassword() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     padding: spacing.xl,
@@ -253,11 +312,12 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.18)",
+    borderColor: "rgba(110,168,255,0.25)",
+    overflow: "hidden",
   },
   title: {
     color: colors.textPrimary,
@@ -283,13 +343,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   input: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     borderWidth: 1,
     borderColor: colors.divider,
+    fontSize: typography.md,
   },
   ctaButton: {
     paddingVertical: spacing.md,

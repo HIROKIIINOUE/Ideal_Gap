@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
+import { Link, Stack, router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -14,20 +14,42 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
+import { useLoginLockout } from "../hooks/useLoginLockout";
 import { signInWithEmailPassword } from "../lib/auth";
+import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
+import { supabase } from "../lib/supabaseClient";
+
+const loginSchema = z.object({
+  email: z.string().trim().min(1),
+  password: z.string().min(1),
+});
 
 export default function Login() {
+  useRedirectAuthenticated(); // ログインユーザをダッシュボードへ強制遷移
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation("login");
-  const isLoginDisabled = email.trim() === "" || password.trim() === "";
-  const disabled = isLoginDisabled || isSubmitting;
+  const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
+  const { isLocked, remainingText, checkLockout, recordFailure, clearLockout } = useLoginLockout({
+    email,
+    t,
+  });
+  const loginValidation = useMemo(() => {
+    const result = loginSchema.safeParse({ email, password });
+    if (result.success) {
+      return { isValid: true };
+    }
+    return { isValid: false };
+  }, [email, password]);
+  const disabled = !loginValidation.isValid || isSubmitting || isLocked;
 
   const showToast = useCallback((message: string) => {
     if (Platform.OS === "android") {
@@ -41,31 +63,64 @@ export default function Login() {
     if (disabled) return;
     setIsSubmitting(true);
     setErrorMessage(null);
-    const result = await signInWithEmailPassword({
-      email: email.trim(),
-      password,
-    });
-    setIsSubmitting(false);
+    try {
+      const parsed = loginSchema.parse({ email, password });
+      const lockoutStatus = await checkLockout(parsed.email);
+      if (lockoutStatus.locked) {
+        setErrorMessage(t("errorLocked"));
+        return;
+      }
+      const result = await signInWithEmailPassword({
+        email: parsed.email,
+        password: parsed.password,
+      });
 
-    if (!result.ok) {
-      const message =
-        result.reason === "user_not_found"
-          ? t("errorUserNotFound")
-          : result.reason === "invalid_password"
-            ? t("errorWrongPassword")
-            : result.message ?? t("errorWrongPassword");
-      setErrorMessage(message);
-      return;
+      //　打ち込んだEmailのユーザが存在するか、パスワードは正しいかを検証
+      if (!result.ok) {
+        const lockout = await recordFailure(parsed.email);
+        const message =
+          lockout.locked
+            ? t("errorLocked")
+            : result.reason === "user_not_found"
+              ? t("errorUserNotFound")
+              : result.reason === "invalid_password"
+                ? t("errorWrongPassword")
+                : result.message ?? t("errorWrongPassword");
+        setErrorMessage(message);
+        return;
+      }
+
+      setErrorMessage(null);
+      await clearLockout(parsed.email);
+
+      // ログイン情報が正しい時、Authのユーザ情報からSubscriptionデータを取得し、それに応じてユーザを各ページに遷移させる
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id;
+      if (userId) {
+        const subscription = await getSubscriptionForUser(userId);
+        if (!subscription || subscription.status === "signupAwait") {
+          try {
+            await ensureSignupAwaitSubscription(userId);
+          } catch (error) {
+            console.warn("failed to ensure signupAwait subscription", error);
+          }
+          router.replace("/purchases?from=login");
+        } else {
+          router.replace("/dashboard");
+        }
+      }
+
+      showToast(t("loginSuccess"));
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setErrorMessage(null);
-    showToast(t("loginSuccess"));
-  }, [disabled, email, password, showToast, t]);
+  }, [checkLockout, clearLockout, disabled, email, password, recordFailure, showToast, t]);
 
   const errorLabel = useMemo(() => errorMessage, [errorMessage]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ title: t("pageLabel"), headerBackTitle: tCommon("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.label}>{t("pageLabel")}</Text>
@@ -75,6 +130,12 @@ export default function Login() {
         </View>
 
         <View style={[styles.card, shadows.card]}>
+          <LinearGradient
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={styles.title}>{t("welcomeTitle")}</Text>
           <Text style={styles.body}>{t("welcomeBody")}</Text>
 
@@ -132,6 +193,11 @@ export default function Login() {
               <Text style={styles.alertBody}>{errorLabel}</Text>
             </View>
           )}
+          {!!remainingText && (
+            <View style={[styles.alertBox, styles.infoBox]}>
+              <Text style={styles.alertBody}>{remainingText}</Text>
+            </View>
+          )}
 
           <Link href="/reset-password" asChild>
             <Pressable accessibilityRole="button" style={styles.subtleButton}>
@@ -141,6 +207,12 @@ export default function Login() {
         </View>
 
         <View style={[styles.card, shadows.card]}>
+          <LinearGradient
+            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={styles.cardHeading}>{t("firstTimeHeading")}</Text>
           <Text style={styles.body}>{t("firstTimeBody")}</Text>
           <Link href="/signup" asChild>
@@ -164,7 +236,11 @@ export default function Login() {
           </Link>
         </View>
       </ScrollView>
-      <Footer isAuthenticated={false} onLanguagePress={() => setLanguageSheetVisible(true)} />
+      <Footer
+        isAuthenticated={false}
+        onLanguagePress={() => setLanguageSheetVisible(true)}
+        onContactPress={() => router.push("/contact")}
+      />
       <LanguageSheet
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}
@@ -176,7 +252,7 @@ export default function Login() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   content: {
     padding: spacing.xl,
@@ -200,11 +276,12 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.18)",
+    borderColor: "rgba(110,168,255,0.25)",
+    overflow: "hidden",
   },
   title: {
     color: colors.textPrimary,
@@ -230,13 +307,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   input: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     borderWidth: 1,
     borderColor: colors.divider,
+    fontSize: typography.md,
   },
   ctaButton: {
     paddingVertical: spacing.md,
@@ -295,6 +373,10 @@ const styles = StyleSheet.create({
   },
   errorBox: {
     borderColor: "#ff8a8a",
+  },
+  infoBox: {
+    backgroundColor: "rgba(110,168,255,0.12)",
+    borderColor: "rgba(110,168,255,0.28)",
   },
   subtleButton: {
     alignItems: "center",

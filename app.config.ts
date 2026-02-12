@@ -1,0 +1,101 @@
+// Expo Go / 開発ビルド / 本番ビルドすべての元になる設定(ネイティブアプリ全体の設定)
+// expo start の時も、eas build の時も 毎回読み込まれる
+// 中の設定のうち、ネイティブに関わる部分を変えたときだけ 再ビルドが必要
+import { ConfigContext, ExpoConfig } from "@expo/config";
+
+const APP_ENV = process.env.APP_ENV ?? "dev";
+const isProd = APP_ENV === "prod";
+
+// 認証ディープリンクは環境差異で詰まりやすいため、常に本番スキームを優先しつつ開発スキームも許可する
+const primaryScheme = "idealgap";
+const devScheme = "ideal-gap-dev";
+const schemes = isProd ? [primaryScheme, devScheme] : [primaryScheme, devScheme];
+const scheme = schemes[0];
+const name = isProd ? "Ideal_Gap" : "Ideal_Gap (Dev)"; // アプリ名
+const bundleIdentifier = isProd
+  ? "com.hirokiiinoue.appIdealGap"
+  : "com.hirokiiinoue.appIdealGap.dev";
+const androidPackage = bundleIdentifier;
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name,
+  slug: "Ideal_Gap",
+  version: "1.0.0",
+  orientation: "portrait",
+  icon: "./assets/images/icon.png",
+  scheme: schemes,
+  userInterfaceStyle: "automatic",
+  newArchEnabled: true,
+  ios: {
+    ...config.ios,
+    supportsTablet: true,
+    bundleIdentifier,
+    infoPlist: {
+      ...config.ios?.infoPlist,
+      UIBackgroundModes: ["audio"],
+    },
+  },
+  android: {
+    ...config.android,
+    adaptiveIcon: {
+      backgroundColor: "#E6F4FE",
+      foregroundImage: "./assets/images/android-icon-foreground.png",
+      backgroundImage: "./assets/images/android-icon-background.png",
+      monochromeImage: "./assets/images/android-icon-monochrome.png",
+    },
+    edgeToEdgeEnabled: true,
+    predictiveBackGestureEnabled: false,
+    package: androidPackage,
+    intentFilters: [
+      {
+        action: "VIEW",
+        category: ["BROWSABLE", "DEFAULT"],
+        data: schemes.flatMap((registeredScheme) => [
+          { scheme: registeredScheme, host: "auth", pathPrefix: "/callback" },
+          { scheme: registeredScheme, host: "reset-password" },
+          { scheme: registeredScheme, host: "purchases" },
+        ]),
+      },
+    ],
+  },
+  web: {
+    output: "static",
+    favicon: "./assets/images/favicon.png",
+  },
+  plugins: [
+    "expo-router",
+    [
+      "expo-splash-screen",
+      {
+        image: "./assets/images/splash-icon.png",
+        imageWidth: 200,
+        resizeMode: "contain",
+        backgroundColor: "#ffffff",
+        dark: {
+          backgroundColor: "#000000",
+        },
+      },
+    ],
+    "expo-localization",
+    "expo-audio",
+  ],
+  experiments: {
+    typedRoutes: true,
+    reactCompiler: true,
+  },
+  extra: {
+    router: {},
+    appEnv: APP_ENV,
+    eas: {
+      projectId: "78f7c6f5-d71f-41aa-a777-ff3b7dd7abe7",
+    },
+  },
+  owner: "hirokiiinoue",
+  updates: {
+    url: "https://u.expo.dev/78f7c6f5-d71f-41aa-a777-ff3b7dd7abe7",
+  },
+  runtimeVersion: {
+    policy: "appVersion",
+  },
+});

@@ -26,6 +26,8 @@ These documentation files are specifically formatted for AI agents and should be
 
 - 常に `docs/tech-stack.md` を参照し、記載済みの技術スタック・依存モジュールは必要に応じて積極的に導入する
 - リスト外のツールやモジュールを検討・追加する場合は、(1)どの機能に必要か (2)なぜ必要か を事前に説明して合意を取る
+- 型定義とバリデーションは可能な限り Zod で一元化し、既存機能に影響を与えない形で段階的に適用する
+- すべての新規型バリデーションは Zod を必ず使用し、既存のバリデーション拡張時も Zod へ統一する
 
 ## Project Structure
 
@@ -136,6 +138,7 @@ Developers can configure the Expo MCP server with the following doc: https://doc
 - 実装後は `npm run test`（開発中は `npm run test:watch`）でテストを通す
 - 何らかの変更を加えた後は必ず `npm run typecheck` で型チェックを実行する
 - 型チェック後に `npm run lint` でESLintを実行し、警告・エラーを解消する
+- コードを編集した際は `npm run typecheck` → `npm run lint` → `npm run test` を必ず実行し、結果を共有する
 
 ### 要件・データ設計の厳守
 
@@ -195,3 +198,4 @@ When working on this project:
 - プラン提示や会話は可能な限り日本語で行い、コマンドやファイル名などは英語のままでよい
 - コード変更時はアプリ開発初学者にも理解しやすいように意図や手順を丁寧に説明する
 - 長期運用とリリースを見据え、完成度と品質を重視して進める
+- 機能ページは `app/feature/[feature].tsx` を薄いディスパッチャーとし、各機能ごとにコンポーネントを分割して `components/feature/` 以下に配置する。理想の自分（Ideal Self）で実施した分割構造を年間目標・月間目標・週間タスク・集中音楽・休憩通知など残りの5機能でも踏襲すること。

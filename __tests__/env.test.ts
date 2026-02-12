@@ -13,6 +13,8 @@ describe("getValidatedEnv", () => {
   test("throws when required env vars are missing", () => {
     delete process.env.EXPO_PUBLIC_SUPABASE_URL;
     delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    delete process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV;
+    delete process.env.APP_ENV;
 
     expect(() => {
       jest.isolateModules(() => {
@@ -24,6 +26,8 @@ describe("getValidatedEnv", () => {
   test("returns validated env when vars are set", () => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV = "rc-test-key";
+    process.env.APP_ENV = "dev";
 
     let moduleEnv: typeof import("../lib/env");
     jest.isolateModules(() => {
@@ -32,13 +36,17 @@ describe("getValidatedEnv", () => {
     });
 
     expect(moduleEnv!.env).toEqual({
+      appEnv: "dev",
       supabaseUrl: "https://example.supabase.co",
       supabaseAnonKey: "anon-key",
+      revenueCatApiKey: "rc-test-key",
     });
 
     expect(moduleEnv!.getValidatedEnv()).toEqual({
+      appEnv: "dev",
       supabaseUrl: "https://example.supabase.co",
       supabaseAnonKey: "anon-key",
+      revenueCatApiKey: "rc-test-key",
     });
   });
 });
