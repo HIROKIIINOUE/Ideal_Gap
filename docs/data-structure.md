@@ -35,7 +35,6 @@
     email varchar [not null, unique]
     name varchar [not null]
     language language
-    time_zone varchar  //サインアップ時のもの(手動変更可能)
     created_at timestamptz
     updated_at timestamptz
     had_account_before boolean

@@ -5,7 +5,6 @@
 import { AuthError } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
-import * as Localization from "expo-localization";
 import { LanguageKey } from "../types/i18n";
 import { supabase, supabaseRecovery } from "./supabaseClient";
 
@@ -48,9 +47,6 @@ type CompletePasswordResetResult =
       reason: "missing_session" | "rate_limited" | "unknown";
       message: string;
     };
-
-const resolveTimeZone = () =>
-  Localization.getCalendars?.()[0]?.timeZone ?? "UTC";
 
 // redirectTo/emailRedirectTo に使うアプリURLスキームを、環境(本番or開発)に応じて決める関数
 const getAppScheme = () => {
@@ -99,8 +95,6 @@ export const signUpWithEmailConfirmation = async ({
   try {
     // Eメールのサインアップリンククリック時の遷移先指定
     const emailRedirectTo = buildRedirect("/purchases?signup=1");
-    // ユーザサインアップ時のユーザの端末からタイムゾーンを取得
-    const timeZone = resolveTimeZone();
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -109,7 +103,6 @@ export const signUpWithEmailConfirmation = async ({
         data: {
           name: username,
           language,
-          time_zone: timeZone,
         },
         emailRedirectTo,
       },

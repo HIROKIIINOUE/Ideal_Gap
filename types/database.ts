@@ -18,7 +18,6 @@ export type Database = {
           is_canceled: boolean | null;
           language: "ja" | "en" | "fr" | null;
           name: string;
-          time_zone: string | null;
           updated_at: string | null;
         };
         Insert: {
@@ -29,7 +28,6 @@ export type Database = {
           is_canceled?: boolean | null;
           language?: "ja" | "en" | "fr" | null;
           name: string;
-          time_zone?: string | null;
           updated_at?: string | null;
         };
         Update: {
@@ -40,7 +38,6 @@ export type Database = {
           is_canceled?: boolean | null;
           language?: "ja" | "en" | "fr" | null;
           name?: string;
-          time_zone?: string | null;
           updated_at?: string | null;
         };
         Relationships: [];

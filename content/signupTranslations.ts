@@ -26,7 +26,6 @@ export type SignupTranslations = {
   passwordInvalid: string;
   primaryCta: string;
   primaryCtaLoading: string;
-  noteText: string;
   existingAccountHeading: string;
   goToLogin: string;
   emailExistsError: string;
@@ -64,8 +63,6 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     passwordInvalid: "パスワードは6文字以上で入力してください",
     primaryCta: "サインアップを続ける",
     primaryCtaLoading: "送信中...",
-    noteText:
-      "使用中の言語設定とタイムゾーンをサインアップ完了時に自動検出します（手動変更も対応予定）。",
     existingAccountHeading: "すでにアカウントをお持ちですか？",
     goToLogin: "ログインへ",
     emailExistsError:
@@ -103,8 +100,6 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     passwordInvalid: "Password must be at least 6 characters",
     primaryCta: "Continue to sign up",
     primaryCtaLoading: "Sending...",
-    noteText:
-      "We detect your current language and time zone when you finish sign-up (manual edits planned).",
     existingAccountHeading: "Already have an account?",
     goToLogin: "Go to Log In",
     emailExistsError:
@@ -142,8 +137,6 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     passwordInvalid: "Le mot de passe doit comporter au moins 6 caractères",
     primaryCta: "Continuer l’inscription",
     primaryCtaLoading: "Envoi...",
-    noteText:
-      "Nous détectons la langue et le fuseau horaire utilisés lorsque vous terminez l’inscription (modification manuelle prévue).",
     existingAccountHeading: "Vous avez déjà un compte ?",
     goToLogin: "Aller à la connexion",
     emailExistsError:

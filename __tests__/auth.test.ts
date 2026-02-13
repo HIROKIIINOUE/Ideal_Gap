@@ -44,11 +44,6 @@ jest.mock("expo-linking", () => ({
   createURL: jest.fn((path?: string) => `idealgap://${(path ?? "").replace(/^\//, "")}`),
 }));
 
-jest.mock("expo-localization", () => ({
-  timeZone: "Asia/Tokyo",
-  getCalendars: () => [{ timeZone: "Asia/Tokyo" }],
-}));
-
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -77,7 +72,7 @@ describe("signUpWithEmailConfirmation", () => {
       email: "new-user@example.com",
       password: "password123",
       options: {
-        data: { name: "New User", language: "en", time_zone: "Asia/Tokyo" },
+        data: { name: "New User", language: "en" },
         emailRedirectTo: "idealgap://purchases?signup=1",
       },
     });

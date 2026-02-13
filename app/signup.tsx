@@ -256,9 +256,6 @@ export default function Signup() {
               <Text style={styles.alertBody}>{submissionError}</Text>
             </View>
           )}
-          <View style={styles.noteBox}>
-            <Text style={styles.noteText}>{t("noteText")}</Text>
-          </View>
         </View>
         <View style={[styles.card, shadows.card]}>
           <LinearGradient
@@ -490,17 +487,5 @@ const styles = StyleSheet.create({
   buttonGlass: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: radius.lg,
-  },
-  noteBox: {
-    backgroundColor: colors.overlay,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
-  },
-  noteText: {
-    color: colors.textSecondary,
-    fontSize: typography.sm,
-    lineHeight: typography.sm * 1.4,
   },
 });

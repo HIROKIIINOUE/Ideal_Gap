@@ -28,7 +28,6 @@ export type CommonTranslations = {
         hide: { title: string; subtitle: string };
       };
       payment: { title: string; subtitle: string };
-      timezone: { title: string; subtitle: string };
       profile: { title: string; subtitle: string };
       contact: { title: string; subtitle: string };
     };
@@ -77,10 +76,6 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
         payment: {
           title: "支払い方法の確認・変更",
           subtitle: "ストアの設定画面を開きます",
-        },
-        timezone: {
-          title: "タイムゾーンの変更",
-          subtitle: "時刻の表示を合わせます",
         },
         profile: {
           title: "プロフィール変更",
@@ -143,10 +138,6 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           title: "Manage payment",
           subtitle: "Open the store settings",
         },
-        timezone: {
-          title: "Change time zone",
-          subtitle: "Align time displays",
-        },
         profile: { title: "Edit profile", subtitle: "Update name or email" },
         contact: { title: "Contact us", subtitle: "Send feedback or issues" },
       },
@@ -204,10 +195,6 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
         payment: {
           title: "Gérer le paiement",
           subtitle: "Ouvrir les réglages de la boutique",
-        },
-        timezone: {
-          title: "Changer le fuseau horaire",
-          subtitle: "Aligner l’affichage de l’heure",
         },
         profile: {
           title: "Modifier le profil",

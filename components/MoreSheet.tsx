@@ -9,7 +9,6 @@ export type MoreActionKey =
   | "logout"
   | "toggleFunPlan"
   | "payment"
-  | "timezone"
   | "profile"
   | "contact";
 
@@ -30,7 +29,6 @@ const actions: ActionConfig[] = [
   { key: "logout", icon: "logout" },
   { key: "toggleFunPlan", icon: "calendar-heart" },
   { key: "payment", icon: "credit-card-outline" },
-  { key: "timezone", icon: "clock-outline" },
   { key: "profile", icon: "account-circle-outline" },
   { key: "contact", icon: "message-text-outline" },
 ];
