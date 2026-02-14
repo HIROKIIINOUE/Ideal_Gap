@@ -281,6 +281,70 @@ describe("FocusMusicProvider", () => {
     });
   });
 
+  test("migrates legacy installed entries and drops non-local paths", async () => {
+    await AsyncStorage.setItem(
+      FOCUS_MUSIC_INSTALLED_KEY,
+      JSON.stringify([
+        {
+          trackId: "track-1",
+          uri: "https://example.com/expired-signed-url.mp3",
+          downloadedAt: new Date().toISOString(),
+        },
+        {
+          trackId: "track-2",
+          localPath: "/test/focus-music/track-2.mp3",
+          downloadedAt: new Date().toISOString(),
+        },
+      ]),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    expect(result.current.installedTracks).toHaveLength(1);
+    expect(result.current.installedTracks[0].id).toBe("track-2");
+    expect(result.current.installedTracks[0].localPath).toBe(
+      "file:///test/focus-music/track-2.mp3",
+    );
+  });
+
+  test("removes metadata even when file deletion fails", async () => {
+    await AsyncStorage.setItem(
+      FOCUS_MUSIC_INSTALLED_KEY,
+      JSON.stringify([
+        {
+          trackId: "track-1",
+          localPath: "file://test/focus-music/track-1.mp3",
+          downloadedAt: new Date().toISOString(),
+        },
+      ]),
+    );
+    (FileSystem.deleteAsync as jest.Mock).mockRejectedValueOnce(
+      new Error("permission denied"),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+    expect(result.current.installedTracks).toHaveLength(1);
+
+    let removeResult:
+      | { ok: true }
+      | { ok: false; reason: "not_installed" | "remove_failed" }
+      | undefined;
+    await act(async () => {
+      removeResult = await result.current.removeTrack("track-1");
+    });
+
+    expect(removeResult).toEqual({ ok: true });
+    expect(result.current.installedTracks).toHaveLength(0);
+  });
+
   test("blocks concurrent downloads", async () => {
     mockNetInfoFetch.mockResolvedValue({
       type: "wifi",

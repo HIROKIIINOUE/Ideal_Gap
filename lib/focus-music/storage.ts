@@ -1,4 +1,4 @@
-// Async Storage(端末のローカルデータ)処理をまとめたファイル
+// 作業用音楽のAsync Storage(端末のローカルデータ)処理をまとめたファイル
 // 現在は「タスク集中音楽のローカル保存先メタデータ」「月間DL数とDL制限リセット日」をAsync Storageに格納している
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -10,6 +10,12 @@ import {
 } from "./constants";
 
 const InstalledTracksSchema = z.array(InstalledTrackSchema);
+const InstalledTrackMigrationSchema = z.object({
+  trackId: z.string().min(1),
+  localPath: z.string().min(1).optional(),
+  uri: z.string().min(1).optional(),
+  downloadedAt: z.string().min(1).optional(),
+});
 const DownloadQuotaSchema = z.object({
   resetAt: z.string().min(1),
   count: z.number().int().nonnegative(),
@@ -18,14 +24,53 @@ const DownloadQuotaSchema = z.object({
 const getDownloadQuotaKey = (userId: string) =>
   `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.${userId}`;
 
-// ローカルのAsyncStorageに保存されたユーザ手持ちの音楽をzodの検証実行の上で返却
+// DL済み音楽データが壊れていた場合に、ここでpath情報を正常に戻す
+const normalizeLocalPath = (value: string | undefined) => {
+  if (!value) return null;
+  if (value.startsWith("file://")) return value;
+  if (value.startsWith("/")) return `file://${value}`;
+  return null;
+};
+
+// DL済み音楽のデータが壊れていた時、ここで正しい形に整形する。
+const normalizeInstalledTracks = (rawValue: unknown): InstalledTrack[] => {
+  if (!Array.isArray(rawValue)) return [];
+  const normalized: InstalledTrack[] = [];
+  const seenTrackIds = new Set<string>();
+  for (const item of rawValue) {
+    const parsed = InstalledTrackMigrationSchema.safeParse(item);
+    if (!parsed.success) continue;
+    if (seenTrackIds.has(parsed.data.trackId)) continue;
+    const localPath = normalizeLocalPath(
+      parsed.data.localPath ?? parsed.data.uri,
+    );
+    if (!localPath) continue;
+    normalized.push({
+      trackId: parsed.data.trackId,
+      localPath,
+      downloadedAt: parsed.data.downloadedAt ?? new Date(0).toISOString(),
+    });
+    seenTrackIds.add(parsed.data.trackId);
+  }
+  return normalized;
+};
+
+// ローカルのAsyncStorageに保存されたDL済み音楽をzodの検証実行の上で返却
 export const loadInstalledTracks = async (): Promise<InstalledTrack[]> => {
   const raw = await AsyncStorage.getItem(FOCUS_MUSIC_INSTALLED_KEY);
   if (!raw) return [];
   try {
-    const parsed = InstalledTracksSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) return [];
-    return parsed.data;
+    const parsedJson = JSON.parse(raw);
+    const parsed = InstalledTracksSchema.safeParse(parsedJson);
+    if (parsed.success) return parsed.data;
+
+    // 作業用音楽配列のパースに失敗した場合(ファイルデータが壊れている場合など)、正しい形に修正して新しくAsyncStorageに設定し直す。
+    const migrated = normalizeInstalledTracks(parsedJson);
+    await AsyncStorage.setItem(
+      FOCUS_MUSIC_INSTALLED_KEY,
+      JSON.stringify(migrated),
+    );
+    return migrated;
   } catch {
     return [];
   }

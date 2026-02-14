@@ -293,14 +293,21 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       try {
         await deleteTrackFile(target.localPath);
       } catch (error) {
-        return { ok: false, reason: "remove_failed" };
+        // ローカルの音楽削除処理が失敗した場合でもreturnせずに続行。
+        // 以下に続く「端末の音楽メタ情報を更新する」ことで手持ちの音楽を削除する
+        // ※ここで音楽ファイルのみがユーザ端末に残る恐れはあるが、アプリをアンインストールすればファイルは一掃される
+        console.warn("Failed to delete focus music file", error);
       }
       const nextEntries = installedEntries.filter(
         (entry) => entry.trackId !== id,
       );
 
       // 最新の手持ちの音楽リスト保存情報(メタ情報)をプロジェクト内と端末内(Async Storage)の両方で更新する
-      await persistInstalledEntries(nextEntries);
+      try {
+        await persistInstalledEntries(nextEntries);
+      } catch (error) {
+        return { ok: false, reason: "remove_failed" };
+      }
       return { ok: true };
     },
     [installedEntries, persistInstalledEntries],
