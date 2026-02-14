@@ -2,26 +2,26 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import { router } from "expo-router";
-import Purchases from "../purchases";
-import i18n from "../../i18n";
-import { LanguageProvider } from "../../providers/LanguageProvider";
+import Purchases from "../app/purchases";
+import i18n from "../i18n";
+import { LanguageProvider } from "../providers/LanguageProvider";
 import {
   fetchTestStorePackage,
   purchaseSelectedPackage,
-} from "../../lib/revenuecatOfferings";
+} from "../lib/revenuecatOfferings";
 import {
   ensureSignupAwaitSubscription,
   getUserProfile,
   updateSubscriptionAfterPurchase,
-} from "../../lib/subscription";
-import { supabase } from "../../lib/supabaseClient";
+} from "../lib/subscription";
+import { supabase } from "../lib/supabaseClient";
 
-jest.mock("../../lib/revenuecatOfferings", () => ({
+jest.mock("../lib/revenuecatOfferings", () => ({
   fetchTestStorePackage: jest.fn(),
   purchaseSelectedPackage: jest.fn(),
 }));
-jest.mock("../../lib/subscription");
-jest.mock("../../lib/supabaseClient", () => ({
+jest.mock("../lib/subscription");
+jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
       getSession: jest.fn(),

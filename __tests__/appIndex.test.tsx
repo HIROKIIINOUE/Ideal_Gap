@@ -1,11 +1,11 @@
 import { render, screen } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
-import i18n from "../../i18n";
-import { LanguageProvider } from "../../providers/LanguageProvider";
-import Index from "../index";
-import { supabase } from "../../lib/supabaseClient";
+import i18n from "../i18n";
+import { LanguageProvider } from "../providers/LanguageProvider";
+import Index from "../app/index";
+import { supabase } from "../lib/supabaseClient";
 
-jest.mock("../../lib/supabaseClient", () => ({
+jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
       signOut: jest.fn().mockResolvedValue({ error: null }),
