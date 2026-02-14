@@ -1,0 +1,2 @@
+-- Placeholder migration to align local history with remote migration version 20260213195500.
+-- Actual schema changes were already applied on remote.
