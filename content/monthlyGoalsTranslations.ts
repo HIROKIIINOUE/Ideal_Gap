@@ -118,7 +118,8 @@ export const monthlyGoalsTranslations: Record<
       errorEstimated: "目標時間は0より大きい数値で入力してください",
     },
     deleteConfirmTitle: "削除してもよろしいですか？",
-    deleteConfirmBody: "この月間目標を削除すると元に戻せません。",
+    deleteConfirmBody:
+      "この月間目標を削除すると元に戻せません。\n削除される月間タスクに紐づく週間タスクは全て削除されます。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
     deleteSuccess: {
@@ -132,7 +133,8 @@ export const monthlyGoalsTranslations: Record<
     bulkDelete: {
       button: "全削除",
       title: "どの目標を削除しますか？",
-      message: "この操作は元に戻せません。",
+      message:
+        "この操作は元に戻せません。\n削除される月間タスクに紐づく週間タスクは全て削除されます。",
       all: "全ての月を削除",
       current: "{{month}}を削除",
       cancel: "キャンセル",
@@ -195,7 +197,8 @@ export const monthlyGoalsTranslations: Record<
       errorEstimated: "Target time must be greater than 0.",
     },
     deleteConfirmTitle: "Delete this monthly goal?",
-    deleteConfirmBody: "You can’t undo this action after deleting.",
+    deleteConfirmBody:
+      "You can’t undo this action after deleting.\nAll weekly tasks linked to the monthly task being deleted will also be removed.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
     deleteSuccess: {
@@ -209,7 +212,8 @@ export const monthlyGoalsTranslations: Record<
     bulkDelete: {
       button: "Delete all",
       title: "What would you like to delete?",
-      message: "This cannot be undone.",
+      message:
+        "This cannot be undone.\nAll weekly tasks linked to the monthly tasks being deleted will also be removed.",
       all: "Delete all months",
       current: "Delete {{month}}",
       cancel: "Cancel",
@@ -272,7 +276,8 @@ export const monthlyGoalsTranslations: Record<
       errorEstimated: "Le temps cible doit être supérieur à 0.",
     },
     deleteConfirmTitle: "Supprimer cet objectif mensuel ?",
-    deleteConfirmBody: "Cette action est définitive après suppression.",
+    deleteConfirmBody:
+      "Cette action est définitive après suppression.\nToutes les tâches hebdomadaires liées aux tâches mensuelles supprimées seront également supprimées.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
     deleteSuccess: {
@@ -286,7 +291,8 @@ export const monthlyGoalsTranslations: Record<
     bulkDelete: {
       button: "Tout supprimer",
       title: "Que souhaitez-vous supprimer ?",
-      message: "Cette action est irréversible.",
+      message:
+        "Cette action est irréversible.\nToutes les tâches hebdomadaires liées aux tâches mensuelles supprimées seront également supprimées.",
       all: "Supprimer tous les mois",
       current: "Supprimer {{month}}",
       cancel: "Annuler",
