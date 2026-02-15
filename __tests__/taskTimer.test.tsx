@@ -4,6 +4,7 @@ import { I18nextProvider } from "react-i18next";
 import * as Notifications from "expo-notifications";
 import { Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 import TaskTimerScreen from "../components/feature/TaskTimerScreen";
 import i18n from "../i18n";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
@@ -161,11 +162,18 @@ const buildFocusMusicStub = (
 const mockGetPermissionsAsync = Notifications.getPermissionsAsync as jest.MockedFunction<
   typeof Notifications.getPermissionsAsync
 >;
+const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fetch>;
 const mockOpenSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
 
 describe("TaskTimerScreen", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+      details: null,
+    } as any);
     mockGetPermissionsAsync.mockResolvedValue({
       status: Notifications.PermissionStatus.GRANTED,
       granted: true,
@@ -326,7 +334,9 @@ describe("TaskTimerScreen", () => {
 
     const { getByText } = render(
       <I18nextProvider i18n={i18n}>
-        <TaskTimerScreen />
+        <FocusMusicProvider>
+          <TaskTimerScreen />
+        </FocusMusicProvider>
       </I18nextProvider>,
     );
 
@@ -421,5 +431,44 @@ describe("TaskTimerScreen", () => {
 
     await waitFor(() => expect(stop).toHaveBeenCalled());
     spy.mockRestore();
+  });
+
+  test("shows offline alert and goes back when saving completion while offline", async () => {
+    const alertSpy = jest.spyOn(require("react-native").Alert, "alert");
+    const router = require("expo-router").router;
+    const backSpy = jest.spyOn(router, "back");
+    mockNetInfoFetch.mockResolvedValueOnce({
+      type: "none",
+      isConnected: false,
+      isInternetReachable: false,
+      details: null,
+    } as any);
+
+    const { getByText } = render(
+      <I18nextProvider i18n={i18n}>
+        <FocusMusicProvider>
+          <TaskTimerScreen />
+        </FocusMusicProvider>
+      </I18nextProvider>,
+    );
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByText("Mark done"));
+    fireEvent.press(getByText("Save and finish"));
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith(
+        "Finish this session?",
+        "You are offline. Reconnect to the internet, or record your time manually from the manual log button.",
+        [{ text: "Back", onPress: expect.any(Function) }],
+      ),
+    );
+
+    const buttons = alertSpy.mock.calls[alertSpy.mock.calls.length - 1][2] as Array<{
+      text: string;
+      onPress?: () => void;
+    }>;
+    buttons[0]?.onPress?.();
+    expect(backSpy).toHaveBeenCalled();
   });
 });

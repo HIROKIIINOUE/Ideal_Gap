@@ -20,11 +20,15 @@ import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useAppZodForm } from "../../hooks/useAppZodForm";
 import { useDeleteMode } from "../../hooks/useDeleteMode";
+import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteYearlyGoal, fetchYearlyGoals, insertYearlyGoal, updateYearlyGoal, upsertYearlyGoals, YearlyGoalRow } from "../../lib/api/supabase/annualGoals";
 import { getUserId } from "../../lib/api/supabase/common";
 import { deleteYearlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
+import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { useOffline } from "../../providers/OfflineProvider";
 import Loading from "../Loading";
+import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
 type AnnualGoal = {
   id: string;
@@ -56,6 +60,16 @@ const goalSchema = z.object({
 });
 
 type GoalFormValues = z.infer<typeof goalSchema>;
+const offlineAnnualGoalSchema = z.array(
+  z.object({
+    id: z.string(),
+    description: z.string(),
+    goalColor: z.string(),
+    accumulatedMinutes: z.number(),
+    order: z.number(),
+    updatedAt: z.string().nullable(),
+  }),
+);
 
 const DEFAULT_FORM_VALUES: GoalFormValues = {
   description: "",
@@ -106,6 +120,9 @@ export default function AnnualGoalsScreen() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasOfflineCache, setHasOfflineCache] = useState(false);
+  const { offlineBlocked } = useOffline();
+  const guardOfflineAction = useOfflineActionGuard();
   const updatedLabel = t("updatedSuffix");
   const {
     control, // Controller が使う“フォーム管理本体”
@@ -133,6 +150,24 @@ export default function AnnualGoalsScreen() {
         setLoading(false);
         return;
       }
+
+      // ローカルキャッシュのキー名を生成
+      const cacheKey = buildOfflineCacheKey("annual-goals", uid);
+      // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
+      if (offlineBlocked) {
+        const cached = await readOfflineCache(cacheKey, offlineAnnualGoalSchema);
+        if (active) {
+          if (cached) {
+            setGoals(cached);
+            setHasOfflineCache(true);
+          } else {
+            setHasOfflineCache(false);
+          }
+          setLoading(false);
+        }
+        return; // オフラインの場合はここでデータフェッチ処理終了
+      }
+
       const { data, error } = await fetchYearlyGoals(uid);
 
       if (error) {
@@ -140,6 +175,9 @@ export default function AnnualGoalsScreen() {
       } else if (active) {
         const mapped = ((data as YearlyGoalRow[]) ?? []).map(toAnnualGoal);
         setGoals(mapped);
+        // データが空配列ではない場合、ローカルキャッシュに保存
+        setHasOfflineCache(mapped.length > 0);
+        await writeOfflineCache(cacheKey, offlineAnnualGoalSchema, mapped);
       }
       if (active) setLoading(false);
     };
@@ -148,7 +186,7 @@ export default function AnnualGoalsScreen() {
     return () => {
       active = false;
     };
-  }, [t]);
+  }, [offlineBlocked, t]);
 
   // 合計時間の算出
   const totalMinutes = useMemo(
@@ -169,6 +207,7 @@ export default function AnnualGoalsScreen() {
   }, [goals, totalMinutes]);
 
   const handleAddPress = () => {
+    if (guardOfflineAction()) return;
     setModalError(null);
     reset(DEFAULT_FORM_VALUES);
     setModalState(createAddModalState());
@@ -177,6 +216,7 @@ export default function AnnualGoalsScreen() {
 
   // 全ての年間目標削除機能
   const handleBulkDelete = async () => {
+    if (guardOfflineAction()) return;
     const uid = await getUserId();
     if (!uid) {
       Alert.alert(t("deleteConfirmTitle"), t("errors.loginMissing"));
@@ -208,6 +248,7 @@ export default function AnnualGoalsScreen() {
   };
 
   const handleEditPress = (goal: AnnualGoal) => {
+    if (guardOfflineAction()) return;
     reset({
       description: goal.description,
       goalColor: goal.goalColor,
@@ -218,6 +259,7 @@ export default function AnnualGoalsScreen() {
   };
 
   const handleDelete = (goal: AnnualGoal) => {
+    if (guardOfflineAction()) return;
     Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
       { text: t("deleteConfirmNo"), style: "cancel" },
       {
@@ -275,6 +317,7 @@ export default function AnnualGoalsScreen() {
 
   // 新規追加・アップデートの「追加ボタン」ロジック
   const onValidSubmit = async ({ description, goalColor }: GoalFormValues) => {
+    if (guardOfflineAction()) return;
     setSaving(true);
     setModalError(null);
     try {
@@ -357,6 +400,7 @@ export default function AnnualGoalsScreen() {
 
   // ドラッグの順番並び替えが終わった時に発火
   const handleDragEnd = async ({ data }: { data: AnnualGoal[] }) => {
+    if (guardOfflineAction()) return;
     setGoals(
       data.map((goal, idx) => ({
         ...goal,
@@ -441,6 +485,15 @@ export default function AnnualGoalsScreen() {
     );
   }
 
+  // オフラインかつキャッシュデータがない場合は専用のオフラインページを表示する
+  if (offlineBlocked && !hasOfflineCache) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <OfflineRequiredScreen />
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
       <View style={[styles.card, shadows.card]}>
@@ -481,7 +534,7 @@ export default function AnnualGoalsScreen() {
 
         <View style={styles.actionRow}>
           {!deleteMode && (
-            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
+            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
               <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
               <Text style={styles.primaryButtonText}>{t("add")}</Text>
             </Pressable>
@@ -490,6 +543,7 @@ export default function AnnualGoalsScreen() {
             accessibilityRole="button"
             style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
             onPress={toggleDeleteMode}
+            disabled={offlineBlocked}
           >
             <MaterialCommunityIcons
               name={deleteMode ? "close" : "trash-can-outline"}
@@ -503,6 +557,7 @@ export default function AnnualGoalsScreen() {
               accessibilityRole="button"
               style={[styles.secondaryButton, styles.bulkDeleteButton]}
               onPress={confirmBulkDelete}
+              disabled={offlineBlocked}
             >
               <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
               <Text style={styles.secondaryButtonText}>
@@ -537,7 +592,7 @@ export default function AnnualGoalsScreen() {
           />
           <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
           <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
+          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
             <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
             <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
           </Pressable>

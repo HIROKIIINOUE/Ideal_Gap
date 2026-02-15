@@ -10,11 +10,15 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
+import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { supabase } from "../../lib/supabaseClient";
+import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
+import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
 // 画面表示用データの型
 type WeeklyTask = {
@@ -60,6 +64,25 @@ const formatMinutes = (minutes: number) => {
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
+const offlineWeeklyTasksSchema = z.array(
+  z.object({
+    id: z.string(),
+    title: z.string(),
+    monthlyGoalLabel: z.string(),
+    monthlyGoalId: z.string(),
+    estimatedMinutes: z.number(),
+    loggedMinutes: z.number(),
+    order: z.number(),
+  }),
+);
+const offlineMonthlyGoalOptionsSchema = z.array(
+  z.object({
+    id: z.string(),
+    label: z.string(),
+    color: z.string(),
+    month: z.number().int().min(1).max(12),
+  }),
+);
 
 export default function WeeklyTasksScreen() {
   const { t } = useTranslation(["weeklyTasks", "monthlyGoals"]);
@@ -68,6 +91,7 @@ export default function WeeklyTasksScreen() {
   const [listMode, setListMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasOfflineCache, setHasOfflineCache] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [manualLog, setManualLog] = useState<ManualLogState>({
     visible: false,
@@ -123,6 +147,8 @@ export default function WeeklyTasksScreen() {
     month: new Date().getMonth() + 1,
   });
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const { offlineBlocked } = useOffline();
+  const guardOfflineAction = useOfflineActionGuard();
 
   const monthsList = useMemo(() => Array.from({ length: 12 }, (_, idx) => idx + 1), []);
   const initializedDefaultGoal = useRef(false);
@@ -151,6 +177,7 @@ export default function WeeklyTasksScreen() {
   const hasMonthlyGoals = monthGoalsForSelected.length > 0;
 
   const handleDeleteTask = (task: WeeklyTask) => {
+    if (guardOfflineAction()) return;
     Alert.alert(t("deleteConfirm.title"), t("deleteConfirm.body"), [
       { text: t("deleteConfirm.no"), style: "cancel" },
       {
@@ -196,6 +223,7 @@ export default function WeeklyTasksScreen() {
 
   //　作業タイマーへ遷移する
   const handleOpenTimer = (task: WeeklyTask) => {
+    if (guardOfflineAction()) return;
     router.push({
       pathname: "/task-timer",
       params: {
@@ -263,6 +291,27 @@ export default function WeeklyTasksScreen() {
       return;
     }
 
+    // ローカルキャッシュのキー名を生成
+    const taskCacheKey = buildOfflineCacheKey("weekly-tasks", uid);
+    const goalCacheKey = buildOfflineCacheKey("weekly-monthly-goals", uid);
+
+    // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
+    if (offlineBlocked) {
+      const [cachedTasks, cachedGoals] = await Promise.all([
+        readOfflineCache(taskCacheKey, offlineWeeklyTasksSchema),
+        readOfflineCache(goalCacheKey, offlineMonthlyGoalOptionsSchema),
+      ]);
+      if (cachedTasks && cachedGoals) {
+        setTasks(cachedTasks);
+        setMonthlyGoalOptions(cachedGoals);
+        setHasOfflineCache(true);
+      } else {
+        setHasOfflineCache(false);
+      }
+      setLoading(false);
+      return; // オフラインの場合はここでデータフェッチ処理終了
+    }
+
     const [{ data: monthlyData, error: monthlyError }, { data: weeklyData, error: weeklyError }] = await Promise.all([
       supabase
         .from("monthly_goals")
@@ -310,12 +359,19 @@ export default function WeeklyTasksScreen() {
 
     setMonthlyGoalOptions(monthlyOptions);
     setTasks(weekly);
+
+    // データが空配列ではない場合、ローカルキャッシュに保存
+    setHasOfflineCache(weekly.length > 0 && monthlyOptions.length > 0);
+    await Promise.all([
+      writeOfflineCache(taskCacheKey, offlineWeeklyTasksSchema, weekly),
+      writeOfflineCache(goalCacheKey, offlineMonthlyGoalOptionsSchema, monthlyOptions),
+    ]);
     if (monthlyOptions[0] && !initializedDefaultGoal.current) {
       initializedDefaultGoal.current = true;
       setDraft((prev) => ({ ...prev, monthlyGoalId: monthlyOptions[0].id, month: monthlyOptions[0].month }));
     }
     setLoading(false);
-  }, [fetchUserId, initializedDefaultGoal, monthLabel, reorderTasks, t, toWeeklyTask]);
+  }, [fetchUserId, initializedDefaultGoal, monthLabel, offlineBlocked, reorderTasks, t, toWeeklyTask]);
 
   // 初回マウント時にもデータを1回だけ取得し、以降はフォーカス時に再取得する
   useEffect(() => {
@@ -364,6 +420,7 @@ export default function WeeklyTasksScreen() {
 
   // 「追加ボタン」からモーダルを開いた時のロジック
   const handleOpenAdd = () => {
+    if (guardOfflineAction()) return;
     setEditingId(null);
     setDraft({
       title: "",
@@ -377,6 +434,7 @@ export default function WeeklyTasksScreen() {
 
   // 全ての週間タスク削除機能
   const handleBulkDelete = async () => {
+    if (guardOfflineAction()) return;
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
       Alert.alert(t("deleteConfirm.title"), t("modal.errorRequired"));
@@ -406,6 +464,7 @@ export default function WeeklyTasksScreen() {
 
   // 「編集ボタン」からモーダルを開いた時のロジック
   const handleOpenEdit = (task: WeeklyTask) => {
+    if (guardOfflineAction()) return;
     const goalMonth = monthlyGoalOptions.find((opt) => opt.id === task.monthlyGoalId)?.month;
     setEditingId(task.id);
     setDraft({
@@ -423,6 +482,7 @@ export default function WeeklyTasksScreen() {
 
   // 手動で作業時間積み上げモーダルをオープンする処理
   const handleOpenManualLog = (task: WeeklyTask) => {
+    if (guardOfflineAction()) return;
     setManualLog({
       visible: true,
       task,
@@ -459,6 +519,7 @@ export default function WeeklyTasksScreen() {
   };
 
   const handleSubmitManualLog = () => {
+    if (guardOfflineAction()) return;
     if (!manualLog.task || !manualInRange || !manualChanged) return;
     const safeTotal = Math.max(0, manualFinalMinutes);
     Alert.alert(
@@ -509,6 +570,7 @@ export default function WeeklyTasksScreen() {
 
 
   const handleSave = async () => {
+    if (guardOfflineAction()) return;
     // 選択月に月間目標がない場合は早期return
     if (!hasMonthlyGoals) {
       setModalError(t("modal.noMonthlyGoal", { monthLabel: monthLabel(selectedMonth) }));
@@ -613,6 +675,7 @@ export default function WeeklyTasksScreen() {
 
   // ドラッグの順番並び替えが終わった時に発火
   const handleDragEnd = async ({ data }: { data: WeeklyTask[] }) => {
+    if (guardOfflineAction()) return;
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
       Alert.alert(t("deleteConfirm.title"), t("modal.errorRequired"));
@@ -747,6 +810,7 @@ export default function WeeklyTasksScreen() {
                 handleOpenEdit(item);
               }
             }}
+            disabled={offlineBlocked}
           >
             <MaterialCommunityIcons
               name={deleteMode ? "trash-can-outline" : "pencil-outline"}
@@ -760,7 +824,7 @@ export default function WeeklyTasksScreen() {
           <View style={[styles.actionsColumn, styles.taskActionsRow]}>
             <Pressable
               accessibilityRole="button"
-              disabled={deleteMode}
+              disabled={deleteMode || offlineBlocked}
               onPress={() => handleOpenTimer(item)}
               style={({ pressed }) => [
                 styles.primaryButtonFull,
@@ -773,7 +837,7 @@ export default function WeeklyTasksScreen() {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              disabled={deleteMode}
+              disabled={deleteMode || offlineBlocked}
               style={({ pressed }) => [
                 styles.secondaryButtonFull,
                 pressed && styles.secondaryPressed,
@@ -794,6 +858,15 @@ export default function WeeklyTasksScreen() {
     return (
       <GestureHandlerRootView style={styles.ghRoot}>
         <Loading />
+      </GestureHandlerRootView>
+    );
+  }
+
+  // オフラインかつキャッシュデータがない場合は専用のオフラインページを表示する
+  if (offlineBlocked && !hasOfflineCache) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <OfflineRequiredScreen />
       </GestureHandlerRootView>
     );
   }
@@ -842,6 +915,7 @@ export default function WeeklyTasksScreen() {
                   accessibilityRole="button"
                   style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
                   onPress={handleOpenAdd}
+                  disabled={offlineBlocked}
                 >
                   <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
                   <Text style={styles.primaryButtonText}>{t("actions.add")}</Text>
@@ -855,6 +929,7 @@ export default function WeeklyTasksScreen() {
                   deleteMode && styles.secondaryButtonActive,
                 ]}
                 onPress={() => setDeleteMode((prev) => !prev)}
+                disabled={offlineBlocked}
               >
                 <MaterialCommunityIcons
                   name={deleteMode ? "close" : "trash-can-outline"}
@@ -874,6 +949,7 @@ export default function WeeklyTasksScreen() {
                     styles.bulkDeleteButton,
                   ]}
                   onPress={confirmBulkDelete}
+                  disabled={offlineBlocked}
                 >
                   <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
                   <Text style={styles.secondaryButtonText}>

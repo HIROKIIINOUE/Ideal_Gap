@@ -20,10 +20,14 @@ import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useAppZodForm } from "../../hooks/useAppZodForm";
 import { useDeleteMode } from "../../hooks/useDeleteMode";
+import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { getUserId } from "../../lib/api/supabase/common";
 import { deleteIdeal, fetchIdealSelf, insertIdeal, updateIdeal, upsertIdeals } from "../../lib/api/supabase/idealSelf";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
+import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { useOffline } from "../../providers/OfflineProvider";
 import Loading from "../Loading";
+import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
 type IdealCard = {
   id: string;
@@ -46,6 +50,14 @@ const idealSchema = z.object({
 
 // Zodで定義したidealSchemaを型IdealFormValueとして取り出す
 type IdealFormValues = z.infer<typeof idealSchema>;
+const offlineIdealSchema = z.array(
+  z.object({
+    id: z.string(),
+    description: z.string(),
+    order: z.number(),
+    updatedAt: z.string().nullable(),
+  }),
+);
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 
@@ -77,6 +89,9 @@ export default function IdealSelfScreen() {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [hasOfflineCache, setHasOfflineCache] = useState(false);
+  const { offlineBlocked } = useOffline();
+  const guardOfflineAction = useOfflineActionGuard();
   const updatedLabel = t("updatedSuffix");
   const {
     control, // Controller が使う“フォーム管理本体”
@@ -101,6 +116,25 @@ export default function IdealSelfScreen() {
         setLoading(false);
         return;
       }
+
+      // ローカルキャッシュのキー名を生成
+      const cacheKey = buildOfflineCacheKey("ideal-self", uid);
+
+      // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
+      if (offlineBlocked) {
+        const cached = await readOfflineCache(cacheKey, offlineIdealSchema);
+        if (active) {
+          if (cached) {
+            setIdeals(cached);
+            setHasOfflineCache(true);
+          } else {
+            setHasOfflineCache(false);
+          }
+          setLoading(false);
+        }
+        return;  //オフラインの場合はここでデータフェッチ処理終了
+      }
+
       const { data, error } = await fetchIdealSelf(uid);
       if (error) {
         if (active) setErrorMessage(error.message);
@@ -114,6 +148,9 @@ export default function IdealSelfScreen() {
           }),
         );
         setIdeals(mapped);
+        //データが空配列ではない場合、ローカルキャッシュに保存
+        setHasOfflineCache(mapped.length > 0);
+        await writeOfflineCache(cacheKey, offlineIdealSchema, mapped);
       }
       if (active) setLoading(false);
     };
@@ -121,10 +158,11 @@ export default function IdealSelfScreen() {
     return () => {
       active = false;
     };
-  }, [t]);
+  }, [offlineBlocked, t]);
 
   // 追加インプットモーダル表示ボタン
   const handleAddPress = () => {
+    if (guardOfflineAction()) return;
     setModalError(null);
     reset({ description: "" });
     setModalState(createAddModalState());
@@ -133,6 +171,7 @@ export default function IdealSelfScreen() {
 
   // 更新ボタンと削除ボタンを状況に応じて管理
   const handleButtonPress = (item: IdealCard) => {
+    if (guardOfflineAction()) return;
     if (deleteMode) {
       Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
         { text: t("deleteConfirmNo"), style: "cancel" },
@@ -160,6 +199,7 @@ export default function IdealSelfScreen() {
 
   // 保存・更新ボタン両方を管理するロジック
   const onValidSubmit = async ({ description }: IdealFormValues) => {
+    if (guardOfflineAction()) return;
     setSaving(true);
     setModalError(null);
 
@@ -223,6 +263,7 @@ export default function IdealSelfScreen() {
 
   // ドラッグ並び替え終了時の配列データをセットする
   const handleDragEnd = async ({ data }: { data: IdealCard[] }) => {
+    if (guardOfflineAction()) return;
     setIdeals(data);
     const uid = await getUserId();
     if (!uid) {
@@ -302,6 +343,14 @@ export default function IdealSelfScreen() {
       </GestureHandlerRootView>
     );
   }
+  //オフラインかつキャッシュデータがない場合は専用のオフラインページを表示する
+  if (offlineBlocked && !hasOfflineCache) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <OfflineRequiredScreen />
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
@@ -315,7 +364,7 @@ export default function IdealSelfScreen() {
         <Text style={styles.heading}>{t("pageTitle")}</Text>
 
         <View style={styles.actionRow}>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading}>
+          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading || offlineBlocked}>
             <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
             <Text style={styles.primaryButtonText}>{t("add")}</Text>
           </Pressable>
@@ -323,6 +372,7 @@ export default function IdealSelfScreen() {
             accessibilityRole="button"
             style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
             onPress={toggleDeleteMode}
+            disabled={offlineBlocked}
           >
             <MaterialCommunityIcons
               name={deleteMode ? "close" : "trash-can-outline"}
@@ -362,7 +412,7 @@ export default function IdealSelfScreen() {
           />
           <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
           <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
+          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
             <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
             <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
           </Pressable>

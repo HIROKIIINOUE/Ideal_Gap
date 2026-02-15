@@ -2,6 +2,14 @@ import { LanguageKey } from "../types/i18n";
 
 export type CommonTranslations = {
   loading: string;
+  offline: {
+    banner: string;
+    blockedTitle: string;
+    blockedBody: string;
+    noConnectionTitle: string;
+    noConnectionBody: string;
+    retry: string;
+  };
   footer: {
     language: string;
     dashboard: string;
@@ -42,6 +50,15 @@ export type CommonTranslations = {
 export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
   ja: {
     loading: "ローディング中...",
+    offline: {
+      banner: "You're offline",
+      blockedTitle: "オフラインのため操作できません",
+      blockedBody: "インターネットに接続してからもう一度お試しください。",
+      noConnectionTitle: "インターネットに接続してください",
+      noConnectionBody:
+        "このページは接続が必要です。接続後に再度アクセスしてください。",
+      retry: "再試行",
+    },
     footer: {
       language: "言語",
       dashboard: "ダッシュボード",
@@ -103,6 +120,15 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
   },
   en: {
     loading: "Loading...",
+    offline: {
+      banner: "You're offline",
+      blockedTitle: "This action is unavailable offline",
+      blockedBody: "Reconnect to the internet and try again.",
+      noConnectionTitle: "Connect to the internet",
+      noConnectionBody:
+        "This page requires a network connection. Please reconnect and try again.",
+      retry: "Retry",
+    },
     footer: {
       language: "Language",
       dashboard: "Dashboard",
@@ -158,6 +184,15 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
   },
   fr: {
     loading: "Chargement...",
+    offline: {
+      banner: "You're offline",
+      blockedTitle: "Action indisponible hors ligne",
+      blockedBody: "Reconnectez-vous à internet puis réessayez.",
+      noConnectionTitle: "Connectez-vous à internet",
+      noConnectionBody:
+        "Cette page nécessite une connexion réseau. Reconnectez-vous puis réessayez.",
+      retry: "Réessayer",
+    },
     footer: {
       language: "Langue",
       dashboard: "Tableau de bord",

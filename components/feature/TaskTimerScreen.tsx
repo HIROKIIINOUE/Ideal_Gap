@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import { router, useLocalSearchParams } from "expo-router";
@@ -574,6 +575,17 @@ export default function TaskTimerScreen() {
   // 作業モーダルの「完了」ボタン押下時の処理
   const handleConfirmCompletion = useCallback(async () => {
     if (isSavingCompletion) return;
+
+    // ネットワーク状況を確認し、オフラインの場合はポップアップ画面で保存できない旨を伝え、週間タスクページに遷移させる。
+    const network = await NetInfo.fetch();
+    if (!network.isConnected || network.isInternetReachable === false) {
+      Alert.alert(
+        t("controls.completeConfirmTitle"),
+        t("feedback.offlineSaveBlocked"),
+        [{ text: t("feedback.offlineSaveBlockedAction"), onPress: () => router.back() }],
+      );
+      return;
+    }
     setIsSavingCompletion(true);
     const trimmedNextStart = nextStartNote.trim();
     const nextStartPayload =
@@ -592,6 +604,7 @@ export default function TaskTimerScreen() {
     isSavingCompletion,
     nextStartNote,
     persistElapsedAndExit,
+    t,
   ]);
 
   const handleSelectMusic = (option: InstalledFocusTrack) => {

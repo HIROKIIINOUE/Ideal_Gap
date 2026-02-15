@@ -8,6 +8,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import SplashOverlay from "../components/SplashOverlay";
+import OfflineBanner from "../components/OfflineBanner";
 import i18n from "../i18n";
 import { restoreSession } from "../lib/authBootstrap";
 import { getNormalizedLinkPath, resolveAuthCallbackTarget } from "../lib/authCallbackRouting";
@@ -18,6 +19,7 @@ import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
 import { RevenueCatProvider } from "../providers/RevenueCatProvider";
+import { OfflineProvider } from "../providers/OfflineProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -137,14 +139,17 @@ export default function RootLayout() {
   return (
     <I18nextProvider i18n={i18n}>
       <LanguageProvider>
-        <FunPlanProvider>
-          <FocusMusicProvider>
-            <RevenueCatProvider>
-              <Stack />
-              <SplashOverlay visible={showSplash} />
-            </RevenueCatProvider>
-          </FocusMusicProvider>
-        </FunPlanProvider>
+        <OfflineProvider>
+          <FunPlanProvider>
+            <FocusMusicProvider>
+              <RevenueCatProvider>
+                <Stack />
+                <OfflineBanner />
+                <SplashOverlay visible={showSplash} />
+              </RevenueCatProvider>
+            </FocusMusicProvider>
+          </FunPlanProvider>
+        </OfflineProvider>
       </LanguageProvider>
     </I18nextProvider>
   );

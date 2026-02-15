@@ -8,11 +8,15 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteMonthlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
 import { deleteMonthlyGoalWithWeeklyTasks } from "../../lib/api/supabase/goals/cascadeDelete";
+import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { supabase } from "../../lib/supabaseClient";
+import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
+import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
 type YearlyGoalOption = {
   id: string;
@@ -65,6 +69,25 @@ const monthlyGoalSchema = z.object({
   yearlyGoalId: z.string().trim().min(1),
   estimatedMinutes: z.number().positive(),
 });
+const offlineMonthlyGoalsSchema = z.array(
+  z.object({
+    id: z.string(),
+    description: z.string(),
+    month: z.number().int().min(1).max(12),
+    estimatedMinutes: z.number(),
+    accumulatedMinutes: z.number(),
+    yearlyGoalId: z.string(),
+    order: z.number(),
+    updatedAt: z.string().nullable().optional(),
+  }),
+);
+const offlineYearlyGoalOptionsSchema = z.array(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    color: z.string(),
+  }),
+);
 
 export default function MonthlyGoalsScreen() {
   const { t } = useTranslation("monthlyGoals");
@@ -73,6 +96,7 @@ export default function MonthlyGoalsScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasOfflineCache, setHasOfflineCache] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -93,6 +117,8 @@ export default function MonthlyGoalsScreen() {
   const monthListRef = useRef<FlatList<number>>(null);
   const [isMonthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [isYearlyDropdownOpen, setYearlyDropdownOpen] = useState(false);
+  const { offlineBlocked } = useOffline();
+  const guardOfflineAction = useOfflineActionGuard();
 
   const toMonthlyGoal = (row: MonthlyGoalRow): MonthlyGoal => ({
     id: row.id,
@@ -145,6 +171,27 @@ export default function MonthlyGoalsScreen() {
       return;
     }
 
+    // ローカルキャッシュのキー名を生成
+    const goalsCacheKey = buildOfflineCacheKey("monthly-goals", uid);
+    const yearlyCacheKey = buildOfflineCacheKey("monthly-goals-yearly", uid);
+
+    // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
+    if (offlineBlocked) {
+      const [cachedGoals, cachedYearly] = await Promise.all([
+        readOfflineCache(goalsCacheKey, offlineMonthlyGoalsSchema),
+        readOfflineCache(yearlyCacheKey, offlineYearlyGoalOptionsSchema),
+      ]);
+      if (cachedGoals && cachedYearly) {
+        setGoals(cachedGoals);
+        setYearlyGoals(cachedYearly);
+        setHasOfflineCache(true);
+      } else {
+        setHasOfflineCache(false);
+      }
+      setLoading(false);
+      return;　// オフラインの場合はここでデータフェッチ処理終了
+    }
+
     const [{ data: yearlyData, error: yearlyError }, { data: monthlyData, error: monthlyError }] = await Promise.all([
       supabase
         .from("yearly_goals")
@@ -171,10 +218,17 @@ export default function MonthlyGoalsScreen() {
       name: row.description,
       color: row.year_goal_color,
     }));
+    const mappedMonthly = ((monthlyData as MonthlyGoalRow[]) ?? []).map(toMonthlyGoal);
     setYearlyGoals(yearlyOptions);
-    setGoals(((monthlyData as MonthlyGoalRow[]) ?? []).map(toMonthlyGoal));
+    setGoals(mappedMonthly);
+    // データが空配列ではない場合、ローカルキャッシュに保存
+    setHasOfflineCache(mappedMonthly.length > 0 && yearlyOptions.length > 0);
+    await Promise.all([
+      writeOfflineCache(goalsCacheKey, offlineMonthlyGoalsSchema, mappedMonthly),
+      writeOfflineCache(yearlyCacheKey, offlineYearlyGoalOptionsSchema, yearlyOptions),
+    ]);
     setLoading(false);
-  }, [fetchUserId, t]);
+  }, [fetchUserId, offlineBlocked, t]);
 
   useEffect(() => {
     loadData();
@@ -267,6 +321,7 @@ export default function MonthlyGoalsScreen() {
 
   // 「月間目標追加」タップ後のロジック、インプット項目を初期化
   const handleAddPress = () => {
+    if (guardOfflineAction()) return;
     setEditingId(null);
     setDraft({
       description: "",
@@ -297,11 +352,13 @@ export default function MonthlyGoalsScreen() {
 
   // 削除モード切り替えロジック
   const handleToggleDeleteMode = () => {
+    if (guardOfflineAction()) return;
     setDeleteMode((prev) => !prev);
   };
 
   // 指定月の全月間目標削除、12ヶ月分全ての月間目標削除のロジック
   const handleBulkDelete = async (scope: "all" | "current") => {
+    if (guardOfflineAction()) return;
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
       Alert.alert(t("deleteConfirmTitle"), t("errors.loginMissing"));
@@ -359,6 +416,7 @@ export default function MonthlyGoalsScreen() {
 
   // 削除処理
   const handleDelete = (goal: MonthlyGoal) => {
+    if (guardOfflineAction()) return;
     Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
       { text: t("deleteConfirmNo"), style: "cancel" },
       {
@@ -405,6 +463,7 @@ export default function MonthlyGoalsScreen() {
 
   // 追記・編集したdraftを保存する処理
   const handleSave = async () => {
+    if (guardOfflineAction()) return;
     const parsed = monthlyGoalSchema.safeParse({
       description: draft.description,
       month: Number(draft.month),
@@ -510,6 +569,7 @@ export default function MonthlyGoalsScreen() {
 
   // ドラッグの順番並び替えが終わった時に発火
   const handleDragEnd = async ({ data }: { data: MonthlyGoal[] }) => {
+    if (guardOfflineAction()) return;
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
       Alert.alert(t("deleteConfirmTitle"), t("errors.loginMissing"));
@@ -602,6 +662,15 @@ export default function MonthlyGoalsScreen() {
     );
   }
 
+  // オフラインかつキャッシュデータがない場合は専用のオフラインページを表示する
+  if (offlineBlocked && !hasOfflineCache) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <OfflineRequiredScreen />
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
       <View style={[styles.card, shadows.card]}>
@@ -674,7 +743,7 @@ export default function MonthlyGoalsScreen() {
 
         <View style={styles.actionRow}>
           {!deleteMode && (
-            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
+            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
               <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
               <Text style={styles.primaryButtonText}>{t("add")}</Text>
             </Pressable>
@@ -683,6 +752,7 @@ export default function MonthlyGoalsScreen() {
             accessibilityRole="button"
             style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
             onPress={handleToggleDeleteMode}
+            disabled={offlineBlocked}
           >
             <MaterialCommunityIcons
               name={deleteMode ? "close" : "trash-can-outline"}
@@ -696,6 +766,7 @@ export default function MonthlyGoalsScreen() {
               accessibilityRole="button"
               style={[styles.secondaryButton, styles.bulkDeleteButton]}
               onPress={confirmBulkDelete}
+              disabled={offlineBlocked}
             >
               <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
               <Text style={styles.secondaryButtonText}>
@@ -728,7 +799,7 @@ export default function MonthlyGoalsScreen() {
           />
           <Text style={styles.emptyTitle}>{t("empty.title")}</Text>
           <Text style={styles.emptyBody}>{t("empty.body")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
+          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
             <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
             <Text style={styles.primaryButtonText}>{t("add")}</Text>
           </Pressable>

@@ -72,6 +72,8 @@ export type TaskTimerTranslations = {
   };
   feedback: {
     startError: string;
+    offlineSaveBlocked: string;
+    offlineSaveBlockedAction: string;
   };
 };
 
@@ -151,6 +153,9 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       feedback: {
         startError: "時間を設定してから開始してください",
+        offlineSaveBlocked:
+          "オフラインです。通信を再接続するか、手動記録ボタンから手動で時間を記録してください。",
+        offlineSaveBlockedAction: "戻る",
       },
     },
     en: {
@@ -229,6 +234,9 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       feedback: {
         startError: "Set a duration before starting",
+        offlineSaveBlocked:
+          "You are offline. Reconnect to the internet, or record your time manually from the manual log button.",
+        offlineSaveBlockedAction: "Back",
       },
     },
     fr: {
@@ -308,6 +316,9 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       feedback: {
         startError: "Définissez une durée avant de démarrer",
+        offlineSaveBlocked:
+          "Vous êtes hors ligne. Reconnectez-vous à internet, ou enregistrez le temps manuellement avec le bouton de saisie manuelle.",
+        offlineSaveBlockedAction: "Retour",
       },
     },
   };

@@ -16,9 +16,13 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
+import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { supabase } from "../../lib/supabaseClient";
+import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
+import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
 type FunPlanCard = {
   id: string;
@@ -32,6 +36,14 @@ type FunPlanRow = Database["public"]["Tables"]["fun_plans"]["Row"];
 const planSchema = z.object({
   description: z.string().trim().min(1),
 });
+const offlineFunPlanSchema = z.array(
+  z.object({
+    id: z.string(),
+    description: z.string(),
+    order: z.number(),
+    updatedAt: z.string().nullable(),
+  }),
+);
 
 const HEADER_CARD_GRADIENT = ["rgba(110,168,255,0.32)", "rgba(20,34,60,0.95)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(104,195,255,0.26)", "rgba(17,38,70,0.96)"] as const;
@@ -69,6 +81,9 @@ export default function FunPlanScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasOfflineCache, setHasOfflineCache] = useState(false);
+  const { offlineBlocked } = useOffline();
+  const guardOfflineAction = useOfflineActionGuard();
   const updatedLabel = t("updatedSuffix");
   const limitReached = plans.length >= MAX_PLANS;
 
@@ -92,6 +107,23 @@ export default function FunPlanScreen() {
         setLoading(false);
         return;
       }
+
+      // ローカルキャッシュのキー名を生成
+      const cacheKey = buildOfflineCacheKey("fun-plan", uid);
+      // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
+      if (offlineBlocked) {
+        const cached = await readOfflineCache(cacheKey, offlineFunPlanSchema);
+        if (active) {
+          if (cached) {
+            setPlans(cached);
+            setHasOfflineCache(true);
+          } else {
+            setHasOfflineCache(false);
+          }
+          setLoading(false);
+        }
+        return;// オフラインの場合はここでデータフェッチ処理終了
+      }
       const { data, error } = await supabase
         .from("fun_plans")
         .select("id, description, order, updated_at")
@@ -110,6 +142,9 @@ export default function FunPlanScreen() {
           }),
         );
         setPlans(mapped);
+        // データが空配列ではない場合、ローカルキャッシュに保存
+        setHasOfflineCache(mapped.length > 0);
+        await writeOfflineCache(cacheKey, offlineFunPlanSchema, mapped);
       }
       setLoading(false);
     };
@@ -117,10 +152,11 @@ export default function FunPlanScreen() {
     return () => {
       active = false;
     };
-  }, [getUserId, t]);
+  }, [getUserId, offlineBlocked, t]);
 
   // 追加ボタン押下時の処理、インプットに必要な全ての状態変数がリセットされる
   const handleAddPress = () => {
+    if (guardOfflineAction()) return;
     if (limitReached) return;
     setEditingId(null);
     setModalDraft("");
@@ -131,6 +167,7 @@ export default function FunPlanScreen() {
 
   // 削除ボタン・編集ボタン押下時の処理
   const handleButtonPress = (item: FunPlanCard) => {
+    if (guardOfflineAction()) return;
     if (deleteMode) {
       Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
         { text: t("deleteConfirmNo"), style: "cancel" },
@@ -162,6 +199,7 @@ export default function FunPlanScreen() {
   };
 
   const handleSave = async () => {
+    if (guardOfflineAction()) return;
     const parsed = planSchema.safeParse({ description: modalDraft });
     if (!parsed.success) {
       setModalError(t("modal.errorRequired"));
@@ -244,12 +282,14 @@ export default function FunPlanScreen() {
   };
 
   const toggleDeleteMode = () => {
+    if (guardOfflineAction()) return;
     setDeleteMode((prev) => !prev);
   };
 
 
   // カード長押しドラッグで順番を入れ替えたあとの表示データ・DBデータのorderの更新
   const handleDragEnd = async ({ data }: { data: FunPlanCard[] }) => {
+    if (guardOfflineAction()) return;
     setPlans(data);
     const uid = await getUserId();
     if (!uid) {
@@ -327,6 +367,14 @@ export default function FunPlanScreen() {
       </GestureHandlerRootView>
     );
   }
+  // オフラインかつキャッシュデータがない場合は専用のオフラインページを表示する
+  if (offlineBlocked && !hasOfflineCache) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <OfflineRequiredScreen />
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
@@ -350,7 +398,7 @@ export default function FunPlanScreen() {
             accessibilityState={{ disabled: limitReached }}
             style={[styles.primaryButton, limitReached && styles.buttonDisabled]}
             onPress={handleAddPress}
-            disabled={limitReached}
+            disabled={limitReached || offlineBlocked}
           >
             <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
             <Text style={styles.primaryButtonText}>{t("add")}</Text>
@@ -359,6 +407,7 @@ export default function FunPlanScreen() {
             accessibilityRole="button"
             style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
             onPress={toggleDeleteMode}
+            disabled={offlineBlocked}
           >
             <MaterialCommunityIcons
               name={deleteMode ? "close" : "trash-can-outline"}
@@ -398,7 +447,7 @@ export default function FunPlanScreen() {
           />
           <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
           <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
+          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
             <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
             <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
           </Pressable>
