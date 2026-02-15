@@ -1363,7 +1363,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
   },
   summaryCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: radius.md,
     padding: spacing.lg,
     gap: spacing.sm,

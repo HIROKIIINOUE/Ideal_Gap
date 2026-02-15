@@ -1101,7 +1101,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   summaryCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: radius.md,
     padding: spacing.lg,
     gap: spacing.sm,
