@@ -1,9 +1,11 @@
+// ランディングページ
+
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Href, Link, Stack, router } from "expo-router";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, Easing, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { Animated, Easing, Platform, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
@@ -11,6 +13,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { LandingSections } from "../content/landingTranslations";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { supabase } from "../lib/supabaseClient";
+import { getLandingFadeRange, getLandingFadeTriggerY } from "../lib/ui/ipadLayout";
 
 type GradientPair = readonly [string, string];
 
@@ -99,6 +102,12 @@ export default function Index() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const { t } = useTranslation("landing");
+  // iPad用UI構築のための定数群
+  const isIpad = Platform.OS === "ios" && Platform.isPad === true;
+  const landingFadeTriggerY = getLandingFadeTriggerY(isIpad);
+  const overviewFade = getLandingFadeRange("overview", isIpad);
+  const membershipFade = getLandingFadeRange("membership", isIpad);
+  const getStartedFade = getLandingFadeRange("getStarted", isIpad);
 
   const translations: LandingSections = useMemo(
     () => ({
@@ -154,13 +163,24 @@ export default function Index() {
   }, []);
 
   // スクロールで指定地点到達時1秒後にCTAボタンの光沢を1度だけ発火
+  // iPadの場合は「最下部到達時にgetStartedカードを強制的に表示完了にする」処理もここに含まれている
+  // コード理解度△
   const handleScroll = useCallback(
-    (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    (event: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        layoutMeasurement: { height: number };
+        contentSize: { height: number };
+      };
+    }) => {
       if (bottomShimmerRan.current) {
         return;
       }
-      const y = event.nativeEvent.contentOffset.y;
-      const reachedFadeZone = y >= 1080;  //ここで下部CTAアニメーション発火地点をコントロール
+      const { y } = event.nativeEvent.contentOffset;
+      const { height: viewportHeight } = event.nativeEvent.layoutMeasurement;
+      const { height: contentHeight } = event.nativeEvent.contentSize;
+      const reachedBottom = y + viewportHeight >= contentHeight - 24;
+      const reachedFadeZone = y >= landingFadeTriggerY || reachedBottom;
       if (reachedFadeZone) {
         bottomShimmerRan.current = true;
         bottomShimmerAnim.setValue(0);
@@ -175,7 +195,7 @@ export default function Index() {
         ]).start();
       }
     },
-    [bottomShimmerAnim],
+    [bottomShimmerAnim, landingFadeTriggerY],
   );
 
   // ヒーロー直下のスクロールインジケーター
@@ -323,7 +343,7 @@ export default function Index() {
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(60, 220)]}>
+        <Animated.View style={[styles.section, fadeUp(overviewFade.start, overviewFade.end)]}>
           <Text style={styles.sectionLabel}>{translations.overview.label}</Text>
           <Text style={styles.sectionTitle}>{translations.overview.title}</Text>
           <Card>
@@ -340,7 +360,7 @@ export default function Index() {
           </Card>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(540, 700)]}>
+        <Animated.View style={[styles.section, fadeUp(membershipFade.start, membershipFade.end)]}>
           <Text style={styles.sectionLabel}>{translations.membership.label}</Text>
           <Text style={styles.sectionTitle}>{translations.membership.title}</Text>
           <View style={styles.cardRow}>
@@ -360,7 +380,7 @@ export default function Index() {
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(920, 1080)]}>
+        <Animated.View style={[styles.section, fadeUp(getStartedFade.start, getStartedFade.end)]}>
           <Text style={styles.sectionLabel}>{translations.getStarted.label}</Text>
           <Text style={styles.sectionTitle}>{translations.getStarted.title}</Text>
           <Card>

@@ -36,6 +36,10 @@ import {
 } from "../../constants/theme";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import { supabase } from "../../lib/supabaseClient";
+import {
+  getTaskTimerIpadLayout,
+  scaleFontSizeForIpad,
+} from "../../lib/ui/ipadLayout";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { InstalledFocusTrack } from "../../types/focus-music";
 
@@ -65,6 +69,9 @@ const formatDigital = (seconds: number) => {
 
 const gradientCard = ["rgba(30,94,255,0.18)", "rgba(12,18,32,0.95)"] as const;
 const TIMER_NOTIFICATION_CHANNEL = "task-timer";
+// iPad用UIのための定数群
+const isIpadDevice = Platform.OS === "ios" && Platform.isPad === true;
+const taskTimerLayout = getTaskTimerIpadLayout(isIpadDevice);
 
 // カウントダウン終了時刻を算出するロジック
 const formatEndTimeLabel = (timestamp: number | null) => {
@@ -724,14 +731,14 @@ export default function TaskTimerScreen() {
           <View style={styles.timerWrapper}>
             <View style={styles.progressWrapper}>
               <AnimatedCircularProgress
-                size={260}
-                width={24}
+                size={taskTimerLayout.ringSize}
+                width={taskTimerLayout.ringStrokeWidth}
                 fill={progress * 100}
                 tintColor={colors.accentPrimary}
                 backgroundColor={colors.divider}
                 lineCap="round"
                 rotation={0}
-                backgroundWidth={20}
+                backgroundWidth={taskTimerLayout.ringBackgroundStrokeWidth}
                 style={styles.circularProgress}
               >
                 {() => (
@@ -1299,11 +1306,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 0,
+    marginBottom: taskTimerLayout.timerWrapperMarginBottom,
+    maxHeight: isIpadDevice ? 800 : undefined,
     width: "100%",
   },
   progressWrapper: {
     width: "100%",
-    maxWidth: 260,
+    maxWidth: taskTimerLayout.ringMaxWidth,
+    maxHeight: isIpadDevice ? 500 : undefined,
     aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -1324,14 +1334,14 @@ const styles = StyleSheet.create({
   },
   durationLabel: {
     color: colors.textPrimary,
-    fontSize: 20,
+    fontSize: scaleFontSizeForIpad(20, isIpadDevice),
     fontWeight: "800",
     letterSpacing: 0.4,
     textAlign: "center",
   },
   remainingLabel: {
     color: colors.textSecondary,
-    fontSize: 18,
+    fontSize: scaleFontSizeForIpad(18, isIpadDevice),
     marginTop: spacing.xs,
     textAlign: "center",
   },
@@ -1346,7 +1356,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
-    marginTop: -spacing.lg, //【ここチェック】 他のデバイスでもデザインが崩れないかどうか
+    marginTop: taskTimerLayout.presetsMarginTop,
+    justifyContent: taskTimerLayout.presetsJustifyContent,
   },
   presetButton: {
     minWidth: 92,
