@@ -213,9 +213,7 @@ export default function WeeklyTasksScreen() {
             }
           }
 
-          if (!reorderFailed) {
-            Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
-          }
+          if (reorderFailed) return;
         },
       },
     ]);

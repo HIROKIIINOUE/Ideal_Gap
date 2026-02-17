@@ -186,7 +186,7 @@ describe("WeeklyTasksScreen", () => {
     expect(queryByText(`${currentMonth}月`)).toBeFalsy();
   });
 
-  test("shows a success alert after deleting a weekly task", async () => {
+  test("does not show a success alert after deleting a weekly task", async () => {
     mockOrderMonthly.mockResolvedValue({
       data: [
         {
@@ -216,12 +216,14 @@ describe("WeeklyTasksScreen", () => {
     const { getAllByRole, getByRole } = renderScreen();
 
     await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+    (Alert.alert as jest.Mock).mockClear();
 
     fireEvent.press(getByRole("button", { name: "Delete" }));
     fireEvent.press(getAllByRole("button", { name: "Delete" })[0]);
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted", "Deletion completed.");
+      expect(mockEqDeleteWeekly).toHaveBeenCalledWith("id", "w1");
+      expect(Alert.alert).toHaveBeenCalledTimes(1);
     });
   });
 
