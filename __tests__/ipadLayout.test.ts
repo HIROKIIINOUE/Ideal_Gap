@@ -21,11 +21,11 @@ describe("ipadLayout helpers", () => {
     });
     expect(getLandingFadeRange("membership", true)).toEqual({
       start: 600,
-      end: 560,
+      end: 660,
     });
     expect(getLandingFadeRange("getStarted", true)).toEqual({
-      start: 620,
-      end: 750,
+      start: 720,
+      end: 850,
     });
   });
 
@@ -36,7 +36,7 @@ describe("ipadLayout helpers", () => {
       ringBackgroundStrokeWidth: 20,
       ringMaxWidth: 260,
       presetsMarginTop: -20,
-      presetsJustifyContent: "flex-start",
+      presetsJustifyContent: "center",
       timerWrapperMarginBottom: 0,
     });
   });

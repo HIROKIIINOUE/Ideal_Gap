@@ -1,7 +1,8 @@
+import { useFocusEffect } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -54,6 +55,7 @@ export default function FocusMusicScreen() {
     isInstalling,
     isDownloadInProgress,
     isLoadingCatalog,
+    refreshCatalog,
     installTrack,
     removeTrack,
     selectTrack,
@@ -92,6 +94,12 @@ export default function FocusMusicScreen() {
       setLimitMessageVisible(false);
     }
   }, [canInstall]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshCatalog();
+    }, [refreshCatalog]),
+  );
 
   // フィルターされた場合はフィルターされたカタログ、
   // フィルターされなければここでそのままのカタログデータを返す。

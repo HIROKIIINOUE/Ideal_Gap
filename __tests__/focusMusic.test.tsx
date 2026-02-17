@@ -94,6 +94,13 @@ jest.mock("@react-native-community/netinfo", () => ({
   fetch: () => mockNetInfoFetch(),
 }));
 
+jest.mock("@react-navigation/native", () => {
+  const React = require("react");
+  return {
+    useFocusEffect: (cb: () => void) => React.useEffect(cb, [cb]),
+  };
+});
+
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file://test/",
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
@@ -221,5 +228,13 @@ describe("FocusMusicScreen", () => {
     expect(getByText("Deep Focus")).toBeTruthy();
     expect(queryByText("Flow State")).toBeNull();
     expect(queryByText("Quiet Orbit")).toBeNull();
+  });
+
+  test("refreshes catalog when screen gets focus", async () => {
+    renderScreen();
+
+    await waitFor(() => {
+      expect(mockFetchCatalog).toHaveBeenCalledTimes(2);
+    });
   });
 });

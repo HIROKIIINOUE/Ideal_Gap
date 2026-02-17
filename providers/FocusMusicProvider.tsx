@@ -143,7 +143,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     };
   }, []);
 
-  // 【ここチェック】現段階では使用していない。ユーザがUIからカタログを手動更新する関数。今後必要の可否を検討
+  // カタログを最新のものに更新
   const refreshCatalog = useCallback(async () => {
     setIsLoadingCatalog(true);
     try {

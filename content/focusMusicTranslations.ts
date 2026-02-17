@@ -112,7 +112,7 @@ export const focusMusicTranslations: Record<
     downloadingLabel: "ダウンロード中",
     close: "閉じる",
     categories: {
-      study: "学習",
+      study: "勉強",
       chill: "チル",
       nature: "自然",
       music: "音楽",
