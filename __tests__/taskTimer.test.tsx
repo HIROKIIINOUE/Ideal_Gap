@@ -61,7 +61,11 @@ jest.mock("@react-native-community/netinfo", () => ({
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file://test/",
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
-  downloadAsync: jest.fn().mockResolvedValue({ uri: "file://test/focus-music/track-1.mp3" }),
+  createDownloadResumable: jest.fn().mockReturnValue({
+    downloadAsync: jest
+      .fn()
+      .mockResolvedValue({ uri: "file://test/focus-music/track-1.mp3" }),
+  }),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -148,6 +152,7 @@ const buildFocusMusicStub = (
   isInstalling: jest.fn(() => false),
   isDownloadInProgress: false,
   isLoadingCatalog: false,
+  getInstallProgress: jest.fn(() => null),
   installTrack: jest.fn(),
   removeTrack: jest.fn(),
   selectTrack: jest.fn(),

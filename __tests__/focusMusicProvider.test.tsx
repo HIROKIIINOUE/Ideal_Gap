@@ -57,6 +57,12 @@ const mockSignedUrl = jest.fn(
   async (_trackId: string) => "https://example.com/focus.mp3",
 );
 const mockNetInfoFetch = jest.fn();
+const mockDownloadResumableDownloadAsync = jest.fn().mockResolvedValue({
+  uri: "file://test/focus-music/track-1.mp3",
+});
+let latestDownloadProgressCallback:
+  | ((data: { totalBytesWritten: number; totalBytesExpectedToWrite: number }) => void)
+  | null = null;
 
 const createMockPlayer = () => ({
   loop: false,
@@ -99,7 +105,19 @@ jest.mock("@react-native-community/netinfo", () => ({
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file://test/",
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
-  downloadAsync: jest.fn().mockResolvedValue({ uri: "file://test/focus-music/track-1.mp3" }),
+  createDownloadResumable: jest.fn(
+    (
+      _url: string,
+      _filePath: string,
+      _options: Record<string, unknown>,
+      callback?: (data: { totalBytesWritten: number; totalBytesExpectedToWrite: number }) => void,
+    ) => {
+      latestDownloadProgressCallback = callback ?? null;
+      return {
+        downloadAsync: mockDownloadResumableDownloadAsync,
+      };
+    },
+  ),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -122,6 +140,11 @@ describe("FocusMusicProvider", () => {
     mockFetchCatalog.mockClear();
     mockSignedUrl.mockClear();
     mockNetInfoFetch.mockReset();
+    mockDownloadResumableDownloadAsync.mockReset();
+    mockDownloadResumableDownloadAsync.mockResolvedValue({
+      uri: "file://test/focus-music/track-1.mp3",
+    });
+    latestDownloadProgressCallback = null;
     mockPlayerIndex = 0;
     mockPlayerA.loop = false;
     mockPlayerA.playing = false;
@@ -353,7 +376,7 @@ describe("FocusMusicProvider", () => {
     });
 
     let resolveDownload: ((value: { uri: string }) => void) | null = null;
-    (FileSystem.downloadAsync as jest.Mock).mockImplementation(
+    mockDownloadResumableDownloadAsync.mockImplementation(
       () =>
         new Promise<{ uri: string }>((resolve) => {
           resolveDownload = resolve;
@@ -392,6 +415,120 @@ describe("FocusMusicProvider", () => {
         await firstInstall;
       });
     }
+  });
+
+  test("tracks install progress when expected bytes are available", async () => {
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+    });
+
+    let resolveDownload: ((value: { uri: string }) => void) | null = null;
+    mockDownloadResumableDownloadAsync.mockImplementation(
+      () =>
+        new Promise<{ uri: string }>((resolve) => {
+          resolveDownload = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    let installPromise: Promise<InstallResult> | null = null;
+    await act(async () => {
+      installPromise = result.current.installTrack("track-1");
+    });
+
+    await waitFor(() => expect(result.current.isInstalling("track-1")).toBe(true));
+
+    act(() => {
+      latestDownloadProgressCallback?.({
+        totalBytesWritten: 250,
+        totalBytesExpectedToWrite: 1000,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.getInstallProgress("track-1")).toEqual({
+        progress: 0.25,
+        writtenBytes: 250,
+        totalBytes: 1000,
+        remainingBytes: 750,
+        isIndeterminate: false,
+      });
+    });
+
+    act(() => {
+      resolveDownload?.({ uri: "file://test/focus-music/track-1.mp3" });
+    });
+    if (installPromise) {
+      await act(async () => {
+        await installPromise;
+      });
+    }
+
+    expect(result.current.getInstallProgress("track-1")).toBeNull();
+  });
+
+  test("falls back to indeterminate install progress when expected bytes are unavailable", async () => {
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+    });
+
+    let resolveDownload: ((value: { uri: string }) => void) | null = null;
+    mockDownloadResumableDownloadAsync.mockImplementation(
+      () =>
+        new Promise<{ uri: string }>((resolve) => {
+          resolveDownload = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    let installPromise: Promise<InstallResult> | null = null;
+    await act(async () => {
+      installPromise = result.current.installTrack("track-1");
+    });
+
+    await waitFor(() => expect(result.current.isInstalling("track-1")).toBe(true));
+
+    act(() => {
+      latestDownloadProgressCallback?.({
+        totalBytesWritten: 320,
+        totalBytesExpectedToWrite: -1,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.getInstallProgress("track-1")).toEqual({
+        progress: null,
+        writtenBytes: 320,
+        totalBytes: null,
+        remainingBytes: null,
+        isIndeterminate: true,
+      });
+    });
+
+    act(() => {
+      resolveDownload?.({ uri: "file://test/focus-music/track-1.mp3" });
+    });
+    if (installPromise) {
+      await act(async () => {
+        await installPromise;
+      });
+    }
+
+    expect(result.current.getInstallProgress("track-1")).toBeNull();
   });
 
   test("blocks install when monthly download limit is reached", async () => {

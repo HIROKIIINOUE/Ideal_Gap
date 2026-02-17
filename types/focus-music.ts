@@ -33,6 +33,14 @@ export type InstalledTrack = z.infer<typeof InstalledTrackSchema>;
 
 export type InstalledFocusTrack = FocusMusicTrack & InstalledTrack;
 
+export type InstallProgress = {
+  progress: number | null;
+  writtenBytes: number;
+  totalBytes: number | null;
+  remainingBytes: number | null;
+  isIndeterminate: boolean;
+};
+
 export type InstallResult =
   | { ok: true; track: InstalledFocusTrack }
   | {

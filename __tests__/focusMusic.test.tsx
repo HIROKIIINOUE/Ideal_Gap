@@ -65,6 +65,12 @@ const mockSignedUrl = jest.fn(
 );
 const mockNetInfoFetch = jest.fn();
 const mockGetUserId = jest.fn(async () => "user-1");
+const mockDownloadResumableDownloadAsync = jest.fn().mockResolvedValue({
+  uri: "file://test/focus-music/track-1.mp3",
+});
+let latestDownloadProgressCallback:
+  | ((data: { totalBytesWritten: number; totalBytesExpectedToWrite: number }) => void)
+  | null = null;
 
 jest.mock("@expo/vector-icons", () => {
   const MockIcon = () => null;
@@ -104,9 +110,30 @@ jest.mock("@react-navigation/native", () => {
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file://test/",
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
-  downloadAsync: jest.fn().mockResolvedValue({ uri: "file://test/focus-music/track-1.mp3" }),
+  createDownloadResumable: jest.fn(
+    (
+      _url: string,
+      _filePath: string,
+      _options: Record<string, unknown>,
+      callback?: (data: { totalBytesWritten: number; totalBytesExpectedToWrite: number }) => void,
+    ) => {
+      latestDownloadProgressCallback = callback ?? null;
+      return {
+        downloadAsync: mockDownloadResumableDownloadAsync,
+      };
+    },
+  ),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
+
+jest.mock("react-native-circular-progress", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  const AnimatedCircularProgress = ({ testID }: { testID?: string }) => (
+    <View testID={testID ?? "mock-install-progress"} />
+  );
+  return { AnimatedCircularProgress };
+});
 
 jest.mock("expo-audio", () => ({
   useAudioPlayer: () => ({
@@ -147,6 +174,11 @@ describe("FocusMusicScreen", () => {
     mockFetchCatalog.mockClear();
     mockSignedUrl.mockClear();
     mockNetInfoFetch.mockReset();
+    mockDownloadResumableDownloadAsync.mockReset();
+    mockDownloadResumableDownloadAsync.mockResolvedValue({
+      uri: "file://test/focus-music/track-1.mp3",
+    });
+    latestDownloadProgressCallback = null;
     mockNetInfoFetch.mockResolvedValue({
       type: "wifi",
       isConnected: true,
@@ -235,6 +267,80 @@ describe("FocusMusicScreen", () => {
 
     await waitFor(() => {
       expect(mockFetchCatalog).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  test("shows determinate donut progress while downloading when expected size is known", async () => {
+    let resolveDownload: ((value: { uri: string }) => void) | null = null;
+    mockDownloadResumableDownloadAsync.mockImplementation(
+      () =>
+        new Promise<{ uri: string }>((resolve) => {
+          resolveDownload = resolve;
+        }),
+    );
+    const { getByTestId, getByText } = renderScreen();
+
+    fireEvent.press(getByTestId("focus-music-catalog-button"));
+    await waitFor(() => expect(getByText("Deep Focus")).toBeTruthy());
+
+    fireEvent.press(getByTestId("focus-music-install-track-1"));
+
+    await waitFor(() => {
+      expect(latestDownloadProgressCallback).not.toBeNull();
+    });
+
+    act(() => {
+      latestDownloadProgressCallback?.({
+        totalBytesWritten: 400,
+        totalBytesExpectedToWrite: 1000,
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        getByTestId("focus-music-install-progress-track-1"),
+      ).toBeTruthy();
+    });
+
+    act(() => {
+      resolveDownload?.({ uri: "file://test/focus-music/track-1.mp3" });
+    });
+  });
+
+  test("shows indeterminate spinner while downloading when expected size is unknown", async () => {
+    let resolveDownload: ((value: { uri: string }) => void) | null = null;
+    mockDownloadResumableDownloadAsync.mockImplementation(
+      () =>
+        new Promise<{ uri: string }>((resolve) => {
+          resolveDownload = resolve;
+        }),
+    );
+    const { getByTestId, getByText } = renderScreen();
+
+    fireEvent.press(getByTestId("focus-music-catalog-button"));
+    await waitFor(() => expect(getByText("Deep Focus")).toBeTruthy());
+
+    fireEvent.press(getByTestId("focus-music-install-track-1"));
+
+    await waitFor(() => {
+      expect(latestDownloadProgressCallback).not.toBeNull();
+    });
+
+    act(() => {
+      latestDownloadProgressCallback?.({
+        totalBytesWritten: 220,
+        totalBytesExpectedToWrite: -1,
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        getByTestId("focus-music-install-progress-indeterminate-track-1"),
+      ).toBeTruthy();
+    });
+
+    act(() => {
+      resolveDownload?.({ uri: "file://test/focus-music/track-1.mp3" });
     });
   });
 });

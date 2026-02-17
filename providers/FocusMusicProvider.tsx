@@ -29,6 +29,7 @@ import {
   FocusMusicTrack,
   InstalledFocusTrack,
   InstalledTrack,
+  InstallProgress,
   InstallResult,
   RemoveResult,
 } from "../types/focus-music";
@@ -47,6 +48,7 @@ type FocusMusicContextValue = {
   isInstalling: (id: string) => boolean;
   isDownloadInProgress: boolean;
   isLoadingCatalog: boolean;
+  getInstallProgress: (id: string) => InstallProgress | null;
   installTrack: (
     id: string,
     options?: { allowCellular?: boolean },
@@ -92,6 +94,10 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   // インストールした曲のローカル保存情報の配列データ。これをもとに後に生成するinstalledTracksがユーザの手持ち曲のデータ配列になる
   const [installedEntries, setInstalledEntries] = useState<InstalledTrack[]>([]);
   const [installingIds, setInstallingIds] = useState<string[]>([]);
+  // 「どの曲が今どこまでDLされたか」をIDごとに保持
+  const [installProgressById, setInstallProgressById] = useState<
+    Record<string, InstallProgress>
+  >({});
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   // 書くユーザの1ヶ月のDL数を制御
   const [monthlyDownloadRemaining, setMonthlyDownloadRemaining] = useState<number | null>(null);
@@ -199,6 +205,12 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   // 曲のダウンロード中は他の曲のダウンロードを制御するための関数
   const isDownloadInProgress = installingIds.length > 0;
 
+  // 引数で指定されたidの音楽がDL進捗情報を保持していればそれを返却
+  const getInstallProgress = useCallback(
+    (id: string) => installProgressById[id] ?? null,
+    [installProgressById],
+  );
+
   const persistInstalledEntries = useCallback(async (next: InstalledTrack[]) => {
     setInstalledEntries(next);
     await saveInstalledTracks(next);
@@ -234,6 +246,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       if (quota.count >= FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT) {
         return { ok: false, reason: "monthly_limit" };
       }
+
+      // カタログにない音楽は却下
       const track = catalog.find((item) => item.id === id);
       if (!track) return { ok: false, reason: "not_found" };
 
@@ -250,9 +264,54 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       // 該当の音楽をインストール中リストに追加
       isDownloadingRef.current = true;
       setInstallingIds((prev) => [...prev, id]);
+      // 該当音楽のダウンロード進捗情報を初期化
+      setInstallProgressById((prev) => ({
+        ...prev,
+        [id]: {
+          progress: null,
+          writtenBytes: 0,
+          totalBytes: null,
+          remainingBytes: null,
+          isIndeterminate: true,
+        },
+      }));
+
+      // ダウンロード開始
       try {
-        const signedUrl = await createFocusMusicSignedUrl(id); // signedUrl発行
-        const localPath = await downloadTrackFile(signedUrl, track);  //ローカルファイルへダウンロード。ローカルの格納先を返却してる。
+        // signedUrl発行
+        const signedUrl = await createFocusMusicSignedUrl(id);
+        // ローカルファイルへダウンロード。resultとしてローカルの格納先を返却してる。
+        const localPath = await downloadTrackFile(
+          signedUrl,
+          track,
+          // 進捗情報を繰り返し更新するコールバック
+          (downloadProgress) => {
+            setInstallProgressById((prev) => {
+              const totalBytes = downloadProgress.totalBytes;
+              const writtenBytes =
+                totalBytes !== null
+                  ? Math.min(downloadProgress.writtenBytes, totalBytes)
+                  : downloadProgress.writtenBytes;
+              const progress =
+                totalBytes !== null
+                  ? Math.min(Math.max(writtenBytes / totalBytes, 0), 1)
+                  : null;
+              return {
+                ...prev,
+                [id]: {
+                  progress,
+                  writtenBytes,
+                  totalBytes,
+                  remainingBytes:
+                    totalBytes !== null
+                      ? Math.max(totalBytes - writtenBytes, 0)
+                      : null,
+                  isIndeterminate: totalBytes === null,
+                },
+              };
+            });
+          },
+        );
         // 今回ダウンロードしたタスク集中音楽の保存情報データ
         const nextEntry: InstalledTrack = {
           trackId: id,
@@ -278,6 +337,12 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       } finally {
         // ダウンロードが成功しても失敗してもダウンロード完了待ちリストから実行終了データを削除する
         setInstallingIds((prev) => prev.filter((trackId) => trackId !== id));
+        // 進捗情報を削除。進捗情報はダウンロード中のみ存在する。
+        setInstallProgressById((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
         isDownloadingRef.current = false;
       }
     },
@@ -517,6 +582,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       isInstalling,
       isDownloadInProgress,
       isLoadingCatalog,
+      getInstallProgress,
       installTrack,
       removeTrack,
       selectTrack,
@@ -533,6 +599,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       isInstalling,
       isDownloadInProgress,
       isLoadingCatalog,
+      getInstallProgress,
       monthlyDownloadRemaining,
       downloadResetAt,
       installTrack,
