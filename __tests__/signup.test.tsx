@@ -5,6 +5,8 @@ import Signup from "../app/signup";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
+let mockLanguage: "ja" | "en" | "fr" = "en";
+
 const mockFetchTestStorePackage = jest.fn();
 const mockGetSubscriptionForUser = jest.fn();
 const mockEnsureSignupAwaitSubscription = jest.fn();
@@ -48,13 +50,15 @@ jest.mock("../lib/auth", () => ({
 jest.mock("../components/LanguageSheet", () => () => null);
 
 jest.mock("../providers/LanguageProvider", () => ({
-  useLanguage: () => ({ language: "en", setLanguage: jest.fn(), ready: true }),
+  useLanguage: () => ({ language: mockLanguage, setLanguage: jest.fn(), ready: true }),
   LanguageProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 describe("Signup screen", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    mockLanguage = "en";
+    await i18n.changeLanguage("en");
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: null },
       error: null,
@@ -131,10 +135,33 @@ describe("Signup screen", () => {
   });
 
   test("renders plan price and trial copy from RevenueCat offering", async () => {
-    const { findByText, findAllByText } = renderScreen();
+    const { findAllByText } = renderScreen();
 
-    expect(await findByText("Free for 1 month")).toBeTruthy();
-    const priceTexts = await findAllByText(/then \$8\.50\/30 days/i);
+    const trialTexts = await findAllByText(/Free for 14 day/i);
+    expect(trialTexts.length).toBeGreaterThan(0);
+    const priceTexts = await findAllByText(/then 3\.99CAD\/30 days/i);
+    expect(priceTexts.length).toBeGreaterThan(0);
+  });
+
+  test("shows fixed Japanese subscription copy", async () => {
+    mockLanguage = "ja";
+    await i18n.changeLanguage("ja");
+    const { findAllByText } = renderScreen();
+
+    const trialTexts = await findAllByText(/14日間無料/);
+    expect(trialTexts.length).toBeGreaterThan(0);
+    const priceTexts = await findAllByText(/その後 490円\/30日/);
+    expect(priceTexts.length).toBeGreaterThan(0);
+  });
+
+  test("shows fixed French subscription copy", async () => {
+    mockLanguage = "fr";
+    await i18n.changeLanguage("fr");
+    const { findAllByText } = renderScreen();
+
+    const trialTexts = await findAllByText(/14 jour gratuit/i);
+    expect(trialTexts.length).toBeGreaterThan(0);
+    const priceTexts = await findAllByText(/puis 3\.99CAD\/30 jours/i);
     expect(priceTexts.length).toBeGreaterThan(0);
   });
 });

@@ -10,8 +10,6 @@ import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { signUpWithEmailConfirmation } from "../lib/auth";
-import { getPlanPriceCopy, getTrialLabel } from "../lib/planCopy";
-import { fetchTestStorePackage, TestStorePlan } from "../lib/revenuecatOfferings";
 import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { useLanguage } from "../providers/LanguageProvider";
@@ -31,9 +29,6 @@ export default function Signup() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [plan, setPlan] = useState<TestStorePlan | null>(null);
-  const [planError, setPlanError] = useState<string | null>(null);
-  const [isLoadingPlan, setIsLoadingPlan] = useState(true);
   // touched状態変数群でinputに1度でもFocusしたかどうかを判定しエラーメッセージ出力の有無に利用
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
@@ -55,13 +50,23 @@ export default function Signup() {
   const isEmailValid = !signupValidation.fieldErrors.email;
   const isPasswordValid = !signupValidation.fieldErrors.password;
   const isFormValid = signupValidation.isValid;
-  const planPriceCopy = useMemo(() => getPlanPriceCopy(plan, t), [plan, t]);
-  const trialLabel = useMemo(() => getTrialLabel(plan, t), [plan, t]);
+  const localizedPrice = useMemo(() => (language === "ja" ? "490円" : "3.99CAD"), [language]);
+  const trialLabel = useMemo(() => t("trialLabelDay", { count: 14 }), [t]);
+  const planPriceCopy = useMemo(
+    () =>
+      t("planPriceWithTrial", {
+        trial: trialLabel,
+        price: localizedPrice,
+      }),
+    [localizedPrice, t, trialLabel],
+  );
+  const [trialPriceLine = "", paidPriceLine = ""] = useMemo(
+    () => planPriceCopy.split("\n"),
+    [planPriceCopy],
+  );
 
   //　画面が表示されたときの初期処理(ログイン状態時のみ、状況に応じて各ページに遷移される)
   useEffect(() => {
-    let mounted = true;
-
     //　現在のログイン状況と購読状況を確認
     const checkExistingSession = async () => {
       const { data, error } = await supabase.auth.getSession();
@@ -83,26 +88,7 @@ export default function Signup() {
       }
     };
 
-    //　ユーザのプラン情報の取得
-    const loadPlan = async () => {
-      try {
-        const offering = await fetchTestStorePackage();
-        if (!mounted) return;
-        setPlan(offering);
-      } catch (error) {
-        console.warn("Failed to load offering", error);
-        if (mounted) setPlanError(t("planLoadError"));
-      } finally {
-        if (mounted) setIsLoadingPlan(false);
-      }
-    };
-
     checkExistingSession().catch((error) => console.warn("signup guard failed", error));
-    loadPlan();
-
-    return () => {
-      mounted = false;
-    };
   }, [t]);
 
   const handleSubmit = useCallback(async () => {
@@ -166,13 +152,9 @@ export default function Signup() {
           <Text style={styles.body}>{t("heroBody", { planCopy: planPriceCopy })}</Text>
 
           <View style={[styles.planCard, shadows.card]}>
-            <View style={styles.planHeader}>
-              <Text style={styles.planTitle}>{t("planTitle")}</Text>
-              {!isLoadingPlan && <Text style={styles.planPrice}>{planPriceCopy}</Text>}
-            </View>
-            {trialLabel && <Text style={styles.trialText}>{trialLabel}</Text>}
+            <Text style={styles.trialPrice}>{trialPriceLine}</Text>
+            <Text style={styles.planPrice}>{paidPriceLine}</Text>
             <Text style={styles.helperText}>{t("planDescription")}</Text>
-            {planError && <Text style={styles.errorText}>{planError}</Text>}
           </View>
 
           <View style={styles.fieldGroup}>
@@ -353,29 +335,16 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     gap: spacing.xs,
   },
-  planHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.xs,
-    flexWrap: "wrap",
-  },
-  planTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
-    flexShrink: 1,
-    flexGrow: 1,
-  },
   planPrice: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    fontWeight: "600",
     flexShrink: 0,
   },
-  trialText: {
-    color: colors.accentPrimary,
-    fontSize: typography.sm,
+  trialPrice: {
+    color: colors.textPrimary,
+    fontSize: typography.lg,
+    fontWeight: "800",
   },
   fieldGroup: {
     gap: spacing.xs,
