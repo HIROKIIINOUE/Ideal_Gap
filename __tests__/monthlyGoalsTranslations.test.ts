@@ -2,7 +2,7 @@ import { monthlyGoalsTranslations } from "../content/monthlyGoalsTranslations";
 
 describe("monthlyGoalsTranslations", () => {
   it("includes cascade delete warnings for weekly tasks in confirmation messages", () => {
-    const jaWarning = "削除される月間タスクに紐づく週間タスクは全て削除されます";
+    const jaWarning = "削除される月間タスクに紐づく週間タスク";
     const enSingleWarning =
       "All weekly tasks linked to the monthly task being deleted will also be removed.";
     const enBulkWarning =

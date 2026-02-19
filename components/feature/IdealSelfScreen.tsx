@@ -257,8 +257,8 @@ export default function IdealSelfScreen() {
     }
   };
 
-  const handleInvalidSubmit = (formErrors: FieldErrors<IdealFormValues>) => {
-    setModalError(formErrors.description?.message ?? t("modal.errorRequired"));
+  const handleInvalidSubmit = (_formErrors: FieldErrors<IdealFormValues>) => {
+    setModalError(t("modal.errorRequired"));
   };
 
   // ドラッグ並び替え終了時の配列データをセットする

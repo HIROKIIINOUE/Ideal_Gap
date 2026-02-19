@@ -35,7 +35,11 @@ describe("Index screen", () => {
       </I18nextProvider>,
     );
 
-    expect(await screen.findByText(/40日間無料、無料期間以降490円\/月/)).toBeOnTheScreen();
+    const planPrice = await screen.findByText("490 円/月");
+    expect(planPrice).toBeOnTheScreen();
+    const trialBanner = await screen.findByText("14日間無料トライアル付き");
+    expect(trialBanner).toBeOnTheScreen();
+    expect(trialBanner).toHaveStyle({ color: "#F25F5C" });
     const startButtons = await screen.findAllByRole("button", { name: "無料で始める" });
     const signInButtons = await screen.findAllByRole("button", { name: "ログイン" });
     expect(startButtons[0]).toBeOnTheScreen();

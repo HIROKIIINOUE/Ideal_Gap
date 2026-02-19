@@ -11,8 +11,7 @@ import {
 } from "../lib/revenuecatOfferings";
 import {
   ensureSignupAwaitSubscription,
-  getUserProfile,
-  updateSubscriptionAfterPurchase,
+  waitForActiveSubscription,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 
@@ -32,8 +31,7 @@ jest.mock("../lib/supabaseClient", () => ({
 const mockFetchTestStorePackage = fetchTestStorePackage as jest.Mock;
 const mockPurchaseSelectedPackage = purchaseSelectedPackage as jest.Mock;
 const mockEnsureSignupAwaitSubscription = ensureSignupAwaitSubscription as jest.Mock;
-const mockGetUserProfile = getUserProfile as jest.Mock;
-const mockUpdateSubscriptionAfterPurchase = updateSubscriptionAfterPurchase as jest.Mock;
+const mockWaitForActiveSubscription = waitForActiveSubscription as jest.Mock;
 const mockGetSession = supabase.auth.getSession as jest.Mock;
 
 const renderWithProviders = () =>
@@ -59,13 +57,12 @@ describe("Purchases screen", () => {
       user_id: "user-123",
       status: "signupAwait",
     });
-    mockGetUserProfile.mockResolvedValue({ id: "user-123", had_account_before: false });
     mockFetchTestStorePackage.mockResolvedValue({
       package: { identifier: "monthly" },
       priceString: "$9.99",
       trialDuration: { unit: "MONTH", value: 1 },
     });
-    mockUpdateSubscriptionAfterPurchase.mockResolvedValue({});
+    mockWaitForActiveSubscription.mockResolvedValue({ status: "trial" });
     mockPurchaseSelectedPackage.mockResolvedValue({});
     (router.replace as jest.Mock).mockClear();
   });
@@ -77,14 +74,15 @@ describe("Purchases screen", () => {
       expect(mockFetchTestStorePackage).toHaveBeenCalled(),
     );
 
-    await screen.findByText("Free for 1 month • then $9.99/30 days");
+    await screen.findByText(/then/i);
+    await screen.findByText("If you cancel during the free trial, you will not be charged at all.");
 
     const button = await screen.findByRole("button", { name: "Complete sign-up" });
     fireEvent.press(button);
 
     await waitFor(() => {
       expect(mockPurchaseSelectedPackage).toHaveBeenCalledWith({ identifier: "monthly" });
-      expect(mockUpdateSubscriptionAfterPurchase).toHaveBeenCalledWith("user-123", false);
+      expect(mockWaitForActiveSubscription).toHaveBeenCalledWith("user-123");
       expect(router.replace).toHaveBeenCalledWith("/dashboard");
     });
   });
@@ -102,5 +100,30 @@ describe("Purchases screen", () => {
     });
 
     expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
+  });
+
+  it("localizes page label and trial notice in Japanese", async () => {
+    await AsyncStorage.setItem("preferred_language", "ja");
+    await i18n.changeLanguage("ja");
+    const screen = renderWithProviders();
+
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+
+    const labels = await screen.findAllByText(/購入|お支払い/);
+    expect(labels.length).toBeGreaterThan(0);
+    await screen.findByText("無料期間中にキャンセルすれば支払いは一切発生しません");
+  });
+
+  it("localizes page label and trial notice in French", async () => {
+    await AsyncStorage.setItem("preferred_language", "fr");
+    await i18n.changeLanguage("fr");
+    const screen = renderWithProviders();
+
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+
+    await screen.findByText("Achat");
+    await screen.findByText(
+      /Si vous annulez pendant l'essai gratuit/i
+    );
   });
 });

@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import Signup from "../app/signup";
+import { typography } from "../constants/theme";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
@@ -139,8 +140,9 @@ describe("Signup screen", () => {
 
     const trialTexts = await findAllByText(/Free for 14 day/i);
     expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/then 3\.99CAD\/30 days/i);
+    const priceTexts = await findAllByText(/then 3\.99CAD\/month/i);
     expect(priceTexts.length).toBeGreaterThan(0);
+    expect(priceTexts[0]).toHaveStyle({ fontSize: typography.md });
   });
 
   test("shows fixed Japanese subscription copy", async () => {
@@ -150,7 +152,7 @@ describe("Signup screen", () => {
 
     const trialTexts = await findAllByText(/14日間無料/);
     expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/その後 490円\/30日/);
+    const priceTexts = await findAllByText(/その後 490円\/月/);
     expect(priceTexts.length).toBeGreaterThan(0);
   });
 
@@ -159,9 +161,9 @@ describe("Signup screen", () => {
     await i18n.changeLanguage("fr");
     const { findAllByText } = renderScreen();
 
-    const trialTexts = await findAllByText(/14 jour gratuit/i);
+    const trialTexts = await findAllByText(/14 jours? gratuit/i);
     expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/puis 3\.99CAD\/30 jours/i);
+    const priceTexts = await findAllByText(/puis 3\.99CAD\/mois/i);
     expect(priceTexts.length).toBeGreaterThan(0);
   });
 });

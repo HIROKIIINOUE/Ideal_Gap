@@ -25,8 +25,7 @@ import {
 } from "../lib/revenuecatOfferings";
 import {
   ensureSignupAwaitSubscription,
-  getUserProfile,
-  updateSubscriptionAfterPurchase,
+  waitForActiveSubscription,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 
@@ -40,7 +39,6 @@ export default function Purchases() {
   const [isLoadingPlan, setIsLoadingPlan] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [hadAccountBefore, setHadAccountBefore] = useState(false);
   const [billingEmail, setBillingEmail] = useState("");
   const signupToastShownRef = useRef(false);
 
@@ -91,9 +89,6 @@ export default function Purchases() {
           router.replace("/dashboard");
           return;
         }
-        const profile = await getUserProfile(uid);
-        if (!mounted) return;
-        setHadAccountBefore(profile?.had_account_before ?? false);
       } catch (error) {
         console.warn("Failed to prepare subscription", error);
       }
@@ -128,9 +123,9 @@ export default function Purchases() {
 
     try {
       await purchaseSelectedPackage(plan.package);
-      await updateSubscriptionAfterPurchase(userId, hadAccountBefore);
-      if (!hadAccountBefore) {
-        setHadAccountBefore(true);
+      const syncedSubscription = await waitForActiveSubscription(userId);
+      if (!syncedSubscription) {
+        throw new Error("subscription sync timed out");
       }
       showToast(t("purchaseSuccess"));
       router.replace("/dashboard");
@@ -144,7 +139,7 @@ export default function Purchases() {
     } finally {
       setIsProcessing(false);
     }
-  }, [hadAccountBefore, isProcessing, plan, showToast, t, userId]);
+  }, [isProcessing, plan, showToast, t, userId]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -164,13 +159,17 @@ export default function Purchases() {
           <View style={[styles.planCard, shadows.card]}>
             <View style={styles.planHeader}>
               <Text style={styles.planTitle}>{t("planTitle")}</Text>
-              {!isLoadingPlan && (
+              {!isLoadingPlan && plan && (
                 <Text style={styles.planPrice}>{planPriceCopy}</Text>
               )}
             </View>
             {isLoadingPlan && <Text style={styles.body}>{t("planDescription")}</Text>}
             {trialLabel && <Text style={styles.trialText}>{trialLabel}</Text>}
+            <Text style={styles.trialNotice}>{t("trialCancelNotice")}</Text>
             <Text style={styles.helperText}>{t("planDescription")}</Text>
+            {!isLoadingPlan && !plan && !planError && (
+              <Text style={styles.errorText}>{t("planUnavailable")}</Text>
+            )}
             {planError && <Text style={styles.errorText}>{planError}</Text>}
           </View>
 
@@ -278,8 +277,9 @@ const styles = StyleSheet.create({
   },
   planHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: spacing.sm,
   },
   planTitle: {
     color: colors.textPrimary,
@@ -290,10 +290,24 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "700",
+    flexShrink: 1,
+    textAlign: "right",
   },
   trialText: {
     color: colors.accentPrimary,
     fontSize: typography.sm,
+  },
+  trialNotice: {
+    color: colors.warning,
+    fontSize: typography.sm,
+    fontWeight: "700",
+    lineHeight: typography.sm * 1.5,
+    backgroundColor: "rgba(242,201,76,0.12)",
+    borderColor: "rgba(242,201,76,0.5)",
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   fieldGroup: {
     gap: spacing.xs,
@@ -321,6 +335,8 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#ff8a8a",
     fontSize: typography.sm,
+    flexShrink: 1,
+    lineHeight: typography.sm * 1.4,
   },
   ctaButton: {
     width: "100%",

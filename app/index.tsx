@@ -365,8 +365,13 @@ export default function Index() {
           <Text style={styles.sectionTitle}>{translations.membership.title}</Text>
           <View style={styles.cardRow}>
             <Card style={styles.planCard}>
-              <Text style={styles.planPrice}>{translations.membership.price}</Text>
-              <Text style={styles.planPeriod}>{translations.membership.period}</Text>
+              <View style={styles.planPriceRow}>
+                <Text style={styles.planPrice}>
+                  {translations.membership.price}
+                  {translations.membership.period}
+                </Text>
+              </View>
+              <Text style={styles.planTrialBadge}>{translations.membership.trialBadge}</Text>
               <Text style={styles.cardBody}>{translations.membership.description}</Text>
               <View style={styles.bulletList}>
                 {translations.membership.bulletPoints.map((item) => (
@@ -594,15 +599,21 @@ const styles = StyleSheet.create({
   planCard: {
     flex: 1,
   },
+  planPriceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    marginBottom: spacing.sm,
+  },
   planPrice: {
     color: colors.textPrimary,
     fontSize: typography.xl,
     fontWeight: "800",
   },
-  planPeriod: {
-    color: colors.textSecondary,
-    fontSize: typography.md,
+  planTrialBadge: {
+    color: colors.error,
+    fontSize: typography.lg,
     marginBottom: spacing.sm,
+    fontWeight: "700",
   },
   scrollHint: {
     alignItems: "center",

@@ -185,4 +185,15 @@ describe("IdealSelfScreen reordering", () => {
       { id: "ideal-3", description: "New Ideal", order: 0, user_id: "user-123" },
     ]);
   });
+
+  test("shows localized required message instead of generic invalid input on empty submit", async () => {
+    const { getByRole, queryByText, findByText } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    fireEvent.press(getByRole("button", { name: "Save" }));
+
+    expect(queryByText("Invalid input")).toBeNull();
+    expect(await findByText("Please enter at least 1 character")).toBeTruthy();
+  });
 });

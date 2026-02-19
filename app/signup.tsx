@@ -337,8 +337,8 @@ const styles = StyleSheet.create({
   },
   planPrice: {
     color: colors.textSecondary,
-    fontSize: typography.sm,
-    fontWeight: "600",
+    fontSize: typography.md,
+    fontWeight: "700",
     flexShrink: 0,
   },
   trialPrice: {

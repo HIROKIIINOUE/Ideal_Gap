@@ -11,7 +11,7 @@ const mockFetchTestStorePackage = jest.fn();
 const mockPurchaseSelectedPackage = jest.fn();
 const mockEnsureSignupAwaitSubscription = jest.fn();
 const mockGetUserProfile = jest.fn();
-const mockUpdateSubscriptionAfterPurchase = jest.fn();
+const mockWaitForActiveSubscription = jest.fn();
 
 let mockParams: Record<string, string> = {};
 
@@ -38,8 +38,8 @@ jest.mock("../lib/subscription", () => ({
   ensureSignupAwaitSubscription: (...args: unknown[]) =>
     mockEnsureSignupAwaitSubscription(...args),
   getUserProfile: (...args: unknown[]) => mockGetUserProfile(...args),
-  updateSubscriptionAfterPurchase: (...args: unknown[]) =>
-    mockUpdateSubscriptionAfterPurchase(...args),
+  waitForActiveSubscription: (...args: unknown[]) =>
+    mockWaitForActiveSubscription(...args),
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
@@ -84,7 +84,7 @@ beforeEach(() => {
   mockEnsureSignupAwaitSubscription.mockResolvedValue({ status: "signupAwait" });
   mockGetUserProfile.mockResolvedValue({ id: "user-123", had_account_before: false });
   mockPurchaseSelectedPackage.mockResolvedValue({ customerInfo: {} });
-  mockUpdateSubscriptionAfterPurchase.mockResolvedValue({ status: "trial" });
+  mockWaitForActiveSubscription.mockResolvedValue({ status: "trial" });
 });
 
 describe("Purchases screen", () => {
@@ -99,7 +99,7 @@ describe("Purchases screen", () => {
     alertSpy.mockRestore();
   });
 
-  test("purchases package and updates subscription", async () => {
+  test("purchases package and redirects after webhook sync", async () => {
     const { getByText } = renderScreen();
 
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
@@ -107,7 +107,15 @@ describe("Purchases screen", () => {
     fireEvent.press(getByText("Complete sign-up"));
 
     await waitFor(() => expect(mockPurchaseSelectedPackage).toHaveBeenCalled());
-    expect(mockUpdateSubscriptionAfterPurchase).toHaveBeenCalledWith("user-123", false);
+    expect(mockWaitForActiveSubscription).toHaveBeenCalledWith("user-123");
     expect(router.replace).toHaveBeenCalledWith("/dashboard");
+  });
+
+  test("keeps load error message wrapped inside the plan card", async () => {
+    mockFetchTestStorePackage.mockRejectedValueOnce(new Error("load failed"));
+    const { findByText } = renderScreen();
+
+    const errorText = await findByText("Could not load pricing. Please try again.");
+    expect(errorText).toHaveStyle({ flexShrink: 1 });
   });
 });
