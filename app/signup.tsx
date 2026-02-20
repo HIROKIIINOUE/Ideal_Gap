@@ -50,7 +50,7 @@ export default function Signup() {
   const isEmailValid = !signupValidation.fieldErrors.email;
   const isPasswordValid = !signupValidation.fieldErrors.password;
   const isFormValid = signupValidation.isValid;
-  const localizedPrice = useMemo(() => (language === "ja" ? "490円" : "3.99CAD"), [language]);
+  const localizedPrice = useMemo(() => (language === "ja" ? "390円" : "3.99CAD"), [language]);
   const trialLabel = useMemo(() => t("trialLabelDay", { count: 14 }), [t]);
   const planPriceCopy = useMemo(
     () =>
