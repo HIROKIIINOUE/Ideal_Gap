@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
-import i18n from "../i18n";
-import { LanguageProvider } from "../providers/LanguageProvider";
 import Index from "../app/index";
+import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
+import { LanguageProvider } from "../providers/LanguageProvider";
 
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
@@ -35,7 +35,7 @@ describe("Index screen", () => {
       </I18nextProvider>,
     );
 
-    const planPrice = await screen.findByText("490 円/月");
+    const planPrice = await screen.findByText("390 円/月");
     expect(planPrice).toBeOnTheScreen();
     const trialBanner = await screen.findByText("14日間無料トライアル付き");
     expect(trialBanner).toBeOnTheScreen();

@@ -1,5 +1,5 @@
-import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import React from "react";
 import { I18nextProvider } from "react-i18next";
 import Signup from "../app/signup";
 import { typography } from "../constants/theme";
@@ -152,7 +152,7 @@ describe("Signup screen", () => {
 
     const trialTexts = await findAllByText(/14日間無料/);
     expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/その後 490円\/月/);
+    const priceTexts = await findAllByText(/その後 390円\/月/);
     expect(priceTexts.length).toBeGreaterThan(0);
   });
 
