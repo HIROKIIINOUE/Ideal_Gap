@@ -91,7 +91,7 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           },
         },
         payment: {
-          title: "支払い方法の確認・変更",
+          title: "支払い方法の確認・変更・退会",
           subtitle: "ストアの設定画面を開きます",
         },
         profile: {
@@ -152,17 +152,17 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
         logout: { title: "Log out", subtitle: "End your current session" },
         toggleFunPlan: {
           show: {
-            title: "Show Next Fun Plan",
+            title: "Show Next Exciting Plans",
             subtitle: "Bring the card back to dashboard",
           },
           hide: {
-            title: "Hide Next Fun Plan",
+            title: "Hide Exciting Plan",
             subtitle: "Temporarily hide the card",
           },
         },
         payment: {
           title: "Manage payment",
-          subtitle: "Open the store settings",
+          subtitle: "update or cancel subscription",
         },
         profile: { title: "Edit profile", subtitle: "Update name or email" },
         contact: { title: "Contact us", subtitle: "Send feedback or issues" },
@@ -185,12 +185,12 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
   fr: {
     loading: "Chargement...",
     offline: {
-      banner: "You're offline",
+      banner: "La connection Internet est interrompue",
       blockedTitle: "Action indisponible hors ligne",
-      blockedBody: "Reconnectez-vous à internet puis réessayez.",
-      noConnectionTitle: "Connectez-vous à internet",
+      blockedBody: "Reconnectez-vous à Internet puis réessayez.",
+      noConnectionTitle: "Connectez-vous à Internet",
       noConnectionBody:
-        "Cette page nécessite une connexion réseau. Reconnectez-vous puis réessayez.",
+        "Cette page nécessite une connexion Internet. Reconnectez-vous pour réessayer.",
       retry: "Réessayer",
     },
     footer: {
@@ -219,11 +219,11 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
         },
         toggleFunPlan: {
           show: {
-            title: "Afficher le prochain moment plaisir",
+            title: "Afficher le plan sympa à venir",
             subtitle: "Ramener la carte sur le tableau de bord",
           },
           hide: {
-            title: "Masquer le prochain moment plaisir",
+            title: "Masquer le plan sympa à venir ",
             subtitle: "Masquer la carte temporairement",
           },
         },
@@ -233,11 +233,11 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
         },
         profile: {
           title: "Modifier le profil",
-          subtitle: "Mettre à jour nom ou e-mail",
+          subtitle: "Mettre à jour mon nom ou mon e-mail",
         },
         contact: {
           title: "Contactez-nous",
-          subtitle: "Envoyer vos retours ou problèmes",
+          subtitle: "Envoyer votre retour ou votre problème",
         },
       },
     },

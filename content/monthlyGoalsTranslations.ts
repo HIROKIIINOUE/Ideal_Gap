@@ -109,8 +109,8 @@ export const monthlyGoalsTranslations: Record<
       monthLabel: "月を選択",
       yearlyGoalLabel: "紐づける年間目標",
       targetLabel: "目標時間（時間）",
-      targetPlaceholder: "例）40",
-      targetHelper: "時間単位で入力すると計算しやすいです",
+      targetPlaceholder: "例 40",
+      targetHelper: "時間単位で入力してください",
       cancel: "キャンセル",
       save: "保存",
       errorRequired: "全ての項目を入力してください",
@@ -119,7 +119,7 @@ export const monthlyGoalsTranslations: Record<
     },
     deleteConfirmTitle: "削除してもよろしいですか？",
     deleteConfirmBody:
-      "この月間目標を削除すると元に戻せません。\n削除される月間タスクに紐づく週間タスクは全て削除されます。",
+      "削除すると元に戻せません。\n紐づく週間タスクも全て削除されます。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
     deleteSuccess: {
@@ -134,7 +134,7 @@ export const monthlyGoalsTranslations: Record<
       button: "全削除",
       title: "どの目標を削除しますか？",
       message:
-        "この操作は元に戻せません。\n削除される月間タスクに紐づく週間タスクは全て削除されます。",
+        "この操作は元に戻せません。\n紐づく週間タスクも全て削除されます。",
       all: "全ての月を削除",
       current: "{{month}}を削除",
       cancel: "キャンセル",
@@ -173,7 +173,7 @@ export const monthlyGoalsTranslations: Record<
       targetLabel: "Target",
       loggedLabel: "Logged",
       remainingLabel: "Remaining",
-      remainingToGoalLabel: "To goal",
+      remainingToGoalLabel: "Remaining",
     },
     empty: {
       title: "No monthly goals for this month yet.",
@@ -183,13 +183,12 @@ export const monthlyGoalsTranslations: Record<
       addTitle: "Add monthly goal",
       editTitle: "Edit",
       descriptionLabel: "Monthly goal",
-      descriptionPlaceholder:
-        "e.g. Smash it out until section4 in the textbook",
+      descriptionPlaceholder: "e.g. Complete section4 in the textbook",
       monthLabel: "Select month",
       yearlyGoalLabel: "Link annual goal",
       targetLabel: "Target time (hours)",
       targetPlaceholder: "e.g. 40",
-      targetHelper: "Enter hours to keep calculations simple.",
+      targetHelper: "Enter hours",
       cancel: "Cancel",
       save: "Save",
       errorRequired: "Please fill all fields",
@@ -198,22 +197,22 @@ export const monthlyGoalsTranslations: Record<
     },
     deleteConfirmTitle: "Delete this monthly goal?",
     deleteConfirmBody:
-      "You can’t undo this action after deleting.\nAll weekly tasks linked to the monthly task being deleted will also be removed.",
+      "You can’t undo this action after deleting.\nAll linked weekly tasks will also be deleted.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
     deleteSuccess: {
       title: "Deleted",
-      body: "Deletion completed.",
+      body: "Deleted successfully.",
     },
     bulkDeleteSuccess: {
       title: "Deleted all",
-      body: "All monthly goals were removed.",
+      body: "All monthly goals were deleted.",
     },
     bulkDelete: {
       button: "Delete all",
       title: "What would you like to delete?",
       message:
-        "This cannot be undone.\nAll weekly tasks linked to the monthly tasks being deleted will also be removed.",
+        "This cannot be undone.\nAll linked weekly tasks will also be deleted.",
       all: "Delete all months",
       current: "Delete {{month}}",
       cancel: "Cancel",
@@ -252,19 +251,19 @@ export const monthlyGoalsTranslations: Record<
       targetLabel: "Objectif",
       loggedLabel: "Réalisé",
       remainingLabel: "Restant",
-      remainingToGoalLabel: "Reste",
+      remainingToGoalLabel: "Restant",
     },
     empty: {
-      title: "Aucun objectif mensuel pour ce mois.",
-      body: "Ajoutez un objectif mensuel et reliez-le à un objectif annuel pour suivre vos progrès.",
+      title: "Aucun objectif mensuel pour ce mois-ci.",
+      body: "Ajoutez un objectif mensuel et associez-le à un objectif annuel pour suivre vos progrès.",
     },
     modal: {
       addTitle: "Ajouter un objectif mensuel",
       editTitle: "Modifier",
       descriptionLabel: "Objectif mensuel",
       descriptionPlaceholder:
-        "ex. Terminer jusqu'à la section4 du manuel IELTS",
-      monthLabel: "Choisir le mois",
+        "ex. Terminer jusqu'à la section 4 du livre IELTS",
+      monthLabel: "Sélectionner le mois",
       yearlyGoalLabel: "Associer un objectif annuel",
       targetLabel: "Temps cible (heures)",
       targetPlaceholder: "ex. 40",
@@ -277,7 +276,7 @@ export const monthlyGoalsTranslations: Record<
     },
     deleteConfirmTitle: "Supprimer cet objectif mensuel ?",
     deleteConfirmBody:
-      "Cette action est définitive après suppression.\nToutes les tâches hebdomadaires liées aux tâches mensuelles supprimées seront également supprimées.",
+      "Cette action sera définitive après la suppression.\nToutes les tâches hebdomadaires liées aux tâches mensuelles supprimées seront également supprimées.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
     deleteSuccess: {
@@ -285,14 +284,14 @@ export const monthlyGoalsTranslations: Record<
       body: "Suppression terminée.",
     },
     bulkDeleteSuccess: {
-      title: "Tout supprimé",
+      title: "Tout supprimer",
       body: "Tous les objectifs mensuels ont été supprimés.",
     },
     bulkDelete: {
       button: "Tout supprimer",
       title: "Que souhaitez-vous supprimer ?",
       message:
-        "Cette action est irréversible.\nToutes les tâches hebdomadaires liées aux tâches mensuelles supprimées seront également supprimées.",
+        "Cette action est irréversible.\nToutes les tâches hebdomadaires liées seront également supprimées.",
       all: "Supprimer tous les mois",
       current: "Supprimer {{month}}",
       cancel: "Annuler",

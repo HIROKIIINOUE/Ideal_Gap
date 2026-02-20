@@ -1,4 +1,3 @@
-// 【フランス語チェック】
 import { LanguageKey } from "../types/i18n";
 
 export type LandingSections = {
@@ -22,6 +21,7 @@ export type LandingSections = {
     title: string;
     price: string;
     period: string;
+    trialBadge: string;
     description: string;
     bulletPoints: string[];
   };
@@ -54,23 +54,24 @@ export const landingTranslations: LandingTranslations = {
         "理想の自分を言語化し、年間/月間目標で道標を描く。週間タスクまで落とし込んだらあとは行動するだけ。カウントダウンタイマーで自分の努力の軌跡を可視化。タスクへの集中を手助けするタスク集中音楽、休憩通知。直近の楽しみな予定も表示することで「今」を楽しみながらバランスよく理想の「未来」へ進んでいく。",
       highlights: [
         "理想の自分リストアップ機能",
-        "年間目標・月間目標リスト機能",
-        "週間タスクリスト機能",
+        "年間目標/月間目標リスト・進捗管理機能",
+        "週間タスクリスト・進捗管理機能",
         "タスクタイマー・作業集中音楽機能",
         "休憩通知機能",
-        "次回の楽しい予定機能",
+        "次回の楽しい予定リスト機能",
       ],
       overviewCardTitle: "アプリの概要",
     },
     membership: {
       label: "Membership",
       title: "定額プラン(現在無料期間あり)",
-      price: "490 円",
-      period: "/月 (30日ごと)",
+      price: "390 円",
+      period: "/月",
+      trialBadge: "14日間無料トライアル付き",
       description:
-        "40日間無料。無料期間終了日を起点に30日ごとに自動更新。いつでもキャンセル予約が可能。",
+        "14日間無料。無料期間終了日を起点に毎月自動更新。いつでもキャンセル予約が可能。",
       bulletPoints: [
-        "40日間無料、無料期間以降490円/月",
+        "14日間無料、無料期間以降390円/月",
         "いつでもキャンセル予約可能",
         "再サインアップ時は無料プラン適用なし",
       ],
@@ -87,7 +88,7 @@ export const landingTranslations: LandingTranslations = {
   en: {
     hero: {
       logo: "Ideal Gap",
-      title: "Your first step to your ideal self",
+      title: "The first step to your ideal self",
       subtitle:
         "Define your ideal self and clarify the right path. Then just focus and move forward.",
       ctaPrimary: "Start free",
@@ -96,28 +97,29 @@ export const landingTranslations: LandingTranslations = {
     },
     overview: {
       label: "What is Ideal Gap",
-      title: "6 Pillars Connecting Ideals and Daily Life",
+      title: "Six Pillars to Your Ideal Self",
       description:
-        "Clarify your ideal self and map your path with yearly and monthly goals. Break them into weekly tasks and take action. Track your effort with a countdown timer, stay focused with task music and break alarm, and enjoy upcoming plans while moving steadily toward your ideal future.",
+        "Clarify your ideal self and map your path with yearly and monthly goals. Break them into weekly tasks and just go forward. Track your effort with a countdown timer, stay focused with task music and break reminders. And also enjoy upcoming plans while moving steadily toward your ideal future.",
       highlights: [
-        "Ideal Self Listing",
-        "Yearly & Monthly Goals",
-        "Weekly Task Lists",
-        "Task Timer & Focus Music",
-        "Break Alarm",
-        "Upcoming Fun Plan",
+        "Ideal Self Vision Board",
+        "Yearly & Monthly Goal Tracking",
+        "Weekly Task Planning & Tracking",
+        "Task Timer with Focus Music",
+        "Smart Break Reminders",
+        "Upcoming Exciting Events",
       ],
       overviewCardTitle: "App Overview",
     },
     membership: {
       label: "Membership",
-      title: "Subscription Plan(Free Trial Available)",
-      price: "490 JPY",
-      period: "/mo (every 30 days)",
+      title: "Subscription(Free Trial Available)",
+      price: "3.99 CAD",
+      period: "/month",
+      trialBadge: "Includes 14-days free trial",
       description:
-        "40 days free trial. Auto-renews every 30 days after the trial end. Cancel anytime.",
+        "14 days free trial. Auto-renews every month after the trial end. Cancel anytime.",
       bulletPoints: [
-        "40 days free trial, then 490 JPY/month",
+        "14 days free trial, then 3.99 CAD/month",
         "Cancel anytime",
         "No free plan when re-signing up",
       ],
@@ -134,48 +136,49 @@ export const landingTranslations: LandingTranslations = {
   fr: {
     hero: {
       logo: "Ideal Gap",
-      title: "Votre premier pas vers l’idéal",
+      title: "Votre premier pas vers votre moi idéal",
       subtitle:
-        "Définissez votre idéal et clarifiez le bon chemin. Il ne reste qu’à maximiser la concentration et avancer.",
-      ctaPrimary: "Start free",
-      ctaSecondary: "Log in",
+        "Définissez votre idéal et identifiez la bonne voie. Il ne reste plus qu’à se concentrer et avancer.",
+      ctaPrimary: "Essai gratuit",
+      ctaSecondary: "Connexion",
       scrollHint: "Faites défiler",
     },
     overview: {
-      label: "Qu’est-ce qu’Ideal Gap",
-      title: "Six piliers reliant idéal et quotidien",
+      label: "Qu’est-ce l'Ideal Gap",
+      title: "Six piliers reliant l'idéal et le quotidien",
       description:
-        "Mettez votre idéal en mots, dessinez le cap avec des objectifs annuels et mensuels, puis déclinez en tâches hebdomadaires. Un minuteur compte à rebours visualise l’effort. Musique de concentration et rappels de pause soutiennent le focus. Les prochains moments plaisants aident à profiter du présent tout en avançant vers l’avenir idéal.",
+        "Définissez votre idéal et tracez votre voie avec des objectifs annuels et mensuels. Divisez-les en tâches hebdomadaires et passez à l'action. Visualisez votre progression avec un compte à rebours, restez concentrer avec de la musique adaptées à vos envies et des rappels de temps de pause. Motivez-vous avec vos plans sympas à venir tout en avançant petit à petit vers votre avenir idéal.",
       highlights: [
-        "Liste de votre idéal",
-        "Listes d’objectifs annuels et mensuels",
-        "Listes de tâches hebdomadaires",
-        "Minuteur de tâche et musique focus",
+        "Tableau d'inspiration de votre moi idéal",
+        "Suivi des objectifs annuels et mensuels",
+        "Liste et suivi des tâches hebdomadaires",
+        "Minuteur et musique de concentration",
         "Rappels de pause",
-        "Prochain moment plaisant",
+        "Vos plans sympas à venir",
       ],
       overviewCardTitle: "Présentation de l’app",
     },
     membership: {
       label: "Abonnement",
-      title: "Forfait fixe (essai gratuit)",
-      price: "490 JPY",
-      period: "/mois (tous les 30 jours)",
+      title: "Forfait fixe (essai gratuit disponible)",
+      price: "3.99 CAD",
+      period: "/mois",
+      trialBadge: "Essai gratuit de 14 jours inclus",
       description:
-        "Essai gratuit de 40 jours. Renouvellement automatique tous les 30 jours à partir de la fin de l’essai. Annulation possible à tout moment.",
+        "Essai gratuit de 14 jours. Renouvellement automatique tous les mois dès la fin de l’essai. Annulation possible à tout moment.",
       bulletPoints: [
-        "Essai gratuit de 40 jours, puis 490 JPY/mois",
+        "Essai gratuit de 14 jours, puis 3.99 CAD/mois",
         "Annulation possible à tout moment",
         "Pas d’offre gratuite lors d’une réinscription",
       ],
     },
     getStarted: {
       label: "Commencer",
-      title: "Commencez par l’inscription",
+      title: "Commencez l’inscription",
       description:
-        "Toutes les fonctionnalités sont disponibles pendant l’essai. Annulez pendant l’essai et aucun paiement ne sera facturé.",
-      ctaPrimary: "Start free",
-      ctaSecondary: "Log in",
+        "Toutes les fonctionnalités sont disponibles pendant l’essai. Annulez durant l’essai et aucun paiement ne sera facturé.",
+      ctaPrimary: "Essai gratuit",
+      ctaSecondary: "Connexion",
     },
   },
 };

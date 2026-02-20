@@ -78,13 +78,13 @@ export const resetPasswordTranslations: Record<
       "Something went wrong. Please try again. Your new password must be different from previous one",
   },
   fr: {
-    pageLabel: "Reset-password",
+    pageLabel: "Réinitialisation",
     backToLogin: "Retour à la connexion",
-    introTitle: "Besoin de réinitialiser ?",
+    introTitle: "Mot de passe oublié?",
     introBody:
-      "Saisissez votre e-mail pour recevoir un lien. Ouvrez-le sur cet appareil pour définir un nouveau mot de passe.",
+      "Saisissez votre adresse e-mail pour recevoir un lien. Ouvrez-le sur cet appareil pour définir un nouveau mot de passe.",
     emailLabel: "E-mail",
-    emailPlaceholder: "vous@example.com",
+    emailPlaceholder: "vous@exemple.com",
     sendCta: "Envoyer l’e-mail",
     sending: "Envoi...",
     linkSent: "E-mail envoyé. Consultez votre boîte de réception.",
@@ -99,7 +99,7 @@ export const resetPasswordTranslations: Record<
     updateSuccess: "Mot de passe mis à jour. Connectez-vous à nouveau.",
     errorUserNotFound: "Aucun compte trouvé pour cet e-mail.",
     errorRateLimited:
-      "Trop de demandes. Veuillez patienter 1 minutes puis réessayer.",
+      "Trop de demandes effectuées. Veuillez patienter 1 minute puis réessayer.",
     errorUnknown:
       "Un problème est survenu. Veuillez réessayer. Votre nouveau mot de passe doit être différent du précédent.",
   },

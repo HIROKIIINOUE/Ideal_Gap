@@ -36,7 +36,7 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     forgotPassword: "パスワードをお忘れの方はこちら",
     firstTimeHeading: "はじめての方はこちら",
     firstTimeBody:
-      "40日間の無料体験後は 490円/月 (30日) で自動更新。キャンセルはいつでも可能。",
+      "14日間の無料体験後は 390円/月で自動更新。キャンセルはいつでも可能。",
     signupCta: "無料でサインアップへ",
     errorUserNotFound: "アカウントが見つかりません。サインアップしてください。",
     errorWrongPassword: "パスワードが間違っています。再入力してください。",
@@ -58,7 +58,7 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     forgotPassword: "Forgot password?",
     firstTimeHeading: "New here?",
     firstTimeBody:
-      "After your 40 days free trial, it renews at 4.5 CAD every 30 days. You can cancel anytime.",
+      "After your 14 days free trial, it renews at 3.99 CAD every month. You can cancel anytime.",
     signupCta: "Go to Sign Up For Free",
     errorUserNotFound: "No account found. Please sign up.",
     errorWrongPassword: "Incorrect password. Please try again.",
@@ -71,17 +71,18 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     pageLabel: "Connexion",
     backToHome: "Retour à l’accueil",
     welcomeTitle: "Content de vous revoir",
-    welcomeBody: "Connectez-vous avec votre e-mail et mot de passe.",
+    welcomeBody:
+      "Connectez-vous avec votre adresse e-mail et votre mot de passe.",
     emailLabel: "E-mail",
-    emailPlaceholder: "vous@example.com",
+    emailPlaceholder: "vous@exemple.com",
     passwordLabel: "Mot de passe",
     passwordPlaceholder: "Mot de passe",
-    loginCta: "Log in",
+    loginCta: "Se connecter",
     forgotPassword: "Mot de passe oublié ?",
     firstTimeHeading: "Première visite ?",
     firstTimeBody:
-      "Après 40 jours l’essai gratuit, le renouvellement est de 4.5 CAD tous les 30 jours. Vous pouvez annuler à tout moment.",
-    signupCta: "Aller à l’inscription gratuit",
+      "Après vos 14 jours d’essai gratuit, le facturation de 3.99 CAD s'effectuera tous les mois. Vous pouvez annuler à tout moment.",
+    signupCta: "Aller à l’inscription gratuite",
     errorUserNotFound: "Aucun compte trouvé. Veuillez vous inscrire.",
     errorWrongPassword: "Mot de passe incorrect. Veuillez réessayer.",
     errorLocked:

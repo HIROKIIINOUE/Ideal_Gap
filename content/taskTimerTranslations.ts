@@ -147,8 +147,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         minutesLabel: "{{minutes}}分として記録されます",
         nextStartLabel: "次回のスタート地点（任意）",
         currentStartLabel: "今回のスタート地点",
-        nextStartPlaceholder: "例: 第2章から / 3番目のサブタスクから",
-        nextStartHelper: "メモを残すと次のセッションで迷いません。",
+        nextStartPlaceholder: "例: 第2章から / 単語帳セクション3から",
+        nextStartHelper: "メモを残すと次のセッション開始時に表示されます",
         confirm: "完了して記録",
       },
       feedback: {
@@ -166,7 +166,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         estimatedLabel: "Planned",
         loggedLabel: "Logged",
         notificationTitle:
-          "Allow notifications so we can alert you when the timer ends.",
+          "Allow notifications so we can notify you when the timer ends.",
         notificationAction: "Open settings",
         notificationDismiss: "Dismiss",
       },
@@ -227,10 +227,10 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         minutesLabel: "Saved as {{minutes}} min",
         nextStartLabel: "Next starting point (optional)",
         currentStartLabel: "Starting point this session",
-        nextStartPlaceholder: "e.g. Resume from section 2 or subtask 3",
+        nextStartPlaceholder: "e.g. Resume from section 2",
         nextStartHelper:
-          "Leave a short note so you can jump back in next time.",
-        confirm: "Save and finish",
+          "Leave a short note so you can resume from the proper point in next time.",
+        confirm: "Save",
       },
       feedback: {
         startError: "Set a duration before starting",
@@ -256,8 +256,9 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         body: "Votre session est terminée.",
       },
       timerCard: {
-        title: "Minuteur de focus",
-        helper: "Définissez la durée de focus puis lancez le compte à rebours.",
+        title: "Minuteur de concentration",
+        helper:
+          "Définissez la durée de concentration et lancez le compte à rebours.",
         endLabel: "Fin prévue {{time}}",
         endTimeLabel: "Fin prévue {{time}}",
         start: "Démarrer",
@@ -292,12 +293,13 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         musicPause: "Mettre la musique en pause",
         musicUnavailable: "Aucune musique",
         musicSelect: "Choisir un morceau",
-        musicModalTitle: "Choisir la musique de focus",
+        musicModalTitle: "Choisir la musique de concentration",
         musicModalSubtitle: "Morceaux téléchargés",
         musicSelected: "{{title}} sélectionné",
         musicNone: "Aucun morceau sélectionné",
         musicEmptyTitle: "Aucune musique installée",
-        musicEmptyBody: "Installez un morceau depuis la page musique de focus.",
+        musicEmptyBody:
+          "Installez un morceau depuis la page musique de concentration.",
         musicEmptyCta: "Aller à la musique",
       },
       completionModal: {
@@ -317,7 +319,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       feedback: {
         startError: "Définissez une durée avant de démarrer",
         offlineSaveBlocked:
-          "Vous êtes hors ligne. Reconnectez-vous à internet, ou enregistrez le temps manuellement avec le bouton de saisie manuelle.",
+          "Vous êtes hors ligne. Reconnectez-vous à Internet, ou enregistrez le temps manuellement avec le bouton de saisie manuelle.",
         offlineSaveBlockedAction: "Retour",
       },
     },

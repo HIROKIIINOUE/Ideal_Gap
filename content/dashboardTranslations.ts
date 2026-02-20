@@ -68,7 +68,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         weeklyGoals: {
           title: "週間タスク",
           subtitle:
-            "目標を行動まで落とし込み、作業タイマーで作業時間を計測、紐づく月間目標/年間目標へ積上げる。",
+            "目標を行動まで落とし込み、作業タイマーで作業時間を計測。紐づく月間目標/年間目標へ積上げる。",
         },
         focusMusic: {
           title: "タスク集中音楽",
@@ -99,7 +99,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         emailUpdated: "Your email address has been updated.",
       },
       nextFunPlan: {
-        title: "Next Fun Plan",
+        title: "Next Exciting Plans",
         subtitle: "",
         cta: "Add a plan",
         emptyLabel: "No plan is set yet.",
@@ -108,37 +108,36 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         idealSelf: {
           title: "Ideal Self",
           subtitle:
-            "Imagine your ideal self and put it into words. Your long-term goal and final destination.",
+            "Visualize and define your ideal self. Your long-term goal and final destination.",
         },
         annualGoals: {
           title: "Annual Goals",
           subtitle:
-            "List this year's goals based on your ideal self. The mid-term goals toward that ideal.",
+            "List this year's goals based on your ideal self. Your mid-term goal toward the ideal.",
         },
         monthlyGoals: {
           title: "Monthly Goals",
           subtitle:
-            "Clarify the signposts toward annual goals. Short-term goals to achieve the year.",
+            "Clarify your path toward your annual goals. Track your monthly progress visually.",
         },
         weeklyGoals: {
           title: "Weekly Tasks",
           subtitle:
-            "Break goals into actions, track time with the task timer, and stack progress toward monthly and annual goals.",
+            "Break goals into actions, track time, and build progress toward monthly and annual goals.",
         },
         focusMusic: {
           title: "Focus Music",
           subtitle:
-            "Download your favorite work music and maximize focus while the task timer runs.",
+            "Download your favorite Focus Music and maximize your concentration during work sessions.",
         },
         breakReminders: {
           title: "Break Alarm",
-          subtitle:
-            "What sustains you is switching ON and OFF. Set break time and keep balance.",
+          subtitle: "Growth requires balance. Schedule breaks and reset",
         },
         nextFunPlan: {
-          title: "Next Fun Plan",
+          title: "Next Exciting Plans",
           subtitle:
-            "Make the next fun visible and use it as fuel to keep going.",
+            "Make the next exciting plans visible and use it as fuel to keep going.",
         },
       },
       details: {
@@ -155,46 +154,46 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         emailUpdated: "Votre adresse e-mail a bien été modifiée.",
       },
       nextFunPlan: {
-        title: "Prochain moment plaisir",
+        title: "Prochain plan sympa",
         subtitle: "",
-        cta: "Ajouter un moment",
-        emptyLabel: "Aucun moment prévu pour l’instant.",
+        cta: "Ajouter un évènement",
+        emptyLabel: "Aucun évènement prévu pour l’instant.",
       },
       cards: {
         idealSelf: {
-          title: "Moi idéal",
+          title: "Mon moi idéal",
           subtitle:
-            "Imaginez votre moi idéal et mettez-le en mots. Votre objectif long terme et destination finale.",
+            "Visualisez et définissez la personne que vous voulez devenir, ainsi que vos objectifs à long terme et votre but final.",
         },
         annualGoals: {
           title: "Objectif annuel",
           subtitle:
-            "Listez les objectifs de l’année à partir du moi idéal. Des objectifs à moyen terme vers cet idéal.",
+            "Énumérez vos objectifs annuels en fonction de votre moi idéal, et ceux à moyen terme vers cet idéal.",
         },
         monthlyGoals: {
           title: "Objectif mensuel",
           subtitle:
-            "Clarifiez les repères vers les objectifs annuels. Des objectifs à court terme pour réussir l’année.",
+            "Définissez la manière d'atteindre vos objectifs annuels et suivez vos progrès visuellement.",
         },
         weeklyGoals: {
           title: "Tâche hebdomadaire",
           subtitle:
-            "Mesurez le temps avec le minuteur, et cumulez vers le mensuel/annuel.",
+            "Suivez votre avancement avec le minuteur et progressez vers vos objectifs mensuels et annuels.",
         },
         focusMusic: {
-          title: "Musique de focus",
+          title: "Musique de concentration",
           subtitle:
-            "Téléchargez votre musique de travail favorite et maximisez la concentration pendant le minuteur.",
+            "Téléchargez votre musique favorite et optimisez la concentration durant le minuteur.",
         },
         breakReminders: {
-          title: "Rappels de pause",
+          title: "Rappel de pause",
           subtitle:
-            "Pour durer, alternez ON et OFF. Définissez des pauses et gardez le rythme.",
+            "La croissance exige de l'équilibre : planifiez des pauses et prenez le temps de vous reconnecter.",
         },
         nextFunPlan: {
-          title: "Prochain moment plaisir",
+          title: "Prochain plan sympa",
           subtitle:
-            "Rendez le prochain plaisir visible et utilisez-le comme carburant.",
+            "Rendez le prochain évènement visible et utilisez-le comme carburant.",
         },
       },
       details: {

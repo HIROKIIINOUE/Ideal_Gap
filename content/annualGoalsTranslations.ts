@@ -66,7 +66,7 @@ export const annualGoalsTranslations: Record<
     deleteExit: "戻る",
     reorderHint: "カードを長押し＋ドラッグで順番を変えられます",
     emptyTitle: "まだ年間目標が登録されていません",
-    emptyBody: "年間の優先順位を可視化しましょう。",
+    emptyBody: "年間目標をリストアップし、優先順位をつけましょう。",
     emptyCta: "最初の年間目標を追加",
     updatedSuffix: "更新",
     chart: {
@@ -86,7 +86,7 @@ export const annualGoalsTranslations: Record<
     },
     deleteConfirmTitle: "削除してもよろしいですか？",
     deleteConfirmBody:
-      "この年間目標を削除すると元に戻せません。\n紐づく月間目標・週間タスクも削除されます。",
+      "削除すると元に戻せません。\n紐づく月間目標・週間タスクも削除されます。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
     deleteSuccess: {
@@ -125,8 +125,8 @@ export const annualGoalsTranslations: Record<
     emptyCta: "Add your first annual goal",
     updatedSuffix: "Updated",
     chart: {
-      title: "Task breakdown",
-      totalLabel: "Total focus time",
+      title: "Task Breakdown",
+      totalLabel: "Total Focus Time",
     },
     modal: {
       addTitle: "Add annual goal",
@@ -182,14 +182,14 @@ export const annualGoalsTranslations: Record<
     updatedSuffix: "Mis à jour",
     chart: {
       title: "Répartition des tâches",
-      totalLabel: "Temps total de focus",
+      totalLabel: "Temps total",
     },
     modal: {
       addTitle: "Ajouter un objectif annuel",
       editTitle: "Modifier",
       descriptionLabel: "Objectif annuel",
       colorLabel: "Couleur de l'objectif",
-      placeholder: "ex. Obtenir un score de 8 à IELTS.",
+      placeholder: "ex. Obtenir un score de 8 à l'IELTS.",
       cancel: "Annuler",
       save: "Enregistrer",
       errorRequired: "Veuillez remplir tous les champs",
@@ -197,7 +197,7 @@ export const annualGoalsTranslations: Record<
     },
     deleteConfirmTitle: "Supprimer cet objectif annuel ?",
     deleteConfirmBody:
-      "Cette action est définitive après suppression.\nLes objectifs mensuels et les tâches hebdomadaires liés seront également supprimés.",
+      "Cette action sera définitive après la suppression.\nLes objectifs mensuels et les tâches hebdomadaires liés seront également supprimés.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
     deleteSuccess: {
@@ -205,12 +205,12 @@ export const annualGoalsTranslations: Record<
       body: "Suppression terminée.",
     },
     bulkDeleteSuccess: {
-      title: "Tout supprimé",
+      title: "Tout supprimer",
       body: "Tous les objectifs annuels ont été supprimés.",
     },
     bulkDelete: {
       button: "Tout supprimer",
-      title: "Supprimer tous les objectifs annuels ?",
+      title: "Voulez-vous supprimer tous les objectifs annuels ?",
       message:
         "Cette action est irréversible.\nLes objectifs mensuels et les tâches hebdomadaires liés seront également supprimés.",
       all: "Tout supprimer",
