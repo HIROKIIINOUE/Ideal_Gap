@@ -21,7 +21,11 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { useLoginLockout } from "../hooks/useLoginLockout";
 import { signInWithEmailPassword } from "../lib/auth";
-import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
+import {
+  canAccessDashboardWithSubscriptionStatus,
+  ensureSignupAwaitSubscription,
+  getSubscriptionForUser,
+} from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 
 const loginSchema = z.object({
@@ -98,7 +102,7 @@ export default function Login() {
       const userId = data.session?.user?.id;
       if (userId) {
         const subscription = await getSubscriptionForUser(userId);
-        if (!subscription || subscription.status === "signupAwait") {
+        if (!canAccessDashboardWithSubscriptionStatus(subscription?.status)) {
           try {
             await ensureSignupAwaitSubscription(userId);
           } catch (error) {

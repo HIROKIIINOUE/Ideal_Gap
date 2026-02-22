@@ -8,6 +8,7 @@ import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { canAccessDashboardWithSubscriptionStatus, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
@@ -127,6 +128,32 @@ export default function Dashboard() {
     useCallback(() => {
       fetchNextFunPlan();
     }, [fetchNextFunPlan]),
+  );
+
+  // ダッシュボード到達はsubscriptions.statusがactive or trial の時だけ
+  // それ以外の場合はダッシュボードに辿り着けないようにここで制御
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const guardDashboardAccess = async () => {
+        const { data, error } = await supabase.auth.getSession();
+        const userId = data.session?.user?.id;
+        if (error || !userId) {
+          if (active) router.replace("/login");
+          return;
+        }
+        const subscription = await getSubscriptionForUser(userId);
+        if (!canAccessDashboardWithSubscriptionStatus(subscription?.status) && active) {
+          router.replace("/purchases");
+        }
+      };
+      guardDashboardAccess().catch((guardError) => {
+        console.warn("Failed to guard dashboard access", guardError);
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
   );
 
   // 6つの機能ページへ遷移する各カードを展開

@@ -12,11 +12,25 @@ export type SubscriptionRow =
     status: SubscriptionStatus | null;
   };
 
+export const DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
+  "trial",
+  "active",
+];
+
+export const canAccessDashboardWithSubscriptionStatus = (
+  status: SubscriptionStatus | null | undefined,
+): boolean =>
+  Boolean(
+    status &&
+      DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES.includes(status),
+  );
+
 type UserRow = Pick<
   Database["public"]["Tables"]["users"]["Row"],
   "id" | "had_account_before"
 >;
-const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = ["trial", "active"];
+const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] =
+  DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES;
 
 const nowIso = () => new Date().toISOString();
 // 同じuserIdで複数回同時にensureSignupAwaitSubscription が呼ばれたとき、DBに重複行を挿入しないためのデータ構造。進行中のプロミス処理も一つにまとめてくれる。

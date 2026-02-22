@@ -28,6 +28,8 @@ jest.mock("../lib/subscription", () => ({
   getSubscriptionForUser: (...args: unknown[]) => mockGetSubscriptionForUser(...args),
   ensureSignupAwaitSubscription: (...args: unknown[]) =>
     mockEnsureSignupAwaitSubscription(...args),
+  canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
+    status === "active" || status === "trial",
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
@@ -160,12 +162,13 @@ describe("Login screen", () => {
     alertSpy.mockRestore();
   });
 
-  test("redirects authenticated users to dashboard on mount", async () => {
+  test("redirects authenticated users to dashboard on mount when subscription is active", async () => {
     (supabase.auth.getSession as jest.Mock).mockReset();
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
       error: null,
     });
+    mockGetSubscriptionForUser.mockResolvedValue({ status: "active" });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
       data: { subscription: { unsubscribe: jest.fn() } },
     });
@@ -178,5 +181,26 @@ describe("Login screen", () => {
 
     await waitFor(() => expect(supabase.auth.getSession).toHaveBeenCalled());
     expect(router.replace).toHaveBeenCalledWith("/dashboard");
+  });
+
+  test("redirects authenticated users to purchases on mount when subscription is canceled", async () => {
+    (supabase.auth.getSession as jest.Mock).mockReset();
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: { id: "user-123" } } },
+      error: null,
+    });
+    mockGetSubscriptionForUser.mockResolvedValue({ status: "canceled" });
+    (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    });
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Login />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(supabase.auth.getSession).toHaveBeenCalled());
+    expect(router.replace).toHaveBeenCalledWith("/purchases");
   });
 });

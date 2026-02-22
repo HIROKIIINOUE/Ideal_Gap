@@ -8,6 +8,8 @@ import { supabase } from "../lib/supabaseClient";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
 
+const mockGetSubscriptionForUser = jest.fn();
+
 jest.mock("@expo/vector-icons", () => {
   const MockIcon = () => null;
   MockIcon.displayName = "MockMaterialCommunityIcons";
@@ -80,6 +82,12 @@ jest.mock("../lib/supabaseClient", () => ({
   },
 }));
 
+jest.mock("../lib/subscription", () => ({
+  getSubscriptionForUser: (...args: unknown[]) => mockGetSubscriptionForUser(...args),
+  canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
+    status === "active" || status === "trial",
+}));
+
 describe("FunPlanScreen interactions", () => {
   const mockSelect = jest.fn();
   const mockEq = jest.fn();
@@ -101,6 +109,7 @@ describe("FunPlanScreen interactions", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetSubscriptionForUser.mockResolvedValue({ status: "active" });
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
     });
