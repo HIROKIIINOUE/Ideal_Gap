@@ -1,7 +1,8 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   Alert,
   Platform,
@@ -9,13 +10,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   ToastAndroid,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Footer from "../components/Footer";
-import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { getPlanPriceCopy, getTrialLabel } from "../lib/planCopy";
 import {
@@ -24,6 +22,7 @@ import {
   TestStorePlan,
 } from "../lib/revenuecatOfferings";
 import {
+  canAccessDashboardWithSubscriptionStatus,
   ensureSignupAwaitSubscription,
   waitForActiveSubscription,
 } from "../lib/subscription";
@@ -33,13 +32,12 @@ export default function Purchases() {
   const { t } = useTranslation("purchases");
   const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const params = useLocalSearchParams();
-  const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [plan, setPlan] = useState<TestStorePlan | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isReturningHome, setIsReturningHome] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [billingEmail, setBillingEmail] = useState("");
   const signupToastShownRef = useRef(false);
 
   //　purchases画面のポップアップ画面機能
@@ -60,50 +58,56 @@ export default function Purchases() {
     }
   }, [params, showToast, t]);
 
+  const loadPlan = useCallback(async () => {
+    setIsLoadingPlan(true);
+    setPlanError(null);
+    try {
+      const fetchedPlan = await fetchTestStorePackage();
+      setPlan(fetchedPlan);
+    } catch (error) {
+      console.warn("Failed to load offering", error);
+      setPlanError(t("planLoadError"));
+      setPlan(null);
+    } finally {
+      setIsLoadingPlan(false);
+    }
+  }, [t]);
+
   //　画面の初期化と課金済みユーザへのガード機能
   useEffect(() => {
     let mounted = true;
 
-
     const initialize = async () => {
-      //　ログイン状態をチェック、エラーならプランエラー表示とロードの終了
       const { data, error } = await supabase.auth.getSession();
       if (error) {
-        setPlanError(t("planLoadError"));
-        setIsLoadingPlan(false);
+        if (mounted) {
+          setPlanError(t("planLoadError"));
+          setIsLoadingPlan(false);
+        }
         return;
       }
       const uid = data.session?.user?.id;
       if (!uid) {
-        setIsLoadingPlan(false);
+        if (mounted) setIsLoadingPlan(false);
         router.replace("/login");
         return;
       }
 
+      if (!mounted) return;
       setUserId(uid);
       try {
-        //　サインアップ待ちの購読レコードを保証、statusがsignupAwait以外ならdashboardへ遷移
         const subscription = await ensureSignupAwaitSubscription(uid);
-        if (subscription.status && subscription.status !== "signupAwait") {
+        if (canAccessDashboardWithSubscriptionStatus(subscription.status)) {
           if (mounted) setIsLoadingPlan(false);
           router.replace("/dashboard");
           return;
         }
-      } catch (error) {
-        console.warn("Failed to prepare subscription", error);
+      } catch (subscriptionError) {
+        console.warn("Failed to prepare subscription", subscriptionError);
       }
 
-      try {
-        //　プランを取得
-        const fetchedPlan = await fetchTestStorePackage();
-        if (!mounted) return;
-        setPlan(fetchedPlan);
-      } catch (error) {
-        console.warn("Failed to load offering", error);
-        if (mounted) setPlanError(t("planLoadError"));
-      } finally {
-        if (mounted) setIsLoadingPlan(false);
-      }
+      if (!mounted) return;
+      await loadPlan();
     };
 
     initialize();
@@ -111,7 +115,7 @@ export default function Purchases() {
     return () => {
       mounted = false;
     };
-  }, [t]);
+  }, [loadPlan, t]);
 
   const planPriceCopy = useMemo(() => getPlanPriceCopy(plan, t), [plan, t]);
   const trialLabel = useMemo(() => getTrialLabel(plan, t), [plan, t]);
@@ -141,17 +145,55 @@ export default function Purchases() {
     }
   }, [isProcessing, plan, showToast, t, userId]);
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <Stack.Screen options={{ title: t("pageLabel"), headerBackTitle: tCommonNav("back") }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <Text style={styles.label}>{t("pageLabel")}</Text>
-          <Pressable onPress={() => router.replace("/")}>
-            <Text style={styles.link}>{t("backToHome")}</Text>
-          </Pressable>
-        </View>
+  const handleReturnHome = useCallback(async () => {
+    if (isReturningHome) return;
+    setIsReturningHome(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        showToast(t("returnHomeError"));
+        return;
+      }
+      router.replace("/");
+    } catch (error) {
+      console.warn("Failed to return home from purchases", error);
+      showToast(t("returnHomeError"));
+    } finally {
+      setIsReturningHome(false);
+    }
+  }, [isReturningHome, showToast, t]);
 
+  return (
+    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
+      <Stack.Screen
+        options={{
+          title: t("pageLabel"),
+          headerBackVisible: false,
+          headerLeft: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={tCommonNav("back")}
+              onPress={() => {
+                handleReturnHome().catch((error) => {
+                  console.warn("Failed to handle header back action", error);
+                });
+              }}
+              disabled={isReturningHome}
+              style={({ pressed }) => [
+                styles.headerBackButton,
+                pressed && styles.buttonPressed,
+                isReturningHome && styles.buttonDisabled,
+              ]}
+            >
+              <View style={styles.headerBackContent}>
+                <MaterialCommunityIcons name="chevron-left" size={22} color="#111111" />
+                <Text style={styles.headerBackLabel}>{tCommonNav("back")}</Text>
+              </View>
+            </Pressable>
+          ),
+        }}
+      />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, shadows.card]}>
           <Text style={styles.title}>{t("headerTitle")}</Text>
           <Text style={styles.body}>{t("signupCompleteBody")}</Text>
@@ -171,20 +213,29 @@ export default function Purchases() {
               <Text style={styles.errorText}>{t("planUnavailable")}</Text>
             )}
             {planError && <Text style={styles.errorText}>{planError}</Text>}
+            {planError && (
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={() => {
+                  if (isLoadingPlan) return;
+                  loadPlan().catch((error) => {
+                    console.warn("Failed to retry plan loading", error);
+                  });
+                }}
+              >
+                <Text style={styles.retryButtonLabel}>{t("retryPricingCta")}</Text>
+              </Pressable>
+            )}
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("billingLabel")}</Text>
-            <TextInput
-              placeholder={t("billingPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              keyboardAppearance="dark"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={billingEmail}
-              onChangeText={setBillingEmail}
-            />
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>
+              {`${t("storeBillingNotice")} ${t("cardInfoPolicy")}`}
+            </Text>
           </View>
 
           <Pressable
@@ -209,17 +260,24 @@ export default function Purchases() {
               {isProcessing ? t("ctaLoading") : t("completeSignupCta")}
             </Text>
           </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.ctaButton,
+              styles.secondaryButton,
+              styles.returnHomeButton,
+              pressed && styles.buttonPressed,
+              isReturningHome && styles.buttonDisabled,
+            ]}
+            disabled={isReturningHome}
+            onPress={handleReturnHome}
+          >
+            <Text style={styles.secondaryLabel}>
+              {isReturningHome ? t("returningHomeCta") : t("returnHomeCta")}
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
-      <Footer
-        isAuthenticated={false}
-        onLanguagePress={() => setLanguageSheetVisible(true)}
-        onContactPress={() => router.push("/contact")}
-      />
-      <LanguageSheet
-        visible={languageSheetVisible}
-        onClose={() => setLanguageSheetVisible(false)}
-      />
     </SafeAreaView>
   );
 }
@@ -230,32 +288,33 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   content: {
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl * 2,
     gap: spacing.lg,
     paddingBottom: spacing.xl * 2,
   },
-  headerRow: {
+  headerBackButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+  },
+  headerBackContent: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 2,
   },
-  label: {
-    color: colors.accentSubtle,
-    letterSpacing: 0.6,
-    fontSize: typography.sm,
-    textTransform: "uppercase",
-  },
-  link: {
-    color: colors.accentPrimary,
-    fontSize: typography.sm,
+  headerBackLabel: {
+    color: "#111111",
+    fontSize: typography.md,
+    fontWeight: "600",
   },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: "rgba(28, 54, 90, 0.95)",
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.18)",
+    borderColor: "rgba(194,224,255,0.42)",
   },
   title: {
     color: colors.textPrimary,
@@ -268,11 +327,11 @@ const styles = StyleSheet.create({
     lineHeight: typography.md * 1.4,
   },
   planCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: "rgba(255,255,255,0.1)",
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: "rgba(192,222,255,0.4)",
     gap: spacing.sm,
   },
   planHeader: {
@@ -298,12 +357,12 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
   },
   trialNotice: {
-    color: colors.warning,
+    color: "#FFD56A",
     fontSize: typography.sm,
     fontWeight: "700",
     lineHeight: typography.sm * 1.5,
-    backgroundColor: "rgba(242,201,76,0.12)",
-    borderColor: "rgba(242,201,76,0.5)",
+    backgroundColor: "rgba(255,213,106,0.18)",
+    borderColor: "rgba(255,213,106,0.62)",
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
@@ -327,13 +386,27 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     fontSize: typography.md,
   },
+  noticeCard: {
+    borderRadius: radius.md,
+    borderColor: "rgba(194,224,255,0.4)",
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  noticeText: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
   helperText: {
     color: colors.textSecondary,
     fontSize: typography.sm,
     marginTop: spacing.xs / 2,
   },
   errorText: {
-    color: "#ff8a8a",
+    color: "#FFB0B0",
     fontSize: typography.sm,
     flexShrink: 1,
     lineHeight: typography.sm * 1.4,
@@ -352,8 +425,15 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   primaryButton: {
+    backgroundColor: "rgba(56,116,255,0.35)",
+    borderColor: "rgba(190,216,255,0.95)",
+  },
+  secondaryButton: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(155,193,255,0.9)",
+    borderColor: "rgba(188,216,255,0.55)",
+  },
+  returnHomeButton: {
+    paddingVertical: spacing.sm,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -366,6 +446,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: typography.md,
   },
+  secondaryLabel: {
+    color: colors.textPrimary,
+    fontWeight: "600",
+    fontSize: typography.md,
+  },
   buttonPressed: {
     transform: [{ translateY: 1 }],
     opacity: 0.9,
@@ -373,5 +458,21 @@ const styles = StyleSheet.create({
   buttonGlass: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: radius.lg,
+    opacity: 0.7,
+  },
+  retryButton: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(181,212,255,0.5)",
+    backgroundColor: "rgba(170,199,255,0.22)",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  retryButtonLabel: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    fontWeight: "700",
   },
 });

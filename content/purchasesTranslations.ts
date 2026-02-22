@@ -17,6 +17,12 @@ export type PurchasesTranslations = {
   trialLabelMonth: string;
   trialLabelYear: string;
   trialCancelNotice: string;
+  storeBillingNotice: string;
+  cardInfoPolicy: string;
+  retryPricingCta: string;
+  returnHomeCta: string;
+  returningHomeCta: string;
+  returnHomeError: string;
   billingLabel: string;
   billingPlaceholder: string;
   completeSignupCta: string;
@@ -47,6 +53,15 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       trialLabelMonth: "{{count}}か月無料",
       trialLabelYear: "{{count}}年間無料",
       trialCancelNotice: "無料期間中にキャンセルすれば支払いは一切発生しません",
+      storeBillingNotice:
+        "支払い情報は App Store / Google Play で安全に管理されます。",
+      cardInfoPolicy:
+        "このアプリがクレジットカード番号を保存することはありません。",
+      retryPricingCta: "価格を再取得",
+      returnHomeCta: "ホームページへ戻る",
+      returningHomeCta: "戻っています...",
+      returnHomeError:
+        "ホームへ戻れませんでした。時間をおいて再度お試しください。",
       billingLabel: "請求先メールアドレス (任意)",
       billingPlaceholder: "you@example.com",
       completeSignupCta: "サインアップ完了",
@@ -73,6 +88,13 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       trialLabelYear: "Free for {{count}} year",
       trialCancelNotice:
         "If you cancel during the free trial, you will not be charged at all.",
+      storeBillingNotice:
+        "Payment details are managed securely by App Store or Google Play.",
+      cardInfoPolicy: "We never store your credit card number in this app.",
+      retryPricingCta: "Retry pricing",
+      returnHomeCta: "Return to home",
+      returningHomeCta: "Returning...",
+      returnHomeError: "Could not return home. Please try again.",
       billingLabel: "Billing contact email (optional)",
       billingPlaceholder: "you@example.com",
       completeSignupCta: "Complete sign-up",
@@ -101,6 +123,16 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       trialLabelYear: "{{count}} an gratuit",
       trialCancelNotice:
         "Si vous annulez pendant l'essai gratuit, vous ne serez pas facturé.",
+      //マリー再チェック
+      storeBillingNotice:
+        "Les informations de paiement sont gérées en sécurité par l’App Store ou Google Play.",
+      //マリー再チェック
+      cardInfoPolicy:
+        "Cette application ne stocke jamais votre numéro de carte bancaire.",
+      retryPricingCta: "Réessayer le tarif", //マリー再チェック
+      returnHomeCta: "Retour à l’accueil", //マリー再チェック
+      returningHomeCta: "Retour en cours...", //マリー再チェック
+      returnHomeError: "Impossible de revenir à l’accueil. Veuillez réessayer.", //マリー再チェック
       billingLabel: "E-mail de facturation (optionnel)",
       billingPlaceholder: "vous@exemple.com",
       completeSignupCta: "Terminer l’inscription",

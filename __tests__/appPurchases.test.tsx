@@ -19,11 +19,17 @@ jest.mock("../lib/revenuecatOfferings", () => ({
   fetchTestStorePackage: jest.fn(),
   purchaseSelectedPackage: jest.fn(),
 }));
-jest.mock("../lib/subscription");
+jest.mock("../lib/subscription", () => ({
+  ensureSignupAwaitSubscription: jest.fn(),
+  waitForActiveSubscription: jest.fn(),
+  canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
+    status === "active" || status === "trial",
+}));
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
       getSession: jest.fn(),
+      signOut: jest.fn(),
     },
   },
 }));
@@ -33,6 +39,7 @@ const mockPurchaseSelectedPackage = purchaseSelectedPackage as jest.Mock;
 const mockEnsureSignupAwaitSubscription = ensureSignupAwaitSubscription as jest.Mock;
 const mockWaitForActiveSubscription = waitForActiveSubscription as jest.Mock;
 const mockGetSession = supabase.auth.getSession as jest.Mock;
+const mockSignOut = supabase.auth.signOut as jest.Mock;
 
 const renderWithProviders = () =>
   render(
@@ -53,6 +60,7 @@ describe("Purchases screen", () => {
       data: { session: { user: { id: "user-123" } } },
       error: null,
     });
+    mockSignOut.mockResolvedValue({ error: null });
     mockEnsureSignupAwaitSubscription.mockResolvedValue({
       user_id: "user-123",
       status: "signupAwait",
@@ -76,6 +84,9 @@ describe("Purchases screen", () => {
 
     await screen.findByText(/then/i);
     await screen.findByText("If you cancel during the free trial, you will not be charged at all.");
+    await screen.findByText(
+      "Payment details are managed securely by App Store or Google Play. We never store your credit card number in this app."
+    );
 
     const button = await screen.findByRole("button", { name: "Complete sign-up" });
     fireEvent.press(button);
@@ -84,6 +95,39 @@ describe("Purchases screen", () => {
       expect(mockPurchaseSelectedPackage).toHaveBeenCalledWith({ identifier: "monthly" });
       expect(mockWaitForActiveSubscription).toHaveBeenCalledWith("user-123");
       expect(router.replace).toHaveBeenCalledWith("/dashboard");
+    });
+  });
+
+  it("retries loading pricing when retry button is pressed", async () => {
+    mockFetchTestStorePackage
+      .mockRejectedValueOnce(new Error("load failed"))
+      .mockResolvedValueOnce({
+        package: { identifier: "monthly" },
+        priceString: "$9.99",
+        trialDuration: { unit: "MONTH", value: 1 },
+      });
+
+    const screen = renderWithProviders();
+
+    const retryButton = await screen.findByRole("button", { name: "Retry pricing" });
+    fireEvent.press(retryButton);
+
+    await waitFor(() => {
+      expect(mockFetchTestStorePackage).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("signs out and returns to home when return-home button is pressed", async () => {
+    const screen = renderWithProviders();
+
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+
+    const returnButton = await screen.findByRole("button", { name: "Return to home" });
+    fireEvent.press(returnButton);
+
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalled();
+      expect(router.replace).toHaveBeenCalledWith("/");
     });
   });
 
@@ -102,6 +146,21 @@ describe("Purchases screen", () => {
     expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
   });
 
+  it("stays on purchases when subscription is canceled", async () => {
+    mockEnsureSignupAwaitSubscription.mockResolvedValue({
+      user_id: "user-123",
+      status: "canceled",
+    });
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(mockFetchTestStorePackage).toHaveBeenCalled();
+    });
+
+    expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
+  });
+
   it("localizes page label and trial notice in Japanese", async () => {
     await AsyncStorage.setItem("preferred_language", "ja");
     await i18n.changeLanguage("ja");
@@ -114,14 +173,14 @@ describe("Purchases screen", () => {
     await screen.findByText("無料期間中にキャンセルすれば支払いは一切発生しません");
   });
 
-  it("localizes page label and trial notice in French", async () => {
+  it("localizes purchase copy and trial notice in French", async () => {
     await AsyncStorage.setItem("preferred_language", "fr");
     await i18n.changeLanguage("fr");
     const screen = renderWithProviders();
 
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
 
-    await screen.findByText("Achat");
+    await screen.findByText("Ajouter un moyen de paiement");
     await screen.findByText(
       /Si vous annulez pendant l'essai gratuit/i
     );
