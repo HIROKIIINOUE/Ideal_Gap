@@ -16,6 +16,7 @@ type UserRow = Pick<
   Database["public"]["Tables"]["users"]["Row"],
   "id" | "had_account_before"
 >;
+const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = ["trial", "active"];
 
 const nowIso = () => new Date().toISOString();
 // 同じuserIdで複数回同時にensureSignupAwaitSubscription が呼ばれたとき、DBに重複行を挿入しないためのデータ構造。進行中のプロミス処理も一つにまとめてくれる。
@@ -39,6 +40,40 @@ export const getSubscriptionForUser = async (
   }
 
   return data as SubscriptionRow | null;
+};
+
+type WaitForActiveSubscriptionOptions = {
+  attempts?: number;
+  intervalMs?: number;
+};
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+// RevenueCat WebhookがDB反映するまで待機し、trial/activeになったら返す
+export const waitForActiveSubscription = async (
+  userId: string,
+  options?: WaitForActiveSubscriptionOptions,
+): Promise<SubscriptionRow | null> => {
+  const attempts = options?.attempts ?? 8;
+  const intervalMs = options?.intervalMs ?? 1000;
+
+  for (let i = 0; i < attempts; i += 1) {
+    const subscription = await getSubscriptionForUser(userId);
+    if (
+      subscription?.status &&
+      ACTIVE_SUBSCRIPTION_STATUSES.includes(subscription.status)
+    ) {
+      return subscription;
+    }
+    if (i < attempts - 1) {
+      await sleep(intervalMs);
+    }
+  }
+
+  return null;
 };
 
 // ユーザのサブスクリプションデータが存在していなかった場合、ユーザに紐づくサブスクリプションデータを新規作成するロジック

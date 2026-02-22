@@ -13,6 +13,10 @@ declare module "https://esm.sh/@supabase/supabase-js@2.45.4" {
   export * from "@supabase/supabase-js";
 }
 
+declare module "https://esm.sh/zod@4.1.13" {
+  export * from "zod";
+}
+
 declare const Deno: {
   env: {
     get(key: string): string | undefined;

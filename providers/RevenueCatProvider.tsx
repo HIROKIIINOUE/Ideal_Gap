@@ -2,8 +2,9 @@
 
 import { Session } from "@supabase/supabase-js";
 import { ReactNode, useEffect } from "react";
+import { Platform } from "react-native";
 import Purchases, { LOG_LEVEL } from "react-native-purchases";
-import { env } from "../lib/env";
+import { AppPlatform, env, resolveRevenueCatApiKey } from "../lib/env";
 import { supabase } from "../lib/supabaseClient";
 
 type Props = {
@@ -25,20 +26,52 @@ const syncAppUser = async (session: Session | null, currentAppUserId: string | n
 };
 
 export const RevenueCatProvider = ({ children }: Props) => {
+
+  // ユーザが端末でアプリを起動した時に、Platform.OSで「端末がiosかAndroidか」をジャッジし、端末のOSに対応した環境変数へ導く
   useEffect(() => {
+    const runtimePlatform =
+      Platform.OS === "ios" || Platform.OS === "android"
+        ? (Platform.OS as AppPlatform)
+        : null;
+    if (!runtimePlatform) {
+      console.warn(`[RevenueCat] unsupported platform: ${Platform.OS}`);
+      return;
+    }
+
     let mounted = true;
     let appUserId: string | null = null;
     let configured = false;
 
     // Supabase Authサインイン時に開発or本番環境に応じてRevenueCatの設定を初期化
-    const configurePurchases = async (initialAppUserId: string | null) => {
-      if (configured) return;
+    const configurePurchases = async (
+      initialAppUserId: string | null
+    ): Promise<boolean> => {
+      if (configured) return true;
+      const rawKey = resolveRevenueCatApiKey(env.appEnv, runtimePlatform);
+      if (!rawKey) {
+        const keyPrefix =
+          env.appEnv === "prod"
+            ? "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD"
+            : "EXPO_PUBLIC_REVENUECAT_API_KEY_DEV";
+        console.warn(
+          `[RevenueCat] missing api key for ${runtimePlatform}. Set ${keyPrefix}_${runtimePlatform.toUpperCase()} or ${keyPrefix}.`
+        );
+        return false;
+      }
+      const maskedKey =
+        rawKey.length > 10
+          ? `${rawKey.slice(0, 6)}...${rawKey.slice(-4)}`
+          : "***";
+      console.log(
+        `[RevenueCat] configure appEnv=${env.appEnv} platform=${runtimePlatform} key=${maskedKey} appUserId=${initialAppUserId ?? "anonymous"}`
+      );
       Purchases.setLogLevel(env.appEnv === "prod" ? LOG_LEVEL.ERROR : LOG_LEVEL.DEBUG);
       await Purchases.configure({
-        apiKey: env.revenueCatApiKey,
+        apiKey: rawKey,
         ...(initialAppUserId ? { appUserID: initialAppUserId } : {}),
       });
       configured = true;
+      return true;
     };
 
     const initialize = async () => {
@@ -49,7 +82,8 @@ export const RevenueCatProvider = ({ children }: Props) => {
       }
       if (!mounted) return;
       const initialAppUserId = data.session?.user?.id ?? null;
-      await configurePurchases(initialAppUserId);
+      const isReady = await configurePurchases(initialAppUserId);
+      if (!isReady) return;
       appUserId = await syncAppUser(data.session ?? null, appUserId);
     };
 
@@ -60,7 +94,10 @@ export const RevenueCatProvider = ({ children }: Props) => {
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       const nextAppUserId = session?.user?.id ?? null;
       configurePurchases(nextAppUserId)
-        .then(() => syncAppUser(session ?? null, appUserId))
+        .then((isReady) => {
+          if (!isReady) return appUserId;
+          return syncAppUser(session ?? null, appUserId);
+        })
         .then((updatedId) => {
           appUserId = updatedId;
         })

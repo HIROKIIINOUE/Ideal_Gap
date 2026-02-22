@@ -7,6 +7,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "APP_ENV": "dev"
+      },
       "android": {
         "image": "latest"
       },
@@ -23,6 +26,9 @@
     "preview": {
       "distribution": "internal",
       "channel": "main",
+      "env": {
+        "APP_ENV": "dev"
+      },
       "android": {
         "image": "latest"
       },

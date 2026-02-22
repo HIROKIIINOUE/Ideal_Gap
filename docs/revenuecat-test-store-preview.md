@@ -6,8 +6,9 @@
 
 - クライアント（Expo アプリ）側で使うのは **Public SDK Key のみ**。RC の Secret API Key はアプリに同梱しない。
 - `.env` には以下のようにクライアント用の公開鍵を持たせる。`APP_ENV` で dev/preview/prod を出し分け、`app.config.ts` から読み出す想定。
-  - `EXPO_PUBLIC_REVENUECAT_API_KEY_DEV`（Test Store 用 / 開発ビルド・Preview ビルド）
-  - `EXPO_PUBLIC_REVENUECAT_API_KEY_PROD`（本番ビルド）
+  - `EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_IOS` / `EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_ANDROID`（Test Store 用 / 開発ビルド・Preview ビルド）
+  - `EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_IOS` / `EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_ANDROID`（本番ビルド）
+  - 既存の `EXPO_PUBLIC_REVENUECAT_API_KEY_DEV` / `EXPO_PUBLIC_REVENUECAT_API_KEY_PROD` は後方互換フォールバックとして利用可能。
 - Webhook 用の `REVENUECAT_WEBHOOK_SECRET` と Supabase service key は **Supabase Edge Functions の環境変数（または EAS secrets）にのみ配置**し、モバイルの .env には置かない。
 
 ## RevenueCat ダッシュボード設定（Test Store + Preview）
@@ -29,7 +30,7 @@
 
 ## クライアント（Expo）側の SDK 設定
 
-- Dev/Preview ビルドでは `EXPO_PUBLIC_REVENUECAT_API_KEY_DEV` を使って `Purchases.configure` する。`appUserID` は **Supabase Auth UID** を渡し、subscriptions.user_id と一致させる。
+- Dev/Preview ビルドでは `EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_IOS` / `EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_ANDROID`（未設定なら `EXPO_PUBLIC_REVENUECAT_API_KEY_DEV`）を使って `Purchases.configure` する。`appUserID` は **Supabase Auth UID** を渡し、subscriptions.user_id と一致させる。
 - ログレベルは dev/preview では `DEBUG`、prod では `ERROR` などに絞る。
 - Offerings 取得: `standard_monthly` を取得し、`package.monthly` の価格・trial 情報を UI に表示（「初月無料・次月以降 ◯ CAD/30 日」表記をここから生成）。
 - 解約/支払い方法変更は要件 2-5-3, 2-5-4 の通りストア管理画面へのディープリンクを使用（RC SDK のメソッドではなく、App Store / Google Play へ遷移）。
@@ -54,6 +55,6 @@
 
 ## 運用メモ
 
-- 本番リリース時は Test Store を無効にし、`EXPO_PUBLIC_REVENUECAT_API_KEY_PROD` に切り替えるだけで SDK 側は同一コードを再利用できる。
+- 本番リリース時は Test Store を無効にし、`EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_IOS` / `EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_ANDROID` に切り替えるだけで SDK 側は同一コードを再利用できる。
 - 秘密鍵管理をより厳密にする場合は、モバイル向け .env には公開鍵のみを残し、Webhook/Edge Functions 用の鍵は Supabase の環境変数か EAS Secret に集約するのがベター。
 - Edge Function では `REVENUECAT_WEBHOOK_SECRET` と `SUPABASE_SERVICE_ROLE_KEY` を Supabase 側の環境変数にのみ配置し、クライアントの .env には置かない。
