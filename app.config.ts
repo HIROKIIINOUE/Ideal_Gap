@@ -1,7 +1,7 @@
 // Expo Go / 開発ビルド / 本番ビルドすべての元になる設定(ネイティブアプリ全体の設定)
 // expo start の時も、eas build の時も 毎回読み込まれる
 // 中の設定のうち、ネイティブに関わる部分を変えたときだけ 再ビルドが必要
-import { ConfigContext, ExpoConfig } from "@expo/config";
+import { ExpoConfig } from "@expo/config";
 
 const APP_ENV = process.env.APP_ENV ?? "dev";
 const isProd = APP_ENV === "prod";
@@ -9,16 +9,18 @@ const isProd = APP_ENV === "prod";
 // 認証ディープリンクは環境差異で詰まりやすいため、常に本番スキームを優先しつつ開発スキームも許可する
 const primaryScheme = "idealgap";
 const devScheme = "ideal-gap-dev";
-const schemes = isProd ? [primaryScheme, devScheme] : [primaryScheme, devScheme];
-const scheme = schemes[0];
+const schemes = isProd
+  ? [primaryScheme, devScheme]
+  : [primaryScheme, devScheme];
 const name = isProd ? "Ideal_Gap" : "Ideal_Gap (Dev)"; // アプリ名
-const bundleIdentifier = isProd
-  ? "com.hirokiiinoue.appIdealGap"
+const iosBundleIdentifier = isProd
+  ? "com.idealgap.app"
   : "com.hirokiiinoue.appIdealGap.dev";
-const androidPackage = bundleIdentifier;
+const androidPackage = isProd
+  ? "com.idealgap.app"
+  : "com.hirokiiinoue.appIdealGap.dev";
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
-  ...config,
+export default (): ExpoConfig => ({
   name,
   slug: "Ideal_Gap",
   version: "1.0.0",
@@ -28,16 +30,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
-    ...config.ios,
     supportsTablet: true,
-    bundleIdentifier,
+    bundleIdentifier: iosBundleIdentifier,
     infoPlist: {
-      ...config.ios?.infoPlist,
+      ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ["audio"],
     },
   },
   android: {
-    ...config.android,
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",

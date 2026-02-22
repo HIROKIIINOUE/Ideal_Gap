@@ -33,6 +33,9 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "env": {
+        "APP_ENV": "prod"
+      },
       "android": {
         "image": "latest"
       },
