@@ -444,3 +444,45 @@ Async Storage,expo-notifications で実装。
   　　→ カウントダウンを表示するリング進捗ゲージ(ドーナツ型)と時間を追加するプリセットボタン群の間が空きすぎている
   　・全体
   　　→文字が小さいので全体的に文字を大きくする
+- Sentry
+  課金・DL・ログインの致命的エラーを即把握。
+  エラーが起きたアプリのバージョンをRelease設定で追う
+  エラー数が爆発しないように「既知の軽微エラーは握りつぶす」設計
+  サイトで自動課金をOFFにする
+  ※ メールアドレスなど個人情報は Sentryに送らない
+
+  ＜カバー範囲(無料枠) / アプリユーザ400人程度で有料枠検討＞
+  ・RevenueCatでpurchase中に例外
+  ・Supabase auth失敗時の想定外エラー
+  ・作業音楽DL処理での未処理Promise rejection
+  ・Expo Audio再生クラッシュ
+
+  ＜無料枠を守るためのルール＞
+  productionのみ送信
+  サンプリング設定
+  通知はメールのみ
+
+- PostHog
+  「課金まで辿り着いているか？」「継続利用しているか？」などアプリを分析。
+  最初は無料枠(10イベント)で運用。(400ユーザらへんから有料検討)
+  ※ メールアドレスなど個人情報は PostHog に送らない
+
+  <マネタイズ関連（Paywall → 購入率、 トライアル → 本課金移行率をチェック）>
+  - ignup_completed
+  - paywall_viewed
+  - trial_started
+  - purchase_success
+  - purchase_failed
+
+  <継続率に直結するコア体験箇所箇所(核心機能がちゃんと使用されているか)>
+  - ocus_session_started
+  - focus_session_completed
+  - music_download_completed
+
+  <その他のチェック>
+  - language
+  - OS(iOSユーザかAndroidユーザか)
+
+  ＜無料枠を守るためのルール＞
+  画面表示イベントは送らない
+  Session ReplayはOFF
