@@ -89,6 +89,9 @@ export default function FeatureScreen() {
     if (key === "contact") {
       router.push("/contact");
     }
+    if (key === "payment") {
+      router.push("/payment-management");
+    }
   };
 
   const featureTitle = useMemo(() => {

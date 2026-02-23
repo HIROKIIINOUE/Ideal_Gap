@@ -91,8 +91,8 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           },
         },
         payment: {
-          title: "支払い方法の確認・変更・退会",
-          subtitle: "ストアの設定画面を開きます",
+          title: "支払い方法の変更・退会",
+          subtitle: "支払い方法を更新します",
         },
         profile: {
           title: "プロフィール変更",
@@ -229,7 +229,7 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
         },
         payment: {
           title: "Gérer le paiement",
-          subtitle: "Ouvrir les réglages de la boutique",
+          subtitle: "Ouvrir les réglages de la boutique", // マリー再チェック
         },
         profile: {
           title: "Modifier le profil",

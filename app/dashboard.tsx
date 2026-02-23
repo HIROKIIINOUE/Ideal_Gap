@@ -88,6 +88,9 @@ export default function Dashboard() {
     if (key === "contact") {
       router.push("/contact");
     }
+    if (key === "payment") {
+      router.push("/payment-management");
+    }
   };
 
   // ディスパッチャーである[feature].tsxに遷移させ、paramsを渡す

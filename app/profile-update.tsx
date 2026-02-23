@@ -244,6 +244,9 @@ export default function ProfileUpdate() {
     if (key === "contact") {
       router.push("/contact");
     }
+    if (key === "payment") {
+      router.push("/payment-management");
+    }
   };
 
   return (
