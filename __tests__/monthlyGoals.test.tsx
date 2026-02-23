@@ -197,7 +197,7 @@ describe("MonthlyGoalsScreen", () => {
     expect((await findAllByText("Target"))[0]).toBeTruthy();
     expect(await findByText("50h")).toBeTruthy();
     expect((await findAllByText("Logged"))[0]).toBeTruthy();
-    expect(await findByText("To goal")).toBeTruthy();
+    expect((await findAllByText("Remaining"))[0]).toBeTruthy();
     const totals = await findAllByText("25h");
     expect(totals.length).toBeGreaterThan(1);
   });
@@ -256,7 +256,7 @@ describe("MonthlyGoalsScreen", () => {
 
     await waitFor(() => expect(deleteMonthlyGoalWithWeeklyTasks).toHaveBeenCalledWith("mg-feb-1"));
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted", "Deletion completed.");
+      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted", "Deleted successfully.");
     });
   });
 
@@ -271,7 +271,7 @@ describe("MonthlyGoalsScreen", () => {
     fireEvent.press(getAllByRole("button", { name: "Delete all" })[0]);
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted all", "All monthly goals were removed.");
+      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted all", "All monthly goals were deleted.");
     });
   });
 });

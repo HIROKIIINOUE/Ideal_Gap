@@ -239,8 +239,8 @@ describe("FocusMusicScreen", () => {
     });
 
     expect(Alert.alert).toHaveBeenCalledWith(
-      "Install limit reached",
-      "You can install up to 5 tracks. Remove a track from your list to install another one.",
+      "download limit reached",
+      "You can download up to 5 tracks. Remove a track from your list to download another one.",
     );
   });
 

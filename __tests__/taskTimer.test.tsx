@@ -256,7 +256,7 @@ describe("TaskTimerScreen", () => {
       });
 
       expect(mockGetPermissionsAsync).toHaveBeenCalled();
-      expect(getByText("Allow notifications so we can alert you when the timer ends.")).toBeTruthy();
+      expect(getByText("Allow notifications so we can notify you when the timer ends.")).toBeTruthy();
     } finally {
       jest.useFakeTimers();
     }
@@ -279,7 +279,7 @@ describe("TaskTimerScreen", () => {
       });
 
       expect(mockGetPermissionsAsync).toHaveBeenCalled();
-      expect(queryByText("Allow notifications so we can alert you when the timer ends.")).toBeNull();
+      expect(queryByText("Allow notifications so we can notify you when the timer ends.")).toBeNull();
     } finally {
       jest.useFakeTimers();
     }
@@ -304,7 +304,7 @@ describe("TaskTimerScreen", () => {
       fireEvent.press(getByText("Open settings"));
 
       await waitFor(() => expect(mockOpenSettings).toHaveBeenCalled());
-      expect(queryByText("Allow notifications so we can alert you when the timer ends.")).toBeNull();
+      expect(queryByText("Allow notifications so we can notify you when the timer ends.")).toBeNull();
     } finally {
       jest.useFakeTimers();
     }
@@ -459,7 +459,7 @@ describe("TaskTimerScreen", () => {
 
     fireEvent.press(getByText("+5m"));
     fireEvent.press(getByText("Mark done"));
-    fireEvent.press(getByText("Save and finish"));
+    fireEvent.press(getByText("Save"));
 
     await waitFor(() =>
       expect(alertSpy).toHaveBeenCalledWith(

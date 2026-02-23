@@ -263,7 +263,7 @@ describe("WeeklyTasksScreen", () => {
     fireEvent.press(getAllByRole("button", { name: "Delete all" })[0]);
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted all", "All weekly tasks were removed.");
+      expect(Alert.alert).toHaveBeenLastCalledWith("Deleted all", "All weekly tasks were deleted.");
     });
   });
 });

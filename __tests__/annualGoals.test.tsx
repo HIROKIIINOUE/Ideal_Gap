@@ -197,7 +197,7 @@ describe("AnnualGoalsScreen", () => {
   test("fetches goals, renders them, and persists reordered data with user id", async () => {
     const { findByText } = renderScreen();
 
-    expect(await findByText("Total focus time")).toBeTruthy();
+    expect(await findByText("Total Focus Time")).toBeTruthy();
     expect(await findByText("Career leap with shipped projects and portfolio refresh")).toBeTruthy();
 
     await waitFor(() => expect(mockUpsert).toHaveBeenCalled());
