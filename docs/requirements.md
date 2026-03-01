@@ -418,61 +418,73 @@ Async Storage,expo-notifications で実装。
 
 ## 3, 非機能要件
 
-- パフォーマンス
-  → 主要画面の初回表示は 2 秒以内を目標
-- 安定性
-  → 致命的クラッシュ率 1% 未満
-- セキュリティ
-  → パスワード・支払い情報は業界標準の手法で保護。
-- オフライン対応
-  　オフライン検知した瞬間に
-  • loading を false にする
-  • offline_blocked 状態に切り替える
-  • ローディング画面(スピナー)は表示しない
-  • ネット必須操作はdisabled
-  • 「You're offline」のバナー表示
-  • 該当ページにキャッシュ保存された直近のデータを用いてページを表示(AsyncStorage)
-  　※各キャッシュデータはから配列を保存しないこと。必ず成功データのみをキャッシュ化する
-  　※キャッシュがない場合は専用の「インターネットに接続してください」ページを表示する
-- iPad対応
-  　本アプリはiPhoneだけでなくiPadも想定したい。
-  　ただメインはiPhoneであり、UI/UXはiPhoneを第一優先で構築する。
-  　・ランディングページ
-  　　→ スクロールに応じた各カードの出現(フェードイン)がiPhone用の値になっているため、
-  　　　 iPadはiPad用の値を設定する必要あり。
-  　・タスクタイマーページ
-  　　→ カウントダウンを表示するリング進捗ゲージ(ドーナツ型)と時間を追加するプリセットボタン群の間が空きすぎている
-  　・全体
-  　　→文字が小さいので全体的に文字を大きくする
-- Sentry
-  課金・DL・ログインの致命的エラーを即把握。
-  エラーが起きたアプリのバージョンをRelease設定で追う
-  エラー数が爆発しないように「既知の軽微エラーは握りつぶす」設計
-  サイトで自動課金をOFFにする
-  ※ メールアドレスなど個人情報は Sentryに送らない
+１） パフォーマンス
 
-  ＜カバー範囲(無料枠) / アプリユーザ400人程度で有料枠検討＞
-  ・RevenueCatでpurchase中に例外
-  ・Supabase auth失敗時の想定外エラー
-  ・作業音楽DL処理での未処理Promise rejection
-  ・Expo Audio再生クラッシュ
+→ 主要画面の初回表示は 2 秒以内を目標
 
-  ＜無料枠を守るためのルール＞
-  productionのみ送信
-  サンプリング設定
-  通知はメールのみ
+２） 安定性
 
-  ＜以下軽微なエラーはノイズとして除去する＞
-  - AbortError / The operation was aborted
-    リクエストがユーザー操作や画面遷移で中断された状態。異常より「処理中断」の意味が強い。
-  - User canceled / Purchase was cancelled
-    購入フローでユーザーが確定せず閉じたケース。課金障害ではなく想定動作。
-  - canceled / cancelled / user cancelled
-    ユーザーが明示的に操作を中止した結果。正常なユーザー行動として扱う。
-  - E_PICKER_CANCELLED（ファイル/画像選択のキャンセル）
-    画像・ファイル選択をユーザーが閉じたときの標準的なキャンセルコード。
-  - ERR_CANCELED（axios等のキャンセル）
-    axiosのCancelToken/AbortControllerで意図的に止めたリクエスト。異常ではない。
+→ 致命的クラッシュ率 1% 未満
+
+３） セキュリティ
+
+→ パスワード・支払い情報は業界標準の手法で保護。
+
+４） オフライン対応
+
+　オフライン検知した瞬間に
+• loading を false にする
+• offline_blocked 状態に切り替える
+• ローディング画面(スピナー)は表示しない
+• ネット必須操作はdisabled
+• 「You're offline」のバナー表示
+• 該当ページにキャッシュ保存された直近のデータを用いてページを表示(AsyncStorage)
+　※各キャッシュデータはから配列を保存しないこと。必ず成功データのみをキャッシュ化する
+　※キャッシュがない場合は専用の「インターネットに接続してください」ページを表示する
+
+５） iPad対応
+
+　本アプリはiPhoneだけでなくiPadも想定したい。
+　ただメインはiPhoneであり、UI/UXはiPhoneを第一優先で構築する。
+　・ランディングページ
+　　→ スクロールに応じた各カードの出現(フェードイン)がiPhone用の値になっているため、
+　　　 iPadはiPad用の値を設定する必要あり。
+　・タスクタイマーページ
+　　→ カウントダウンを表示するリング進捗ゲージ(ドーナツ型)と時間を追加するプリセットボタン群の間が空きすぎている
+　・全体
+　　→文字が小さいので全体的に文字を大きくする
+
+６） Sentry
+
+課金・DL・ログインの致命的エラーを即把握。
+エラーが起きたアプリのバージョンをRelease設定で追う
+エラー数が爆発しないように「既知の軽微エラーは握りつぶす」設計
+サイトで自動課金をOFFにする
+※ メールアドレスなど個人情報は Sentryに送らない
+
+＜カバー範囲(無料枠) / アプリユーザ400人程度で有料枠検討＞
+・RevenueCatでpurchase中に例外
+・Supabase auth失敗時の想定外エラー
+・作業音楽DL処理での未処理Promise rejection
+・Expo Audio再生クラッシュ
+
+＜無料枠を守るためのルール＞
+productionのみ送信
+サンプリング設定
+通知はメールのみ
+
+＜以下軽微なエラーはノイズとして除去する＞
+
+- AbortError / The operation was aborted
+  リクエストがユーザー操作や画面遷移で中断された状態。異常より「処理中断」の意味が強い。
+- User canceled / Purchase was cancelled
+  購入フローでユーザーが確定せず閉じたケース。課金障害ではなく想定動作。
+- canceled / cancelled / user cancelled
+  ユーザーが明示的に操作を中止した結果。正常なユーザー行動として扱う。
+- E_PICKER_CANCELLED（ファイル/画像選択のキャンセル）
+  画像・ファイル選択をユーザーが閉じたときの標準的なキャンセルコード。
+- ERR_CANCELED（axios等のキャンセル）
+  axiosのCancelToken/AbortControllerで意図的に止めたリクエスト。異常ではない。
 
 　 ＜以下は今後検討！　以下軽微なエラーはノイズとして除去する＞
 
@@ -495,27 +507,31 @@ Async Storage,expo-notifications で実装。
 - 429（一時的レート制限、リトライ前提のもの）
   リクエスト過多による制限。短時間で回復することが多く、単発通知はノイズになりやすい。
 
-- PostHog
-  「課金まで辿り着いているか？」「継続利用しているか？」などアプリを分析。
-  最初は無料枠(10イベント)で運用。(400ユーザらへんから有料検討)
-  ※ メールアドレスなど個人情報は PostHog に送らない
+７） PostHog
 
-  <マネタイズ関連（Paywall → 購入率、 トライアル → 本課金移行率をチェック）>
-  - ignup_completed
-  - paywall_viewed
-  - trial_started
-  - purchase_success
-  - purchase_failed
+「課金まで辿り着いているか？」「継続利用しているか？」などアプリを分析。
+最初は無料枠(10イベント)で運用。(400ユーザらへんから有料検討)
+※ メールアドレスなど個人情報は PostHog に送らない
 
-  <継続率に直結するコア体験箇所箇所(核心機能がちゃんと使用されているか)>
-  - ocus_session_started
-  - focus_session_completed
-  - music_download_completed
+<マネタイズ関連（Paywall → 購入率、 トライアル → 本課金移行率をチェック）>
 
-  <その他のチェック>
-  - language
-  - OS(iOSユーザかAndroidユーザか)
+- ignup_completed
+- paywall_viewed
+- trial_started
+- purchase_success
+- purchase_failed
 
-  ＜無料枠を守るためのルール＞
-  画面表示イベントは送らない
-  Session ReplayはOFF
+<継続率に直結するコア体験箇所箇所(核心機能がちゃんと使用されているか)>
+
+- ocus_session_started
+- focus_session_completed
+- music_download_completed
+
+<その他のチェック>
+
+- language
+- OS(iOSユーザかAndroidユーザか)
+
+＜無料枠を守るためのルール＞
+画面表示イベントは送らない
+Session ReplayはOFF

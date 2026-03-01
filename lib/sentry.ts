@@ -108,6 +108,7 @@ export const initSentry = () => {
     sendDefaultPii: false,
     tracesSampleRate: IS_PRODUCTION ? 0.1 : 0,
     profilesSampleRate: IS_PRODUCTION ? 0.1 : 0,
+    // beforeSend()で「error + 付加情報」が反映されたevent を最終フィルタする
     beforeSend(event, hint) {
       const message = getEventMessage(event, hint);
       if (shouldIgnoreSentryError(message)) {
@@ -118,6 +119,7 @@ export const initSentry = () => {
   });
 };
 
+// RevenueCat 購入処理でのエラーをキャッチ
 export const captureRevenueCatPurchaseError = (error: unknown) => {
   Sentry.captureException(error, {
     tags: {
@@ -128,6 +130,7 @@ export const captureRevenueCatPurchaseError = (error: unknown) => {
   });
 };
 
+// サインアップ、ログイン、パスワードリセットのエラーをキャッチ
 export const captureSupabaseAuthUnexpectedError = (
   error: unknown,
   operation:
@@ -141,10 +144,11 @@ export const captureSupabaseAuthUnexpectedError = (
       area: "auth",
       operation,
     },
-    level: "error",
+    level: "fatal",
   });
 };
 
+// タスク集中音楽のダウンロード失敗エラーをキャッチ
 export const captureMusicDownloadError = (error: unknown, trackId?: string) => {
   Sentry.captureException(error, {
     tags: {
@@ -158,6 +162,7 @@ export const captureMusicDownloadError = (error: unknown, trackId?: string) => {
   });
 };
 
+// タスク集中音楽の再生、カタログ内での試聴再生、アプリ起動時のアプリ内オーディオ設定でのエラーをキャッチ
 export const captureExpoAudioError = (error: unknown, context: string) => {
   Sentry.captureException(error, {
     tags: {
