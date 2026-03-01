@@ -32,6 +32,8 @@ jest.mock("../components/Footer", () => () => null);
 jest.mock("../lib/revenuecatOfferings", () => ({
   fetchTestStorePackage: (...args: unknown[]) => mockFetchTestStorePackage(...args),
   purchaseSelectedPackage: (...args: unknown[]) => mockPurchaseSelectedPackage(...args),
+  hasActiveEntitlement: (customerInfo: any, entitlementId = "premium") =>
+    Boolean(customerInfo?.entitlements?.active?.[entitlementId]),
 }));
 
 jest.mock("../lib/subscription", () => ({
@@ -87,7 +89,9 @@ beforeEach(() => {
   });
   mockEnsureSignupAwaitSubscription.mockResolvedValue({ status: "signupAwait" });
   mockGetUserProfile.mockResolvedValue({ id: "user-123", had_account_before: false });
-  mockPurchaseSelectedPackage.mockResolvedValue({ customerInfo: {} });
+  mockPurchaseSelectedPackage.mockResolvedValue({
+    customerInfo: { entitlements: { active: { premium: { identifier: "premium" } } } },
+  });
   mockWaitForActiveSubscription.mockResolvedValue({ status: "trial" });
 });
 
@@ -113,6 +117,21 @@ describe("Purchases screen", () => {
     await waitFor(() => expect(mockPurchaseSelectedPackage).toHaveBeenCalled());
     expect(mockWaitForActiveSubscription).toHaveBeenCalledWith("user-123");
     expect(router.replace).toHaveBeenCalledWith("/dashboard");
+  });
+
+  test("does not proceed when premium entitlement is not active", async () => {
+    mockPurchaseSelectedPackage.mockResolvedValueOnce({
+      customerInfo: { entitlements: { active: {} } },
+    });
+
+    const { getByText } = renderScreen();
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+
+    fireEvent.press(getByText("Complete sign-up"));
+
+    await waitFor(() => expect(mockPurchaseSelectedPackage).toHaveBeenCalled());
+    expect(mockWaitForActiveSubscription).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
   });
 
   test("keeps load error message wrapped inside the plan card", async () => {

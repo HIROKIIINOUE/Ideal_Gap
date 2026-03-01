@@ -26,7 +26,6 @@ const syncAppUser = async (session: Session | null, currentAppUserId: string | n
 };
 
 export const RevenueCatProvider = ({ children }: Props) => {
-
   // ユーザが端末でアプリを起動した時に、Platform.OSで「端末がiosかAndroidか」をジャッジし、端末のOSに対応した環境変数へ導く
   useEffect(() => {
     const runtimePlatform =
@@ -41,37 +40,52 @@ export const RevenueCatProvider = ({ children }: Props) => {
     let mounted = true;
     let appUserId: string | null = null;
     let configured = false;
+    let configurePromise: Promise<boolean> | null = null;
 
     // Supabase Authサインイン時に開発or本番環境に応じてRevenueCatの設定を初期化
     const configurePurchases = async (
       initialAppUserId: string | null
     ): Promise<boolean> => {
       if (configured) return true;
-      const rawKey = resolveRevenueCatApiKey(env.appEnv, runtimePlatform);
-      if (!rawKey) {
-        const keyPrefix =
-          env.appEnv === "prod"
-            ? "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD"
-            : "EXPO_PUBLIC_REVENUECAT_API_KEY_DEV";
-        console.warn(
-          `[RevenueCat] missing api key for ${runtimePlatform}. Set ${keyPrefix}_${runtimePlatform.toUpperCase()} or ${keyPrefix}.`
+      if (configurePromise) return configurePromise;
+
+      configurePromise = (async (): Promise<boolean> => {
+        const alreadyConfigured = await Purchases.isConfigured();
+        if (alreadyConfigured) {
+          configured = true;
+          return true;
+        }
+
+        const rawKey = resolveRevenueCatApiKey(env.appEnv, runtimePlatform);
+        if (!rawKey) {
+          const keyPrefix =
+            env.appEnv === "prod"
+              ? "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD"
+              : "EXPO_PUBLIC_REVENUECAT_API_KEY_DEV";
+          console.warn(
+            `[RevenueCat] missing api key for ${runtimePlatform}. Set ${keyPrefix}_${runtimePlatform.toUpperCase()} or ${keyPrefix}.`
+          );
+          return false;
+        }
+        const maskedKey =
+          rawKey.length > 10
+            ? `${rawKey.slice(0, 6)}...${rawKey.slice(-4)}`
+            : "***";
+        console.log(
+          `[RevenueCat] configure appEnv=${env.appEnv} platform=${runtimePlatform} key=${maskedKey} appUserId=${initialAppUserId ?? "anonymous"}`
         );
-        return false;
-      }
-      const maskedKey =
-        rawKey.length > 10
-          ? `${rawKey.slice(0, 6)}...${rawKey.slice(-4)}`
-          : "***";
-      console.log(
-        `[RevenueCat] configure appEnv=${env.appEnv} platform=${runtimePlatform} key=${maskedKey} appUserId=${initialAppUserId ?? "anonymous"}`
-      );
-      Purchases.setLogLevel(env.appEnv === "prod" ? LOG_LEVEL.ERROR : LOG_LEVEL.DEBUG);
-      await Purchases.configure({
-        apiKey: rawKey,
-        ...(initialAppUserId ? { appUserID: initialAppUserId } : {}),
+        Purchases.setLogLevel(env.appEnv === "prod" ? LOG_LEVEL.ERROR : LOG_LEVEL.DEBUG);
+        Purchases.configure({
+          apiKey: rawKey,
+          ...(initialAppUserId ? { appUserID: initialAppUserId } : {}),
+        });
+        configured = true;
+        return true;
+      })().finally(() => {
+        configurePromise = null;
       });
-      configured = true;
-      return true;
+
+      return configurePromise;
     };
 
     const initialize = async () => {

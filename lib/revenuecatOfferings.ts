@@ -1,10 +1,11 @@
 // 指定のオファリング/パッケージを取得し、購入処理を起動する機能。「どのサブスク商品を表示・購入させるか」をここで集約。
 // このファイルで設定したオファリングとパッケージIDは必ずRevenueCat側の設定と揃えること
-import Purchases, { PurchasesPackage } from "react-native-purchases";
+import Purchases, { CustomerInfo, PurchasesPackage } from "react-native-purchases";
 
 // ここで取得対象のオファリング/パッケージを指定する
 export const TEST_STORE_OFFERING_ID = "standard_monthly";
 export const TEST_STORE_PACKAGE_ID = "monthly";
+export const PREMIUM_ENTITLEMENT_ID = "premium";
 
 type PackageIntroPrice = NonNullable<PurchasesPackage["product"]["introPrice"]>;
 
@@ -80,3 +81,8 @@ export const fetchTestStorePackage =
 // 呼び出し時にRevenueCatがネイティブの購入フローを開始し、ユーザーが購入を完了するとサーバー検証済みの購入情報（CustomerInfo）が返ってくる。ユーザがキャンセルした場合は戻り値のuserCancelledがtrueになる。
 export const purchaseSelectedPackage = (pkg: PurchasesPackage) =>
   Purchases.purchasePackage(pkg);
+
+export const hasActiveEntitlement = (
+  customerInfo: CustomerInfo | null | undefined,
+  entitlementId: string = PREMIUM_ENTITLEMENT_ID
+) => Boolean(customerInfo?.entitlements?.active?.[entitlementId]);

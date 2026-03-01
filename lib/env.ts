@@ -6,6 +6,20 @@ import { z } from "zod";
 const appEnvSchema = z.enum(["dev", "preview", "prod"]);
 const requiredString = (envKey: string) => z.string().min(1, envKey);
 
+// ExpoのEXPO_PUBLIC_*置換は静的参照(process.env.FOO)が前提。
+// 動的参照(process.env[key])だと本番バンドルで未解決になる場合があるため、
+// 必要キーはここで明示的に読み取る。
+const publicEnv = {
+  supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  revenueCatDevIos: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_IOS,
+  revenueCatDevAndroid: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_ANDROID,
+  revenueCatDevLegacy: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV,
+  revenueCatProdIos: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_IOS,
+  revenueCatProdAndroid: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_ANDROID,
+  revenueCatProdLegacy: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_PROD,
+} as const;
+
 const createEnvSchema = (revenueCatKeyName: string) =>
   z.object({
     appEnv: appEnvSchema,
@@ -36,38 +50,19 @@ const resolveAppEnv = (): AppEnvironment => {
   return "dev";
 };
 
-// 「本番 or 開発」「iOS or Android」で条件分岐し、結果に応じて .envで参照するRevenue Cat環境変数のキー名を配列で返す
-// 配列の２番目はプラットフォームが取得できなかった時用のフォールバック
-export const getRevenueCatEnvKeyCandidates = (
-  appEnv: AppEnvironment,
-  platform: AppPlatform,
-) => {
-  const platformSuffix = platform === "ios" ? "IOS" : "ANDROID";
-
-  if (appEnv === "prod") {
-    return [
-      `EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_${platformSuffix}`,
-      "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD",
-    ];
-  }
-
-  return [
-    `EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_${platformSuffix}`,
-    "EXPO_PUBLIC_REVENUECAT_API_KEY_DEV",
-  ];
-};
-
-// getRevenueCatEnvKeyCandidatesから返された環境変数キーの配列に対して、
-// １番目(本命)が正しい時はresolveRevenueCatApiKeyにそれを格納、正しくない時は2番目(フォールバック)を格納
+// appEnv と platform から優先キー（iOS/Android）とフォールバックキー（legacy）を順に評価する。
 export const resolveRevenueCatApiKey = (
   appEnv: AppEnvironment,
   platform: AppPlatform,
 ) =>
-  getRevenueCatEnvKeyCandidates(appEnv, platform)
-    .map((keyName) => process.env[keyName])
-    .find(
-      (value): value is string => typeof value === "string" && value.length > 0,
-    );
+  (appEnv === "prod"
+    ? (platform === "ios"
+        ? [publicEnv.revenueCatProdIos, publicEnv.revenueCatProdLegacy]
+        : [publicEnv.revenueCatProdAndroid, publicEnv.revenueCatProdLegacy])
+    : (platform === "ios"
+        ? [publicEnv.revenueCatDevIos, publicEnv.revenueCatDevLegacy]
+        : [publicEnv.revenueCatDevAndroid, publicEnv.revenueCatDevLegacy])
+  ).find((value): value is string => typeof value === "string" && value.length > 0);
 
 // 「本番 or 開発」「iOS or Android」で条件分岐し、結果に応じて環境変数をオブジェクト形式で返す。
 // Supabaseはどの環境でも同じ値、RevenueCatのみ状況に応じて値が変わる
@@ -91,8 +86,8 @@ export const getValidatedEnv = (): AppEnv => {
 
   const parsed = envSchema.safeParse({
     appEnv,
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    supabaseUrl: publicEnv.supabaseUrl,
+    supabaseAnonKey: publicEnv.supabaseAnonKey,
     revenueCatApiKey: resolvedRevenueCatApiKey,
   });
 

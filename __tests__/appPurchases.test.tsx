@@ -18,6 +18,8 @@ import { supabase } from "../lib/supabaseClient";
 jest.mock("../lib/revenuecatOfferings", () => ({
   fetchTestStorePackage: jest.fn(),
   purchaseSelectedPackage: jest.fn(),
+  hasActiveEntitlement: (customerInfo: any, entitlementId = "premium") =>
+    Boolean(customerInfo?.entitlements?.active?.[entitlementId]),
 }));
 jest.mock("../lib/subscription", () => ({
   ensureSignupAwaitSubscription: jest.fn(),
@@ -71,7 +73,9 @@ describe("Purchases screen", () => {
       trialDuration: { unit: "MONTH", value: 1 },
     });
     mockWaitForActiveSubscription.mockResolvedValue({ status: "trial" });
-    mockPurchaseSelectedPackage.mockResolvedValue({});
+    mockPurchaseSelectedPackage.mockResolvedValue({
+      customerInfo: { entitlements: { active: { premium: { identifier: "premium" } } } },
+    });
     (router.replace as jest.Mock).mockClear();
   });
 

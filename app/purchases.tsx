@@ -18,6 +18,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { getPlanPriceCopy, getTrialLabel } from "../lib/planCopy";
 import {
   fetchTestStorePackage,
+  hasActiveEntitlement,
   purchaseSelectedPackage,
   TestStorePlan,
 } from "../lib/revenuecatOfferings";
@@ -127,7 +128,10 @@ export default function Purchases() {
     setIsProcessing(true);
 
     try {
-      await purchaseSelectedPackage(plan.package);
+      const { customerInfo } = await purchaseSelectedPackage(plan.package);
+      if (!hasActiveEntitlement(customerInfo)) {
+        throw new Error("premium entitlement is not active");
+      }
       const syncedSubscription = await waitForActiveSubscription(userId);
       if (!syncedSubscription) {
         throw new Error("subscription sync timed out");

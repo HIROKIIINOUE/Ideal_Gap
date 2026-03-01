@@ -65,28 +65,16 @@ describe("getValidatedEnv", () => {
     expect(moduleEnv.getValidatedEnv().revenueCatApiKey).toBe("rc-prod-ios");
   });
 
-  test("returns iOS candidate keys for production", () => {
+  test("uses iOS specific development RevenueCat key when available", () => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
-    process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV = "rc-test-key";
+    process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_IOS = "rc-dev-ios";
     process.env.APP_ENV = "dev";
-    const moduleEnv = loadEnvModule();
-    expect(moduleEnv.getRevenueCatEnvKeyCandidates("prod", "ios")).toEqual([
-      "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_IOS",
-      "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD",
-    ]);
-  });
 
-  test("returns Android candidate keys for production", () => {
-    process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
-    process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV = "rc-test-key";
-    process.env.APP_ENV = "dev";
     const moduleEnv = loadEnvModule();
-    expect(moduleEnv.getRevenueCatEnvKeyCandidates("prod", "android")).toEqual([
-      "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_ANDROID",
-      "EXPO_PUBLIC_REVENUECAT_API_KEY_PROD",
-    ]);
+
+    expect(moduleEnv.resolveRevenueCatApiKey("dev", "ios")).toBe("rc-dev-ios");
+    expect(moduleEnv.getValidatedEnv().revenueCatApiKey).toBe("rc-dev-ios");
   });
 
   test("uses Android specific production RevenueCat key when available", () => {
