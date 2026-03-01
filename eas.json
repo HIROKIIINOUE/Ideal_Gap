@@ -36,7 +36,26 @@
         "image": "latest"
       }
     },
+    "production-internal": {
+      "environment": "production",
+      "distribution": "internal",
+      "channel": "production",
+      "buildArtifactPaths": [
+        "ios/build/**/*"
+      ],
+      "env": {
+        "APP_ENV": "prod"
+      },
+      "android": {
+        "image": "latest",
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "image": "latest"
+      }
+    },
     "production": {
+      "environment": "production",
       "channel": "production",
       "autoIncrement": true,
       "env": {

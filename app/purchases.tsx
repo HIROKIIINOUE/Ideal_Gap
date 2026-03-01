@@ -26,6 +26,7 @@ import {
   ensureSignupAwaitSubscription,
   waitForActiveSubscription,
 } from "../lib/subscription";
+import { captureRevenueCatPurchaseError } from "../lib/sentry";
 import { supabase } from "../lib/supabaseClient";
 
 export default function Purchases() {
@@ -138,6 +139,7 @@ export default function Purchases() {
       if (cancelled) {
         showToast(t("purchaseCancelled"));
       } else {
+        captureRevenueCatPurchaseError(error);
         showToast(t("purchaseError"));
       }
     } finally {

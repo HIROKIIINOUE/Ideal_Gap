@@ -13,6 +13,11 @@ import i18n from "../i18n";
 import { restoreSession } from "../lib/authBootstrap";
 import { getNormalizedLinkPath, resolveAuthCallbackTarget } from "../lib/authCallbackRouting";
 import { parseAuthTokensFromUrl } from "../lib/deepLink";
+import {
+  captureExpoAudioError,
+  initSentry,
+  SentryErrorBoundary,
+} from "../lib/sentry";
 import { ensureSignupAwaitSubscription } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
@@ -22,6 +27,7 @@ import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 import { OfflineProvider } from "../providers/OfflineProvider";
 
 SplashScreen.preventAutoHideAsync();
+initSentry();
 
 //　URLの＃以降からトークン(access_tokenとrefresh_token)を抽出するロジック。両方とも揃ってなければnullを返す。
 // access_token: 認証済みユーザであることを示すJWT(APIアクセス時に使う)
@@ -57,6 +63,7 @@ export default function RootLayout() {
       shouldRouteThroughEarpiece: false,
     }).catch((error) => {
       console.warn("Failed to set audio mode", error);
+      captureExpoAudioError(error, "set_audio_mode");
     });
   }, []);
 
@@ -137,20 +144,22 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <I18nextProvider i18n={i18n}>
-      <LanguageProvider>
-        <OfflineProvider>
-          <FunPlanProvider>
-            <FocusMusicProvider>
-              <RevenueCatProvider>
-                <Stack />
-                <OfflineBanner />
-                <SplashOverlay visible={showSplash} />
-              </RevenueCatProvider>
-            </FocusMusicProvider>
-          </FunPlanProvider>
-        </OfflineProvider>
-      </LanguageProvider>
-    </I18nextProvider>
+    <SentryErrorBoundary>
+      <I18nextProvider i18n={i18n}>
+        <LanguageProvider>
+          <OfflineProvider>
+            <FunPlanProvider>
+              <FocusMusicProvider>
+                <RevenueCatProvider>
+                  <Stack />
+                  <OfflineBanner />
+                  <SplashOverlay visible={showSplash} />
+                </RevenueCatProvider>
+              </FocusMusicProvider>
+            </FunPlanProvider>
+          </OfflineProvider>
+        </LanguageProvider>
+      </I18nextProvider>
+    </SentryErrorBoundary>
   );
 }

@@ -34,6 +34,13 @@ jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageCode: 'ja' }],
 }));
 
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  captureException: jest.fn(),
+  flush: jest.fn().mockResolvedValue(true),
+  ErrorBoundary: ({ children }) => children,
+}));
+
 // Mock Animated timing/loop to avoid async timers during tests.
 jest.mock('react-native/Libraries/Animated/Animated', () => {
   const ActualAnimated = jest.requireActual('react-native/Libraries/Animated/Animated');

@@ -462,6 +462,39 @@ Async Storage,expo-notifications で実装。
   サンプリング設定
   通知はメールのみ
 
+  ＜以下軽微なエラーはノイズとして除去する＞
+  - AbortError / The operation was aborted
+    リクエストがユーザー操作や画面遷移で中断された状態。異常より「処理中断」の意味が強い。
+  - User canceled / Purchase was cancelled
+    購入フローでユーザーが確定せず閉じたケース。課金障害ではなく想定動作。
+  - canceled / cancelled / user cancelled
+    ユーザーが明示的に操作を中止した結果。正常なユーザー行動として扱う。
+  - E_PICKER_CANCELLED（ファイル/画像選択のキャンセル）
+    画像・ファイル選択をユーザーが閉じたときの標準的なキャンセルコード。
+  - ERR_CANCELED（axios等のキャンセル）
+    axiosのCancelToken/AbortControllerで意図的に止めたリクエスト。異常ではない。
+
+　 ＜以下は今後検討！　以下軽微なエラーはノイズとして除去する＞
+
+- Network request failed
+  一時的な通信断や電波不安定で発生しやすい汎用ネットワーク失敗。再試行で回復することが多い。
+- TypeError: Network request failed
+  上と同系統の通信失敗。fetch実装や環境差でTypeErrorとして出るパターン。
+- Failed to fetch
+  fetchがサーバー到達前に失敗したときの代表的エラー。瞬断・DNS・オフラインで出やすい。
+- Load failed（通信瞬断起因のみ）
+  データ取得中に回線が落ちたケース。恒常的なロジック不具合でない前提ならノイズになりやすい。
+- Request timed out
+  サーバー応答待ちがタイムアウトした状態。混雑時や一時的遅延で発生し、再試行で成功しやすい。
+- TimeoutError
+  タイムアウト系の例外名。上記と同じく一過性の可能性が高い。
+- ERR_NETWORK（再試行で回復する一時ネットワーク）
+  通信レイヤーの一時失敗。恒常障害と切り分けが必要で、単発はノイズになりやすい。
+- No internet connection（Offline検知済み画面での想定内）
+  オフライン時に想定どおり出るエラー。Offline UIでハンドリング済みなら送信不要。
+- 429（一時的レート制限、リトライ前提のもの）
+  リクエスト過多による制限。短時間で回復することが多く、単発通知はノイズになりやすい。
+
 - PostHog
   「課金まで辿り着いているか？」「継続利用しているか？」などアプリを分析。
   最初は無料枠(10イベント)で運用。(400ユーザらへんから有料検討)

@@ -24,6 +24,7 @@ import {
 } from "../../constants/theme";
 import { FOCUS_MUSIC_MAX_INSTALLED } from "../../lib/focus-music/constants";
 import { createFocusMusicSignedUrl } from "../../lib/focus-music/signedUrl";
+import { captureExpoAudioError } from "../../lib/sentry";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { FocusMusicCategory } from "../../types/focus-music";
 
@@ -189,7 +190,8 @@ export default function FocusMusicScreen() {
       previewPlayer.replace(url);
       previewPlayer.play();
       setPreviewTrackId(trackId);
-    } catch {
+    } catch (error) {
+      captureExpoAudioError(error, "focus_music_preview");
       Alert.alert(t("previewFailedTitle"), t("previewFailedBody"));
     } finally {
       setPreviewLoadingId(null);

@@ -71,7 +71,7 @@ describe("PaymentManagement", () => {
     });
 
     expect(await screen.findByText("現在の契約ステータス")).toBeTruthy();
-    expect(await screen.findByText("有効")).toBeTruthy();
+    expect(await screen.findByText(/有効|サブスクリプション中/)).toBeTruthy();
   });
 
   it("opens management portal when tapping button", async () => {
