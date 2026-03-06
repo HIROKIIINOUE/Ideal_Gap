@@ -310,12 +310,6 @@ export default function MonthlyGoalsScreen() {
     [goals, selectedMonth],
   );
 
-  // 各月の作業目標の合計と作業時間の合計、それらをもとにしたプログレスバーの算出ロジック
-  const totalTarget = filteredGoals.reduce((sum, goal) => sum + goal.estimatedMinutes, 0);
-  const totalLogged = filteredGoals.reduce((sum, goal) => sum + goal.accumulatedMinutes, 0);
-  const totalRemaining = Math.max(0, totalTarget - totalLogged);
-  const progressRatio = totalTarget > 0 ? Math.min(1, totalLogged / totalTarget) : 0;
-
   // 月間目標に紐づいた年間目標idから年間目標データを抽出
   const getYearlyGoal = (id: string) => yearlyGoals.find((g) => g.id === id);
 
@@ -736,28 +730,6 @@ export default function MonthlyGoalsScreen() {
               />
             </View>
 
-            <View style={[styles.summaryCard, shadows.card]}>
-              <Text style={styles.summaryTitle}>{t("summary.title")}</Text>
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressTrack} />
-                <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
-              </View>
-              <View style={styles.summaryRow}>
-                <View style={styles.goalStat}>
-                  <Text style={styles.statLabel}>{t("summary.targetLabel")}</Text>
-                  <Text style={styles.statValue}>{formatMinutes(totalTarget)}</Text>
-                </View>
-                <View style={styles.goalStat}>
-                  <Text style={styles.statLabel}>{t("summary.loggedLabel")}</Text>
-                  <Text style={styles.statValue}>{formatMinutes(totalLogged)}</Text>
-                </View>
-                <View style={styles.goalStat}>
-                  <Text style={styles.statLabel}>{t("summary.remainingToGoalLabel")}</Text>
-                  <Text style={styles.statValue}>{formatMinutes(totalRemaining)}</Text>
-                </View>
-              </View>
-            </View>
-
             <View style={styles.actionRow}>
               {!deleteMode && (
                 <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
@@ -1107,24 +1079,6 @@ const styles = StyleSheet.create({
   },
   monthChipTextActive: {
     color: colors.textPrimary,
-  },
-  summaryCard: {
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  summaryTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.md,
   },
   progressBarContainer: {
     height: 10,

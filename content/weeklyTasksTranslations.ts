@@ -3,7 +3,6 @@ import { LanguageKey } from "../types/i18n";
 export type WeeklyTasksTranslations = {
   pageTitle: string;
   header: {
-    title: string;
     applyNextMemo: string;
   };
   actions: {
@@ -97,7 +96,6 @@ export const weeklyTasksTranslations: Record<
   ja: {
     pageTitle: "週間タスク",
     header: {
-      title: "週の進捗",
       applyNextMemo: "来週メモを今週へ適用",
     },
     actions: {
@@ -187,7 +185,6 @@ export const weeklyTasksTranslations: Record<
   en: {
     pageTitle: "Weekly Tasks",
     header: {
-      title: "Weekly progress",
       applyNextMemo: "Apply next memo to this week",
     },
     actions: {
@@ -277,7 +274,6 @@ export const weeklyTasksTranslations: Record<
   fr: {
     pageTitle: "Tâches hebdomadaires",
     header: {
-      title: "Progression de la semaine",
       applyNextMemo: "Appliquer le mémo à cette semaine",
     },
     actions: {

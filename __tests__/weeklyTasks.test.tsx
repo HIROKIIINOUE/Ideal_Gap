@@ -109,7 +109,7 @@ describe("WeeklyTasksScreen", () => {
     expect(await findByText("No tasks yet")).toBeTruthy();
   });
 
-  test("renders weekly tasks and summary totals", async () => {
+  test("renders weekly tasks without header summary UI", async () => {
     mockOrderMonthly.mockResolvedValue({
       data: [
         { id: "m1", description: "April UX", month: 4, yearly_goal_id: "y1", yearly_goals: { year_goal_color: "#1E5EFF" } },
@@ -138,18 +138,14 @@ describe("WeeklyTasksScreen", () => {
       error: null,
     });
 
-    const { findByText, getAllByText } = renderScreen();
+    const { findByText, queryByText } = renderScreen();
 
     await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
 
     expect(await findByText("Ship UX fixes")).toBeTruthy();
     expect(await findByText("Write docs")).toBeTruthy();
 
-    // Summary totals: target 900m = 15h, logged 240m = 4h
-    expect((await getAllByText("Target"))[0]).toBeTruthy();
-    expect(await findByText("15h")).toBeTruthy();
-    expect((await getAllByText("4h")).length).toBeGreaterThan(0);
-    expect(await findByText("10h")).toBeTruthy();
+    expect(queryByText("Weekly progress")).toBeFalsy();
     expect(await findByText("3h")).toBeTruthy();
   });
 

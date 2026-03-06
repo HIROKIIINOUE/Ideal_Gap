@@ -199,19 +199,12 @@ describe("MonthlyGoalsScreen", () => {
     (deleteMonthlyGoalWithWeeklyTasks as jest.Mock).mockResolvedValue({ deletedCount: 0 });
   });
 
-  test("shows summary and current month goals with progress totals", async () => {
-    const { findByText, findAllByText } = renderScreen();
+  test("shows current month goals without header summary UI", async () => {
+    const { findByText, queryByText } = renderScreen();
 
     expect(await findByText("Monthly goals")).toBeTruthy();
     expect(await findByText("Sleep 7+ hours consistently")).toBeTruthy();
-
-    // Summary numbers for February seed data: target 50h, logged 25h
-    expect((await findAllByText("Target"))[0]).toBeTruthy();
-    expect(await findByText("50h")).toBeTruthy();
-    expect((await findAllByText("Logged"))[0]).toBeTruthy();
-    expect((await findAllByText("Remaining"))[0]).toBeTruthy();
-    const totals = await findAllByText("25h");
-    expect(totals.length).toBeGreaterThan(1);
+    expect(queryByText("This month")).toBeFalsy();
   });
 
   test("truncates long yearly goal labels in the selector", async () => {

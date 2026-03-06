@@ -116,14 +116,6 @@ export default function WeeklyTasksScreen() {
   const manualChanged = manualLog.task !== null && manualHasInput;
   const manualInRange = manualHasInput;
 
-  // 全てのタスクの「目標時間合計」「タスク実行時間合計」「達成度」を算出
-  const totals = useMemo(() => {
-    const target = tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
-    const logged = tasks.reduce((sum, task) => sum + task.loggedMinutes, 0);
-    const progress = target > 0 ? Math.min(1, logged / target) : 0;
-    return { target, logged, progress };
-  }, [tasks]);
-
   const [monthlyGoalOptions, setMonthlyGoalOptions] = useState<
     { id: string; label: string; color: string; month: number }[]
   >([]);
@@ -823,13 +815,13 @@ export default function WeeklyTasksScreen() {
               }
             }}
             disabled={offlineBlocked}
-            >
-              <MaterialCommunityIcons
-                name={deleteMode ? "trash-can-outline" : "pencil-outline"}
-                size={18}
-                color={deleteMode ? colors.error : colors.textPrimary}
-              />
-            </Pressable>
+          >
+            <MaterialCommunityIcons
+              name={deleteMode ? "trash-can-outline" : "pencil-outline"}
+              size={18}
+              color={deleteMode ? colors.error : colors.textPrimary}
+            />
+          </Pressable>
         </View>
 
         {true && (
@@ -905,30 +897,6 @@ export default function WeeklyTasksScreen() {
 
               <View style={styles.headerTop}>
                 <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
-
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryTitle}>{t("header.title")}</Text>
-
-                  <View style={styles.progressBarContainer}>
-                    <View style={styles.progressTrack} />
-                    <View style={[styles.progressFill, { width: `${totals.progress * 100}%` }]} />
-                  </View>
-
-                  <View style={styles.summaryStatsRow}>
-                    <View style={styles.summaryStat}>
-                      <Text style={styles.summaryLabel}>{t("summary.target")}</Text>
-                      <Text style={styles.summaryValue}>{formatMinutes(totals.target)}</Text>
-                    </View>
-                    <View style={styles.summaryStat}>
-                      <Text style={styles.summaryLabel}>{t("summary.logged")}</Text>
-                      <Text style={styles.summaryValue}>{formatMinutes(totals.logged)}</Text>
-                    </View>
-                    <View style={styles.summaryStat}>
-                      <Text style={styles.summaryLabel}>{t("summary.remaining")}</Text>
-                      <Text style={styles.summaryValue}>{formatMinutes(Math.max(0, totals.target - totals.logged))}</Text>
-                    </View>
-                  </View>
-                </View>
 
                 <View style={styles.actionsRow}>
                   {!deleteMode && (
@@ -1021,264 +989,264 @@ export default function WeeklyTasksScreen() {
         )}
       />
 
-        <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalCard, shadows.card]}>
-              <Text style={styles.modalTitle}>{editingId ? t("modal.editTitle") : t("modal.addTitle")}</Text>
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, shadows.card]}>
+            <Text style={styles.modalTitle}>{editingId ? t("modal.editTitle") : t("modal.addTitle")}</Text>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t("modal.titleLabel")}</Text>
-                <TextInput
-                  multiline
-                  placeholder={t("modal.titlePlaceholder")}
-                  placeholderTextColor={colors.textSecondary}
-                  style={styles.modalInput}
-                  value={draft.title}
-                  onChangeText={(text) => {
-                    setDraft((prev) => ({ ...prev, title: text }));
-                    setModalError(null);
-                  }}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>{t("modal.titleLabel")}</Text>
+              <TextInput
+                multiline
+                placeholder={t("modal.titlePlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.modalInput}
+                value={draft.title}
+                onChangeText={(text) => {
+                  setDraft((prev) => ({ ...prev, title: text }));
+                  setModalError(null);
+                }}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>{t("modal.monthLabel")}</Text>
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.selectInput, isMonthDropdownOpen && styles.selectInputActive]}
+                onPress={() => setMonthDropdownOpen((prev) => !prev)}
+              >
+                <Text style={styles.selectValue}>{t("modal.monthValue", { monthLabel: monthLabel(selectedMonth) })}</Text>
+                <MaterialCommunityIcons
+                  name={isMonthDropdownOpen ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color={colors.textPrimary}
                 />
-              </View>
+              </Pressable>
+              {isMonthDropdownOpen && (
+                <View style={styles.selectList}>
+                  <View style={styles.selectEdge}>
+                    <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
+                  </View>
+                  <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
+                    {monthsList.map((month) => (
+                      <Pressable
+                        key={month}
+                        accessibilityRole="button"
+                        style={[styles.selectOption, month === selectedMonth && styles.selectOptionActive]}
+                        onPress={async () => {
+                          setSelectedMonth(month);
+                          setDraft((prev) => ({ ...prev, month }));
+                          await AsyncStorage.setItem("weeklyTasks:selectedMonth", String(month));
+                          setMonthDropdownOpen(false);
+                        }}
+                      >
+                        <Text style={[styles.selectOptionText, month === selectedMonth && styles.selectOptionTextActive]}>
+                          {t("modal.monthValue", { monthLabel: monthLabel(month) })}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                  <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
+                    <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
+                  </View>
+                </View>
+              )}
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t("modal.monthLabel")}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.selectInput, isMonthDropdownOpen && styles.selectInputActive]}
-                  onPress={() => setMonthDropdownOpen((prev) => !prev)}
-                >
-                  <Text style={styles.selectValue}>{t("modal.monthValue", { monthLabel: monthLabel(selectedMonth) })}</Text>
-                  <MaterialCommunityIcons
-                    name={isMonthDropdownOpen ? "chevron-up" : "chevron-down"}
-                    size={18}
-                    color={colors.textPrimary}
+              <Text style={styles.label}>{t("modal.monthlyGoalLabel")}</Text>
+              <Pressable
+                accessibilityRole="button"
+                disabled={!hasMonthlyGoals}
+                style={[
+                  styles.selectInput,
+                  isGoalDropdownOpen && styles.selectInputActive,
+                  !hasMonthlyGoals && styles.selectInputDisabled,
+                ]}
+                onPress={() => setGoalDropdownOpen((prev) => !prev)}
+              >
+                <View style={styles.selectValueRow}>
+                  <View
+                    style={[
+                      styles.categoryDot,
+                      {
+                        backgroundColor:
+                          monthlyGoalOptions.find((opt) => opt.id === draft.monthlyGoalId)?.color ?? colors.accentPrimary,
+                      },
+                    ]}
                   />
-                </Pressable>
-                {isMonthDropdownOpen && (
-                  <View style={styles.selectList}>
-                    <View style={styles.selectEdge}>
-                      <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
-                    </View>
-                    <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
-                      {monthsList.map((month) => (
-                        <Pressable
-                          key={month}
-                          accessibilityRole="button"
-                          style={[styles.selectOption, month === selectedMonth && styles.selectOptionActive]}
-                          onPress={async () => {
-                            setSelectedMonth(month);
-                            setDraft((prev) => ({ ...prev, month }));
-                            await AsyncStorage.setItem("weeklyTasks:selectedMonth", String(month));
-                            setMonthDropdownOpen(false);
-                          }}
-                        >
-                          <Text style={[styles.selectOptionText, month === selectedMonth && styles.selectOptionTextActive]}>
-                            {t("modal.monthValue", { monthLabel: monthLabel(month) })}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-                    <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
-                      <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
-                    </View>
-                  </View>
-                )}
-
-                <Text style={styles.label}>{t("modal.monthlyGoalLabel")}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!hasMonthlyGoals}
-                  style={[
-                    styles.selectInput,
-                    isGoalDropdownOpen && styles.selectInputActive,
-                    !hasMonthlyGoals && styles.selectInputDisabled,
-                  ]}
-                  onPress={() => setGoalDropdownOpen((prev) => !prev)}
-                >
-                  <View style={styles.selectValueRow}>
-                    <View
-                      style={[
-                        styles.categoryDot,
-                        {
-                          backgroundColor:
-                            monthlyGoalOptions.find((opt) => opt.id === draft.monthlyGoalId)?.color ?? colors.accentPrimary,
-                        },
-                      ]}
-                    />
-                    {hasMonthlyGoals ? (
-                      <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
-                        {monthlyGoalOptions.find((opt) => opt.id === draft.monthlyGoalId)?.label ?? t("task.monthlyLink")}
-                      </Text>
-                    ) : (
-                      <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
-                        {t("modal.noMonthlyGoal", { monthLabel: monthLabel(selectedMonth) })}
-                      </Text>
-                    )}
-                  </View>
-                  <MaterialCommunityIcons
-                    name={isGoalDropdownOpen ? "chevron-up" : "chevron-down"}
-                    size={18}
-                    color={colors.textPrimary}
-                  />
-                </Pressable>
-                {isGoalDropdownOpen && hasMonthlyGoals && (
-                  <View style={styles.selectList}>
-                    <View style={styles.selectEdge}>
-                      <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
-                    </View>
-                    <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
-                      {monthlyGoalOptions
-                        .filter((opt) => opt.month === selectedMonth)
-                        .map((opt) => {
-                          const active = opt.id === draft.monthlyGoalId;
-                          return (
-                            <Pressable
-                              key={opt.id}
-                              accessibilityRole="button"
-                              style={[styles.selectOption, active && styles.selectOptionActive]}
-                              onPress={() => {
-                                setDraft((prev) => ({ ...prev, monthlyGoalId: opt.id }));
-                                setGoalDropdownOpen(false);
-                              }}
-                            >
-                              <View style={styles.selectValueRow}>
-                                <View style={[styles.categoryDot, { backgroundColor: opt.color }]} />
-                                <Text
-                                  style={[styles.selectOptionText, active && styles.selectOptionTextActive]}
-                                  numberOfLines={2}
-                                  ellipsizeMode="tail"
-                                >
-                                  {opt.label}
-                                </Text>
-                              </View>
-                            </Pressable>
-                          );
-                        })}
-                    </ScrollView>
-                    <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
-                      <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t("modal.targetLabel")}</Text>
-                <TextInput
-                  placeholder={t("modal.targetPlaceholder")}
-                  placeholderTextColor={colors.textSecondary}
-                  style={styles.modalInput}
-                  value={draft.estimatedHours}
-                  keyboardType="numeric"
-                  onChangeText={(text) => {
-                    setDraft((prev) => ({ ...prev, estimatedHours: text }));
-                    setModalError(null);
-                  }}
+                  {hasMonthlyGoals ? (
+                    <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
+                      {monthlyGoalOptions.find((opt) => opt.id === draft.monthlyGoalId)?.label ?? t("task.monthlyLink")}
+                    </Text>
+                  ) : (
+                    <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
+                      {t("modal.noMonthlyGoal", { monthLabel: monthLabel(selectedMonth) })}
+                    </Text>
+                  )}
+                </View>
+                <MaterialCommunityIcons
+                  name={isGoalDropdownOpen ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color={colors.textPrimary}
                 />
-                <Text style={styles.helperText}>{t("modal.targetHelper")}</Text>
-              </View>
+              </Pressable>
+              {isGoalDropdownOpen && hasMonthlyGoals && (
+                <View style={styles.selectList}>
+                  <View style={styles.selectEdge}>
+                    <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
+                  </View>
+                  <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
+                    {monthlyGoalOptions
+                      .filter((opt) => opt.month === selectedMonth)
+                      .map((opt) => {
+                        const active = opt.id === draft.monthlyGoalId;
+                        return (
+                          <Pressable
+                            key={opt.id}
+                            accessibilityRole="button"
+                            style={[styles.selectOption, active && styles.selectOptionActive]}
+                            onPress={() => {
+                              setDraft((prev) => ({ ...prev, monthlyGoalId: opt.id }));
+                              setGoalDropdownOpen(false);
+                            }}
+                          >
+                            <View style={styles.selectValueRow}>
+                              <View style={[styles.categoryDot, { backgroundColor: opt.color }]} />
+                              <Text
+                                style={[styles.selectOptionText, active && styles.selectOptionTextActive]}
+                                numberOfLines={2}
+                                ellipsizeMode="tail"
+                              >
+                                {opt.label}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                  <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
+                    <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
+                  </View>
+                </View>
+              )}
+            </View>
 
-              {modalError ? <Text style={styles.errorText}>{modalError}</Text> : null}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>{t("modal.targetLabel")}</Text>
+              <TextInput
+                placeholder={t("modal.targetPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.modalInput}
+                value={draft.estimatedHours}
+                keyboardType="numeric"
+                onChangeText={(text) => {
+                  setDraft((prev) => ({ ...prev, estimatedHours: text }));
+                  setModalError(null);
+                }}
+              />
+              <Text style={styles.helperText}>{t("modal.targetHelper")}</Text>
+            </View>
 
-              <View style={styles.modalActions}>
-                <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.primaryButton, !hasMonthlyGoals && styles.primaryButtonDisabled]}
-                  onPress={handleSave}
-                  disabled={!hasMonthlyGoals}
-                >
-                  <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
-                </Pressable>
-              </View>
+            {modalError ? <Text style={styles.errorText}>{modalError}</Text> : null}
+
+            <View style={styles.modalActions}>
+              <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
+                <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.primaryButton, !hasMonthlyGoals && styles.primaryButtonDisabled]}
+                onPress={handleSave}
+                disabled={!hasMonthlyGoals}
+              >
+                <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
+              </Pressable>
             </View>
           </View>
-        </Modal>
+        </View>
+      </Modal>
 
-        <Modal visible={manualLog.visible} transparent animationType="fade" onRequestClose={closeManualLog}>
-          <View style={styles.modalOverlay}>
-            <View style={[styles.manualCard, shadows.card]}>
-              <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
+      <Modal visible={manualLog.visible} transparent animationType="fade" onRequestClose={closeManualLog}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.manualCard, shadows.card]}>
+            <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
 
-              <View style={styles.manualTaskBox}>
-                <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
-                  {manualLog.task?.title ?? "-"}
-                </Text>
-                <View style={styles.manualSummaryBox}>
-                  <View style={styles.manualSummaryRow}>
-                    <Text style={styles.manualSummaryLabel}>{t("manualModal.currentLabel")}</Text>
-                    <Text style={styles.manualSummaryValue}>{formatMinutes(manualLog.defaultMinutes)}</Text>
-                  </View>
-                  <View style={styles.manualSummaryRow}>
-                    <Text style={styles.manualSummaryLabel}>{t("manualModal.addedLabel")}</Text>
-                    <Text style={styles.manualSummaryValue}>{formatMinutes(manualAddedMinutes)}</Text>
-                  </View>
-                  <View style={styles.manualSummaryDivider} />
-                  <View style={styles.manualSummaryRow}>
-                    <Text style={styles.manualSummaryLabel}>{t("manualModal.finalLabel")}</Text>
-                    <Text style={styles.manualSummaryTotal}>{formatMinutes(manualFinalMinutes)}</Text>
-                  </View>
+            <View style={styles.manualTaskBox}>
+              <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
+                {manualLog.task?.title ?? "-"}
+              </Text>
+              <View style={styles.manualSummaryBox}>
+                <View style={styles.manualSummaryRow}>
+                  <Text style={styles.manualSummaryLabel}>{t("manualModal.currentLabel")}</Text>
+                  <Text style={styles.manualSummaryValue}>{formatMinutes(manualLog.defaultMinutes)}</Text>
                 </View>
-              </View>
-
-              <View style={styles.manualInputsRow}>
-                <View style={styles.manualInputGroup}>
-                  <Text style={styles.label}>{t("manualModal.hoursLabel")}</Text>
-                  <TextInput
-                    placeholder="0"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="number-pad"
-                    value={manualLog.hours}
-                    onChangeText={handleManualHoursChange}
-                    style={styles.manualNumberInput}
-                  />
+                <View style={styles.manualSummaryRow}>
+                  <Text style={styles.manualSummaryLabel}>{t("manualModal.addedLabel")}</Text>
+                  <Text style={styles.manualSummaryValue}>{formatMinutes(manualAddedMinutes)}</Text>
                 </View>
-                <View style={styles.manualInputGroup}>
-                  <Text style={styles.label}>{t("manualModal.minutesLabel")}</Text>
-                  <TextInput
-                    placeholder="0"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="number-pad"
-                    value={manualLog.minutes}
-                    onChangeText={handleManualMinutesChange}
-                    style={styles.manualNumberInput}
-                  />
+                <View style={styles.manualSummaryDivider} />
+                <View style={styles.manualSummaryRow}>
+                  <Text style={styles.manualSummaryLabel}>{t("manualModal.finalLabel")}</Text>
+                  <Text style={styles.manualSummaryTotal}>{formatMinutes(manualFinalMinutes)}</Text>
                 </View>
-              </View>
-
-              <View style={styles.manualHelperRow}>
-                <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
-                <Text style={styles.helperText}>
-                  {t("manualModal.finalPreview", {
-                    total: formatMinutes(manualFinalMinutes),
-                    target: formatMinutes(manualTargetMinutes),
-                  })}
-                </Text>
-              </View>
-
-              <View style={styles.modalActions}>
-                <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
-                  <Text style={styles.secondaryButtonText}>{t("manualModal.cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!manualLog.task || !manualInRange || !manualChanged}
-                  onPress={handleSubmitManualLog}
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    pressed && styles.primaryPressed,
-                    (!manualLog.task || !manualInRange || !manualChanged) && styles.primaryButtonDisabled,
-                  ]}
-                >
-                  <Text style={styles.primaryButtonText}>{t("manualModal.submit")}</Text>
-                </Pressable>
               </View>
             </View>
+
+            <View style={styles.manualInputsRow}>
+              <View style={styles.manualInputGroup}>
+                <Text style={styles.label}>{t("manualModal.hoursLabel")}</Text>
+                <TextInput
+                  placeholder="0"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="number-pad"
+                  value={manualLog.hours}
+                  onChangeText={handleManualHoursChange}
+                  style={styles.manualNumberInput}
+                />
+              </View>
+              <View style={styles.manualInputGroup}>
+                <Text style={styles.label}>{t("manualModal.minutesLabel")}</Text>
+                <TextInput
+                  placeholder="0"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="number-pad"
+                  value={manualLog.minutes}
+                  onChangeText={handleManualMinutesChange}
+                  style={styles.manualNumberInput}
+                />
+              </View>
+            </View>
+
+            <View style={styles.manualHelperRow}>
+              <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
+              <Text style={styles.helperText}>
+                {t("manualModal.finalPreview", {
+                  total: formatMinutes(manualFinalMinutes),
+                  target: formatMinutes(manualTargetMinutes),
+                })}
+              </Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
+                <Text style={styles.secondaryButtonText}>{t("manualModal.cancel")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={!manualLog.task || !manualInRange || !manualChanged}
+                onPress={handleSubmitManualLog}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed && styles.primaryPressed,
+                  (!manualLog.task || !manualInRange || !manualChanged) && styles.primaryButtonDisabled,
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>{t("manualModal.submit")}</Text>
+              </Pressable>
+            </View>
           </View>
-        </Modal>
+        </View>
+      </Modal>
     </GestureHandlerRootView>
   );
 }
@@ -1300,7 +1268,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   headerTop: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   pageTitle: {
     color: colors.textPrimary,
@@ -1374,37 +1342,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.error,
     fontSize: typography.sm,
-  },
-  summaryCard: {
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  summaryTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
-  },
-  summaryLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.md,
-  },
-  summaryValue: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
-  },
-  summaryStatsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  summaryStat: {
-    flex: 1,
-    gap: spacing.xs / 2,
   },
   progressBarContainer: {
     height: 10,
