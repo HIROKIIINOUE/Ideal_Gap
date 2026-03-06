@@ -290,17 +290,13 @@ export default function IdealSelfScreen() {
     const onEditPress = () => handleButtonPress(item);
 
     return (
-      <Pressable
-        key={item.id}
+      <View
         style={[
           styles.idealCard,
           shadows.card,
           isActive && styles.idealCardDragging,
           deleteMode && styles.idealCardDeleteMode,
         ]}
-        onLongPress={drag} // ここで長押しタップ発火
-        delayLongPress={120}
-        disabled={deleteMode && isActive}
       >
         <LinearGradient
           colors={LIST_CARD_GRADIENT}
@@ -308,6 +304,16 @@ export default function IdealSelfScreen() {
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+          style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+          onLongPress={drag}  // ここで長押しタップ発火
+          delayLongPress={200}
+          hitSlop={14}
+        >
+          <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
+        </Pressable>
         <Text style={styles.idealTitle}>{item.description}</Text>
 
         <View style={styles.idealActions}>
@@ -327,11 +333,10 @@ export default function IdealSelfScreen() {
             </Pressable>
           )}
         </View>
-      </Pressable>
+      </View>
     );
   };
 
-  const hasIdeals = ideals.length > 0;
   const modalTitle = modalState.editingId ? t("modal.editTitle") : t("modal.addTitle");
   // list label was removed
   const modalUpdatedText = modalState.meta?.updatedAt ? formatUpdated(modalState.meta.updatedAt, updatedLabel) : null;
@@ -354,70 +359,67 @@ export default function IdealSelfScreen() {
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
-      <View style={[styles.card, shadows.card]}>
-        <LinearGradient
-          colors={HEADER_CARD_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <Text style={styles.heading}>{t("pageTitle")}</Text>
-
-        <View style={styles.actionRow}>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading || offlineBlocked}>
-            <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("add")}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
-            onPress={toggleDeleteMode}
-            disabled={offlineBlocked}
-          >
-            <MaterialCommunityIcons
-              name={deleteMode ? "close" : "trash-can-outline"}
-              size={20}
-              color={colors.textPrimary}
+      {/* DraggableFlatListは１つのコンポーネントとして記載している */}
+      {/* 各属性としてDOMなどを設定する特殊な書き方なので注意 */}
+      {/* データが空の時にDOM表示する”ListEmptyComponent”など特殊な属性が使われている */}
+      <DraggableFlatList
+        data={ideals}
+        keyExtractor={(item) => item.id}
+        renderItem={renderIdealCard}
+        onDragEnd={handleDragEnd}
+        activationDistance={8}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.idealGrid}
+        ListHeaderComponent={(
+          <View style={[styles.card, shadows.card]}>
+            <LinearGradient
+              colors={HEADER_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
-          </Pressable>
-        </View>
-        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-      </View>
+            <Text style={styles.heading}>{t("pageTitle")}</Text>
 
-      {loading ? (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <Text style={styles.emptyBody}>{t("loading")}</Text>
-        </View>
-      ) : hasIdeals ? (
-        // DraggableFlatListタグはrenderItemにdragを渡しdragを使って発火のタイミングを操作できる。受け取った先でonLongPress={drag}を付与した要素がトリガーを握る。drag処理が終わるとonDragEndが発火する。
-        <View style={styles.listSpacing}>
-          <DraggableFlatList
-            data={ideals}
-            keyExtractor={(item) => item.id}
-            renderItem={renderIdealCard}
-            onDragEnd={handleDragEnd}
-            scrollEnabled={false}
-            activationDistance={10}
-            contentContainerStyle={styles.idealGrid}
-          />
-        </View>
-      ) : (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <LinearGradient
-            colors={LIST_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
-          <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
-            <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
-          </Pressable>
-        </View>
-      )}
+            <View style={styles.actionRow}>
+              <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading || offlineBlocked}>
+                <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+                <Text style={styles.primaryButtonText}>{t("add")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
+                onPress={toggleDeleteMode}
+                disabled={offlineBlocked}
+              >
+                <MaterialCommunityIcons
+                  name={deleteMode ? "close" : "trash-can-outline"}
+                  size={20}
+                  color={colors.textPrimary}
+                />
+                <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
+              </Pressable>
+            </View>
+            {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+          </View>
+        )}
+        ListHeaderComponentStyle={styles.listHeader}
+        ListEmptyComponent={(
+          <View style={[styles.card, shadows.card, styles.emptyCard]}>
+            <LinearGradient
+              colors={LIST_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
+            <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
+            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
+              <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
+              <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
+            </Pressable>
+          </View>
+        )}
+      />
 
       <Modal
         visible={modalState.visible}
@@ -561,6 +563,7 @@ const styles = StyleSheet.create({
   idealGrid: {
     gap: spacing.md,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
   idealCard: {
     backgroundColor: "#1c3358",
@@ -599,6 +602,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: typography.lg * 1.5,
     textAlign: "left",
+    paddingRight: spacing.xl * 2,
   },
   idealActions: {
     flexDirection: "row",
@@ -637,12 +641,28 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
   },
+  dragHandleButton: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    zIndex: 1,
+  },
+  dragHandleButtonActive: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(30,94,255,0.16)",
+  },
   emptyCard: {
     alignItems: "flex-start",
     gap: spacing.sm,
   },
-  listSpacing: {
-    marginTop: spacing.md,
+  listHeader: {
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     color: colors.textPrimary,

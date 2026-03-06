@@ -25,6 +25,7 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: MockLinearGradient };
 });
 
+
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
@@ -266,4 +267,5 @@ describe("WeeklyTasksScreen", () => {
       expect(Alert.alert).toHaveBeenLastCalledWith("Deleted all", "All weekly tasks were deleted.");
     });
   });
+
 });

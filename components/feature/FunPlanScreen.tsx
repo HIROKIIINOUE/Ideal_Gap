@@ -315,17 +315,13 @@ export default function FunPlanScreen() {
     const onEditPress = () => handleButtonPress(item);
 
     return (
-      <Pressable
-        key={item.id}
+      <View
         style={[
           styles.planCard,
           shadows.card,
           isActive && styles.planCardDragging,
           deleteMode && styles.planCardDeleteMode,
         ]}
-        onLongPress={drag}
-        delayLongPress={120}
-        disabled={deleteMode && isActive}
       >
         <LinearGradient
           colors={LIST_CARD_GRADIENT}
@@ -333,6 +329,16 @@ export default function FunPlanScreen() {
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+          style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+          onLongPress={drag}
+          delayLongPress={200}
+          hitSlop={14}
+        >
+          <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
+        </Pressable>
         <Text style={styles.planTitle}>{item.description}</Text>
 
         <View style={styles.planActions}>
@@ -352,11 +358,10 @@ export default function FunPlanScreen() {
             </Pressable>
           )}
         </View>
-      </Pressable>
+      </View>
     );
   };
 
-  const hasPlans = plans.length > 0;
   const modalTitle = editingId ? t("modal.editTitle") : t("modal.addTitle");
   const modalUpdatedText = editingMeta?.updatedAt ? formatUpdated(editingMeta.updatedAt, updatedLabel) : null;
 
@@ -378,81 +383,79 @@ export default function FunPlanScreen() {
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
-      <View style={[styles.card, shadows.card]}>
-        <LinearGradient
-          colors={HEADER_CARD_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.headerRow}>
-          <View style={styles.headerText}>
-            <Text style={styles.heading}>{t("pageTitle")}</Text>
-            <Text style={styles.body}>{t("pageSubtitle")}</Text>
-          </View>
-        </View>
-
-        <View style={styles.actionRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: limitReached }}
-            style={[styles.primaryButton, limitReached && styles.buttonDisabled]}
-            onPress={handleAddPress}
-            disabled={limitReached || offlineBlocked}
-          >
-            <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("add")}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
-            onPress={toggleDeleteMode}
-            disabled={offlineBlocked}
-          >
-            <MaterialCommunityIcons
-              name={deleteMode ? "close" : "trash-can-outline"}
-              size={20}
-              color={colors.textPrimary}
+      {/* DraggableFlatListは１つのコンポーネントとして記載している */}
+      {/* 各属性としてDOMなどを設定する特殊な書き方なので注意 */}
+      {/* データが空の時にDOM表示する”ListEmptyComponent”など特殊な属性が使われている */}
+      <DraggableFlatList
+        data={plans}
+        keyExtractor={(item) => item.id}
+        renderItem={renderPlanCard}
+        onDragEnd={handleDragEnd}
+        activationDistance={8}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.planGrid}
+        ListHeaderComponent={(
+          <View style={[styles.card, shadows.card]}>
+            <LinearGradient
+              colors={HEADER_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
-          </Pressable>
-        </View>
-        {limitReached && <Text style={styles.limitText}>{t("limitHelper")}</Text>}
-        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-      </View>
+            <View style={styles.headerRow}>
+              <View style={styles.headerText}>
+                <Text style={styles.heading}>{t("pageTitle")}</Text>
+                <Text style={styles.body}>{t("pageSubtitle")}</Text>
+              </View>
+            </View>
 
-      {loading ? (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <Text style={styles.emptyBody}>{t("loading")}</Text>
-        </View>
-      ) : hasPlans ? (
-        <View style={styles.listSpacing}>
-          <DraggableFlatList
-            data={plans}
-            keyExtractor={(item) => item.id}
-            renderItem={renderPlanCard}
-            onDragEnd={handleDragEnd}
-            scrollEnabled={false}
-            activationDistance={10}
-            contentContainerStyle={styles.planGrid}
-          />
-        </View>
-      ) : (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <LinearGradient
-            colors={LIST_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
-          <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
-            <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
-          </Pressable>
-        </View>
-      )}
+            <View style={styles.actionRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: limitReached }}
+                style={[styles.primaryButton, limitReached && styles.buttonDisabled]}
+                onPress={handleAddPress}
+                disabled={limitReached || offlineBlocked}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+                <Text style={styles.primaryButtonText}>{t("add")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
+                onPress={toggleDeleteMode}
+                disabled={offlineBlocked}
+              >
+                <MaterialCommunityIcons
+                  name={deleteMode ? "close" : "trash-can-outline"}
+                  size={20}
+                  color={colors.textPrimary}
+                />
+                <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
+              </Pressable>
+            </View>
+            {limitReached && <Text style={styles.limitText}>{t("limitHelper")}</Text>}
+            {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+          </View>
+        )}
+        ListHeaderComponentStyle={styles.listHeader}
+        ListEmptyComponent={(
+          <View style={[styles.card, shadows.card, styles.emptyCard]}>
+            <LinearGradient
+              colors={LIST_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
+            <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
+            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
+              <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
+              <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
+            </Pressable>
+          </View>
+        )}
+      />
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -596,6 +599,7 @@ const styles = StyleSheet.create({
   planGrid: {
     gap: spacing.md,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
   planCard: {
     backgroundColor: "#123457",
@@ -619,6 +623,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: typography.lg * 1.4,
     textAlign: "left",
+    paddingRight: spacing.xl * 2,
   },
   planActions: {
     flexDirection: "row",
@@ -655,12 +660,28 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
   },
+  dragHandleButton: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    zIndex: 1,
+  },
+  dragHandleButtonActive: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(30,94,255,0.16)",
+  },
   emptyCard: {
     alignItems: "flex-start",
     gap: spacing.sm,
   },
-  listSpacing: {
-    marginTop: spacing.md,
+  listHeader: {
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     color: colors.textPrimary,

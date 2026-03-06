@@ -431,11 +431,7 @@ export default function AnnualGoalsScreen() {
 
   // 指定のPressable要素の長押しドラッグを可能にするロジック
   const renderGoalCard = ({ item, drag, isActive }: RenderItemParams<AnnualGoal>) => (
-    <Pressable
-      key={item.id}
-      onLongPress={drag}
-      delayLongPress={120}
-      disabled={deleteMode && isActive}
+    <View
       style={[
         styles.goalCard,
         shadows.card,
@@ -449,6 +445,16 @@ export default function AnnualGoalsScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+        style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+        onLongPress={drag}
+        delayLongPress={200}
+        hitSlop={14}
+      >
+        <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
+      </Pressable>
       <Text style={styles.goalTitle}>{item.description}</Text>
       <View style={styles.goalFooter}>
         <View style={styles.colorRow}>
@@ -470,7 +476,7 @@ export default function AnnualGoalsScreen() {
           </Text>
         </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 
   const hasGoals = goals.length > 0;
@@ -496,108 +502,110 @@ export default function AnnualGoalsScreen() {
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
-      <View style={[styles.card, shadows.card]}>
-        <LinearGradient
-          colors={HEADER_CARD_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.headingArea}>
-          <Text style={styles.heading}>{t("pageTitle")}</Text>
-        </View>
-        {hasGoals && (
-          <View style={styles.chartContainer}>
-            <View style={styles.chartSummaryRow}>
-              <PieChart
-                data={chartData}
-                donut
-                radius={70}
-                innerRadius={58}
-                innerCircleColor="#1c3358"
-                showText={false}
-                strokeWidth={0}
-                focusOnPress={false}
-                centerLabelComponent={() => (
-                  <View style={styles.centerLabel}>
-                    <Text style={styles.centerLabelTitle}>{t("chart.title")}</Text>
-                  </View>
-                )}
-              />
-              <View style={styles.chartSummary}>
-                <Text style={styles.centerLabelSubTitle}>{t("chart.totalLabel")}</Text>
-                <Text style={styles.centerLabelValue}>{formatMinutes(totalMinutes)}</Text>
-              </View>
+      {/* DraggableFlatListは１つのコンポーネントとして記載している */}
+      {/* 各属性としてDOMなどを設定する特殊な書き方なので注意 */}
+      {/* データが空の時にDOM表示する”ListEmptyComponent”など特殊な属性が使われている */}
+      <DraggableFlatList
+        data={goals}
+        keyExtractor={(item) => item.id}
+        renderItem={renderGoalCard}
+        onDragEnd={handleDragEnd}
+        activationDistance={8}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.goalGrid}
+        ListHeaderComponent={(
+          <View style={[styles.card, shadows.card]}>
+            <LinearGradient
+              colors={HEADER_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.headingArea}>
+              <Text style={styles.heading}>{t("pageTitle")}</Text>
             </View>
+            {hasGoals && (
+              <View style={styles.chartContainer}>
+                <View style={styles.chartSummaryRow}>
+                  <PieChart
+                    data={chartData}
+                    donut
+                    radius={70}
+                    innerRadius={58}
+                    innerCircleColor="#1c3358"
+                    showText={false}
+                    strokeWidth={0}
+                    focusOnPress={false}
+                    centerLabelComponent={() => (
+                      <View style={styles.centerLabel}>
+                        <Text style={styles.centerLabelTitle}>{t("chart.title")}</Text>
+                      </View>
+                    )}
+                  />
+                  <View style={styles.chartSummary}>
+                    <Text style={styles.centerLabelSubTitle}>{t("chart.totalLabel")}</Text>
+                    <Text style={styles.centerLabelValue}>{formatMinutes(totalMinutes)}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.actionRow}>
+              {!deleteMode && (
+                <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+                  <Text style={styles.primaryButtonText}>{t("add")}</Text>
+                </Pressable>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
+                onPress={toggleDeleteMode}
+                disabled={offlineBlocked}
+              >
+                <MaterialCommunityIcons
+                  name={deleteMode ? "close" : "trash-can-outline"}
+                  size={20}
+                  color={colors.textPrimary}
+                />
+                <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
+              </Pressable>
+              {deleteMode && (
+                <Pressable
+                  accessibilityRole="button"
+                  style={[styles.secondaryButton, styles.bulkDeleteButton]}
+                  onPress={confirmBulkDelete}
+                  disabled={offlineBlocked}
+                >
+                  <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
+                  <Text style={styles.secondaryButtonText}>
+                    {t("bulkDelete.button", { defaultValue: "Delete all" })}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
+            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
           </View>
         )}
-
-        <View style={styles.actionRow}>
-          {!deleteMode && (
-            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
-              <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-              <Text style={styles.primaryButtonText}>{t("add")}</Text>
-            </Pressable>
-          )}
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
-            onPress={toggleDeleteMode}
-            disabled={offlineBlocked}
-          >
-            <MaterialCommunityIcons
-              name={deleteMode ? "close" : "trash-can-outline"}
-              size={20}
-              color={colors.textPrimary}
+        ListHeaderComponentStyle={styles.listHeader}
+        ListEmptyComponent={(
+          <View style={[styles.card, shadows.card, styles.emptyCard]}>
+            <LinearGradient
+              colors={LIST_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
-          </Pressable>
-          {deleteMode && (
-            <Pressable
-              accessibilityRole="button"
-              style={[styles.secondaryButton, styles.bulkDeleteButton]}
-              onPress={confirmBulkDelete}
-              disabled={offlineBlocked}
-            >
-              <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
-              <Text style={styles.secondaryButtonText}>
-                {t("bulkDelete.button", { defaultValue: "Delete all" })}
-              </Text>
+            <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
+            <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
+            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
+              <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
+              <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
             </Pressable>
-          )}
-        </View>
-
-        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-      </View>
-
-      {hasGoals ? (
-        <View style={styles.listSpacing}>
-          <DraggableFlatList
-            data={goals}
-            keyExtractor={(item) => item.id}
-            renderItem={renderGoalCard}
-            onDragEnd={handleDragEnd}
-            scrollEnabled={false}
-            activationDistance={10}
-            contentContainerStyle={styles.goalGrid}
-          />
-        </View>
-      ) : (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <LinearGradient
-            colors={LIST_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
-          <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
-            <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
-          </Pressable>
-        </View>
-      )}
+          </View>
+        )}
+      />
 
       <Modal
         visible={modalState.visible}
@@ -820,6 +828,7 @@ const styles = StyleSheet.create({
   goalGrid: {
     gap: spacing.md,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
   goalCard: {
     backgroundColor: "#1c3358",
@@ -842,6 +851,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   colorRow: {
     flexDirection: "row",
@@ -864,6 +874,8 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: "800",
     lineHeight: typography.lg * 1.4,
+    paddingRight: spacing.xl * 2,
+    minHeight: 40,
   },
   editButton: {
     paddingHorizontal: spacing.md,
@@ -895,12 +907,28 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
   },
+  dragHandleButton: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    zIndex: 1,
+  },
+  dragHandleButtonActive: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(30,94,255,0.16)",
+  },
   emptyCard: {
     alignItems: "flex-start",
     gap: spacing.sm,
   },
-  listSpacing: {
-    marginTop: spacing.md,
+  listHeader: {
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     color: colors.textPrimary,

@@ -590,11 +590,7 @@ export default function MonthlyGoalsScreen() {
     const progress = item.estimatedMinutes > 0 ? Math.min(1, item.accumulatedMinutes / item.estimatedMinutes) : 0;
     const remaining = Math.max(0, item.estimatedMinutes - item.accumulatedMinutes);
     return (
-      <Pressable
-        key={item.id}
-        onLongPress={drag}
-        delayLongPress={120}
-        disabled={deleteMode && isActive}
+      <View
         style={[
           styles.goalCard,
           shadows.card,
@@ -608,6 +604,16 @@ export default function MonthlyGoalsScreen() {
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+          style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+          onLongPress={drag}
+          delayLongPress={200}
+          hitSlop={14}
+        >
+          <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
+        </Pressable>
         <Text style={styles.goalTitle}>{item.description}</Text>
 
 
@@ -647,11 +653,10 @@ export default function MonthlyGoalsScreen() {
             />
           </Pressable>
         </View>
-      </Pressable>
+      </View>
     );
   };
 
-  const hasGoals = filteredGoals.length > 0;
   const modalTitle = editingId ? t("modal.editTitle") : t("modal.addTitle");
 
   if (loading) {
@@ -673,138 +678,141 @@ export default function MonthlyGoalsScreen() {
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
-      <View style={[styles.card, shadows.card]}>
-        <LinearGradient colors={HEADER_CARD_GRADIENT} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-        <View style={styles.headerRow}>
-          <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
-        </View>
+      {/* DraggableFlatListは１つのコンポーネントとして記載している */}
+      {/* 各属性としてDOMなどを設定する特殊な書き方なので注意 */}
+      {/* データが空の時にDOM表示する”ListEmptyComponent”など特殊な属性が使われている */}
+      <DraggableFlatList
+        data={filteredGoals}
+        keyExtractor={(item) => item.id}
+        onDragEnd={handleDragEnd}
+        renderItem={renderGoalCard}
+        activationDistance={8}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.goalGrid}
+        ListHeaderComponent={(
+          <View style={[styles.card, shadows.card]}>
+            <LinearGradient colors={HEADER_CARD_GRADIENT} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
+            <View style={styles.headerRow}>
+              <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
+            </View>
 
-        <View style={styles.monthSelector}>
-          <Text style={styles.label}>{t("monthSelector.label")}</Text>
-          <FlatList
-            ref={monthListRef}
-            data={monthsList}
-            keyExtractor={(item) => String(item)}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            initialScrollIndex={targetIndexForMonth(selectedMonth)}
-            getItemLayout={(_, index) => ({
-              length: MONTH_ITEM_WIDTH + spacing.xs,
-              offset: (MONTH_ITEM_WIDTH + spacing.xs) * index,
-              index,
-            })}
-            snapToInterval={MONTH_ITEM_WIDTH + spacing.xs}
-            decelerationRate="fast"
-            contentContainerStyle={styles.monthChips}
-            onScrollToIndexFailed={(info) => {
-              const fallbackIndex = targetIndexForMonth(selectedMonth);
-              const offset = (MONTH_ITEM_WIDTH + spacing.xs) * fallbackIndex;
-              monthListRef.current?.scrollToOffset({ offset, animated: false });
-            }}
-            renderItem={({ item: month }) => (
+            <View style={styles.monthSelector}>
+              <Text style={styles.label}>{t("monthSelector.label")}</Text>
+              <FlatList
+                ref={monthListRef}
+                data={monthsList}
+                keyExtractor={(item) => String(item)}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                initialScrollIndex={targetIndexForMonth(selectedMonth)}
+                getItemLayout={(_, index) => ({
+                  length: MONTH_ITEM_WIDTH + spacing.xs,
+                  offset: (MONTH_ITEM_WIDTH + spacing.xs) * index,
+                  index,
+                })}
+                snapToInterval={MONTH_ITEM_WIDTH + spacing.xs}
+                decelerationRate="fast"
+                contentContainerStyle={styles.monthChips}
+                onScrollToIndexFailed={() => {
+                  const fallbackIndex = targetIndexForMonth(selectedMonth);
+                  const offset = (MONTH_ITEM_WIDTH + spacing.xs) * fallbackIndex;
+                  monthListRef.current?.scrollToOffset({ offset, animated: false });
+                }}
+                renderItem={({ item: month }) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={monthLabel(month)}
+                    onPress={() => handleSelectMonth(month)}
+                    style={[
+                      styles.monthChip,
+                      month === selectedMonth && styles.monthChipActive,
+                    ]}
+                  >
+                    <Text style={[styles.monthChipText, month === selectedMonth && styles.monthChipTextActive]}>
+                      {monthLabel(month)}
+                    </Text>
+                  </Pressable>
+                )}
+              />
+            </View>
+
+            <View style={[styles.summaryCard, shadows.card]}>
+              <Text style={styles.summaryTitle}>{t("summary.title")}</Text>
+              <View style={styles.progressBarContainer}>
+                <View style={styles.progressTrack} />
+                <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+              </View>
+              <View style={styles.summaryRow}>
+                <View style={styles.goalStat}>
+                  <Text style={styles.statLabel}>{t("summary.targetLabel")}</Text>
+                  <Text style={styles.statValue}>{formatMinutes(totalTarget)}</Text>
+                </View>
+                <View style={styles.goalStat}>
+                  <Text style={styles.statLabel}>{t("summary.loggedLabel")}</Text>
+                  <Text style={styles.statValue}>{formatMinutes(totalLogged)}</Text>
+                </View>
+                <View style={styles.goalStat}>
+                  <Text style={styles.statLabel}>{t("summary.remainingToGoalLabel")}</Text>
+                  <Text style={styles.statValue}>{formatMinutes(totalRemaining)}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.actionRow}>
+              {!deleteMode && (
+                <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+                  <Text style={styles.primaryButtonText}>{t("add")}</Text>
+                </Pressable>
+              )}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={monthLabel(month)}
-                onPress={() => handleSelectMonth(month)}
-                style={[
-                  styles.monthChip,
-                  month === selectedMonth && styles.monthChipActive,
-                ]}
+                style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
+                onPress={handleToggleDeleteMode}
+                disabled={offlineBlocked}
               >
-                <Text style={[styles.monthChipText, month === selectedMonth && styles.monthChipTextActive]}>
-                  {monthLabel(month)}
-                </Text>
+                <MaterialCommunityIcons
+                  name={deleteMode ? "close" : "trash-can-outline"}
+                  size={20}
+                  color={colors.textPrimary}
+                />
+                <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
               </Pressable>
-            )}
-          />
-        </View>
-
-        <View style={[styles.summaryCard, shadows.card]}>
-          <Text style={styles.summaryTitle}>{t("summary.title")}</Text>
-          <View style={styles.progressBarContainer}>
-            <View style={styles.progressTrack} />
-            <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+              {deleteMode && (
+                <Pressable
+                  accessibilityRole="button"
+                  style={[styles.secondaryButton, styles.bulkDeleteButton]}
+                  onPress={confirmBulkDelete}
+                  disabled={offlineBlocked}
+                >
+                  <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
+                  <Text style={styles.secondaryButtonText}>
+                    {t("bulkDelete.button", { defaultValue: "Delete all" })}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
           </View>
-          <View style={styles.summaryRow}>
-            <View style={styles.goalStat}>
-              <Text style={styles.statLabel}>{t("summary.targetLabel")}</Text>
-              <Text style={styles.statValue}>{formatMinutes(totalTarget)}</Text>
-            </View>
-            <View style={styles.goalStat}>
-              <Text style={styles.statLabel}>{t("summary.loggedLabel")}</Text>
-              <Text style={styles.statValue}>{formatMinutes(totalLogged)}</Text>
-            </View>
-            <View style={styles.goalStat}>
-              <Text style={styles.statLabel}>{t("summary.remainingToGoalLabel")}</Text>
-              <Text style={styles.statValue}>{formatMinutes(totalRemaining)}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.actionRow}>
-          {!deleteMode && (
+        )}
+        ListHeaderComponentStyle={styles.listHeader}
+        ListEmptyComponent={(
+          <View style={[styles.card, shadows.card, styles.emptyCard]}>
+            <LinearGradient
+              colors={LIST_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={styles.emptyTitle}>{t("empty.title")}</Text>
+            <Text style={styles.emptyBody}>{t("empty.body")}</Text>
             <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
-              <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+              <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
               <Text style={styles.primaryButtonText}>{t("add")}</Text>
             </Pressable>
-          )}
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
-            onPress={handleToggleDeleteMode}
-            disabled={offlineBlocked}
-          >
-            <MaterialCommunityIcons
-              name={deleteMode ? "close" : "trash-can-outline"}
-              size={20}
-              color={colors.textPrimary}
-            />
-            <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
-          </Pressable>
-          {deleteMode && (
-            <Pressable
-              accessibilityRole="button"
-              style={[styles.secondaryButton, styles.bulkDeleteButton]}
-              onPress={confirmBulkDelete}
-              disabled={offlineBlocked}
-            >
-              <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
-              <Text style={styles.secondaryButtonText}>
-                {t("bulkDelete.button", { defaultValue: "Delete all" })}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-      </View>
-
-      {hasGoals ? (
-        <View style={styles.listSpacing}>
-          <DraggableFlatList
-            data={filteredGoals}
-            keyExtractor={(item) => item.id}
-            onDragEnd={handleDragEnd}
-            renderItem={renderGoalCard}
-            scrollEnabled={false}
-            contentContainerStyle={styles.goalGrid}
-          />
-        </View>
-      ) : (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <LinearGradient
-            colors={LIST_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.emptyTitle}>{t("empty.title")}</Text>
-          <Text style={styles.emptyBody}>{t("empty.body")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
-            <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("add")}</Text>
-          </Pressable>
-        </View>
-      )}
+          </View>
+        )}
+      />
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -1155,6 +1163,8 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: "700",
     lineHeight: typography.lg * 1.5,
+    paddingRight: spacing.xl * 2,
+    minHeight: 40,
   },
   goalMetaRow: {
     flexDirection: "row",
@@ -1186,6 +1196,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+    marginTop: spacing.xs,
   },
   goalStat: {
     flex: 1,
@@ -1233,6 +1244,22 @@ const styles = StyleSheet.create({
   iconButtonRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  dragHandleButton: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    zIndex: 1,
+  },
+  dragHandleButtonActive: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(30,94,255,0.16)",
   },
   emptyState: {
     paddingVertical: spacing.xl,
@@ -1382,12 +1409,13 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     gap: spacing.sm,
   },
-  listSpacing: {
-    marginTop: spacing.md,
+  listHeader: {
+    marginBottom: spacing.md,
   },
   goalGrid: {
     gap: spacing.md,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
   emptyCard: {
     alignItems: "flex-start",

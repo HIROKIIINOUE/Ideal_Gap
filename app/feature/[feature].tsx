@@ -5,7 +5,7 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ComponentType, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AnnualGoalsScreen from "../../components/feature/AnnualGoalsScreen";
 import BreakReminderScreen from "../../components/feature/BreakReminderScreen";
@@ -139,13 +139,9 @@ export default function FeatureScreen() {
     // 白帯ヘッダーとタイトルカードの余白を狭める方法→edges={["left", "right", "bottom"]}
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: featureTitle, headerBackTitle: tCommonNav("back") }} />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        contentInsetAdjustmentBehavior="never"
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.content}>
         {ScreenComponent ? <ScreenComponent /> : <Placeholder />}
-      </ScrollView>
+      </View>
       <Footer
         isAuthenticated
         onLanguagePress={() => setLanguageSheetVisible(true)}
@@ -170,9 +166,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   content: {
+    flex: 1,
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl * 2,
-    gap: spacing.md,
+    paddingBottom: 0,
   },
   card: {
     backgroundColor: colors.surface,

@@ -32,12 +32,20 @@ jest.mock("react-native-draggable-flatlist", () => {
     data,
     renderItem,
     onDragEnd,
+    ListHeaderComponent,
+    ListEmptyComponent,
   }: {
     data: unknown[];
     renderItem: (params: { item: unknown; index: number; drag: () => void; isActive: boolean; getIndex: () => number }) => React.ReactNode;
     onDragEnd: (params: { data: unknown[] }) => void;
+    ListHeaderComponent?: React.ReactNode | (() => React.ReactNode);
+    ListEmptyComponent?: React.ReactNode | (() => React.ReactNode);
   }) => {
     const firedRef = React.useRef(false);
+    const renderSlot = (slot?: React.ReactNode | (() => React.ReactNode)) => {
+      if (!slot) return null;
+      return typeof slot === "function" ? slot() : slot;
+    };
     React.useEffect(() => {
       if (!firedRef.current && data.length > 0) {
         firedRef.current = true;
@@ -47,6 +55,8 @@ jest.mock("react-native-draggable-flatlist", () => {
 
     return (
       <>
+        {renderSlot(ListHeaderComponent)}
+        {data.length === 0 && renderSlot(ListEmptyComponent)}
         {data.map((item, index) =>
           renderItem({
             item,

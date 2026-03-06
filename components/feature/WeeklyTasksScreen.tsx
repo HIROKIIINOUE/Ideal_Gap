@@ -694,10 +694,7 @@ export default function WeeklyTasksScreen() {
   const renderTaskCard = ({ item, drag, isActive }: RenderItemParams<WeeklyTask>) => {
     if (listMode) {
       return (
-        <Pressable
-          onLongPress={drag}
-          delayLongPress={120}
-          disabled={deleteMode && isActive}
+        <View
           style={[
             styles.listRow,
             shadows.card,
@@ -713,6 +710,16 @@ export default function WeeklyTasksScreen() {
             style={StyleSheet.absoluteFill}
           />
           <View pointerEvents="none" style={styles.cardBorderOverlay} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+            style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+            onLongPress={drag}
+            delayLongPress={200}
+            hitSlop={14}
+          >
+            <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
+          </Pressable>
           <View style={styles.listRowContent}>
             <Text style={styles.listRowTitle} numberOfLines={1} ellipsizeMode="tail">
               {item.title}
@@ -744,17 +751,14 @@ export default function WeeklyTasksScreen() {
               />
             </Pressable>
           </View>
-        </Pressable>
+        </View>
       );
     }
 
     const progress = item.estimatedMinutes > 0 ? Math.min(1, item.loggedMinutes / item.estimatedMinutes) : 0;
     const remaining = Math.max(0, item.estimatedMinutes - item.loggedMinutes);
     return (
-      <Pressable
-        onLongPress={drag}
-        delayLongPress={120}
-        disabled={deleteMode && isActive}
+      <View
         style={[
           styles.taskCard,
           shadows.card,
@@ -769,6 +773,16 @@ export default function WeeklyTasksScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View pointerEvents="none" style={styles.cardBorderOverlay} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+          style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+          onLongPress={drag}
+          delayLongPress={200}
+          hitSlop={14}
+        >
+          <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
+        </Pressable>
         <View style={styles.taskHeader}>
           <Text style={styles.taskTitle}>{item.title}</Text>
         </View>
@@ -809,13 +823,13 @@ export default function WeeklyTasksScreen() {
               }
             }}
             disabled={offlineBlocked}
-          >
-            <MaterialCommunityIcons
-              name={deleteMode ? "trash-can-outline" : "pencil-outline"}
-              size={18}
-              color={deleteMode ? colors.error : colors.textPrimary}
-            />
-          </Pressable>
+            >
+              <MaterialCommunityIcons
+                name={deleteMode ? "trash-can-outline" : "pencil-outline"}
+                size={18}
+                color={deleteMode ? colors.error : colors.textPrimary}
+              />
+            </Pressable>
         </View>
 
         {true && (
@@ -848,7 +862,7 @@ export default function WeeklyTasksScreen() {
             </Pressable>
           </View>
         )}
-      </Pressable>
+      </View>
     );
   };
 
@@ -871,118 +885,129 @@ export default function WeeklyTasksScreen() {
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={[styles.headerCard, shadows.card]}>
-          <LinearGradient
-            colors={HEADER_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
+      <DraggableFlatList
+        data={tasks}
+        keyExtractor={(item) => item.id}
+        onDragEnd={handleDragEnd}
+        renderItem={renderTaskCard}
+        activationDistance={8}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={(
+          <>
+            <View style={[styles.headerCard, shadows.card]}>
+              <LinearGradient
+                colors={HEADER_CARD_GRADIENT}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
 
-          <View style={styles.headerTop}>
-            <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
+              <View style={styles.headerTop}>
+                <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
 
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>{t("header.title")}</Text>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryTitle}>{t("header.title")}</Text>
 
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressTrack} />
-                <View style={[styles.progressFill, { width: `${totals.progress * 100}%` }]} />
+                  <View style={styles.progressBarContainer}>
+                    <View style={styles.progressTrack} />
+                    <View style={[styles.progressFill, { width: `${totals.progress * 100}%` }]} />
+                  </View>
+
+                  <View style={styles.summaryStatsRow}>
+                    <View style={styles.summaryStat}>
+                      <Text style={styles.summaryLabel}>{t("summary.target")}</Text>
+                      <Text style={styles.summaryValue}>{formatMinutes(totals.target)}</Text>
+                    </View>
+                    <View style={styles.summaryStat}>
+                      <Text style={styles.summaryLabel}>{t("summary.logged")}</Text>
+                      <Text style={styles.summaryValue}>{formatMinutes(totals.logged)}</Text>
+                    </View>
+                    <View style={styles.summaryStat}>
+                      <Text style={styles.summaryLabel}>{t("summary.remaining")}</Text>
+                      <Text style={styles.summaryValue}>{formatMinutes(Math.max(0, totals.target - totals.logged))}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.actionsRow}>
+                  {!deleteMode && (
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
+                      onPress={handleOpenAdd}
+                      disabled={offlineBlocked}
+                    >
+                      <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+                      <Text style={styles.primaryButtonText}>{t("actions.add")}</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && styles.secondaryPressed,
+                      deleteMode && styles.secondaryButtonActive,
+                    ]}
+                    onPress={() => setDeleteMode((prev) => !prev)}
+                    disabled={offlineBlocked}
+                  >
+                    <MaterialCommunityIcons
+                      name={deleteMode ? "close" : "trash-can-outline"}
+                      size={20}
+                      color={colors.textPrimary}
+                    />
+                    <Text style={styles.secondaryButtonText}>
+                      {deleteMode ? t("actions.deleteExit") ?? t("actions.delete") : t("actions.delete")}
+                    </Text>
+                  </Pressable>
+                  {deleteMode && (
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed }) => [
+                        styles.secondaryButton,
+                        pressed && styles.secondaryPressed,
+                        styles.bulkDeleteButton,
+                      ]}
+                      onPress={confirmBulkDelete}
+                      disabled={offlineBlocked}
+                    >
+                      <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
+                      <Text style={styles.secondaryButtonText}>
+                        {t("bulkDelete.button", { defaultValue: "Delete all" })}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+                <View style={styles.actionsRowSecondary}>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && styles.secondaryPressed,
+                      listMode && styles.secondaryButtonActive,
+                    ]}
+                    onPress={() => setListMode((prev) => !prev)}
+                  >
+                    <MaterialCommunityIcons
+                      name={listMode ? "playlist-check" : "format-list-bulleted"}
+                      size={20}
+                      color={colors.textPrimary}
+                    />
+                    <Text style={styles.secondaryButtonText}>
+                      {listMode
+                        ? t("actions.listifyExit", { defaultValue: "Back" })
+                        : t("actions.listify", { defaultValue: "List view" })}
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
-
-              <View style={styles.summaryStatsRow}>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>{t("summary.target")}</Text>
-                  <Text style={styles.summaryValue}>{formatMinutes(totals.target)}</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>{t("summary.logged")}</Text>
-                  <Text style={styles.summaryValue}>{formatMinutes(totals.logged)}</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>{t("summary.remaining")}</Text>
-                  <Text style={styles.summaryValue}>{formatMinutes(Math.max(0, totals.target - totals.logged))}</Text>
-                </View>
-              </View>
             </View>
-
-            <View style={styles.actionsRow}>
-              {!deleteMode && (
-                <Pressable
-                  accessibilityRole="button"
-                  style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
-                  onPress={handleOpenAdd}
-                  disabled={offlineBlocked}
-                >
-                  <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{t("actions.add")}</Text>
-                </Pressable>
-              )}
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.secondaryPressed,
-                  deleteMode && styles.secondaryButtonActive,
-                ]}
-                onPress={() => setDeleteMode((prev) => !prev)}
-                disabled={offlineBlocked}
-              >
-                <MaterialCommunityIcons
-                  name={deleteMode ? "close" : "trash-can-outline"}
-                  size={20}
-                  color={colors.textPrimary}
-                />
-                <Text style={styles.secondaryButtonText}>
-                  {deleteMode ? t("actions.deleteExit") ?? t("actions.delete") : t("actions.delete")}
-                </Text>
-              </Pressable>
-              {deleteMode && (
-                <Pressable
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    pressed && styles.secondaryPressed,
-                    styles.bulkDeleteButton,
-                  ]}
-                  onPress={confirmBulkDelete}
-                  disabled={offlineBlocked}
-                >
-                  <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
-                  <Text style={styles.secondaryButtonText}>
-                    {t("bulkDelete.button", { defaultValue: "Delete all" })}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-            <View style={styles.actionsRowSecondary}>
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.secondaryPressed,
-                  listMode && styles.secondaryButtonActive,
-                ]}
-                onPress={() => setListMode((prev) => !prev)}
-              >
-                <MaterialCommunityIcons
-                  name={listMode ? "playlist-check" : "format-list-bulleted"}
-                  size={20}
-                  color={colors.textPrimary}
-                />
-                <Text style={styles.secondaryButtonText}>
-                  {listMode
-                    ? t("actions.listifyExit", { defaultValue: "Back" })
-                    : t("actions.listify", { defaultValue: "List view" })}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-
-        {tasks.length === 0 ? (
+            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          </>
+        )}
+        ListHeaderComponentStyle={styles.listHeader}
+        ListEmptyComponent={(
           <View style={[styles.emptyBox, shadows.card]}>
             <LinearGradient
               colors={LIST_CARD_GRADIENT}
@@ -993,16 +1018,8 @@ export default function WeeklyTasksScreen() {
             <Text style={styles.emptyTitle}>{t("list.emptyTitle")}</Text>
             <Text style={styles.emptyBody}>{t("list.emptyBody")}</Text>
           </View>
-        ) : (
-          <DraggableFlatList
-            data={tasks}
-            keyExtractor={(item) => item.id}
-            onDragEnd={handleDragEnd}
-            renderItem={renderTaskCard}
-            scrollEnabled={false}
-            contentContainerStyle={styles.listContent}
-          />
         )}
+      />
 
         <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
           <View style={styles.modalOverlay}>
@@ -1262,7 +1279,6 @@ export default function WeeklyTasksScreen() {
             </View>
           </View>
         </Modal>
-      </ScrollView>
     </GestureHandlerRootView>
   );
 }
@@ -1271,9 +1287,8 @@ const styles = StyleSheet.create({
   ghRoot: {
     flex: 1,
   },
-  container: {
-    paddingBottom: spacing.xl,
-    gap: spacing.lg,
+  listHeader: {
+    marginBottom: spacing.lg,
   },
   headerCard: {
     backgroundColor: "#1c3358",
@@ -1419,7 +1434,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   listContent: {
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl * 2,
   },
   listRow: {
     flexDirection: "row",
@@ -1449,6 +1464,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "700",
+    paddingRight: spacing.xl * 2,
   },
   listRowButton: {
     flexDirection: "row",
@@ -1509,11 +1525,14 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: "800",
     lineHeight: typography.lg * 1.5,
+    paddingRight: spacing.xl * 2,
+    minHeight: 40,
   },
   taskFooterRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+    marginTop: spacing.xs,
   },
   goalStat: {
     flex: 1,
@@ -1543,6 +1562,22 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)",
     alignSelf: "flex-end",
     marginLeft: "auto",
+  },
+  dragHandleButton: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    zIndex: 1,
+  },
+  dragHandleButtonActive: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(30,94,255,0.16)",
   },
   editButtonText: {
     color: colors.textPrimary,

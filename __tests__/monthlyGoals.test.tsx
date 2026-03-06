@@ -28,22 +28,34 @@ jest.mock("react-native-draggable-flatlist", () => {
   const MockFlatList = ({
     data,
     renderItem,
+    ListHeaderComponent,
+    ListEmptyComponent,
   }: {
     data: unknown[];
     renderItem: (params: { item: unknown; index: number; drag: () => void; isActive: boolean; getIndex: () => number }) => React.ReactNode;
-  }) => (
-    <>
-      {data.map((item, index) =>
-        renderItem({
-          item,
-          index,
-          drag: () => {},
-          isActive: false,
-          getIndex: () => index,
-        }),
-      )}
-    </>
-  );
+    ListHeaderComponent?: React.ReactNode | (() => React.ReactNode);
+    ListEmptyComponent?: React.ReactNode | (() => React.ReactNode);
+  }) => {
+    const renderSlot = (slot?: React.ReactNode | (() => React.ReactNode)) => {
+      if (!slot) return null;
+      return typeof slot === "function" ? slot() : slot;
+    };
+    return (
+      <>
+        {renderSlot(ListHeaderComponent)}
+        {data.length === 0 && renderSlot(ListEmptyComponent)}
+        {data.map((item, index) =>
+          renderItem({
+            item,
+            index,
+            drag: () => {},
+            isActive: false,
+            getIndex: () => index,
+          }),
+        )}
+      </>
+    );
+  };
   MockFlatList.displayName = "MockDraggableFlatList";
   return MockFlatList;
 });
