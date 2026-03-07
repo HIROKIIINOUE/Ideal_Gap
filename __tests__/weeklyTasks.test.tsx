@@ -149,6 +149,38 @@ describe("WeeklyTasksScreen", () => {
     expect(await findByText("3h")).toBeTruthy();
   });
 
+  test("hides edit action in list mode and keeps timer with reorder", async () => {
+    mockOrderMonthly.mockResolvedValue({
+      data: [
+        { id: "m1", description: "April UX", month: 4, yearly_goal_id: "y1", yearly_goals: { year_goal_color: "#1E5EFF" } },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          monthly_goal_id: "m1",
+          estimated_time_week: 600,
+          accumulated_time_week: 180,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { findByRole, getByRole, getByTestId, queryByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "List view" }));
+
+    expect(await findByRole("button", { name: "Drag to reorder" })).toBeTruthy();
+    expect(getByTestId("weekly-task-list-timer-w1")).toBeTruthy();
+    expect(queryByTestId("weekly-task-list-edit-w1")).toBeFalsy();
+  });
+
   test("localizes month labels in the add modal", async () => {
     const currentMonth = new Date().getMonth() + 1;
     const monthNames = i18n.t("monthsShort", { ns: "monthlyGoals", returnObjects: true }) as string[];

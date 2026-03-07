@@ -702,22 +702,14 @@ export default function WeeklyTasksScreen() {
             style={StyleSheet.absoluteFill}
           />
           <View pointerEvents="none" style={styles.cardBorderOverlay} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
-            style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
-            onLongPress={drag}
-            delayLongPress={200}
-            hitSlop={14}
-          >
-            <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
-          </Pressable>
           <View style={styles.listRowContent}>
             <Text style={styles.listRowTitle} numberOfLines={1} ellipsizeMode="tail">
               {item.title}
             </Text>
             {!deleteMode && <Pressable
+              testID={`weekly-task-list-timer-${item.id}`}
               accessibilityRole="button"
+              accessibilityLabel={t("task.openTimer")}
               disabled={deleteMode}
               onPress={() => handleOpenTimer(item)}
               style={styles.listRowButton}
@@ -727,21 +719,30 @@ export default function WeeklyTasksScreen() {
             </Pressable>}
             <Pressable
               accessibilityRole="button"
-              style={[styles.listRowButton, deleteMode && styles.dangerButton]}
-              onPress={() => {
-                if (deleteMode) {
-                  handleDeleteTask(item);
-                } else {
-                  handleOpenEdit(item);
-                }
-              }}
+              accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+              style={[styles.listDragHandleButton, isActive && styles.dragHandleButtonActive]}
+              onLongPress={drag}
+              delayLongPress={200}
+              hitSlop={14}
             >
-              <MaterialCommunityIcons
-                name={deleteMode ? "trash-can-outline" : "pencil-outline"}
-                size={16}
-                color={deleteMode ? colors.error : colors.textPrimary}
-              />
+              <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
             </Pressable>
+            {deleteMode && (
+              <Pressable
+                testID={`weekly-task-list-edit-${item.id}`}
+                accessibilityRole="button"
+                style={[styles.listRowButton, styles.dangerButton]}
+                onPress={() => {
+                  handleDeleteTask(item);
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="trash-can-outline"
+                  size={16}
+                  color={colors.error}
+                />
+              </Pressable>
+            )}
           </View>
         </View>
       );
@@ -1376,7 +1377,7 @@ const styles = StyleSheet.create({
   listRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     padding: spacing.lg,
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -1391,23 +1392,34 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(242,95,92,0.08)",
   },
   listRowContent: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
+  },
+  listDragHandleButton: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.03)",
   },
   listRowTitle: {
     flex: 1,
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "700",
-    paddingRight: spacing.xl * 2,
+    paddingRight: spacing.xs,
   },
   listRowButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
+    gap: 0,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,
     borderWidth: 1,
