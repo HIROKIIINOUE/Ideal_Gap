@@ -61,7 +61,7 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
     },
     footer: {
       language: "言語",
-      dashboard: "ダッシュボード",
+      dashboard: "ホーム",
       more: "その他",
       contact: "お問い合わせ",
       home: "ホームへ戻る",
@@ -131,7 +131,7 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
     },
     footer: {
       language: "Language",
-      dashboard: "Dashboard",
+      dashboard: "Home",
       more: "More",
       contact: "Contact",
       home: "Home",
@@ -195,7 +195,7 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
     },
     footer: {
       language: "Langue",
-      dashboard: "Tableau de bord",
+      dashboard: "Accueil",
       more: "Autres",
       contact: "Contact",
       home: "Accueil",

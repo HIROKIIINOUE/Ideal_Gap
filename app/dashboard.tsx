@@ -2,7 +2,17 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Href, Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  ToastAndroid,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
@@ -10,6 +20,7 @@ import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { canAccessDashboardWithSubscriptionStatus, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
+import { isCompactScreen } from "../lib/ui/responsive";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
 type CardKey =
@@ -33,8 +44,14 @@ const alternatingGradients: readonly [readonly [string, string], readonly [strin
 const HERO_GRADIENT: readonly [string, string] = ["rgba(110,168,255,0.4)", "rgba(15,28,47,0.92)"];
 
 export default function Dashboard() {
-  const { t } = useTranslation("dashboard");
+  const { t, i18n } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
+  // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
+  const { width, fontScale } = useWindowDimensions();
+  const compact = isCompactScreen(width, fontScale);
+  // i18n より現在の設定言語を取得
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const isFrench = currentLanguage.startsWith("fr");
   const { emailUpdated } = useLocalSearchParams<{ emailUpdated?: string }>();
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
@@ -184,10 +201,26 @@ export default function Dashboard() {
           style={styles.tileGradient}
         />
         <View style={styles.tileHeader}>
-          <Text style={styles.tileTitle} >
+          <Text
+            style={[
+              styles.tileTitle,
+              isFrench ? styles.tileTitleFr : styles.tileTitleJaEn,
+              compact && (isFrench ? styles.tileTitleCompactFr : styles.tileTitleCompactJaEn),
+            ]}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
             {t(`cards.${card.key}.title`)}
           </Text>
-          <Text style={styles.tileSubtitle} >
+          <Text
+            style={[
+              styles.tileSubtitle,
+              isFrench ? styles.tileSubtitleFr : styles.tileSubtitleJaEn,
+              compact && (isFrench ? styles.tileSubtitleCompactFr : styles.tileSubtitleCompactJaEn),
+            ]}
+            numberOfLines={6} // 最大表示行数(...で折りたたまれる)
+            ellipsizeMode="tail"
+          >
             {t(`cards.${card.key}.subtitle`)}
           </Text>
         </View>
@@ -204,7 +237,10 @@ export default function Dashboard() {
           headerLeft: () => null,
         }}
       />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, compact && styles.contentCompact]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <View style={styles.headerTextGroup}>
             <Text style={styles.title}>{t("pageTitle")}</Text>
@@ -223,11 +259,11 @@ export default function Dashboard() {
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
-            <View style={styles.heroContent}>
-              <Text style={styles.heroLabel}>{t("nextFunPlan.title")}</Text>
+            <View style={[styles.heroContent, compact && styles.heroContentCompact]}>
+              <Text style={[styles.heroLabel, compact && styles.heroLabelCompact]}>{t("nextFunPlan.title")}</Text>
               <View style={styles.heroFooter}>
                 <Text
-                  style={styles.heroCta}
+                  style={[styles.heroCta, compact && styles.heroCtaCompact]}
                   numberOfLines={3}
                   ellipsizeMode="tail"
                 >
@@ -272,6 +308,9 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     paddingBottom: spacing.xl * 1.25,
   },
+  contentCompact: {
+    paddingHorizontal: spacing.lg,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -284,7 +323,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.textPrimary,
-    fontSize: typography.xl,
+    fontSize: typography.xl * 1.1,
     fontWeight: "800",
   },
   subtitle: {
@@ -316,11 +355,17 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
   },
+  heroContentCompact: {
+    padding: spacing.md,
+  },
   heroLabel: {
     color: colors.textSecondary,
     fontSize: typography.md,
     letterSpacing: 0.6,
     textTransform: "uppercase",
+  },
+  heroLabelCompact: {
+    fontSize: typography.md * 0.9,
   },
   heroBody: {
     color: colors.textPrimary,
@@ -336,6 +381,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.md * 1.3,
     fontWeight: "700",
+    lineHeight: typography.md * 1.45,
+  },
+  heroCtaCompact: {
+    fontSize: typography.md * 1.08,
   },
   heroHelper: {
     color: colors.textSecondary,
@@ -348,7 +397,7 @@ const styles = StyleSheet.create({
   },
   tile: {
     width: "49%",
-    height: 180,
+    minHeight: 168,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -367,13 +416,48 @@ const styles = StyleSheet.create({
   },
   tileTitle: {
     color: colors.textPrimary,
-    fontSize: typography.lg,
     fontWeight: "700",
+    flexShrink: 1,
+  },
+  // 6カードタイトル 日本語英語スタイル
+  tileTitleJaEn: {
+    fontSize: typography.lg,
+  },
+  // 6カードタイトル フランス語スタイル
+  tileTitleFr: {
+    fontSize: typography.md * 1.14,
+  },
+  // 6カードタイトル(compact screen) 日本語英語スタイル
+  tileTitleCompactJaEn: {
+    fontSize: typography.md * 1.2,
+  },
+  // 6カードタイトル(compact screen) フランス語スタイル
+  tileTitleCompactFr: {
+    fontSize: typography.md,
   },
   tileSubtitle: {
     color: "rgba(233,237,247,0.76)",
+    flexShrink: 1,
+  },
+  // 6カード説明文 日本語英語スタイル
+  tileSubtitleJaEn: {
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
+  },
+  // 6カード説明文 フランス語スタイル
+  tileSubtitleFr: {
+    fontSize: typography.sm * 0.95,
+    lineHeight: typography.sm * 1.32,
+  },
+  // 6カード説明文(compact screen) 日本語英語スタイル
+  tileSubtitleCompactJaEn: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.3,
+  },
+  // 6カード説明文(compact screen) フランス語スタイル
+  tileSubtitleCompactFr: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.22,
   },
   tilePressed: {
     opacity: 0.9,

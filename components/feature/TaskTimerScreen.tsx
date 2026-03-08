@@ -25,6 +25,7 @@ import {
   TextInput,
   ToastAndroid,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -41,6 +42,7 @@ import {
   getTaskTimerIpadLayout,
   scaleFontSizeForIpad,
 } from "../../lib/ui/ipadLayout";
+import { isCompactScreen } from "../../lib/ui/responsive";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { InstalledFocusTrack } from "../../types/focus-music";
 
@@ -85,6 +87,9 @@ const formatEndTimeLabel = (timestamp: number | null) => {
 
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
+  // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
+  const { width, fontScale } = useWindowDimensions();
+  const compactScreen = isCompactScreen(width, fontScale);
   const { installedTracks, selectedTrack, selectTrack, playSelected, pause, stop } =
     useFocusMusic();
   const params = useLocalSearchParams<{
@@ -701,7 +706,7 @@ export default function TaskTimerScreen() {
             style={StyleSheet.absoluteFill}
           />
           <Text
-            style={styles.focusTitle}
+            style={[styles.focusTitle, compactScreen && styles.focusTitleCompact]}
             numberOfLines={2}
             ellipsizeMode="tail"
           >
@@ -744,10 +749,13 @@ export default function TaskTimerScreen() {
               >
                 {() => (
                   <View style={styles.ringCenter}>
-                    <Text style={styles.durationLabel} testID="timer-duration">
+                    <Text
+                      style={[styles.durationLabel, compactScreen && styles.durationLabelCompact]}
+                      testID="timer-duration"
+                    >
                       {durationLabel}
                     </Text>
-                    <Text style={styles.remainingLabel}>
+                    <Text style={[styles.remainingLabel, compactScreen && styles.remainingLabelCompact]}>
                       {t("timerCard.endTimeLabel", { time: endTimeText })}
                     </Text>
                     {statusLabel && (
@@ -763,6 +771,7 @@ export default function TaskTimerScreen() {
             {PRESETS.map((preset) => (
               <Pressable
                 key={preset.label}
+                testID={`timer-preset-${preset.label}`}
                 accessibilityRole="button"
                 disabled={status === "running"}
                 onPress={() => handlePreset(preset.minutes)}
@@ -773,12 +782,17 @@ export default function TaskTimerScreen() {
                   status === "running" && styles.buttonDisabled,
                 ]}
               >
-                <Text style={styles.secondaryButtonText}>
+                <Text
+                  style={[styles.secondaryButtonText, styles.presetButtonText, compactScreen && styles.presetButtonTextCompact]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {t(`presets.${preset.label}`)}
                 </Text>
               </Pressable>
             ))}
             <Pressable
+              testID="timer-preset-clear"
               accessibilityRole="button"
               onPress={handleClear}
               disabled={status === "running"}
@@ -791,7 +805,13 @@ export default function TaskTimerScreen() {
                 status === "running" && styles.clearButtonDisabled,
               ]}
             >
-              <Text style={styles.clearButtonText}>{t("presets.clear")}</Text>
+              <Text
+                style={[styles.clearButtonText, styles.presetButtonText, compactScreen && styles.presetButtonTextCompact]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {t("presets.clear")}
+              </Text>
             </Pressable>
           </View>
 
@@ -1287,6 +1307,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: spacing.lg,
   },
+  focusTitleCompact: {
+    fontSize: typography.md * 1.15,
+    lineHeight: typography.lg * 1.2,
+  },
   nextStartBox: {
     backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: radius.md,
@@ -1346,11 +1370,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textAlign: "center",
   },
+  durationLabelCompact: {
+    fontSize: scaleFontSizeForIpad(18, isIpadDevice),
+  },
   remainingLabel: {
     color: colors.textSecondary,
     fontSize: scaleFontSizeForIpad(18, isIpadDevice),
     marginTop: spacing.xs,
     textAlign: "center",
+  },
+  remainingLabelCompact: {
+    fontSize: scaleFontSizeForIpad(15, isIpadDevice),
   },
   statusInline: {
     marginTop: spacing.xs / 2,
@@ -1362,12 +1392,25 @@ const styles = StyleSheet.create({
   presetsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    rowGap: spacing.sm,
     marginTop: taskTimerLayout.presetsMarginTop,
-    justifyContent: taskTimerLayout.presetsJustifyContent,
+    justifyContent: "center",
   },
   presetButton: {
-    minWidth: 92,
+    flexBasis: "31%",
+    maxWidth: "31%",
+    minWidth: 0,
+    flexGrow: 0,
+    flexShrink: 0,
+    paddingHorizontal: spacing.sm,
+    marginHorizontal: "1%",
+  },
+  presetButtonText: {
+    fontSize: typography.md * 0.92,
+    lineHeight: typography.md * 1.05,
+  },
+  presetButtonTextCompact: {
+    fontSize: typography.md,
   },
   clearButton: {
     borderColor: colors.error,

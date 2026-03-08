@@ -270,12 +270,12 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       presets: {
         add10s: "10 s", // これはテスト用
-        add1m: "1 min", // これはテスト用
-        add5: "+5 min",
-        add10: "+10 min",
-        add30: "+30 min",
-        add1h: "+1 h",
-        add2h: "+2 h",
+        add1m: "1m", // これはテスト用
+        add5: "+5m",
+        add10: "+10m",
+        add30: "+30m",
+        add1h: "+1h",
+        add2h: "+2h",
         clear: "clear",
       },
       controls: {
@@ -307,7 +307,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         description:
           "Vérifiez le temps enregistré et notez le prochain point de reprise avant de revenir aux tâches hebdomadaires.",
         actualTimeLabel: "Temps passé sur cette session",
-        minutesLabel: "Enregistré en {{minutes}} min",
+        minutesLabel: "Enregistré en {{minutes}}m",
         nextStartLabel: "Point de reprise (optionnel)",
         currentStartLabel: "Point de départ de cette session",
         nextStartPlaceholder:

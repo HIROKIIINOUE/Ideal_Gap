@@ -204,6 +204,14 @@ describe("TaskTimerScreen", () => {
     expect(getByTestId("timer-duration")).toHaveTextContent("10:00 / 10:00");
   });
 
+  test("keeps preset buttons as a 3-column grid", () => {
+    const { getByTestId } = renderScreen();
+
+    expect(getByTestId("timer-preset-add5")).toHaveStyle({ flexBasis: "31%" });
+    expect(getByTestId("timer-preset-add10")).toHaveStyle({ flexBasis: "31%" });
+    expect(getByTestId("timer-preset-clear")).toHaveStyle({ flexBasis: "31%" });
+  });
+
   test("hides start button when timer is running", () => {
     const { getByText, getByTestId, queryByTestId } = renderScreen();
 

@@ -11,6 +11,12 @@ describe("Footer", () => {
         <Footer isAuthenticated={false} {...props} />
       </I18nextProvider>,
     );
+  const renderAuthenticatedFooter = (props?: Partial<React.ComponentProps<typeof Footer>>) =>
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Footer isAuthenticated {...props} />
+      </I18nextProvider>,
+    );
 
   test("shows language and contact actions for guests", () => {
     const onContactPress = jest.fn();
@@ -35,5 +41,16 @@ describe("Footer", () => {
 
     expect(onHomePress).toHaveBeenCalledTimes(1);
     expect(queryByRole("button", { name: /contact/i })).toBeNull();
+  });
+
+  test("shows home label for authenticated center action", () => {
+    const onDashboardPress = jest.fn();
+    const { getByRole, queryByRole } = renderAuthenticatedFooter({ onDashboardPress });
+
+    const homeButton = getByRole("button", { name: /home/i });
+    fireEvent.press(homeButton);
+
+    expect(onDashboardPress).toHaveBeenCalledTimes(1);
+    expect(queryByRole("button", { name: /dashboard/i })).toBeNull();
   });
 });
