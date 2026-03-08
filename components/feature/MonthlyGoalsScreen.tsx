@@ -3,7 +3,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
@@ -117,8 +130,15 @@ export default function MonthlyGoalsScreen() {
   const monthListRef = useRef<FlatList<number>>(null);
   const [isMonthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [isYearlyDropdownOpen, setYearlyDropdownOpen] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
+
+  const dismissKeyboard = useCallback(() => {
+    // キーボード非表示時にアイコンが瞬時に消える仕様(楽観的UI)
+    setIsKeyboardVisible(false);
+    Keyboard.dismiss();
+  }, []);
 
   const toMonthlyGoal = (row: MonthlyGoalRow): MonthlyGoal => ({
     id: row.id,
@@ -233,6 +253,24 @@ export default function MonthlyGoalsScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+
+  // このページにいる間はキーボードにリスナーが付与される
+  // このリスナーはキーボードの表示・非表示を監視し、キーボードアイコンの表示非表示のトリガーになる
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // 入力中の月間目標が年間目標と紐づいていない状態ならば年間目標リストの１番目がデフォルトでセットされる
   useEffect(() => {
@@ -787,177 +825,216 @@ export default function MonthlyGoalsScreen() {
       />
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, shadows.card]}>
-            <Text style={styles.modalTitle}>{modalTitle}</Text>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>{t("modal.descriptionLabel")}</Text>
-              <TextInput
-                autoFocus
-                multiline
-                placeholder={t("modal.descriptionPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.modalInput}
-                value={draft.description}
-                onChangeText={(text) => {
-                  setDraft((prev) => ({ ...prev, description: text }));
-                  setModalError(null);
-                }}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>{t("modal.monthLabel")}</Text>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={dismissKeyboard}
+          testID="monthly-goals-modal-overlay"
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="monthly-goals-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="monthly-goals-modal-scroll"
+            >
               <Pressable
-                accessibilityRole="button"
-                style={[styles.selectInput, isMonthDropdownOpen && styles.selectInputActive]}
-                onPress={() => {
-                  setMonthDropdownOpen((prev) => !prev);
-                  setYearlyDropdownOpen(false);
-                }}
+                style={[styles.modalCard, shadows.card]}
+                onPress={(event) => event.stopPropagation()}
               >
-                <Text style={styles.selectValue}>{monthLabel(Number(draft.month))}</Text>
-                <MaterialCommunityIcons
-                  name={isMonthDropdownOpen ? "chevron-up" : "chevron-down"}
-                  size={18}
-                  color={colors.textPrimary}
-                />
-              </Pressable>
-              {isMonthDropdownOpen && (
-                <View style={styles.selectList}>
-                  <View style={styles.selectEdge}>
-                    <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
-                  </View>
-                  <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
-                    {monthsList.map((month) => (
-                      <Pressable
-                        key={month}
-                        accessibilityRole="button"
-                        accessibilityLabel={monthLabel(month)}
-                        onPress={() => {
-                          setDraft((prev) => ({ ...prev, month: String(month) }));
-                          setMonthDropdownOpen(false);
-                        }}
-                        style={[
-                          styles.selectOption,
-                          Number(draft.month) === month && styles.selectOptionActive,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.selectOptionText,
-                            Number(draft.month) === month && styles.selectOptionTextActive,
-                          ]}
-                        >
-                          {monthLabel(month)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                  <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
-                    <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
-                  </View>
-                </View>
-              )}
-            </View>
+                <Text style={styles.modalTitle}>{modalTitle}</Text>
 
-            <View style={[styles.formGroup, styles.formGroupTight]}>
-              <Text style={styles.label}>{t("modal.yearlyGoalLabel")}</Text>
-              <Pressable
-                accessibilityRole="button"
-                style={[styles.selectInput, isYearlyDropdownOpen && styles.selectInputActive]}
-                onPress={() => {
-                  setYearlyDropdownOpen((prev) => !prev);
-                  setMonthDropdownOpen(false);
-                }}
-              >
-                <View style={styles.selectValueRow}>
-                  <View
-                    style={[styles.categoryDot, { backgroundColor: getYearlyGoal(draft.yearlyGoalId)?.color ?? colors.accentPrimary }]}
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t("modal.descriptionLabel")}</Text>
+                  <TextInput
+                    multiline
+                    placeholder={t("modal.descriptionPlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.modalInput}
+                    value={draft.description}
+                    onChangeText={(text) => {
+                      setDraft((prev) => ({ ...prev, description: text }));
+                      setModalError(null);
+                    }}
                   />
-                  <Text style={styles.selectValue}>{truncateLabel(getYearlyGoal(draft.yearlyGoalId)?.name ?? "")}</Text>
                 </View>
-                <MaterialCommunityIcons
-                  name={isYearlyDropdownOpen ? "chevron-up" : "chevron-down"}
-                  size={18}
-                  color={colors.textPrimary}
-                />
-              </Pressable>
-              {isYearlyDropdownOpen && (
-                <View style={styles.selectList}>
-                  <View style={styles.selectEdge}>
-                    <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
-                  </View>
-                  <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
-                    {yearlyGoals.map((option) => (
-                      <Pressable
-                        key={option.id}
-                        accessibilityRole="button"
-                        onPress={() => {
-                          setDraft((prev) => ({ ...prev, yearlyGoalId: option.id }));
-                          setYearlyDropdownOpen(false);
-                        }}
-                        style={[
-                          styles.selectOption,
-                          draft.yearlyGoalId === option.id && styles.selectOptionActive,
-                        ]}
-                      >
-                        <View style={[styles.categoryDot, { backgroundColor: option.color }]} />
-                        <Text
-                          style={[
-                            styles.selectOptionText,
-                            draft.yearlyGoalId === option.id && styles.selectOptionTextActive,
-                          ]}
-                        >
-                          {truncateLabel(option.name)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                  <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
-                    <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t("modal.monthLabel")}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={[styles.selectInput, isMonthDropdownOpen && styles.selectInputActive]}
+                    onPress={() => {
+                      setMonthDropdownOpen((prev) => !prev);
+                      setYearlyDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.selectValue}>{monthLabel(Number(draft.month))}</Text>
+                    <MaterialCommunityIcons
+                      name={isMonthDropdownOpen ? "chevron-up" : "chevron-down"}
+                      size={18}
+                      color={colors.textPrimary}
+                    />
+                  </Pressable>
+                  {isMonthDropdownOpen && (
+                    <View style={styles.selectList}>
+                      <View style={styles.selectEdge}>
+                        <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
+                      </View>
+                      <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
+                        {monthsList.map((month) => (
+                          <Pressable
+                            key={month}
+                            accessibilityRole="button"
+                            accessibilityLabel={monthLabel(month)}
+                            onPress={() => {
+                              setDraft((prev) => ({ ...prev, month: String(month) }));
+                              setMonthDropdownOpen(false);
+                            }}
+                            style={[
+                              styles.selectOption,
+                              Number(draft.month) === month && styles.selectOptionActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.selectOptionText,
+                                Number(draft.month) === month && styles.selectOptionTextActive,
+                              ]}
+                            >
+                              {monthLabel(month)}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                      <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
+                        <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                <View style={[styles.formGroup, styles.formGroupTight]}>
+                  <Text style={styles.label}>{t("modal.yearlyGoalLabel")}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={[styles.selectInput, isYearlyDropdownOpen && styles.selectInputActive]}
+                    onPress={() => {
+                      setYearlyDropdownOpen((prev) => !prev);
+                      setMonthDropdownOpen(false);
+                    }}
+                  >
+                    <View style={styles.selectValueRow}>
+                      <View
+                        style={[styles.categoryDot, { backgroundColor: getYearlyGoal(draft.yearlyGoalId)?.color ?? colors.accentPrimary }]}
+                      />
+                      <Text style={styles.selectValue}>{truncateLabel(getYearlyGoal(draft.yearlyGoalId)?.name ?? "")}</Text>
+                    </View>
+                    <MaterialCommunityIcons
+                      name={isYearlyDropdownOpen ? "chevron-up" : "chevron-down"}
+                      size={18}
+                      color={colors.textPrimary}
+                    />
+                  </Pressable>
+                  {isYearlyDropdownOpen && (
+                    <View style={styles.selectList}>
+                      <View style={styles.selectEdge}>
+                        <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
+                      </View>
+                      <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
+                        {yearlyGoals.map((option) => (
+                          <Pressable
+                            key={option.id}
+                            accessibilityRole="button"
+                            onPress={() => {
+                              setDraft((prev) => ({ ...prev, yearlyGoalId: option.id }));
+                              setYearlyDropdownOpen(false);
+                            }}
+                            style={[
+                              styles.selectOption,
+                              draft.yearlyGoalId === option.id && styles.selectOptionActive,
+                            ]}
+                          >
+                            <View style={[styles.categoryDot, { backgroundColor: option.color }]} />
+                            <Text
+                              style={[
+                                styles.selectOptionText,
+                                draft.yearlyGoalId === option.id && styles.selectOptionTextActive,
+                              ]}
+                            >
+                              {truncateLabel(option.name)}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                      <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
+                        <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                <View style={[styles.formGroup, styles.formGroupAfterTight]}>
+                  <Text style={styles.label}>{t("modal.targetLabel")}</Text>
+                  <TextInput
+                    placeholder={t("modal.targetPlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.modalInput}
+                    keyboardType="numeric"
+                    value={draft.estimatedHours}
+                    onChangeText={(text) => {
+                      setDraft((prev) => ({ ...prev, estimatedHours: text }));
+                      setModalError(null);
+                    }}
+                  />
+                  <Text style={styles.helperText}>{t("modal.targetHelper")}</Text>
+                </View>
+
+                {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
+
+                <View style={styles.modalFooterRow}>
+                  {isKeyboardVisible && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Dismiss keyboard"
+                      onPress={dismissKeyboard}
+                      style={styles.keyboardIconButton}
+                      testID="monthly-goals-modal-keyboard-button"
+                    >
+                      <MaterialCommunityIcons
+                        name="keyboard-outline"
+                        size={20}
+                        color={colors.textPrimary}
+                      />
+                    </Pressable>
+                  )}
+
+                  <View style={[styles.modalActions, styles.modalActionsRight]}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.secondaryButton}
+                      onPress={() => {
+                        setModalVisible(false);
+                        setMonthDropdownOpen(false);
+                        setYearlyDropdownOpen(false);
+                      }}
+                    >
+                      <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
+                    </Pressable>
+                    <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleSave}>
+                      <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
+                      <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
+                    </Pressable>
                   </View>
                 </View>
-              )}
-            </View>
-
-            <View style={[styles.formGroup, styles.formGroupAfterTight]}>
-              <Text style={styles.label}>{t("modal.targetLabel")}</Text>
-              <TextInput
-                placeholder={t("modal.targetPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.modalInput}
-                keyboardType="numeric"
-                value={draft.estimatedHours}
-                onChangeText={(text) => {
-                  setDraft((prev) => ({ ...prev, estimatedHours: text }));
-                  setModalError(null);
-                }}
-              />
-              <Text style={styles.helperText}>{t("modal.targetHelper")}</Text>
-            </View>
-
-            {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
-            <View style={styles.modalActions}>
-              <Pressable
-                accessibilityRole="button"
-                style={styles.secondaryButton}
-                onPress={() => {
-                  setModalVisible(false);
-                  setMonthDropdownOpen(false);
-                  setYearlyDropdownOpen(false);
-                }}
-              >
-                <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleSave}>
-                <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
-                <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
     </GestureHandlerRootView>
   );
@@ -1245,6 +1322,17 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     width: "100%",
   },
+  modalContainer: {
+    width: "100%",
+    maxHeight: "100%",
+  },
+  modalScroll: {
+    width: "100%",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
   modalTitle: {
     color: colors.textPrimary,
     fontSize: typography.lg,
@@ -1360,8 +1448,27 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: "row",
-    justifyContent: "flex-end",
     gap: spacing.sm,
+  },
+  modalActionsRight: {
+    marginLeft: "auto",
+  },
+  modalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  keyboardIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   listHeader: {
     marginBottom: spacing.md,

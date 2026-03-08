@@ -1,6 +1,6 @@
 import React from "react";
-import { Alert } from "react-native";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { Alert, Keyboard } from "react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import MonthlyGoalsScreen from "../components/feature/MonthlyGoalsScreen";
 import i18n from "../i18n";
@@ -278,5 +278,60 @@ describe("MonthlyGoalsScreen", () => {
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenLastCalledWith("Deleted all", "All monthly goals were deleted.");
     });
+  });
+
+  test("dismisses keyboard when tapping modal overlay", async () => {
+    const dismissSpy = jest.spyOn(Keyboard, "dismiss");
+    const { getAllByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderMonthlySecond).toHaveBeenCalled());
+    fireEvent.press(getAllByRole("button", { name: "Add" })[0]);
+    fireEvent.press(getByTestId("monthly-goals-modal-overlay"));
+
+    expect(dismissSpy).toHaveBeenCalled();
+  });
+
+  test("dismisses keyboard when tapping modal keyboard icon", async () => {
+    let showHandler: (() => void) | null = null;
+    const addListenerSpy = jest
+      .spyOn(Keyboard, "addListener")
+      .mockImplementation((eventName, callback) => {
+        if (eventName.includes("Show")) {
+          showHandler = callback as unknown as () => void;
+          callback({} as any);
+        }
+        return { remove: jest.fn() } as any;
+      });
+    const dismissSpy = jest.spyOn(Keyboard, "dismiss");
+    const { getAllByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderMonthlySecond).toHaveBeenCalled());
+    fireEvent.press(getAllByRole("button", { name: "Add" })[0]);
+    act(() => {
+      showHandler?.();
+    });
+    fireEvent.press(getByTestId("monthly-goals-modal-keyboard-button"));
+
+    expect(dismissSpy).toHaveBeenCalled();
+    addListenerSpy.mockRestore();
+  });
+
+  test("renders keyboard avoiding view and scroll area in modal", async () => {
+    const { getAllByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderMonthlySecond).toHaveBeenCalled());
+    fireEvent.press(getAllByRole("button", { name: "Add" })[0]);
+
+    expect(getByTestId("monthly-goals-modal-kav")).toBeTruthy();
+    expect(getByTestId("monthly-goals-modal-scroll")).toBeTruthy();
+  });
+
+  test("hides keyboard icon when keyboard is not visible", async () => {
+    const { getAllByRole, queryByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderMonthlySecond).toHaveBeenCalled());
+    fireEvent.press(getAllByRole("button", { name: "Add" })[0]);
+
+    expect(queryByTestId("monthly-goals-modal-keyboard-button")).toBeNull();
   });
 });
