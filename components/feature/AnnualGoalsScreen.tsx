@@ -1,13 +1,16 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, FieldErrors } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -117,6 +120,7 @@ export default function AnnualGoalsScreen() {
   const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -137,6 +141,11 @@ export default function AnnualGoalsScreen() {
     defaultValues: DEFAULT_FORM_VALUES,
   });
   const goalColor = watch("goalColor");
+  const dismissKeyboard = useCallback(() => {
+    // キーボード非表示時にアイコンが瞬時に消える仕様(楽観的UI)
+    setIsKeyboardVisible(false);
+    Keyboard.dismiss();
+  }, []);
 
   // データベースからユーザの年間目標データを取得し必要なデータのみに絞った上で状態変数goalsにセットするロジック
   useEffect(() => {
@@ -187,6 +196,23 @@ export default function AnnualGoalsScreen() {
       active = false;
     };
   }, [offlineBlocked, t]);
+
+  // このページにいる間はキーボードにリスナーが付与される
+  // このリスナーはキーボードの表示・非表示を監視し、キーボードアイコンの表示非表示のトリガーになる
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // 合計時間の算出
   const totalMinutes = useMemo(
@@ -616,95 +642,126 @@ export default function AnnualGoalsScreen() {
           disableDeleteMode();
         }}
       >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior="padding" style={styles.modalContainer}>
-            <View style={[styles.modalCard, shadows.card]}>
-              <Text style={styles.modalTitle}>{modalTitle}</Text>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={dismissKeyboard}
+          testID="annual-goals-modal-overlay"
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="annual-goals-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="annual-goals-modal-scroll"
+            >
+              <Pressable
+                style={[styles.modalCard, shadows.card]}
+                onPress={(event) => event.stopPropagation()}
+              >
+                <Text style={styles.modalTitle}>{modalTitle}</Text>
 
-              <View style={styles.formGroup}>
-                <View style={styles.labelRow}>
-                  <Text style={styles.label}>{t("modal.descriptionLabel")}</Text>
-                </View>
-                {modalUpdatedText ? (
-                  <View style={styles.modalMeta}>
-                    <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>
+                <View style={styles.formGroup}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.label}>{t("modal.descriptionLabel")}</Text>
                   </View>
-                ) : null}
-                <Controller
-                  control={control}
-                  name="description"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      autoFocus
-                      multiline
-                      placeholder={t("modal.placeholder")}
-                      placeholderTextColor={colors.textSecondary}
-                      style={styles.modalInput}
-                      value={value}
-                      onChangeText={(text) => {
-                        onChange(text);
-                        setModalError(null);
-                        clearErrors("description");
-                      }}
-                      onBlur={onBlur}
-                    />
-                  )}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t("modal.colorLabel")}</Text>
-                <View style={styles.swatchRow}>
-                  {COLOR_OPTIONS.map((option) => (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="button"
-                      accessibilityLabel={t("modal.colorA11y", { color: option })}
-                      onPress={() => {
-                        setValue("goalColor", option, { shouldValidate: true });
-                        setModalError(null);
-                        clearErrors("goalColor");
-                      }}
-                      style={[
-                        styles.colorSwatch,
-                        { backgroundColor: option },
-                        goalColor === option && styles.colorSwatchActive,
-                      ]}
-                    >
-                      {goalColor === option && (
-                        <MaterialCommunityIcons name="check" size={16} color={colors.textPrimary} />
-                      )}
-                    </Pressable>
-                  ))}
+                  {modalUpdatedText ? (
+                    <View style={styles.modalMeta}>
+                      <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>
+                    </View>
+                  ) : null}
+                  <Controller
+                    control={control}
+                    name="description"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        multiline
+                        placeholder={t("modal.placeholder")}
+                        placeholderTextColor={colors.textSecondary}
+                        style={styles.modalInput}
+                        value={value}
+                        onChangeText={(text) => {
+                          onChange(text);
+                          setModalError(null);
+                          clearErrors("description");
+                        }}
+                        onBlur={onBlur}
+                      />
+                    )}
+                  />
                 </View>
-              </View>
 
-              {(modalError || errors.description?.message || errors.goalColor?.message) && (
-                <Text style={styles.modalError}>
-                  {modalError ?? errors.description?.message ?? errors.goalColor?.message}
-                </Text>
-              )}
-              <View style={styles.modalActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.secondaryButton}
-                  onPress={() => setModalState(closedModalState)}
-                >
-                  <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.primaryButton, saving && styles.buttonDisabled]}
-                  onPress={handleSubmit(onValidSubmit, onInvalidSubmit)}
-                  disabled={saving}
-                >
-                  <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
-                </Pressable>
-              </View>
-            </View>
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t("modal.colorLabel")}</Text>
+                  <View style={styles.swatchRow}>
+                    {COLOR_OPTIONS.map((option) => (
+                      <Pressable
+                        key={option}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("modal.colorA11y", { color: option })}
+                        onPress={() => {
+                          setValue("goalColor", option, { shouldValidate: true });
+                          setModalError(null);
+                          clearErrors("goalColor");
+                        }}
+                        style={[
+                          styles.colorSwatch,
+                          { backgroundColor: option },
+                          goalColor === option && styles.colorSwatchActive,
+                        ]}
+                      >
+                        {goalColor === option && (
+                          <MaterialCommunityIcons name="check" size={16} color={colors.textPrimary} />
+                        )}
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                {(modalError || errors.description?.message || errors.goalColor?.message) && (
+                  <Text style={styles.modalError}>
+                    {modalError ?? errors.description?.message ?? errors.goalColor?.message}
+                  </Text>
+                )}
+                <View style={styles.modalFooterRow}>
+                  {isKeyboardVisible && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Dismiss keyboard"
+                      onPress={dismissKeyboard}
+                      style={styles.keyboardIconButton}
+                      testID="annual-goals-modal-keyboard-button"
+                    >
+                      <MaterialCommunityIcons name="keyboard-outline" size={20} color={colors.textPrimary} />
+                    </Pressable>
+                  )}
+                  <View style={[styles.modalActions, styles.modalActionsRight]}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.secondaryButton}
+                      onPress={() => setModalState(closedModalState)}
+                    >
+                      <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={[styles.primaryButton, saving && styles.buttonDisabled]}
+                      onPress={handleSubmit(onValidSubmit, onInvalidSubmit)}
+                      disabled={saving}
+                    >
+                      <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
+                      <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </Pressable>
+            </ScrollView>
           </KeyboardAvoidingView>
-        </View>
+        </Pressable>
       </Modal>
     </GestureHandlerRootView>
   );
@@ -949,6 +1006,14 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: "100%",
+    maxHeight: "100%",
+  },
+  modalScroll: {
+    width: "100%",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   modalCard: {
     backgroundColor: "#1f3a63",
@@ -1032,6 +1097,25 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  modalActionsRight: {
+    marginLeft: "auto",
+  },
+  modalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: spacing.md,
+  },
+  keyboardIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonDisabled: {
     opacity: 0.7,
