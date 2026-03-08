@@ -209,7 +209,7 @@ export default function MonthlyGoalsScreen() {
         setHasOfflineCache(false);
       }
       setLoading(false);
-      return;　// オフラインの場合はここでデータフェッチ処理終了
+      return; // オフラインの場合はここでデータフェッチ処理終了
     }
 
     const [{ data: yearlyData, error: yearlyError }, { data: monthlyData, error: monthlyError }] = await Promise.all([
