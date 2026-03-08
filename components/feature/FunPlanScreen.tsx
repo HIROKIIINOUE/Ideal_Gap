@@ -1,12 +1,15 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -78,6 +81,7 @@ export default function FunPlanScreen() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingMeta, setEditingMeta] = useState<{ updatedAt: string | null } | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -86,6 +90,11 @@ export default function FunPlanScreen() {
   const guardOfflineAction = useOfflineActionGuard();
   const updatedLabel = t("updatedSuffix");
   const limitReached = plans.length >= MAX_PLANS;
+  const dismissKeyboard = useCallback(() => {
+    // キーボード非表示時にアイコンが瞬時に消える仕様(楽観的UI)
+    setIsKeyboardVisible(false);
+    Keyboard.dismiss();
+  }, []);
 
   const getUserId = useMemo(
     () => async () => {
@@ -153,6 +162,23 @@ export default function FunPlanScreen() {
       active = false;
     };
   }, [getUserId, offlineBlocked, t]);
+
+  // このページにいる間はキーボードにリスナーが付与される
+  // このリスナーはキーボードの表示・非表示を監視し、キーボードアイコンの表示非表示のトリガーになる
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // 追加ボタン押下時の処理、インプットに必要な全ての状態変数がリセットされる
   const handleAddPress = () => {
@@ -458,45 +484,76 @@ export default function FunPlanScreen() {
       />
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior="padding" style={styles.modalContainer}>
-            <View style={[styles.modalCard, shadows.card]}>
-              <Text style={styles.modalTitle}>{modalTitle}</Text>
-              {editingMeta && (
-                <View style={styles.modalMeta}>
-                  {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={dismissKeyboard}
+          testID="fun-plan-modal-overlay"
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="fun-plan-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="fun-plan-modal-scroll"
+            >
+              <Pressable
+                style={[styles.modalCard, shadows.card]}
+                onPress={(event) => event.stopPropagation()}
+              >
+                <Text style={styles.modalTitle}>{modalTitle}</Text>
+                {editingMeta && (
+                  <View style={styles.modalMeta}>
+                    {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
+                  </View>
+                )}
+                <TextInput
+                  multiline
+                  placeholder={t("modal.placeholder")}
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.modalInput}
+                  value={modalDraft}
+                  onChangeText={(text) => {
+                    setModalDraft(text);
+                    setModalError(null);
+                  }}
+                />
+                {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
+                <View style={styles.modalFooterRow}>
+                  {isKeyboardVisible && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Dismiss keyboard"
+                      onPress={dismissKeyboard}
+                      style={styles.keyboardIconButton}
+                      testID="fun-plan-modal-keyboard-button"
+                    >
+                      <MaterialCommunityIcons name="keyboard-outline" size={20} color={colors.textPrimary} />
+                    </Pressable>
+                  )}
+                  <View style={[styles.modalActions, styles.modalActionsRight]}>
+                    <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
+                      <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={[styles.primaryButton, saving && styles.buttonDisabled]}
+                      onPress={handleSave}
+                      disabled={saving}
+                    >
+                      <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
+                      <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
+                    </Pressable>
+                  </View>
                 </View>
-              )}
-              <TextInput
-                autoFocus
-                multiline
-                placeholder={t("modal.placeholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.modalInput}
-                value={modalDraft}
-                onChangeText={(text) => {
-                  setModalDraft(text);
-                  setModalError(null);
-                }}
-              />
-              {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
-              <View style={styles.modalActions}>
-                <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.primaryButton, saving && styles.buttonDisabled]}
-                  onPress={handleSave}
-                  disabled={saving}
-                >
-                  <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
-                </Pressable>
-              </View>
-            </View>
+              </Pressable>
+            </ScrollView>
           </KeyboardAvoidingView>
-        </View>
+        </Pressable>
       </Modal>
     </GestureHandlerRootView>
   );
@@ -702,6 +759,14 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: "100%",
+    maxHeight: "100%",
+  },
+  modalScroll: {
+    width: "100%",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   modalCard: {
     backgroundColor: "#1b355c",
@@ -745,6 +810,25 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  modalActionsRight: {
+    marginLeft: "auto",
+  },
+  modalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: spacing.md,
+  },
+  keyboardIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonDisabled: {
     opacity: 0.6,
