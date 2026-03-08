@@ -1,5 +1,6 @@
 import React from "react";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { Keyboard } from "react-native";
 import { I18nextProvider } from "react-i18next";
 import IdealSelfScreen from "../components/feature/IdealSelfScreen";
 import i18n from "../i18n";
@@ -205,5 +206,60 @@ describe("IdealSelfScreen reordering", () => {
 
     expect(queryByText("Invalid input")).toBeNull();
     expect(await findByText("Please enter at least 1 character")).toBeTruthy();
+  });
+
+  test("dismisses keyboard when tapping modal overlay", async () => {
+    const dismissSpy = jest.spyOn(Keyboard, "dismiss");
+    const { getByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    fireEvent.press(getByTestId("ideal-self-modal-overlay"));
+
+    expect(dismissSpy).toHaveBeenCalled();
+  });
+
+  test("dismisses keyboard when tapping modal keyboard icon", async () => {
+    let showHandler: (() => void) | null = null;
+    const addListenerSpy = jest
+      .spyOn(Keyboard, "addListener")
+      .mockImplementation((eventName, callback) => {
+        if (eventName.includes("Show")) {
+          showHandler = callback as unknown as () => void;
+          callback({} as any);
+        }
+        return { remove: jest.fn() } as any;
+      });
+    const dismissSpy = jest.spyOn(Keyboard, "dismiss");
+    const { getByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    act(() => {
+      showHandler?.();
+    });
+    fireEvent.press(getByTestId("ideal-self-modal-keyboard-button"));
+
+    expect(dismissSpy).toHaveBeenCalled();
+    addListenerSpy.mockRestore();
+  });
+
+  test("renders keyboard avoiding view and scroll area in modal", async () => {
+    const { getByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+
+    expect(getByTestId("ideal-self-modal-kav")).toBeTruthy();
+    expect(getByTestId("ideal-self-modal-scroll")).toBeTruthy();
+  });
+
+  test("hides keyboard icon when keyboard is not visible", async () => {
+    const { getByRole, queryByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+
+    expect(queryByTestId("ideal-self-modal-keyboard-button")).toBeNull();
   });
 });

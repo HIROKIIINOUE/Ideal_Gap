@@ -1,14 +1,17 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 // ControllerはTextInputとRHFを繋ぐタグ、FieldErrorsはhandleSubmitが失敗したときのエラー型
 import { Controller, FieldErrors } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -89,6 +92,7 @@ export default function IdealSelfScreen() {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [hasOfflineCache, setHasOfflineCache] = useState(false);
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
@@ -103,6 +107,11 @@ export default function IdealSelfScreen() {
     schema: idealSchema,
     defaultValues: { description: "" },  //初期表示時や reset() したときの値が " " ではなく "" になる
   });
+  const dismissKeyboard = useCallback(() => {
+    // キーボード非表示時にアイコンが瞬時に消える仕様(楽観的UI)
+    setIsKeyboardVisible(false);
+    Keyboard.dismiss();
+  }, []);
 
   // ユーザを取得し「理想の自分リスト」を取得、表示
   useEffect(() => {
@@ -159,6 +168,24 @@ export default function IdealSelfScreen() {
       active = false;
     };
   }, [offlineBlocked, t]);
+
+
+  // このページにいる間はキーボードにリスナーが付与される
+  // このリスナーはキーボードの表示・非表示を監視し、キーボードアイコンの表示非表示のトリガーになる
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // 追加インプットモーダル表示ボタン
   const handleAddPress = () => {
@@ -430,60 +457,91 @@ export default function IdealSelfScreen() {
           disableDeleteMode();
         }}
       >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior="padding" style={styles.modalContainer}>
-            <View style={[styles.modalCard, shadows.card]}>
-              <Text style={styles.modalTitle}>{modalTitle}</Text>
-              {modalState.meta && (
-                <View style={styles.modalMeta}>
-                  {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
-                </View>
-              )}
-              <Controller
-                control={control}
-                name="description"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    autoFocus
-                    multiline
-                    placeholder={t("modal.placeholder")}
-                    placeholderTextColor={colors.textSecondary}
-                    style={styles.modalInput}
-                    value={value}
-                    onChangeText={(text) => {
-                      onChange(text);
-                      setModalError(null);
-                      clearErrors("description");
-                    }}
-                    onBlur={onBlur}
-                  />
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={dismissKeyboard}
+          testID="ideal-self-modal-overlay"
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="ideal-self-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="ideal-self-modal-scroll"
+            >
+              <Pressable
+                style={[styles.modalCard, shadows.card]}
+                onPress={(event) => event.stopPropagation()}
+              >
+                <Text style={styles.modalTitle}>{modalTitle}</Text>
+                {modalState.meta && (
+                  <View style={styles.modalMeta}>
+                    {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
+                  </View>
                 )}
-              />
-              {(modalError || errors.description?.message) && (
-                <Text style={styles.modalError}>{modalError ?? errors.description?.message}</Text>
-              )}
-              <View style={styles.modalActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.secondaryButton}
-                  onPress={() => setModalState(closedModalState)}
-                >
-                  <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.primaryButton, saving && styles.buttonDisabled]}
-                  // handleSubmitがフォーム全体を検証し、OKならonValidSubmit(values)、NGならhandleInvalidSubmit(error)を発火
-                  onPress={handleSubmit(onValidSubmit, handleInvalidSubmit)}
-                  disabled={saving}
-                >
-                  <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
-                </Pressable>
-              </View>
-            </View>
+                <Controller
+                  control={control}
+                  name="description"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      multiline
+                      placeholder={t("modal.placeholder")}
+                      placeholderTextColor={colors.textSecondary}
+                      style={styles.modalInput}
+                      value={value}
+                      onChangeText={(text) => {
+                        onChange(text);
+                        setModalError(null);
+                        clearErrors("description");
+                      }}
+                      onBlur={onBlur}
+                    />
+                  )}
+                />
+                {(modalError || errors.description?.message) && (
+                  <Text style={styles.modalError}>{modalError ?? errors.description?.message}</Text>
+                )}
+                <View style={styles.modalFooterRow}>
+                  {isKeyboardVisible && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Dismiss keyboard"
+                      onPress={dismissKeyboard}
+                      style={styles.keyboardIconButton}
+                      testID="ideal-self-modal-keyboard-button"
+                    >
+                      <MaterialCommunityIcons name="keyboard-outline" size={20} color={colors.textPrimary} />
+                    </Pressable>
+                  )}
+                  <View style={[styles.modalActions, styles.modalActionsRight]}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.secondaryButton}
+                      onPress={() => setModalState(closedModalState)}
+                    >
+                      <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={[styles.primaryButton, saving && styles.buttonDisabled]}
+                      // handleSubmitがフォーム全体を検証し、OKならonValidSubmit(values)、NGならhandleInvalidSubmit(error)を発火
+                      onPress={handleSubmit(onValidSubmit, handleInvalidSubmit)}
+                      disabled={saving}
+                    >
+                      <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
+                      <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </Pressable>
+            </ScrollView>
           </KeyboardAvoidingView>
-        </View>
+        </Pressable>
       </Modal>
     </GestureHandlerRootView>
   );
@@ -683,6 +741,14 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: "100%",
+    maxHeight: "100%",
+  },
+  modalScroll: {
+    width: "100%",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   modalCard: {
     backgroundColor: "#1f3a63",
@@ -731,6 +797,25 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  modalActionsRight: {
+    marginLeft: "auto",
+  },
+  modalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: spacing.md,
+  },
+  keyboardIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonDisabled: {
     opacity: 0.7,
