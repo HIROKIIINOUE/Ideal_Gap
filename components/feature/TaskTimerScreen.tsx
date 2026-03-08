@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import {
   Alert,
   AppState,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -933,76 +934,82 @@ export default function TaskTimerScreen() {
         onRequestClose={handleDismissCompletion}
       >
         <View style={styles.modalOverlay}>
-          <View
-            style={[styles.modalCard, styles.completionCard, shadows.card]}
-            testID="completion-modal"
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="completion-modal-keyboard-avoiding"
           >
-            <Text style={styles.modalTitle}>{t("completionModal.title")}</Text>
-            <Text style={styles.modalSubtitle}>
-              {t("completionModal.description")}
-            </Text>
+            <View
+              style={[styles.modalCard, styles.completionCard, shadows.card]}
+              testID="completion-modal"
+            >
+              <Text style={styles.modalTitle}>{t("completionModal.title")}</Text>
+              <Text style={styles.modalSubtitle}>
+                {t("completionModal.description")}
+              </Text>
 
-            <View style={styles.completionSummary}>
-              <Text style={styles.summaryLabel}>
-                {t("completionModal.actualTimeLabel")}
-              </Text>
-              <Text style={styles.summaryTime}>{completionDurationLabel}</Text>
-              <Text style={styles.summaryHint}>
-                {t("completionModal.minutesLabel", {
-                  minutes: completionMinutes,
-                })}
-              </Text>
-            </View>
-
-            <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>
-                {t("completionModal.nextStartLabel")}
-              </Text>
-              <TextInput
-                value={nextStartNote}
-                onChangeText={setNextStartNote}
-                placeholder={t("completionModal.nextStartPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.textInput}
-                multiline
-              />
-              <Text style={styles.fieldHelper}>
-                {t("completionModal.nextStartHelper")}
-              </Text>
-            </View>
-
-            <View style={styles.completionActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleDismissCompletion}
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  styles.controlButton,
-                  pressed && styles.secondaryPressed,
-                ]}
-              >
-                <Text style={styles.secondaryButtonText}>
-                  {t("controls.cancel")}
+              <View style={styles.completionSummary}>
+                <Text style={styles.summaryLabel}>
+                  {t("completionModal.actualTimeLabel")}
                 </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleConfirmCompletion}
-                disabled={isSavingCompletion}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  styles.controlButton,
-                  styles.completionPrimary,
-                  pressed && styles.primaryPressed,
-                  isSavingCompletion && styles.buttonDisabled,
-                ]}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {t("completionModal.confirm")}
+                <Text style={styles.summaryTime}>{completionDurationLabel}</Text>
+                <Text style={styles.summaryHint}>
+                  {t("completionModal.minutesLabel", {
+                    minutes: completionMinutes,
+                  })}
                 </Text>
-              </Pressable>
+              </View>
+
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>
+                  {t("completionModal.nextStartLabel")}
+                </Text>
+                <TextInput
+                  value={nextStartNote}
+                  onChangeText={setNextStartNote}
+                  placeholder={t("completionModal.nextStartPlaceholder")}
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.textInput}
+                  multiline
+                />
+                <Text style={styles.fieldHelper}>
+                  {t("completionModal.nextStartHelper")}
+                </Text>
+              </View>
+
+              <View style={styles.completionActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleDismissCompletion}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    styles.controlButton,
+                    pressed && styles.secondaryPressed,
+                  ]}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {t("controls.cancel")}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleConfirmCompletion}
+                  disabled={isSavingCompletion}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    styles.controlButton,
+                    styles.completionPrimary,
+                    pressed && styles.primaryPressed,
+                    isSavingCompletion && styles.buttonDisabled,
+                  ]}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {t("completionModal.confirm")}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -1439,6 +1446,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
+  },
+  modalContainer: {
+    width: "100%",
   },
   modalTitle: {
     color: colors.textPrimary,

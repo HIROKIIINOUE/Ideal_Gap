@@ -476,4 +476,13 @@ describe("TaskTimerScreen", () => {
     buttons[0]?.onPress?.();
     expect(backSpy).toHaveBeenCalled();
   });
+
+  test("renders keyboard avoiding wrapper in completion modal", () => {
+    const { getByText, getByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByText("Mark done"));
+
+    expect(getByTestId("completion-modal-keyboard-avoiding")).toBeTruthy();
+  });
 });
