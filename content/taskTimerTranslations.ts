@@ -149,7 +149,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         currentStartLabel: "今回のスタート地点",
         nextStartPlaceholder: "例: 第2章から / 単語帳セクション3から",
         nextStartHelper: "メモを残すと次のセッション開始時に表示されます",
-        confirm: "完了して記録",
+        confirm: "完了",
       },
       feedback: {
         startError: "時間を設定してから開始してください",
@@ -314,7 +314,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
           "ex. Reprendre à la section 2 ou à la sous-tâche 3",
         nextStartHelper:
           "Ajoutez une note pour reprendre plus vite la prochaine fois.",
-        confirm: "Enregistrer et terminer",
+        confirm: "Enregistrer",
       },
       feedback: {
         startError: "Définissez une durée avant de démarrer",

@@ -11,6 +11,7 @@ import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 import * as FocusMusicProviderModule from "../providers/FocusMusicProvider";
 import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
 import { FocusMusicTrack, InstalledFocusTrack } from "../types/focus-music";
+import { colors } from "../constants/theme";
 
 jest.useFakeTimers();
 
@@ -492,5 +493,20 @@ describe("TaskTimerScreen", () => {
     fireEvent.press(getByText("Mark done"));
 
     expect(getByTestId("completion-modal-keyboard-avoiding")).toBeTruthy();
+  });
+
+  test("uses surface color for task timer background", () => {
+    const { getByTestId } = renderScreen();
+
+    expect(getByTestId("task-timer-screen")).toHaveStyle({ backgroundColor: colors.surface });
+  });
+
+  test("renders scroll container in completion modal", () => {
+    const { getByText, getByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByText("Mark done"));
+
+    expect(getByTestId("completion-modal-scroll")).toBeTruthy();
   });
 });
