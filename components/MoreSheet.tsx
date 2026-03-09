@@ -140,7 +140,6 @@ const MoreSheet = memo(({ visible, onClose, onSelect, funPlanVisible = true, onT
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.handle} />
           <Text style={[styles.sheetTitle, compact && styles.sheetTitleCompact]}>{t("title")}</Text>
 
           <View style={styles.optionList}>
@@ -235,14 +234,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
-  },
-  handle: {
-    alignSelf: "center",
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.divider,
-    marginBottom: spacing.md,
   },
   sheetTitle: {
     color: colors.textPrimary,

@@ -128,7 +128,6 @@ const LanguageSheet = memo(({ visible, onClose }: LanguageSheetProps) => {
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.handle} />
           <Text style={styles.sheetTitle}>{t("languageSheet.title")}</Text>
           <View style={styles.optionList}>
             {languages.map((option) => (
@@ -186,14 +185,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.divider,
     backgroundColor: colors.surface,
-  },
-  handle: {
-    alignSelf: "center",
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.divider,
-    marginBottom: spacing.md,
   },
   sheetTitle: {
     color: colors.textPrimary,
