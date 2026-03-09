@@ -92,7 +92,6 @@ export default function IdealSelfScreen() {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [hasOfflineCache, setHasOfflineCache] = useState(false);
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
@@ -108,8 +107,6 @@ export default function IdealSelfScreen() {
     defaultValues: { description: "" },  //初期表示時や reset() したときの値が " " ではなく "" になる
   });
   const dismissKeyboard = useCallback(() => {
-    // キーボード非表示時にアイコンが瞬時に消える仕様(楽観的UI)
-    setIsKeyboardVisible(false);
     Keyboard.dismiss();
   }, []);
 
@@ -168,24 +165,6 @@ export default function IdealSelfScreen() {
       active = false;
     };
   }, [offlineBlocked, t]);
-
-
-  // このページにいる間はキーボードにリスナーが付与される
-  // このリスナーはキーボードの表示・非表示を監視し、キーボードアイコンの表示非表示のトリガーになる
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, () => {
-      setIsKeyboardVisible(true);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setIsKeyboardVisible(false);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   // 追加インプットモーダル表示ボタン
   const handleAddPress = () => {
@@ -507,17 +486,6 @@ export default function IdealSelfScreen() {
                   <Text style={styles.modalError}>{modalError ?? errors.description?.message}</Text>
                 )}
                 <View style={styles.modalFooterRow}>
-                  {isKeyboardVisible && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dismiss keyboard"
-                      onPress={dismissKeyboard}
-                      style={styles.keyboardIconButton}
-                      testID="ideal-self-modal-keyboard-button"
-                    >
-                      <MaterialCommunityIcons name="keyboard-outline" size={20} color={colors.textPrimary} />
-                    </Pressable>
-                  )}
                   <View style={[styles.modalActions, styles.modalActionsRight]}>
                     <Pressable
                       accessibilityRole="button"
@@ -533,7 +501,6 @@ export default function IdealSelfScreen() {
                       onPress={handleSubmit(onValidSubmit, handleInvalidSubmit)}
                       disabled={saving}
                     >
-                      <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
                       <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
                     </Pressable>
                   </View>

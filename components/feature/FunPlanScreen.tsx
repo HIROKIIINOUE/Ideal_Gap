@@ -81,7 +81,6 @@ export default function FunPlanScreen() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingMeta, setEditingMeta] = useState<{ updatedAt: string | null } | null>(null);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -91,8 +90,6 @@ export default function FunPlanScreen() {
   const updatedLabel = t("updatedSuffix");
   const limitReached = plans.length >= MAX_PLANS;
   const dismissKeyboard = useCallback(() => {
-    // キーボード非表示時にアイコンが瞬時に消える仕様(楽観的UI)
-    setIsKeyboardVisible(false);
     Keyboard.dismiss();
   }, []);
 
@@ -162,23 +159,6 @@ export default function FunPlanScreen() {
       active = false;
     };
   }, [getUserId, offlineBlocked, t]);
-
-  // このページにいる間はキーボードにリスナーが付与される
-  // このリスナーはキーボードの表示・非表示を監視し、キーボードアイコンの表示非表示のトリガーになる
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, () => {
-      setIsKeyboardVisible(true);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setIsKeyboardVisible(false);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   // 追加ボタン押下時の処理、インプットに必要な全ての状態変数がリセットされる
   const handleAddPress = () => {
@@ -524,17 +504,6 @@ export default function FunPlanScreen() {
                 />
                 {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
                 <View style={styles.modalFooterRow}>
-                  {isKeyboardVisible && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dismiss keyboard"
-                      onPress={dismissKeyboard}
-                      style={styles.keyboardIconButton}
-                      testID="fun-plan-modal-keyboard-button"
-                    >
-                      <MaterialCommunityIcons name="keyboard-outline" size={20} color={colors.textPrimary} />
-                    </Pressable>
-                  )}
                   <View style={[styles.modalActions, styles.modalActionsRight]}>
                     <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
                       <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
@@ -545,7 +514,6 @@ export default function FunPlanScreen() {
                       onPress={handleSave}
                       disabled={saving}
                     >
-                      <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
                       <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
                     </Pressable>
                   </View>

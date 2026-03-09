@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { Keyboard } from "react-native";
 import { I18nextProvider } from "react-i18next";
@@ -218,31 +218,6 @@ describe("FunPlanScreen interactions", () => {
     fireEvent.press(getByTestId("fun-plan-modal-overlay"));
 
     expect(dismissSpy).toHaveBeenCalled();
-  });
-
-  test("dismisses keyboard when tapping modal keyboard icon", async () => {
-    let showHandler: (() => void) | null = null;
-    const addListenerSpy = jest
-      .spyOn(Keyboard, "addListener")
-      .mockImplementation((eventName, callback) => {
-        if (eventName.includes("Show")) {
-          showHandler = callback as unknown as () => void;
-          callback({} as any);
-        }
-        return { remove: jest.fn() } as any;
-      });
-    const dismissSpy = jest.spyOn(Keyboard, "dismiss");
-    const { getByRole, getByTestId } = renderScreen();
-
-    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
-    fireEvent.press(getByRole("button", { name: "Add" }));
-    act(() => {
-      showHandler?.();
-    });
-    fireEvent.press(getByTestId("fun-plan-modal-keyboard-button"));
-
-    expect(dismissSpy).toHaveBeenCalled();
-    addListenerSpy.mockRestore();
   });
 
   test("renders keyboard avoiding view and scroll area in modal", async () => {

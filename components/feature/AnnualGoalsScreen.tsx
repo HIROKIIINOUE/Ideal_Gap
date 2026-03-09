@@ -120,7 +120,6 @@ export default function AnnualGoalsScreen() {
   const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -142,8 +141,6 @@ export default function AnnualGoalsScreen() {
   });
   const goalColor = watch("goalColor");
   const dismissKeyboard = useCallback(() => {
-    // キーボード非表示時にアイコンが瞬時に消える仕様(楽観的UI)
-    setIsKeyboardVisible(false);
     Keyboard.dismiss();
   }, []);
 
@@ -196,23 +193,6 @@ export default function AnnualGoalsScreen() {
       active = false;
     };
   }, [offlineBlocked, t]);
-
-  // このページにいる間はキーボードにリスナーが付与される
-  // このリスナーはキーボードの表示・非表示を監視し、キーボードアイコンの表示非表示のトリガーになる
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, () => {
-      setIsKeyboardVisible(true);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setIsKeyboardVisible(false);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   // 合計時間の算出
   const totalMinutes = useMemo(
@@ -728,17 +708,6 @@ export default function AnnualGoalsScreen() {
                   </Text>
                 )}
                 <View style={styles.modalFooterRow}>
-                  {isKeyboardVisible && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dismiss keyboard"
-                      onPress={dismissKeyboard}
-                      style={styles.keyboardIconButton}
-                      testID="annual-goals-modal-keyboard-button"
-                    >
-                      <MaterialCommunityIcons name="keyboard-outline" size={20} color={colors.textPrimary} />
-                    </Pressable>
-                  )}
                   <View style={[styles.modalActions, styles.modalActionsRight]}>
                     <Pressable
                       accessibilityRole="button"
@@ -753,7 +722,6 @@ export default function AnnualGoalsScreen() {
                       onPress={handleSubmit(onValidSubmit, onInvalidSubmit)}
                       disabled={saving}
                     >
-                      <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
                       <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
                     </Pressable>
                   </View>

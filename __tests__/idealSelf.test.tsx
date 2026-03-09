@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { Keyboard } from "react-native";
 import { I18nextProvider } from "react-i18next";
 import IdealSelfScreen from "../components/feature/IdealSelfScreen";
@@ -217,31 +217,6 @@ describe("IdealSelfScreen reordering", () => {
     fireEvent.press(getByTestId("ideal-self-modal-overlay"));
 
     expect(dismissSpy).toHaveBeenCalled();
-  });
-
-  test("dismisses keyboard when tapping modal keyboard icon", async () => {
-    let showHandler: (() => void) | null = null;
-    const addListenerSpy = jest
-      .spyOn(Keyboard, "addListener")
-      .mockImplementation((eventName, callback) => {
-        if (eventName.includes("Show")) {
-          showHandler = callback as unknown as () => void;
-          callback({} as any);
-        }
-        return { remove: jest.fn() } as any;
-      });
-    const dismissSpy = jest.spyOn(Keyboard, "dismiss");
-    const { getByRole, getByTestId } = renderScreen();
-
-    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
-    fireEvent.press(getByRole("button", { name: "Add" }));
-    act(() => {
-      showHandler?.();
-    });
-    fireEvent.press(getByTestId("ideal-self-modal-keyboard-button"));
-
-    expect(dismissSpy).toHaveBeenCalled();
-    addListenerSpy.mockRestore();
   });
 
   test("renders keyboard avoiding view and scroll area in modal", async () => {

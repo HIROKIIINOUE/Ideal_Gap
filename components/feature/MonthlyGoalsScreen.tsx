@@ -130,13 +130,9 @@ export default function MonthlyGoalsScreen() {
   const monthListRef = useRef<FlatList<number>>(null);
   const [isMonthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [isYearlyDropdownOpen, setYearlyDropdownOpen] = useState(false);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
-
   const dismissKeyboard = useCallback(() => {
-    // キーボード非表示時にアイコンが瞬時に消える仕様(楽観的UI)
-    setIsKeyboardVisible(false);
     Keyboard.dismiss();
   }, []);
 
@@ -253,24 +249,6 @@ export default function MonthlyGoalsScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-
-  // このページにいる間はキーボードにリスナーが付与される
-  // このリスナーはキーボードの表示・非表示を監視し、キーボードアイコンの表示非表示のトリガーになる
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, () => {
-      setIsKeyboardVisible(true);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setIsKeyboardVisible(false);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   // 入力中の月間目標が年間目標と紐づいていない状態ならば年間目標リストの１番目がデフォルトでセットされる
   useEffect(() => {
@@ -997,22 +975,6 @@ export default function MonthlyGoalsScreen() {
                 {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
 
                 <View style={styles.modalFooterRow}>
-                  {isKeyboardVisible && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dismiss keyboard"
-                      onPress={dismissKeyboard}
-                      style={styles.keyboardIconButton}
-                      testID="monthly-goals-modal-keyboard-button"
-                    >
-                      <MaterialCommunityIcons
-                        name="keyboard-outline"
-                        size={20}
-                        color={colors.textPrimary}
-                      />
-                    </Pressable>
-                  )}
-
                   <View style={[styles.modalActions, styles.modalActionsRight]}>
                     <Pressable
                       accessibilityRole="button"
@@ -1026,7 +988,6 @@ export default function MonthlyGoalsScreen() {
                       <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
                     </Pressable>
                     <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleSave}>
-                      <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
                       <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
                     </Pressable>
                   </View>

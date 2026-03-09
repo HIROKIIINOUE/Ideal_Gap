@@ -137,7 +137,6 @@ export default function WeeklyTasksScreen() {
   const [isGoalDropdownOpen, setGoalDropdownOpen] = useState(false);
   const [isMonthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const weeklyTaskSchema = z.object({
     title: z.string().trim().min(1),
@@ -155,8 +154,6 @@ export default function WeeklyTasksScreen() {
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
   const dismissKeyboard = useCallback(() => {
-    // キーボード非表示時にアイコンが瞬時に消える仕様(楽観的UI)
-    setIsKeyboardVisible(false);
     Keyboard.dismiss();
   }, []);
 
@@ -424,24 +421,6 @@ export default function WeeklyTasksScreen() {
       setDraft((prev) => ({ ...prev, monthlyGoalId: "" }));
     }
   }, [draft.monthlyGoalId, monthGoalsForSelected, selectedMonth]);
-
-  // このページにいる間はキーボードにリスナーが付与される
-  // このリスナーはキーボードの表示・非表示を監視し、キーボードアイコンの表示非表示のトリガーになる
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, () => {
-      setIsKeyboardVisible(true);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setIsKeyboardVisible(false);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
 
   // 「追加ボタン」からモーダルを開いた時のロジック
   const handleOpenAdd = () => {
@@ -1205,18 +1184,6 @@ export default function WeeklyTasksScreen() {
                 {modalError ? <Text style={styles.errorText}>{modalError}</Text> : null}
 
                 <View style={styles.modalFooterRow}>
-                  {isKeyboardVisible && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dismiss keyboard"
-                      onPress={dismissKeyboard}
-                      style={styles.keyboardIconButton}
-                      testID="weekly-tasks-modal-keyboard-button"
-                    >
-                      <MaterialCommunityIcons name="keyboard-outline" size={20} color={colors.textPrimary} />
-                    </Pressable>
-                  )}
-
                   <View style={[styles.modalActions, styles.modalActionsRight]}>
                     <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
                       <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>

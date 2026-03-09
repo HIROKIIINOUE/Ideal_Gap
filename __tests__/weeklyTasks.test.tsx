@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { Alert, Keyboard } from "react-native";
@@ -305,31 +305,6 @@ describe("WeeklyTasksScreen", () => {
     fireEvent.press(getByTestId("weekly-tasks-modal-overlay"));
 
     expect(dismissSpy).toHaveBeenCalled();
-  });
-
-  test("dismisses keyboard when tapping modal keyboard icon", async () => {
-    let showHandler: (() => void) | null = null;
-    const addListenerSpy = jest
-      .spyOn(Keyboard, "addListener")
-      .mockImplementation((eventName, callback) => {
-        if (eventName.includes("Show")) {
-          showHandler = callback as unknown as () => void;
-          callback({} as any);
-        }
-        return { remove: jest.fn() } as any;
-      });
-    const dismissSpy = jest.spyOn(Keyboard, "dismiss");
-    const { findByText, getByTestId } = renderScreen();
-
-    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
-    fireEvent.press(await findByText("Add"));
-    act(() => {
-      showHandler?.();
-    });
-    fireEvent.press(getByTestId("weekly-tasks-modal-keyboard-button"));
-
-    expect(dismissSpy).toHaveBeenCalled();
-    addListenerSpy.mockRestore();
   });
 
   test("renders keyboard avoiding view and scroll area in modal", async () => {
