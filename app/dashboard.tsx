@@ -232,7 +232,7 @@ export default function Dashboard() {
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen
         options={{
-          title: t("pageTitle"),
+          title: "Ideal Gap",
           headerBackVisible: false,
           headerLeft: () => null,
         }}
@@ -300,7 +300,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
-    paddingVertical: spacing.xl,
   },
   content: {
     paddingHorizontal: spacing.xl,

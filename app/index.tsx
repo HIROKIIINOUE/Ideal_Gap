@@ -280,7 +280,7 @@ export default function Index() {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen
         options={{
           title: "Ideal Gap",
@@ -433,7 +433,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 0,
     gap: spacing.xl,
     paddingBottom: spacing.xl * 2,
   },

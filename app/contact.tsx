@@ -183,7 +183,7 @@ export default function Contact() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
-      <Stack.Screen options={{ title: t("pageTitle"), headerBackTitle: tCommonNav("back") }} />
+      <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommonNav("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, shadows.card]}>
           <LinearGradient
@@ -362,7 +362,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   content: {
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 0,
     paddingBottom: spacing.xl * 2,
   },
   card: {

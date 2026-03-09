@@ -123,8 +123,8 @@ export default function Login() {
   const errorLabel = useMemo(() => errorMessage, [errorMessage]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Stack.Screen options={{ title: t("pageLabel"), headerBackTitle: tCommon("back") }} />
+    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
+      <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommon("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.label}>{t("pageLabel")}</Text>
@@ -259,7 +259,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   content: {
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 0,
     gap: spacing.lg,
     paddingBottom: spacing.xl * 2,
   },

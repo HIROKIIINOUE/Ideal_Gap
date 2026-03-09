@@ -138,7 +138,7 @@ export default function FeatureScreen() {
   return (
     // 白帯ヘッダーとタイトルカードの余白を狭める方法→edges={["left", "right", "bottom"]}
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
-      <Stack.Screen options={{ title: featureTitle, headerBackTitle: tCommonNav("back") }} />
+      <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommonNav("back") }} />
       <View style={styles.content}>
         {ScreenComponent ? <ScreenComponent /> : <Placeholder />}
       </View>
@@ -163,7 +163,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
-    paddingVertical: spacing.xl,
   },
   content: {
     flex: 1,

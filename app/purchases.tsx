@@ -173,7 +173,7 @@ export default function Purchases() {
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen
         options={{
-          title: t("pageLabel"),
+          title: "Ideal Gap",
           headerBackVisible: false,
           headerLeft: () => (
             <Pressable
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl * 2,
+    paddingTop: 0,
     gap: spacing.lg,
     paddingBottom: spacing.xl * 2,
   },

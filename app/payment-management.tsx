@@ -135,7 +135,7 @@ export default function PaymentManagement() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
-      <Stack.Screen options={{ title: t("pageTitle"), headerBackTitle: tCommonNav("back") }} />
+      <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommonNav("back") }} />
       <View style={styles.content}>
         <View style={[styles.card, shadows.card]}>
           <LinearGradient
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl * 2,
+    paddingTop: 0,
     paddingBottom: spacing.lg,
   },
   card: {

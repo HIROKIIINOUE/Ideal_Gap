@@ -3,12 +3,14 @@
 
 import { setAudioModeAsync } from "expo-audio";
 import * as Linking from "expo-linking";
-import { Stack, router } from "expo-router";
+import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { I18nextProvider } from "react-i18next";
-import SplashOverlay from "../components/SplashOverlay";
+import { Platform } from "react-native";
 import OfflineBanner from "../components/OfflineBanner";
+import SplashOverlay from "../components/SplashOverlay";
+import { colors } from "../constants/theme";
 import i18n from "../i18n";
 import { restoreSession } from "../lib/authBootstrap";
 import { getNormalizedLinkPath, resolveAuthCallbackTarget } from "../lib/authCallbackRouting";
@@ -23,8 +25,8 @@ import { supabase } from "../lib/supabaseClient";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
-import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 import { OfflineProvider } from "../providers/OfflineProvider";
+import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 
 SplashScreen.preventAutoHideAsync();
 initSentry();
@@ -151,7 +153,24 @@ export default function RootLayout() {
             <FunPlanProvider>
               <FocusMusicProvider>
                 <RevenueCatProvider>
-                  <Stack />
+                  {/* ここで共通ヘッダー(safe area)を指定できる */}
+                  <Stack
+                    screenOptions={{
+                      contentStyle: { backgroundColor: colors.surface },
+                      headerStyle: { backgroundColor: colors.surface },
+                      headerTintColor: colors.textPrimary,
+                      headerTitleStyle: {
+                        color: colors.textPrimary,
+                        fontSize: 18,
+                        fontFamily: Platform.select({
+                          ios: "Georgia-Italic",
+                          android: "serif",
+                          default: undefined,
+                        }),
+                      },
+                      headerShadowVisible: false,
+                    }}
+                  />
                   <OfflineBanner />
                   <SplashOverlay visible={showSplash} />
                 </RevenueCatProvider>
