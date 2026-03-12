@@ -20,7 +20,11 @@ import {
   initSentry,
   SentryErrorBoundary,
 } from "../lib/sentry";
-import { ensureSignupAwaitSubscription } from "../lib/subscription";
+import {
+  canAccessDashboardWithSubscriptionStatus,
+  ensureSignupAwaitSubscription,
+  getSubscriptionForUser,
+} from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
@@ -51,7 +55,7 @@ const getSignupQuery = (url: string) => {
   return signup ? "?signup=1" : "";
 };
 
-const MIN_SPLASH_DURATION_MS = 1500;  // スプラッシュ画面の最短表示時間を調整
+const MIN_SPLASH_DURATION_MS = 600;  // スプラッシュ画面の最短表示時間を調整
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
@@ -71,9 +75,27 @@ export default function RootLayout() {
 
   useEffect(() => {
     let active = true;
+    const waitForNextFrame = () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    const resolveInitialRouteForSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id;
+      if (error || !userId) return;
+
+      const subscription = await getSubscriptionForUser(userId);
+      const destination = canAccessDashboardWithSubscriptionStatus(subscription?.status)
+        ? "/dashboard"
+        : "/purchases";
+      router.replace(destination);
+      // router.replaceの反映を1フレーム待ってからスプラッシュを隠す
+      await waitForNextFrame();
+    };
+
     // Supabaseによって発行されたトークンをユーザ端末のAsyncStorageにローカル保存する処理
     // また同時にsubscription行も確実に作成する
-    const handleUrl = async (url: string) => {
+    const handleUrl = async (url: string): Promise<boolean> => {
       const tokens = parseTokensFromUrl(url);
       if (tokens) {
         const { error } = await supabase.auth.setSession({
@@ -82,7 +104,7 @@ export default function RootLayout() {
         });
         if (error) {
           console.warn("Failed to set Supabase session from deep link", error.message);
-          return;
+          return false;
         }
         // ディープリンク経由でのサインアップ完了時に subscription行を確実に作成
         const session = await supabase.auth.getSession();
@@ -100,23 +122,29 @@ export default function RootLayout() {
       if (isPurchasePath(url)) {
         const signupQuery = getSignupQuery(url);
         router.replace(`/purchases${signupQuery}`);
-        return;
+        return true;
       }
 
       // メールアドレス変更ページかどうかを確認
       const authCallbackTarget = resolveAuthCallbackTarget(url);
       if (authCallbackTarget) {
         router.replace(authCallbackTarget);
+        return true;
       }
+      return false;
     };
 
     const bootstrap = async () => {
       const start = Date.now();
       const initialUrl = await Linking.getInitialURL();
+      let isRoutedByInitialUrl = false;
       if (initialUrl) {
-        await handleUrl(initialUrl);
+        isRoutedByInitialUrl = await handleUrl(initialUrl);
       }
       await restoreSession();
+      if (!isRoutedByInitialUrl) {
+        await resolveInitialRouteForSession();
+      }
       const elapsed = Date.now() - start;
       const remaining = Math.max(0, MIN_SPLASH_DURATION_MS - elapsed);
       setTimeout(() => {

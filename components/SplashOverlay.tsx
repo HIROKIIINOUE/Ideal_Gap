@@ -39,7 +39,7 @@ const SplashOverlay = ({ visible }: SplashOverlayProps) => {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
