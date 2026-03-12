@@ -5,7 +5,19 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Href, Link, Stack, router } from "expo-router";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, Easing, Platform, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import {
+  Animated,
+  Easing,
+  LayoutChangeEvent,
+  Platform,
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  useWindowDimensions,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
@@ -13,17 +25,65 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { LandingSections } from "../content/landingTranslations";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { supabase } from "../lib/supabaseClient";
-import { getLandingFadeRange, getLandingFadeTriggerY } from "../lib/ui/ipadLayout";
+import {
+  LANDING_SECTION_REVEAL_OFFSET,
+  shouldRevealLandingSection,
+} from "../lib/ui/landingReveal";
+import { isCompactScreen } from "../lib/ui/responsive";
 
 type GradientPair = readonly [string, string];
+type LandingSectionKey = "overview" | "membership" | "getStarted";
+
+const LANDING_SECTIONS: LandingSectionKey[] = ["overview", "membership", "getStarted"];
+// フェードインにかかる長さ
+const SECTION_REVEAL_DURATION = 2400;
+// フェードインの開始地点(数値が上がれば、より下から競り上がる)
+const SECTION_REVEAL_TRANSLATE_Y = 80;
+
+const getRevealStyle = (animation: Animated.Value) => ({
+  opacity: animation,
+  transform: [
+    // inputRangeで「animationが0→1(開始から完了)に変化する時」を指定し、
+    // outputRangeで「Y軸をSECTION_REVEAL_TRANSLATE_Yから0に変化させる」を指定する
+    {
+      translateY: animation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [SECTION_REVEAL_TRANSLATE_Y, 0],
+      }),
+    },
+  ],
+});
+
+// 光沢が左から右に流れる始点(-220)と終点(220)を設定
+const CTA_SHIMMER_TRANSLATE_X_RANGE = [-220, 220] as const;
+const getShimmerStyle = (animation: Animated.Value): Animated.WithAnimatedValue<StyleProp<ViewStyle>> => ({
+  transform: [
+    {
+      // inputRangeで「animationが0→1(開始から完了)に変化する時」を指定し、
+      // outputRangeで「Y軸をSECTION_REVEAL_TRANSLATE_Yから0に変化させる」を指定する
+      translateX: animation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [...CTA_SHIMMER_TRANSLATE_X_RANGE],
+      }),
+    },
+  ],
+});
 
 const CTA_PRIMARY_GRADIENT: GradientPair = ["rgba(255,255,255,0.22)", "rgba(255,255,255,0.08)"];
 const CTA_SECONDARY_GRADIENT: GradientPair = ["rgba(255,255,255,0.18)", "rgba(255,255,255,0.06)"];
 const CTA_SECONDARY_ALT_GRADIENT: GradientPair = ["rgba(255,255,255,0.22)", "rgba(255,255,255,0.08)"];
 
-const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => (
-  <View style={[styles.cardShell, style]}>
-    <View style={styles.card}>
+const Card = ({
+  children,
+  shellStyle,
+  contentStyle,
+}: {
+  children: ReactNode;
+  shellStyle?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
+}) => (
+  <View style={[styles.cardShell, shellStyle]}>
+    <View style={[styles.card, contentStyle]}>
       <LinearGradient
         colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
         start={{ x: 0, y: 0 }}
@@ -40,10 +100,20 @@ type CTAButtonProps = {
   label: string;
   gradient: GradientPair;
   shimmerStyle: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+  compact?: boolean;
+  isFrench?: boolean;
   onPress?: () => void | Promise<void>;
 };
 
-const CTAButton = ({ href, label, gradient, shimmerStyle, onPress }: CTAButtonProps) => {
+const CTAButton = ({
+  href,
+  label,
+  gradient,
+  shimmerStyle,
+  compact = false,
+  isFrench = false,
+  onPress,
+}: CTAButtonProps) => {
   const content = (
     <Pressable
       accessibilityRole="button"
@@ -59,7 +129,17 @@ const CTAButton = ({ href, label, gradient, shimmerStyle, onPress }: CTAButtonPr
             style={styles.shimmerFill}
           />
         </Animated.View>
-        <Text style={styles.primaryLabel}>{label}</Text>
+        <Text
+          style={[
+            styles.primaryLabel,
+            isFrench ? styles.primaryLabelFr : styles.primaryLabelJaEn,
+            compact && (isFrench ? styles.primaryLabelCompactFr : styles.primaryLabelCompactJaEn),
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {label}
+        </Text>
       </LinearGradient>
     </Pressable>
   );
@@ -72,10 +152,19 @@ type CTAButtonsRowProps = {
   shimmerStyle: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   primary: { href: Href; label: string; gradient?: GradientPair };
   secondary: { href: Href; label: string; gradient?: GradientPair };
+  compact?: boolean;
+  isFrench?: boolean;
   onPrimaryPress?: () => void | Promise<void>;
 };
 
-const CTAButtonsRow = ({ shimmerStyle, primary, secondary, onPrimaryPress }: CTAButtonsRowProps) => (
+const CTAButtonsRow = ({
+  shimmerStyle,
+  primary,
+  secondary,
+  compact = false,
+  isFrench = false,
+  onPrimaryPress,
+}: CTAButtonsRowProps) => (
   <View style={styles.actions}>
     <View style={styles.ctaSlot}>
       <CTAButton
@@ -83,6 +172,8 @@ const CTAButtonsRow = ({ shimmerStyle, primary, secondary, onPrimaryPress }: CTA
         label={primary.label}
         gradient={primary.gradient ?? CTA_PRIMARY_GRADIENT}
         shimmerStyle={shimmerStyle}
+        compact={compact}
+        isFrench={isFrench}
         onPress={onPrimaryPress}
       />
     </View>
@@ -92,6 +183,8 @@ const CTAButtonsRow = ({ shimmerStyle, primary, secondary, onPrimaryPress }: CTA
         label={secondary.label}
         gradient={secondary.gradient ?? CTA_SECONDARY_GRADIENT}
         shimmerStyle={shimmerStyle}
+        compact={compact}
+        isFrench={isFrench}
       />
     </View>
   </View>
@@ -99,15 +192,19 @@ const CTAButtonsRow = ({ shimmerStyle, primary, secondary, onPrimaryPress }: CTA
 
 export default function Index() {
   useRedirectAuthenticated(); // ログインユーザをダッシュボードへ強制遷移
-  const scrollY = useRef(new Animated.Value(0)).current;
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
-  const { t } = useTranslation("landing");
+  const { t, i18n } = useTranslation("landing");
+  // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
+  const { width, height, fontScale } = useWindowDimensions();
+  const compact = isCompactScreen(width, fontScale);
+  // i18n より現在の設定言語を取得
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const isFrench = currentLanguage.startsWith("fr");
   // iPad用UI構築のための定数群
   const isIpad = Platform.OS === "ios" && Platform.isPad === true;
-  const landingFadeTriggerY = getLandingFadeTriggerY(isIpad);
-  const overviewFade = getLandingFadeRange("overview", isIpad);
-  const membershipFade = getLandingFadeRange("membership", isIpad);
-  const getStartedFade = getLandingFadeRange("getStarted", isIpad);
+  const sectionRevealOffset = isIpad
+    ? LANDING_SECTION_REVEAL_OFFSET + spacing.lg
+    : LANDING_SECTION_REVEAL_OFFSET;
 
   const translations: LandingSections = useMemo(
     () => ({
@@ -119,40 +216,42 @@ export default function Index() {
     [t],
   );
 
-  // ヒーロー画面CTAボタンの光沢アニメーション
+  // ヒーロー画面CTAボタンの光沢アニメーション【Animated from ReactNative】
   const shimmerAnim = useRef(new Animated.Value(0)).current;
   const shimmerRan = useRef(false);
-  const shimmerStyle = useMemo(
-    () => ({
-      transform: [
-        {
-          translateX: shimmerAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [-220, 220],
-          }),
-        },
-      ],
-    }),
-    [shimmerAnim],
-  );
+  const shimmerStyle = useMemo(() => getShimmerStyle(shimmerAnim), [shimmerAnim]);
 
-  // 最下部CTA向けの光沢アニメーション
   const bottomShimmerAnim = useRef(new Animated.Value(0)).current;
   const bottomShimmerRan = useRef(false);
-  const bottomShimmerStyle = useMemo(
+  const overviewAnim = useRef(new Animated.Value(0)).current;
+  const membershipAnim = useRef(new Animated.Value(0)).current;
+  const getStartedAnim = useRef(new Animated.Value(0)).current;
+  const sectionAnimations = useMemo(
     () => ({
-      transform: [
-        {
-          translateX: bottomShimmerAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [-220, 220],
-          }),
-        },
-      ],
+      overview: overviewAnim,
+      membership: membershipAnim,
+      getStarted: getStartedAnim,
     }),
-    [bottomShimmerAnim],
+    [getStartedAnim, membershipAnim, overviewAnim],
   );
+  const sectionPositionsRef = useRef<Record<LandingSectionKey, number | null>>({
+    overview: null,
+    membership: null,
+    getStarted: null,
+  });
+  const revealedSectionsRef = useRef<Record<LandingSectionKey, boolean>>({
+    overview: false,
+    membership: false,
+    getStarted: false,
+  });
+  const scrollMetricsRef = useRef({
+    scrollOffsetY: 0,
+    viewportHeight: height,
+    contentHeight: 0,
+  });
+  const bottomShimmerStyle = useMemo(() => getShimmerStyle(bottomShimmerAnim), [bottomShimmerAnim]);
 
+  // サインアップボタン押下時の処理
   const handleStartSignup = useCallback(async () => {
     try {
       await supabase.auth.signOut();
@@ -162,9 +261,78 @@ export default function Index() {
     router.push("/signup");
   }, []);
 
-  // スクロールで指定地点到達時1秒後にCTAボタンの光沢を1度だけ発火
-  // iPadの場合は「最下部到達時にgetStartedカードを強制的に表示完了にする」処理もここに含まれている
-  // コード理解度△
+  // 最下部CTA向けの光沢アニメーション
+  // フェードイン視点にたどり着いたら光沢発生
+  const startBottomShimmer = useCallback(() => {
+    if (bottomShimmerRan.current) {
+      return;
+    }
+    bottomShimmerRan.current = true;
+    bottomShimmerAnim.setValue(0);
+    Animated.sequence([
+      Animated.delay(1000),  // フェードイン後光沢までの時間差
+      Animated.timing(bottomShimmerAnim, {
+        toValue: 1,
+        duration: 1200,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [bottomShimmerAnim]);
+
+  // フェードイン開始地点で発火
+  const revealSection = useCallback(
+    (section: LandingSectionKey) => {
+      // 一度発火したらそれ以上は発火させない制御をuseRefで実現
+      if (revealedSectionsRef.current[section]) {
+        return;
+      }
+      revealedSectionsRef.current[section] = true;
+
+      // 指定のAnimateValueをsectionAnimationsオブジェクトから選択し、
+      // 「toValueの値を0から1に変換」が実行されそれに応じてgetRevealStyleがデザイン(アニメーション)を作る
+      Animated.timing(sectionAnimations[section], {
+        toValue: 1,  // 値を0(アニメーション開始)から1(アニメーション完了)へ変更
+        duration: SECTION_REVEAL_DURATION, // アニメーションのduration
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      // もし最下部のログインカードが対象ならCTAボタンを光沢させる
+      if (section === "getStarted") {
+        startBottomShimmer();
+      }
+    },
+    [sectionAnimations, startBottomShimmer],
+  );
+
+
+  // tryRevealVisibleSectionsからmap展開された各３つのカードそれぞれの上端(sectionTop)と各スクロール値を
+  // shouldRevealLandingSection()に投げて、フェードインしていいかどうかを判断、よければrevealSection発火
+  const tryRevealSection = useCallback(
+    (section: LandingSectionKey) => {
+      const sectionTop = sectionPositionsRef.current[section];
+      if (
+        shouldRevealLandingSection({
+          sectionTop,
+          scrollOffsetY: scrollMetricsRef.current.scrollOffsetY,
+          viewportHeight: scrollMetricsRef.current.viewportHeight,
+          preloadOffset: sectionRevealOffset,
+        })
+      ) {
+        revealSection(section);
+      }
+    },
+    [revealSection, sectionRevealOffset],
+  );
+
+  // ３つのカードをそれぞれフェードインアニメーション発火条件としてmap展開
+  const tryRevealVisibleSections = useCallback(() => {
+    LANDING_SECTIONS.forEach((section) => {
+      tryRevealSection(section);
+    });
+  }, [tryRevealSection]);
+
+  // ここでスクロール距離を測定(スクロールするたびに発火)
   const handleScroll = useCallback(
     (event: {
       nativeEvent: {
@@ -173,29 +341,38 @@ export default function Index() {
         contentSize: { height: number };
       };
     }) => {
-      if (bottomShimmerRan.current) {
-        return;
-      }
+      // 現在どれだけスクロールしたか
       const { y } = event.nativeEvent.contentOffset;
+      // 今見えている画面の高さ(分割代入のリネーム)
       const { height: viewportHeight } = event.nativeEvent.layoutMeasurement;
+      // スクロール全体の高さ(分割代入のリネーム)
       const { height: contentHeight } = event.nativeEvent.contentSize;
+      scrollMetricsRef.current = {
+        scrollOffsetY: y,
+        viewportHeight,
+        contentHeight,
+      };
+      tryRevealVisibleSections();
+
+      // スクリーンの最下部まで辿り着いたらログインカードフェードインを無条件で発火させる(保険)
       const reachedBottom = y + viewportHeight >= contentHeight - 24;
-      const reachedFadeZone = y >= landingFadeTriggerY || reachedBottom;
-      if (reachedFadeZone) {
-        bottomShimmerRan.current = true;
-        bottomShimmerAnim.setValue(0);
-        Animated.sequence([
-          Animated.delay(1000),
-          Animated.timing(bottomShimmerAnim, {
-            toValue: 1,
-            duration: 1200,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]).start();
+      if (reachedBottom) {
+        revealSection("getStarted");
       }
     },
-    [bottomShimmerAnim, landingFadeTriggerY],
+    [revealSection, tryRevealVisibleSections],
+  );
+
+  // 各カードセクションが ScrollView の中で縦にどの位置にあるかを
+  // ReactNativeイベントのevent.nativeEvent.layout.yで計測しuseRefで保存
+  // 各フェードインの判定に使用する。
+  // レンダー時や画面の高さ変更時(縦画面から横画面への切り替え等)で発火する
+  const handleSectionLayout = useCallback(
+    (section: LandingSectionKey) => (event: LayoutChangeEvent) => {
+      sectionPositionsRef.current[section] = event.nativeEvent.layout.y;
+      tryRevealSection(section);
+    },
+    [tryRevealSection],
   );
 
   // ヒーロー直下のスクロールインジケーター
@@ -222,13 +399,13 @@ export default function Index() {
       Animated.sequence([
         Animated.timing(scrollHintAnim, {
           toValue: 1,
-          duration: 900,
+          duration: 400,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(scrollHintAnim, {
           toValue: 0,
-          duration: 900,
+          duration: 400,
           easing: Easing.in(Easing.quad),
           useNativeDriver: true,
         }),
@@ -241,18 +418,19 @@ export default function Index() {
   useEffect(() => {
     Animated.timing(heroAnim, {
       toValue: 1,
-      duration: 800,  //ヒーロー画面とそのCTAボタン設定
+      duration: 800,
       delay: 320,
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished && !shimmerRan.current) {
         shimmerRan.current = true;
         shimmerAnim.setValue(0);
+        //　ヒーロー画面のCTAボタン光沢アニメーション発火
         Animated.sequence([
           Animated.delay(500),
           Animated.timing(shimmerAnim, {
             toValue: 1,
-            duration: 1200,
+            duration: 1200,  // 光沢(光が左から右へ)が流れるduration
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: true,
           }),
@@ -261,23 +439,12 @@ export default function Index() {
     });
   }, [heroAnim, shimmerAnim]);
 
-  // スクロール時のカードフェードイン
-  const fadeUp = (inputStart: number, inputEnd: number) => ({
-    opacity: scrollY.interpolate({
-      inputRange: [inputStart, inputEnd],
-      outputRange: [0, 1],
-      extrapolate: "clamp",
-    }),
-    transform: [
-      {
-        translateY: scrollY.interpolate({
-          inputRange: [inputStart, inputEnd],
-          outputRange: [28, 0],
-          extrapolate: "clamp",
-        }),
-      },
-    ],
-  });
+
+  // ユーザ端末のスクリーンの高さを初期化、
+  useEffect(() => {
+    scrollMetricsRef.current.viewportHeight = height;
+    tryRevealVisibleSections();  // 画面スクリーン(縦から横へ)等の時に必要。
+  }, [height, tryRevealVisibleSections]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
@@ -290,11 +457,8 @@ export default function Index() {
       />
       <Animated.ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-          useNativeDriver: true,
-          listener: handleScroll,
-        })}
+        contentContainerStyle={[styles.content, compact && styles.contentCompact]}
+        onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
@@ -314,18 +478,36 @@ export default function Index() {
             },
           ]}
         >
-          <View style={styles.heroCard}>
+          <View style={[styles.heroCard, compact && styles.heroCardCompact]}>
             <LinearGradient
               colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.logo}>{translations.hero.logo}</Text>
-            <Text style={styles.title}>{translations.hero.title}</Text>
-            <Text style={styles.subtitle}>{translations.hero.subtitle}</Text>
+            <Text style={[styles.logo, compact && styles.logoCompact]}>{translations.hero.logo}</Text>
+            <Text
+              style={[
+                styles.title,
+                isFrench ? styles.titleFr : styles.titleJaEn,
+                compact && (isFrench ? styles.titleCompactFr : styles.titleCompactJaEn),
+              ]}
+            >
+              {translations.hero.title}
+            </Text>
+            <Text
+              style={[
+                styles.subtitle,
+                isFrench ? styles.subtitleFr : styles.subtitleJaEn,
+                compact && (isFrench ? styles.subtitleCompactFr : styles.subtitleCompactJaEn),
+              ]}
+            >
+              {translations.hero.subtitle}
+            </Text>
             <CTAButtonsRow
               shimmerStyle={shimmerStyle}
+              compact={compact}
+              isFrench={isFrench}
               primary={{
                 href: "/signup",
                 label: translations.hero.ctaPrimary,
@@ -339,45 +521,147 @@ export default function Index() {
             <Animated.View style={[styles.scrollHintIcon, scrollHintStyle]}>
               <MaterialCommunityIcons name="chevron-down" size={22} color="rgba(255,255,255,0.8)" />
             </Animated.View>
-            <Text style={styles.scrollHintText}>{translations.hero.scrollHint}</Text>
+            <Text
+              style={[
+                styles.scrollHintText,
+                compact && styles.scrollHintTextCompact,
+                isFrench && styles.scrollHintTextFr,
+              ]}
+            >
+              {translations.hero.scrollHint}
+            </Text>
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(overviewFade.start, overviewFade.end)]}>
-          <Text style={styles.sectionLabel}>{translations.overview.label}</Text>
-          <Text style={styles.sectionTitle}>{translations.overview.title}</Text>
-          <Card>
-            <Text style={styles.cardHeading}>{translations.overview.overviewCardTitle}</Text>
-            <Text style={styles.cardBody}>{translations.overview.description}</Text>
+        <Animated.View
+          style={[styles.section, getRevealStyle(overviewAnim)]}
+          onLayout={handleSectionLayout("overview")}
+        >
+
+          outputRangeで「Y軸を」    <Text
+            style={[
+              styles.sectionLabel,
+              compact && styles.sectionLabelCompact,
+              isFrench && styles.sectionLabelFr,
+            ]}
+          >
+            {translations.overview.label}
+          </Text>
+          <Text
+            style={[
+              styles.sectionTitle,
+              isFrench ? styles.sectionTitleFr : styles.sectionTitleJaEn,
+              compact && (isFrench ? styles.sectionTitleCompactFr : styles.sectionTitleCompactJaEn),
+            ]}
+          >
+            {translations.overview.title}
+          </Text>
+          <Card contentStyle={compact ? styles.cardCompact : undefined}>
+            <Text
+              style={[
+                styles.cardHeading,
+                isFrench ? styles.cardHeadingFr : styles.cardHeadingJaEn,
+                compact && (isFrench ? styles.cardHeadingCompactFr : styles.cardHeadingCompactJaEn),
+              ]}
+            >
+              {translations.overview.overviewCardTitle}
+            </Text>
+            <Text
+              style={[
+                styles.cardBody,
+                isFrench ? styles.cardBodyFr : styles.cardBodyJaEn,
+                compact && (isFrench ? styles.cardBodyCompactFr : styles.cardBodyCompactJaEn),
+              ]}
+            >
+              {translations.overview.description}
+            </Text>
             <View style={styles.bulletList}>
               {translations.overview.highlights.map((item) => (
                 <View key={item} style={styles.bulletRow}>
                   <View style={styles.bulletDot} />
-                  <Text style={styles.bulletText}>{item}</Text>
+                  <Text
+                    style={[
+                      styles.bulletText,
+                      isFrench ? styles.bulletTextFr : styles.bulletTextJaEn,
+                      compact && (isFrench ? styles.bulletTextCompactFr : styles.bulletTextCompactJaEn),
+                    ]}
+                  >
+                    {item}
+                  </Text>
                 </View>
               ))}
             </View>
           </Card>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(membershipFade.start, membershipFade.end)]}>
-          <Text style={styles.sectionLabel}>{translations.membership.label}</Text>
-          <Text style={styles.sectionTitle}>{translations.membership.title}</Text>
+        <Animated.View
+          style={[styles.section, getRevealStyle(membershipAnim)]}
+          onLayout={handleSectionLayout("membership")}
+        >
+
+          outputRangeで「Y軸を」    <Text
+            style={[
+              styles.sectionLabel,
+              compact && styles.sectionLabelCompact,
+              isFrench && styles.sectionLabelFr,
+            ]}
+          >
+            {translations.membership.label}
+          </Text>
+          <Text
+            style={[
+              styles.sectionTitle,
+              isFrench ? styles.sectionTitleFr : styles.sectionTitleJaEn,
+              compact && (isFrench ? styles.sectionTitleCompactFr : styles.sectionTitleCompactJaEn),
+            ]}
+          >
+            {translations.membership.title}
+          </Text>
           <View style={styles.cardRow}>
-            <Card style={styles.planCard}>
+            <Card shellStyle={styles.planCard} contentStyle={compact ? styles.cardCompact : undefined}>
               <View style={styles.planPriceRow}>
-                <Text style={styles.planPrice}>
+                <Text
+                  style={[
+                    styles.planPrice,
+                    isFrench ? styles.planPriceFr : styles.planPriceJaEn,
+                    compact && (isFrench ? styles.planPriceCompactFr : styles.planPriceCompactJaEn),
+                  ]}
+                >
                   {translations.membership.price}
                   {translations.membership.period}
                 </Text>
               </View>
-              <Text style={styles.planTrialBadge}>{translations.membership.trialBadge}</Text>
-              <Text style={styles.cardBody}>{translations.membership.description}</Text>
+              <Text
+                style={[
+                  styles.planTrialBadge,
+                  isFrench ? styles.planTrialBadgeFr : styles.planTrialBadgeJaEn,
+                  compact && (isFrench ? styles.planTrialBadgeCompactFr : styles.planTrialBadgeCompactJaEn),
+                ]}
+              >
+                {translations.membership.trialBadge}
+              </Text>
+              <Text
+                style={[
+                  styles.cardBody,
+                  isFrench ? styles.cardBodyFr : styles.cardBodyJaEn,
+                  compact && (isFrench ? styles.cardBodyCompactFr : styles.cardBodyCompactJaEn),
+                ]}
+              >
+                {translations.membership.description}
+              </Text>
               <View style={styles.bulletList}>
                 {translations.membership.bulletPoints.map((item) => (
                   <View key={item} style={styles.bulletRow}>
                     <View style={styles.bulletDotAccent} />
-                    <Text style={styles.bulletText}>{item}</Text>
+                    <Text
+                      style={[
+                        styles.bulletText,
+                        isFrench ? styles.bulletTextFr : styles.bulletTextJaEn,
+                        compact && (isFrench ? styles.bulletTextCompactFr : styles.bulletTextCompactJaEn),
+                      ]}
+                    >
+                      {item}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -385,13 +669,43 @@ export default function Index() {
           </View>
         </Animated.View>
 
-        <Animated.View style={[styles.section, fadeUp(getStartedFade.start, getStartedFade.end)]}>
-          <Text style={styles.sectionLabel}>{translations.getStarted.label}</Text>
-          <Text style={styles.sectionTitle}>{translations.getStarted.title}</Text>
-          <Card>
-            <Text style={styles.cardBody}>{translations.getStarted.description}</Text>
+        <Animated.View
+          style={[styles.section, getRevealStyle(getStartedAnim)]}
+          onLayout={handleSectionLayout("getStarted")}
+        >
+
+          outputRangeで「Y軸を」    <Text
+            style={[
+              styles.sectionLabel,
+              compact && styles.sectionLabelCompact,
+              isFrench && styles.sectionLabelFr,
+            ]}
+          >
+            {translations.getStarted.label}
+          </Text>
+          <Text
+            style={[
+              styles.sectionTitle,
+              isFrench ? styles.sectionTitleFr : styles.sectionTitleJaEn,
+              compact && (isFrench ? styles.sectionTitleCompactFr : styles.sectionTitleCompactJaEn),
+            ]}
+          >
+            {translations.getStarted.title}
+          </Text>
+          <Card contentStyle={compact ? styles.cardCompact : undefined}>
+            <Text
+              style={[
+                styles.cardBody,
+                isFrench ? styles.cardBodyFr : styles.cardBodyJaEn,
+                compact && (isFrench ? styles.cardBodyCompactFr : styles.cardBodyCompactJaEn),
+              ]}
+            >
+              {translations.getStarted.description}
+            </Text>
             <CTAButtonsRow
               shimmerStyle={bottomShimmerStyle}
+              compact={compact}
+              isFrench={isFrench}
               primary={{
                 href: "/signup",
                 label: translations.getStarted.ctaPrimary,
@@ -434,9 +748,13 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.xl,
-    paddingTop: 0,
+    paddingTop: spacing.xl * 3,
     gap: spacing.xl,
     paddingBottom: spacing.xl * 2,
+  },
+  contentCompact: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
   },
   heroCard: {
     backgroundColor: colors.surface,
@@ -448,23 +766,61 @@ const styles = StyleSheet.create({
     borderColor: "rgba(110,168,255,0.25)",
     overflow: "hidden",
   },
+  heroCardCompact: {
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
   logo: {
     fontSize: typography.sm,
     color: colors.accentSubtle,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
+  logoCompact: {
+    fontSize: typography.sm * 0.92,
+  },
   title: {
-    fontSize: typography.xl,
     fontWeight: "700",
     color: colors.textPrimary,
+  },
+  titleJaEn: {
+    fontSize: typography.xl,
     lineHeight: typography.xl * 1.2,
   },
+  titleFr: {
+    fontSize: typography.lg * 1.16,
+    lineHeight: typography.lg * 1.38,
+  },
+  titleCompactJaEn: {
+    fontSize: typography.lg * 1.2,
+    lineHeight: typography.lg * 1.4,
+  },
+  titleCompactFr: {
+    fontSize: typography.md * 1.38,
+    lineHeight: typography.md * 1.52,
+  },
   subtitle: {
-    fontSize: typography.md,
     color: colors.textSecondary,
-    lineHeight: typography.md * 1.5,
     marginVertical: spacing.md,
+  },
+  subtitleJaEn: {
+    fontSize: typography.md,
+    lineHeight: typography.md * 1.5,
+  },
+  subtitleFr: {
+    fontSize: typography.sm * 1.08,
+    lineHeight: typography.sm * 1.62,
+  },
+  subtitleCompactJaEn: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.55,
+    marginVertical: spacing.sm,
+  },
+  subtitleCompactFr: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.5,
+    marginVertical: spacing.sm,
   },
   actions: {
     flexDirection: "row",
@@ -497,7 +853,23 @@ const styles = StyleSheet.create({
   primaryLabel: {
     color: colors.textPrimary,
     fontWeight: "700",
+    textAlign: "center",
+    maxWidth: "100%",
+    flexShrink: 1,
+  },
+  primaryLabelJaEn: {
     fontSize: typography.md,
+  },
+  primaryLabelFr: {
+    fontSize: typography.sm * 1.08,
+    lineHeight: typography.sm * 1.35,
+  },
+  primaryLabelCompactJaEn: {
+    fontSize: typography.md * 0.92,
+  },
+  primaryLabelCompactFr: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.25,
   },
   buttonShadow: {
     ...shadows.button,
@@ -533,10 +905,29 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
+  sectionLabelCompact: {
+    fontSize: typography.sm * 0.92,
+  },
+  sectionLabelFr: {
+    letterSpacing: 0.2,
+  },
   sectionTitle: {
     color: colors.textPrimary,
-    fontSize: typography.lg,
     fontWeight: "700",
+  },
+  sectionTitleJaEn: {
+    fontSize: typography.lg,
+  },
+  sectionTitleFr: {
+    fontSize: typography.md * 1.15,
+    lineHeight: typography.md * 1.4,
+  },
+  sectionTitleCompactJaEn: {
+    fontSize: typography.md * 1.15,
+  },
+  sectionTitleCompactFr: {
+    fontSize: typography.md,
+    lineHeight: typography.md * 1.3,
   },
   card: {
     backgroundColor: colors.surface,
@@ -546,6 +937,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(110,168,255,0.25)",
     gap: spacing.md,
     overflow: "hidden",
+  },
+  cardCompact: {
+    padding: spacing.lg,
+    gap: spacing.sm,
   },
   cardShell: {
     borderRadius: radius.xl,
@@ -557,13 +952,40 @@ const styles = StyleSheet.create({
   },
   cardHeading: {
     color: colors.textPrimary,
-    fontSize: typography.md,
     fontWeight: "700",
+  },
+  cardHeadingJaEn: {
+    fontSize: typography.md,
+  },
+  cardHeadingFr: {
+    fontSize: typography.sm * 1.08,
+    lineHeight: typography.sm * 1.4,
+  },
+  cardHeadingCompactJaEn: {
+    fontSize: typography.md * 0.92,
+  },
+  cardHeadingCompactFr: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.34,
   },
   cardBody: {
     color: colors.textSecondary,
+  },
+  cardBodyJaEn: {
     fontSize: typography.md,
     lineHeight: typography.md * 1.5,
+  },
+  cardBodyFr: {
+    fontSize: typography.sm * 1.04,
+    lineHeight: typography.sm * 1.62,
+  },
+  cardBodyCompactJaEn: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.55,
+  },
+  cardBodyCompactFr: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.5,
   },
   caption: {
     color: colors.textSecondary,
@@ -593,9 +1015,23 @@ const styles = StyleSheet.create({
   },
   bulletText: {
     color: colors.textPrimary,
-    fontSize: typography.md,
     flex: 1,
+  },
+  bulletTextJaEn: {
+    fontSize: typography.md,
     lineHeight: typography.md * 1.4,
+  },
+  bulletTextFr: {
+    fontSize: typography.sm * 1.02,
+    lineHeight: typography.sm * 1.52,
+  },
+  bulletTextCompactJaEn: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.5,
+  },
+  bulletTextCompactFr: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.42,
   },
   planCard: {
     flex: 1,
@@ -607,14 +1043,40 @@ const styles = StyleSheet.create({
   },
   planPrice: {
     color: colors.textPrimary,
-    fontSize: typography.xl,
     fontWeight: "800",
+  },
+  planPriceJaEn: {
+    fontSize: typography.xl,
+  },
+  planPriceFr: {
+    fontSize: typography.lg * 1.08,
+    lineHeight: typography.lg * 1.28,
+  },
+  planPriceCompactJaEn: {
+    fontSize: typography.lg,
+  },
+  planPriceCompactFr: {
+    fontSize: typography.md * 1.2,
+    lineHeight: typography.md * 1.35,
   },
   planTrialBadge: {
     color: colors.error,
-    fontSize: typography.lg,
     marginBottom: spacing.sm,
     fontWeight: "700",
+  },
+  planTrialBadgeJaEn: {
+    fontSize: typography.lg,
+  },
+  planTrialBadgeFr: {
+    fontSize: typography.md * 1.05,
+    lineHeight: typography.md * 1.35,
+  },
+  planTrialBadgeCompactJaEn: {
+    fontSize: typography.md * 1.05,
+  },
+  planTrialBadgeCompactFr: {
+    fontSize: typography.sm * 1.08,
+    lineHeight: typography.sm * 1.4,
   },
   scrollHint: {
     alignItems: "center",
@@ -634,5 +1096,12 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     letterSpacing: 0.4,
     marginTop: spacing.md,
+  },
+  scrollHintTextCompact: {
+    fontSize: typography.sm * 0.92,
+    marginTop: spacing.sm,
+  },
+  scrollHintTextFr: {
+    letterSpacing: 0.15,
   },
 });
