@@ -34,8 +34,8 @@ jest.mock("expo-notifications", () => {
 jest.mock("@react-native-community/datetimepicker", () => {
   const React = require("react");
   const { Text } = require("react-native");
-  const MockPicker = ({ onChange, value }: { onChange?: (...args: any[]) => void; value: Date }) => (
-    <Text testID="break-reminder-datetime" onPress={() => onChange?.({ type: "set" }, value)} onChange={onChange}>
+  const MockPicker = ({ onChange, value, style }: { onChange?: (...args: any[]) => void; value: Date; style?: any }) => (
+    <Text testID="break-reminder-datetime" onPress={() => onChange?.({ type: "set" }, value)} onChange={onChange} style={style}>
       {value.toISOString()}
     </Text>
   );
@@ -63,8 +63,17 @@ describe("BreakReminderScreen", () => {
 
     expect(getByText(i18n.t("title", { ns: "breakReminder" }))).toBeTruthy();
     expect(getByText(i18n.t("description", { ns: "breakReminder" }))).toBeTruthy();
+    expect(getByTestId("break-reminder-scroll")).toBeTruthy();
     expect(getByTestId("break-reminder-datetime")).toBeTruthy();
     expect(getByText(i18n.t("schedule", { ns: "breakReminder" }))).toBeTruthy();
+  });
+
+  test("applies compact styling to the datetime picker", () => {
+    const { getByTestId } = renderScreen();
+
+    expect(getByTestId("break-reminder-datetime")).toHaveStyle({
+      transform: [{ scaleX: 0.94 }, { scaleY: 0.94 }, { translateX: -8 }],
+    });
   });
 
   test("schedules a reminder and hides the input", async () => {

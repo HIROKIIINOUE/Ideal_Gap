@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useLanguage } from "../../providers/LanguageProvider";
 
@@ -242,7 +242,12 @@ export default function BreakReminderScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+      testID="break-reminder-scroll"
+    >
       <View style={[styles.card, scheduled && styles.activeCard, shadows.card]}>
         {scheduled && (
           <LinearGradient
@@ -305,13 +310,17 @@ export default function BreakReminderScreen() {
           </>
         )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  contentContainer: {
     gap: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
   card: {
     backgroundColor: colors.surface,
@@ -358,7 +367,7 @@ const styles = StyleSheet.create({
   picker: {
     width: "100%",
     alignSelf: "stretch",
-    transform: [{ translateX: -spacing.lg }],
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.94 }, { translateX: -spacing.xl * 1.4 }],
   },
   primaryButton: {
     marginTop: spacing.sm,
