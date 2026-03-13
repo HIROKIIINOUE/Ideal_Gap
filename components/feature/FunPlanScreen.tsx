@@ -73,7 +73,7 @@ const toPlanCard = (row: { id: string; description: string; order: number | null
 });
 
 export default function FunPlanScreen() {
-  const { t } = useTranslation("funPlan");
+  const { t, i18n } = useTranslation("funPlan");
   const [plans, setPlans] = useState<FunPlanCard[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -88,6 +88,8 @@ export default function FunPlanScreen() {
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
   const updatedLabel = t("updatedSuffix");
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const isFrench = currentLanguage.startsWith("fr");
   const limitReached = plans.length >= MAX_PLANS;
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
@@ -335,19 +337,9 @@ export default function FunPlanScreen() {
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
-          style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
-          onLongPress={drag}
-          delayLongPress={200}
-          hitSlop={14}
-        >
-          <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
-        </Pressable>
         <Text style={styles.planTitle}>{item.description}</Text>
 
-        <View style={styles.planActions}>
+        <View style={styles.planActions} testID={`fun-plan-card-actions-${item.id}`}>
           {deleteMode ? (
             <Pressable
               accessibilityRole="button"
@@ -358,10 +350,28 @@ export default function FunPlanScreen() {
               <Text style={styles.dangerButtonText}>{t("delete")}</Text>
             </Pressable>
           ) : (
-            <Pressable accessibilityRole="button" onPress={onEditPress} style={[styles.editButton, styles.iconButtonRow]}>
-              <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
-              <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
-            </Pressable>
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onEditPress}
+                style={[styles.editButton, styles.iconButtonRow]}
+                testID={`fun-plan-card-edit-${item.id}`}
+              >
+                <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
+                <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+                style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+                onLongPress={drag}
+                delayLongPress={200}
+                hitSlop={14}
+                testID={`fun-plan-card-reorder-${item.id}`}
+              >
+                <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </>
           )}
         </View>
       </View>
@@ -410,7 +420,7 @@ export default function FunPlanScreen() {
             />
             <View style={styles.headerRow}>
               <View style={styles.headerText}>
-                <Text style={styles.heading}>{t("pageTitle")}</Text>
+                <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
                 <Text style={styles.body}>{t("pageSubtitle")}</Text>
               </View>
             </View>
@@ -424,7 +434,7 @@ export default function FunPlanScreen() {
                 disabled={limitReached || offlineBlocked}
               >
                 <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-                <Text style={styles.primaryButtonText}>{t("add")}</Text>
+                <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>{t("add")}</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -437,7 +447,9 @@ export default function FunPlanScreen() {
                   size={20}
                   color={colors.textPrimary}
                 />
-                <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
+                <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
+                  {deleteMode ? t("deleteExit") : t("delete")}
+                </Text>
               </Pressable>
             </View>
             {limitReached && <Text style={styles.limitText}>{t("limitHelper")}</Text>}
@@ -555,6 +567,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: typography.xl * 1.3,
   },
+  headingFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
   body: {
     color: colors.textSecondary,
     fontSize: typography.md,
@@ -611,6 +627,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: typography.md,
   },
+  headerButtonTextFrench: {
+    fontSize: 14,
+  },
   errorText: {
     color: colors.error,
     fontSize: typography.sm,
@@ -648,7 +667,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: typography.lg * 1.4,
     textAlign: "left",
-    paddingRight: spacing.xl * 2,
   },
   planActions: {
     flexDirection: "row",
@@ -686,16 +704,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   dragHandleButton: {
-    position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
     backgroundColor: "rgba(255,255,255,0.04)",
-    zIndex: 1,
   },
   dragHandleButtonActive: {
     borderColor: colors.accentPrimary,

@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import React from "react";
 import { Keyboard } from "react-native";
 import { I18nextProvider } from "react-i18next";
@@ -118,8 +118,9 @@ describe("FunPlanScreen interactions", () => {
       </I18nextProvider>,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await i18n.changeLanguage("en");
     mockGetSubscriptionForUser.mockResolvedValue({ status: "active" });
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
@@ -207,6 +208,34 @@ describe("FunPlanScreen interactions", () => {
     fireEvent.press(getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(mockInsert).toHaveBeenCalled());
+  });
+
+  test("uses smaller header typography for French title and buttons", async () => {
+    await i18n.changeLanguage("fr");
+
+    const { findByText, findByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const title = await findByText("Plans sympas à venir");
+    const addButtonLabel = await findByText("Ajouter");
+    const deleteButton = await findByRole("button", { name: "Supprimer" });
+    const deleteButtonLabel = within(deleteButton).getByText("Supprimer");
+
+    expect(title).toHaveStyle({ fontSize: 24 });
+    expect(addButtonLabel).toHaveStyle({ fontSize: 14 });
+    expect(deleteButtonLabel).toHaveStyle({ fontSize: 14 });
+  });
+
+  test("renders edit and reorder buttons together in the card footer", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const actionRow = await findByTestId("fun-plan-card-actions-plan-1");
+
+    expect(within(actionRow).getByTestId("fun-plan-card-edit-plan-1")).toBeTruthy();
+    expect(within(actionRow).getByTestId("fun-plan-card-reorder-plan-1")).toBeTruthy();
   });
 
   test("dismisses keyboard when tapping modal overlay", async () => {
