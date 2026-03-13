@@ -83,7 +83,7 @@ describe("Index screen", () => {
     const startButtonLabels = await screen.findAllByText("無料で始める");
 
     expect(title).toHaveStyle({ fontSize: 24 });
-    expect(startButtonLabels[0]).toHaveStyle({ fontSize: 13 });
+    expect(startButtonLabels[0]).toHaveStyle({ fontSize: 14.72 });
   });
 
   it("uses French-specific typography on compact screens", async () => {
@@ -109,6 +109,6 @@ describe("Index screen", () => {
 
     expect(title).toHaveStyle({ fontSize: 22.08 });
     expect(membership).toHaveStyle({ fontSize: 16 });
-    expect(ctaLabels[0]).toHaveStyle({ fontSize: 11.96 });
+    expect(ctaLabels[0]).toHaveStyle({ fontSize: 13 });
   });
 });
