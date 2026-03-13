@@ -266,9 +266,16 @@ export default function FocusMusicScreen() {
                 </View>
                 <View style={styles.trackActions}>
                   {isSelected && (
-                    <Text style={styles.selectedLabel}>
-                      {t("selectedLabel")}
-                    </Text>
+                    <View
+                      style={styles.selectedIconBadge}
+                      testID={`focus-music-selected-icon-${track.id}`}
+                    >
+                      <MaterialCommunityIcons
+                        name="check-circle"
+                        size={18}
+                        color={colors.accentSubtle}
+                      />
+                    </View>
                   )}
                   <Pressable
                     accessibilityRole="button"
@@ -631,10 +638,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
-  selectedLabel: {
-    color: colors.accentSubtle,
-    fontSize: typography.sm,
-    fontWeight: "600",
+  selectedIconBadge: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconButton: {
     width: 32,

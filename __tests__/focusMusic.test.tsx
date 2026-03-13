@@ -221,6 +221,22 @@ describe("FocusMusicScreen", () => {
     expect(Alert.alert).toHaveBeenCalled();
   });
 
+  test("shows selected icon instead of selected text for the active track", async () => {
+    const { getByTestId, getByText, queryByText } = renderScreen();
+
+    fireEvent.press(getByTestId("focus-music-catalog-button"));
+    await waitFor(() => expect(getByText("Deep Focus")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(getByTestId("focus-music-install-track-1"));
+    });
+
+    await waitFor(() => expect(getByTestId("focus-music-installed-track-1")).toBeTruthy());
+
+    expect(getByTestId("focus-music-selected-icon-track-1")).toBeTruthy();
+    expect(queryByText("Selected")).toBeNull();
+  });
+
   test("shows install limit alert when trying to add a 6th track", async () => {
     const { getByTestId, getByText } = renderScreen();
 
