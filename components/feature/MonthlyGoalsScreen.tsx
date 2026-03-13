@@ -57,18 +57,12 @@ const MAX_OPTION_LABEL = 32; // 長い年間目標名をUI崩れなく省略表�
 const MONTH_ITEM_WIDTH = 86;
 const STORAGE_KEY_SELECTED_MONTH = "monthlyGoals:selectedMonth";
 
-// h/m表記の共通フォーマット
-const formatMinutes = (minutes: number) => {
-  const totalMinutes = Math.max(0, Math.round(minutes));
-  const hrs = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  if (hrs === 0) {
-    return `${mins}m`;
-  }
-  if (mins === 0) {
-    return `${hrs}h`;
-  }
-  return `${hrs}h ${mins}m`;
+// 分を時間へ変換し、小数第1位まで表示する
+const formatHours = (minutes: number) => {
+  const safeMinutes = Math.max(0, minutes);
+  const roundedHours = Math.round((safeMinutes / 60) * 10) / 10;
+  const displayValue = Number.isInteger(roundedHours) ? String(roundedHours) : roundedHours.toFixed(1);
+  return `${displayValue} h`;
 };
 
 const truncateLabel = (label: string, maxLength = MAX_OPTION_LABEL) => {
@@ -103,7 +97,7 @@ const offlineYearlyGoalOptionsSchema = z.array(
 );
 
 export default function MonthlyGoalsScreen() {
-  const { t } = useTranslation("monthlyGoals");
+  const { t, i18n } = useTranslation("monthlyGoals");
   const [goals, setGoals] = useState<MonthlyGoal[]>([]);
   const [yearlyGoals, setYearlyGoals] = useState<YearlyGoalOption[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -132,6 +126,8 @@ export default function MonthlyGoalsScreen() {
   const [isYearlyDropdownOpen, setYearlyDropdownOpen] = useState(false);
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const isFrench = currentLanguage.startsWith("fr");
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
   }, []);
@@ -635,19 +631,19 @@ export default function MonthlyGoalsScreen() {
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.targetLabel")}</Text>
             <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatMinutes(item.estimatedMinutes)}
+              {formatHours(item.estimatedMinutes)}
             </Text>
           </View>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.loggedLabel")}</Text>
             <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatMinutes(item.accumulatedMinutes)}
+              {formatHours(item.accumulatedMinutes)}
             </Text>
           </View>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.remainingLabel", { defaultValue: "Remaining" })}</Text>
             <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatMinutes(remaining)}
+              {formatHours(remaining)}
             </Text>
           </View>
           <Pressable
@@ -703,7 +699,7 @@ export default function MonthlyGoalsScreen() {
           <View style={[styles.card, shadows.card]}>
             <LinearGradient colors={HEADER_CARD_GRADIENT} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
             <View style={styles.headerRow}>
-              <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
+              <Text style={[styles.pageTitle, isFrench && styles.pageTitleFrench]}>{t("pageTitle")}</Text>
             </View>
 
             <View style={styles.monthSelector}>
@@ -750,7 +746,7 @@ export default function MonthlyGoalsScreen() {
               {!deleteMode && (
                 <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
                   <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{t("add")}</Text>
+                  <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>{t("add")}</Text>
                 </Pressable>
               )}
               <Pressable
@@ -764,7 +760,9 @@ export default function MonthlyGoalsScreen() {
                   size={20}
                   color={colors.textPrimary}
                 />
-                <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
+                <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
+                  {deleteMode ? t("deleteExit") : t("delete")}
+                </Text>
               </Pressable>
               {deleteMode && (
                 <Pressable
@@ -774,7 +772,7 @@ export default function MonthlyGoalsScreen() {
                   disabled={offlineBlocked}
                 >
                   <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
-                  <Text style={styles.secondaryButtonText}>
+                  <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
                     {t("bulkDelete.button", { defaultValue: "Delete all" })}
                   </Text>
                 </Pressable>
@@ -1025,6 +1023,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: typography.xl * 1.3,
   },
+  pageTitleFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
   pageSubtitle: {
     color: colors.textSecondary,
     fontSize: typography.md,
@@ -1080,6 +1082,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: "700",
     fontSize: typography.md,
+  },
+  headerButtonTextFrench: {
+    fontSize: 14,
   },
   errorText: {
     color: colors.error,

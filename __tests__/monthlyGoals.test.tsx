@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert, Keyboard } from "react-native";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import MonthlyGoalsScreen from "../components/feature/MonthlyGoalsScreen";
 import i18n from "../i18n";
@@ -140,8 +140,9 @@ describe("MonthlyGoalsScreen", () => {
       </I18nextProvider>,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await i18n.changeLanguage("en");
     jest.spyOn(Alert, "alert").mockImplementation((_, __, buttons) => {
       const destructive = buttons?.find((button) => button.style === "destructive");
       destructive?.onPress?.();
@@ -205,6 +206,47 @@ describe("MonthlyGoalsScreen", () => {
     expect(await findByText("Monthly goals")).toBeTruthy();
     expect(await findByText("Sleep 7+ hours consistently")).toBeTruthy();
     expect(queryByText("This month")).toBeFalsy();
+  });
+
+  test("uses smaller header typography for French title and buttons", async () => {
+    await i18n.changeLanguage("fr");
+
+    const { findByText, findByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrderMonthlySecond).toHaveBeenCalled());
+
+    const title = await findByText("Objectifs mensuels");
+    const addButtonLabel = await findByText("Ajouter");
+    const deleteButton = await findByRole("button", { name: "Supprimer" });
+    const deleteButtonLabel = within(deleteButton).getByText("Supprimer");
+
+    expect(title).toHaveStyle({ fontSize: 24 });
+    expect(addButtonLabel).toHaveStyle({ fontSize: 14 });
+    expect(deleteButtonLabel).toHaveStyle({ fontSize: 14 });
+  });
+
+  test("formats progress stats as decimal hours", async () => {
+    mockOrderMonthlySecond.mockResolvedValueOnce({
+      data: [
+        {
+          id: "mg-feb-1",
+          description: "Sleep 7+ hours consistently",
+          month: 2,
+          estimated_time_month: 95,
+          accumulated_time_month: 65,
+          yearly_goal_id: "yg-health",
+          order: 0,
+          updated_at: "2025-02-01T09:00:00Z",
+        },
+      ],
+      error: null,
+    });
+
+    const { findByText } = renderScreen();
+
+    expect(await findByText("1.6 h")).toBeTruthy();
+    expect(await findByText("1.1 h")).toBeTruthy();
+    expect(await findByText("0.5 h")).toBeTruthy();
   });
 
   test("truncates long yearly goal labels in the selector", async () => {
