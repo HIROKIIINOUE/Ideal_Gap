@@ -115,7 +115,7 @@ const toAnnualGoal = (row: YearlyGoalRow): AnnualGoal => ({
 });
 
 export default function AnnualGoalsScreen() {
-  const { t } = useTranslation("annualGoals");
+  const { t, i18n } = useTranslation("annualGoals");
   const [goals, setGoals] = useState<AnnualGoal[]>([]);
   const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
@@ -127,6 +127,8 @@ export default function AnnualGoalsScreen() {
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
   const updatedLabel = t("updatedSuffix");
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const isFrench = currentLanguage.startsWith("fr");
   const {
     control, // Controller が使う“フォーム管理本体”
     handleSubmit,
@@ -451,36 +453,47 @@ export default function AnnualGoalsScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
-        style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
-        onLongPress={drag}
-        delayLongPress={200}
-        hitSlop={14}
-      >
-        <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
-      </Pressable>
       <Text style={styles.goalTitle}>{item.description}</Text>
       <View style={styles.goalFooter}>
         <View style={styles.colorRow}>
           <View style={[styles.colorDot, { backgroundColor: item.goalColor }]} />
           <Text style={styles.goalTime}>{formatMinutes(item.accumulatedMinutes)}</Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => (deleteMode ? handleDelete(item) : handleEditPress(item))}
-          style={[deleteMode ? styles.dangerButton : styles.editButton, styles.iconButtonRow]}
-        >
-          <MaterialCommunityIcons
-            name={deleteMode ? "trash-can-outline" : "pencil-outline"}
-            size={16}
-            color={deleteMode ? colors.error : colors.textPrimary}
-          />
-          <Text style={deleteMode ? styles.dangerButtonText : styles.editButtonText}>
-            {deleteMode ? t("delete") : t("modal.editTitle")}
-          </Text>
-        </Pressable>
+        <View style={styles.goalActions} testID={`annual-goal-card-actions-${item.id}`}>
+          {deleteMode ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => handleDelete(item)}
+              style={[styles.dangerButton, styles.iconButtonRow]}
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
+              <Text style={styles.dangerButtonText}>{t("delete")}</Text>
+            </Pressable>
+          ) : (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => handleEditPress(item)}
+                style={[styles.editButton, styles.iconButtonRow]}
+                testID={`annual-goal-card-edit-${item.id}`}
+              >
+                <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
+                <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+                style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+                onLongPress={drag}
+                delayLongPress={200}
+                hitSlop={14}
+                testID={`annual-goal-card-reorder-${item.id}`}
+              >
+                <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -528,7 +541,7 @@ export default function AnnualGoalsScreen() {
               style={StyleSheet.absoluteFill}
             />
             <View style={styles.headingArea}>
-              <Text style={styles.heading}>{t("pageTitle")}</Text>
+              <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
             </View>
             {hasGoals && (
               <View style={styles.chartContainer}>
@@ -560,7 +573,7 @@ export default function AnnualGoalsScreen() {
               {!deleteMode && (
                 <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
                   <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{t("add")}</Text>
+                  <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>{t("add")}</Text>
                 </Pressable>
               )}
               <Pressable
@@ -574,7 +587,9 @@ export default function AnnualGoalsScreen() {
                   size={20}
                   color={colors.textPrimary}
                 />
-                <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
+                <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
+                  {deleteMode ? t("deleteExit") : t("delete")}
+                </Text>
               </Pressable>
               {deleteMode && (
                 <Pressable
@@ -584,7 +599,7 @@ export default function AnnualGoalsScreen() {
                   disabled={offlineBlocked}
                 >
                   <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
-                  <Text style={styles.secondaryButtonText}>
+                  <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
                     {t("bulkDelete.button", { defaultValue: "Delete all" })}
                   </Text>
                 </Pressable>
@@ -758,6 +773,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: typography.xl * 1.3,
   },
+  headingFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
   chartContainer: {
     alignItems: "center",
     gap: spacing.md,
@@ -846,6 +865,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: typography.md,
   },
+  headerButtonTextFrench: {
+    fontSize: 14,
+  },
   errorText: {
     color: colors.error,
     fontSize: typography.sm,
@@ -878,6 +900,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.xs,
   },
+  goalActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+  },
   colorRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -899,7 +927,6 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: "800",
     lineHeight: typography.lg * 1.4,
-    paddingRight: spacing.xl * 2,
     minHeight: 40,
   },
   editButton: {
@@ -933,16 +960,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   dragHandleButton: {
-    position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
     backgroundColor: "rgba(255,255,255,0.04)",
-    zIndex: 1,
   },
   dragHandleButtonActive: {
     borderColor: colors.accentPrimary,
