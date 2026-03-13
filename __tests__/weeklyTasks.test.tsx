@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { Alert, Keyboard } from "react-native";
@@ -57,8 +57,9 @@ describe("WeeklyTasksScreen", () => {
   const mockEqDeleteWeekly = jest.fn();
   const mockUpsertWeekly = jest.fn();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await i18n.changeLanguage("en");
     jest.spyOn(Alert, "alert").mockImplementation((_, __, buttons) => {
       const destructive = buttons?.find((button) => button.style === "destructive");
       destructive?.onPress?.();
@@ -109,6 +110,28 @@ describe("WeeklyTasksScreen", () => {
     expect(await findByText("No tasks yet")).toBeTruthy();
   });
 
+  test("uses smaller header typography for French title and buttons", async () => {
+    await i18n.changeLanguage("fr");
+    mockOrderWeekly.mockResolvedValue({ data: [], error: null });
+    mockOrderMonthly.mockResolvedValue({
+      data: [
+        { id: "m1", description: "April UX", month: 4, yearly_goal_id: "y1", yearly_goals: { year_goal_color: "#1E5EFF" } },
+      ],
+      error: null,
+    });
+
+    const { findByText, findByRole } = renderScreen();
+
+    const title = await findByText("Tâches hebdomadaires");
+    const addButtonLabel = await findByText("Ajouter");
+    const deleteButton = await findByRole("button", { name: "Supprimer" });
+    const deleteButtonLabel = within(deleteButton).getByText("Supprimer");
+
+    expect(title).toHaveStyle({ fontSize: 24 });
+    expect(addButtonLabel).toHaveStyle({ fontSize: 14 });
+    expect(deleteButtonLabel).toHaveStyle({ fontSize: 14 });
+  });
+
   test("renders weekly tasks without header summary UI", async () => {
     mockOrderMonthly.mockResolvedValue({
       data: [
@@ -146,7 +169,35 @@ describe("WeeklyTasksScreen", () => {
     expect(await findByText("Write docs")).toBeTruthy();
 
     expect(queryByText("Weekly progress")).toBeFalsy();
-    expect(await findByText("3h")).toBeTruthy();
+    expect(await findByText("3 h")).toBeTruthy();
+  });
+
+  test("formats progress stats as decimal hours", async () => {
+    mockOrderMonthly.mockResolvedValue({
+      data: [
+        { id: "m1", description: "April UX", month: 4, yearly_goal_id: "y1", yearly_goals: { year_goal_color: "#1E5EFF" } },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          monthly_goal_id: "m1",
+          estimated_time_week: 95,
+          accumulated_time_week: 65,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { findByText } = renderScreen();
+
+    expect(await findByText("1.6 h")).toBeTruthy();
+    expect(await findByText("1.1 h")).toBeTruthy();
+    expect(await findByText("0.5 h")).toBeTruthy();
   });
 
   test("hides edit action in list mode and keeps timer with reorder", async () => {

@@ -74,6 +74,14 @@ const formatMinutes = (minutes: number) => {
   return `${hours}h ${mins}m`;
 };
 
+// 分を時間へ変換し、小数第1位まで表示する
+const formatHours = (minutes: number) => {
+  const safeMinutes = Math.max(0, minutes);
+  const roundedHours = Math.round((safeMinutes / 60) * 10) / 10;
+  const displayValue = Number.isInteger(roundedHours) ? String(roundedHours) : roundedHours.toFixed(1);
+  return `${displayValue} h`;
+};
+
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 const offlineWeeklyTasksSchema = z.array(
@@ -97,7 +105,7 @@ const offlineMonthlyGoalOptionsSchema = z.array(
 );
 
 export default function WeeklyTasksScreen() {
-  const { t } = useTranslation(["weeklyTasks", "monthlyGoals"]);
+  const { t, i18n } = useTranslation(["weeklyTasks", "monthlyGoals"]);
   const [tasks, setTasks] = useState<WeeklyTask[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
   const [listMode, setListMode] = useState(false);
@@ -153,6 +161,8 @@ export default function WeeklyTasksScreen() {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const isFrench = currentLanguage.startsWith("fr");
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
   }, []);
@@ -803,19 +813,19 @@ export default function WeeklyTasksScreen() {
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.target")}</Text>
             <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatMinutes(item.estimatedMinutes)}
+              {formatHours(item.estimatedMinutes)}
             </Text>
           </View>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.logged")}</Text>
             <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatMinutes(item.loggedMinutes)}
+              {formatHours(item.loggedMinutes)}
             </Text>
           </View>
           <View style={styles.goalStat}>
             <Text style={styles.statLabel}>{t("summary.remaining")}</Text>
             <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatMinutes(remaining)}
+              {formatHours(remaining)}
             </Text>
           </View>
           <Pressable
@@ -911,7 +921,7 @@ export default function WeeklyTasksScreen() {
               />
 
               <View style={styles.headerTop}>
-                <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
+                <Text style={[styles.pageTitle, isFrench && styles.pageTitleFrench]}>{t("pageTitle")}</Text>
 
                 <View style={styles.actionsRow}>
                   {!deleteMode && (
@@ -922,7 +932,9 @@ export default function WeeklyTasksScreen() {
                       disabled={offlineBlocked}
                     >
                       <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-                      <Text style={styles.primaryButtonText}>{t("actions.add")}</Text>
+                      <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>
+                        {t("actions.add")}
+                      </Text>
                     </Pressable>
                   )}
                   <Pressable
@@ -940,7 +952,7 @@ export default function WeeklyTasksScreen() {
                       size={20}
                       color={colors.textPrimary}
                     />
-                    <Text style={styles.secondaryButtonText}>
+                    <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
                       {deleteMode ? t("actions.deleteExit") ?? t("actions.delete") : t("actions.delete")}
                     </Text>
                   </Pressable>
@@ -956,7 +968,7 @@ export default function WeeklyTasksScreen() {
                       disabled={offlineBlocked}
                     >
                       <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
-                      <Text style={styles.secondaryButtonText}>
+                      <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
                         {t("bulkDelete.button", { defaultValue: "Delete all" })}
                       </Text>
                     </Pressable>
@@ -1314,6 +1326,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: typography.xl * 1.3,
   },
+  pageTitleFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
   actionsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1368,6 +1384,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "700",
+  },
+  headerButtonTextFrench: {
+    fontSize: 14,
   },
   secondaryButtonActive: {
     borderColor: colors.accentSubtle,
