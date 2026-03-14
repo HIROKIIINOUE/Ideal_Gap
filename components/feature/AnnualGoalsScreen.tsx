@@ -1,11 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Controller, FieldErrors } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
-  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,9 +19,11 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PieChart } from "react-native-gifted-charts";
 import { z } from "zod";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useAppZodForm } from "../../hooks/useAppZodForm";
 import { useDeleteMode } from "../../hooks/useDeleteMode";
+import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteYearlyGoal, fetchYearlyGoals, insertYearlyGoal, updateYearlyGoal, upsertYearlyGoals, YearlyGoalRow } from "../../lib/api/supabase/annualGoals";
 import { getUserId } from "../../lib/api/supabase/common";
@@ -116,6 +117,7 @@ const toAnnualGoal = (row: YearlyGoalRow): AnnualGoal => ({
 
 export default function AnnualGoalsScreen() {
   const { t, i18n } = useTranslation("annualGoals");
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [goals, setGoals] = useState<AnnualGoal[]>([]);
   const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
@@ -142,9 +144,6 @@ export default function AnnualGoalsScreen() {
     defaultValues: DEFAULT_FORM_VALUES,
   });
   const goalColor = watch("goalColor");
-  const dismissKeyboard = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
 
   // データベースからユーザの年間目標データを取得し必要なデータのみに絞った上で状態変数goalsにセットするロジック
   useEffect(() => {
@@ -744,6 +743,9 @@ export default function AnnualGoalsScreen() {
               </Pressable>
             </ScrollView>
           </KeyboardAvoidingView>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
         </Pressable>
       </Modal>
     </GestureHandlerRootView>

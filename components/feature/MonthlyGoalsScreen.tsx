@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import {
   Alert,
   FlatList,
-  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,7 +19,9 @@ import {
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteMonthlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
 import { deleteMonthlyGoalWithWeeklyTasks } from "../../lib/api/supabase/goals/cascadeDelete";
@@ -98,6 +99,7 @@ const offlineYearlyGoalOptionsSchema = z.array(
 
 export default function MonthlyGoalsScreen() {
   const { t, i18n } = useTranslation("monthlyGoals");
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [goals, setGoals] = useState<MonthlyGoal[]>([]);
   const [yearlyGoals, setYearlyGoals] = useState<YearlyGoalOption[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -128,9 +130,6 @@ export default function MonthlyGoalsScreen() {
   const guardOfflineAction = useOfflineActionGuard();
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
-  const dismissKeyboard = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
 
   const toMonthlyGoal = (row: MonthlyGoalRow): MonthlyGoal => ({
     id: row.id,
@@ -993,6 +992,9 @@ export default function MonthlyGoalsScreen() {
               </Pressable>
             </ScrollView>
           </KeyboardAvoidingView>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
         </Pressable>
       </Modal>
     </GestureHandlerRootView>

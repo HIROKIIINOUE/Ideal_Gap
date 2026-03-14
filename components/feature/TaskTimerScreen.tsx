@@ -29,6 +29,7 @@ import {
 } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import {
   colors,
   radius,
@@ -36,6 +37,7 @@ import {
   spacing,
   typography,
 } from "../../constants/theme";
+import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import { supabase } from "../../lib/supabaseClient";
 import {
@@ -87,6 +89,7 @@ const formatEndTimeLabel = (timestamp: number | null) => {
 
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
   const { width, fontScale } = useWindowDimensions();
   const compactScreen = isCompactScreen(width, fontScale);
@@ -1039,6 +1042,9 @@ export default function TaskTimerScreen() {
               </Pressable>
             </ScrollView>
           </KeyboardAvoidingView>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
         </View>
       </Modal>
 

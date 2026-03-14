@@ -6,9 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
-  Keyboard,
   KeyboardAvoidingView,
-  KeyboardEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -18,12 +16,14 @@ import {
   ToastAndroid,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 import Footer from "../components/Footer";
+import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
@@ -60,9 +60,7 @@ export default function Contact() {
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [messageTouched, setMessageTouched] = useState(false);
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
-  const insets = useSafeAreaInsets();
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
 
   const categoryOptions = useMemo(
     () =>
@@ -82,10 +80,6 @@ export default function Contact() {
     return z.flattenError(validation.error).fieldErrors;
   }, [validation]);
   const isValid = validation.success;
-
-  const dismissKeyboard = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
 
   const resetTouches = () => {
     setNameTouched(true);
@@ -172,28 +166,6 @@ export default function Contact() {
     };
   }, []);
 
-  // タイピングキーボード表示非表示イベントでアイコンも連動して表示非表示されるようにイベントを追加
-  useEffect(() => {
-    const showEventName = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEventName = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const handleKeyboardShow = (event: KeyboardEvent) => {
-      setKeyboardVisible(true);
-      setKeyboardHeight(event.endCoordinates.height);
-    };
-    const handleKeyboardHide = () => {
-      setKeyboardVisible(false);
-      setKeyboardHeight(0);
-    };
-
-    const showSubscription = Keyboard.addListener(showEventName, handleKeyboardShow);
-    const hideSubscription = Keyboard.addListener(hideEventName, handleKeyboardHide);
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
 
   const handleMoreSelect = async (key: string) => {
     if (key === "logout") {
@@ -410,20 +382,7 @@ export default function Contact() {
         />
       )}
       {keyboardVisible ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("dismissKeyboard", "Dismiss keyboard")}
-          onPress={dismissKeyboard}
-          style={[
-            styles.keyboardDismissButton,
-            {
-              bottom: Math.max(keyboardHeight + spacing.sm, insets.bottom + spacing.xl),
-            },
-          ]}
-          testID="contact-keyboard-dismiss"
-        >
-          <MaterialCommunityIcons name="keyboard-close-outline" size={20} color={colors.textPrimary} />
-        </Pressable>
+        <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} testID="contact-keyboard-dismiss" />
       ) : null}
     </SafeAreaView>
   );
@@ -444,20 +403,6 @@ const styles = StyleSheet.create({
   formScroll: {
     flex: 1,
     width: "100%",
-  },
-  keyboardDismissButton: {
-    position: "absolute",
-    right: spacing.xl,
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "rgba(15,28,47,0.96)",
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.button,
-    zIndex: 10,
   },
   content: {
     flexGrow: 1,

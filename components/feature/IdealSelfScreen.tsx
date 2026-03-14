@@ -1,12 +1,11 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 // ControllerはTextInputとRHFを繋ぐタグ、FieldErrorsはhandleSubmitが失敗したときのエラー型
 import { Controller, FieldErrors } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
-  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,9 +19,11 @@ import {
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useAppZodForm } from "../../hooks/useAppZodForm";
 import { useDeleteMode } from "../../hooks/useDeleteMode";
+import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { getUserId } from "../../lib/api/supabase/common";
 import { deleteIdeal, fetchIdealSelf, insertIdeal, updateIdeal, upsertIdeals } from "../../lib/api/supabase/idealSelf";
@@ -85,6 +86,7 @@ const toIdealCard = (row: { id: string; description: string; order: number | nul
 
 export default function IdealSelfScreen() {
   const { t, i18n } = useTranslation("idealSelf");
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [ideals, setIdeals] = useState<IdealCard[]>([]);
   const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
@@ -108,9 +110,6 @@ export default function IdealSelfScreen() {
     schema: idealSchema,
     defaultValues: { description: "" },  //初期表示時や reset() したときの値が " " ではなく "" になる
   });
-  const dismissKeyboard = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
 
   // ユーザを取得し「理想の自分リスト」を取得、表示
   useEffect(() => {
@@ -520,6 +519,9 @@ export default function IdealSelfScreen() {
               </Pressable>
             </ScrollView>
           </KeyboardAvoidingView>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
         </Pressable>
       </Modal>
     </GestureHandlerRootView>
