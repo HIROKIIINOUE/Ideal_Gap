@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useHeaderHeight } from "@react-navigation/elements";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack, router } from "expo-router";
@@ -61,6 +62,7 @@ export default function Contact() {
   const [messageTouched, setMessageTouched] = useState(false);
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
+  const headerHeight = useHeaderHeight();
 
   const categoryOptions = useMemo(
     () =>
@@ -202,6 +204,7 @@ export default function Contact() {
       <Pressable style={styles.formOverlay} onPress={dismissKeyboard} testID="contact-form-overlay">
         <KeyboardAvoidingView
           behavior={Platform.select({ ios: "padding", android: undefined })}
+          keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
           style={styles.formContainer}
           testID="contact-form-kav"
         >

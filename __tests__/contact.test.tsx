@@ -10,6 +10,9 @@ const mockInsert = jest.fn().mockResolvedValue({ error: null });
 jest.mock("../components/Footer", () => () => null);
 jest.mock("../components/LanguageSheet", () => () => null);
 jest.mock("../components/MoreSheet", () => () => null);
+jest.mock("@react-navigation/elements", () => ({
+  useHeaderHeight: () => 64,
+}));
 jest.mock("react-native-safe-area-context", () => {
   const actual = jest.requireActual("react-native-safe-area-context");
   return {
