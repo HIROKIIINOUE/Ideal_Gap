@@ -17,9 +17,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 import Footer from "../components/Footer";
+import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { buildRedirectUrl } from "../lib/auth";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
@@ -49,6 +51,7 @@ export default function ProfileUpdate() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [initialEmail, setInitialEmail] = useState<string | null>(null);
   const [emailChangeRequested, setEmailChangeRequested] = useState(false);
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
 
   const validation = useMemo(() => profileSchema.safeParse({ username, email, password }), [email, password, username]);
   const fieldErrors = validation.success ? {} : z.flattenError(validation.error).fieldErrors;
@@ -358,6 +361,9 @@ export default function ProfileUpdate() {
         onToggleFunPlan={toggleFunPlan}
         onSelect={handleMoreSelect}
       />
+      {keyboardVisible ? (
+        <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+      ) : null}
     </SafeAreaView>
   );
 }

@@ -6,8 +6,10 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 import Footer from "../components/Footer";
+import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { signUpWithEmailConfirmation } from "../lib/auth";
 import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
@@ -36,6 +38,7 @@ export default function Signup() {
   const [submissionState, setSubmissionState] = useState<"idle" | "success">("idle");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const signupValidation = useMemo(() => {
     const result = signupSchema.safeParse({ username, email, password });
     if (result.success) {
@@ -270,6 +273,9 @@ export default function Signup() {
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}
       />
+      {keyboardVisible ? (
+        <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+      ) : null}
     </SafeAreaView>
   );
 }

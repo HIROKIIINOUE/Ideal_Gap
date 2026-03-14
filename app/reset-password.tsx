@@ -17,8 +17,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 import Footer from "../components/Footer";
+import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import {
   completePasswordReset,
@@ -48,6 +50,7 @@ export default function ResetPassword() {
   const { t } = useTranslation("resetPassword");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
   const { replace, push } = useRouter();
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
 
   const sendValidation = useMemo(() => resetEmailSchema.safeParse({ email }), [email]);
   const updateValidation = useMemo(
@@ -281,6 +284,9 @@ export default function ResetPassword() {
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}
       />
+      {keyboardVisible ? (
+        <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+      ) : null}
     </SafeAreaView>
   );
 }
