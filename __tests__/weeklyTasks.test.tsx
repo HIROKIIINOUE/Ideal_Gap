@@ -368,6 +368,42 @@ describe("WeeklyTasksScreen", () => {
     expect(getByTestId("weekly-tasks-modal-scroll")).toBeTruthy();
   });
 
+  test("renders keyboard avoiding view and scroll area in manual log modal", async () => {
+    mockOrderMonthly.mockResolvedValue({
+      data: [
+        {
+          id: "m1",
+          description: "April UX",
+          month: 4,
+          yearly_goal_id: "y1",
+          yearly_goals: { year_goal_color: "#1E5EFF" },
+        },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          monthly_goal_id: "m1",
+          estimated_time_week: 600,
+          accumulated_time_week: 180,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { findByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+    fireEvent.press(await findByRole("button", { name: "Manual" }));
+
+    expect(getByTestId("manual-log-modal-kav")).toBeTruthy();
+    expect(getByTestId("manual-log-modal-scroll")).toBeTruthy();
+  });
+
   test("hides keyboard icon when keyboard is not visible", async () => {
     const { findByText, queryByTestId } = renderScreen();
 

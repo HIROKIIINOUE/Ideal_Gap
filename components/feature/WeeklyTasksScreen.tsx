@@ -1220,83 +1220,97 @@ export default function WeeklyTasksScreen() {
 
       <Modal visible={manualLog.visible} transparent animationType="fade" onRequestClose={closeManualLog}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.manualCard, shadows.card]}>
-            <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="manual-log-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="manual-log-modal-scroll"
+            >
+              <View style={[styles.manualCard, shadows.card]}>
+                <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
 
-            <View style={styles.manualTaskBox}>
-              <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
-                {manualLog.task?.title ?? "-"}
-              </Text>
-              <View style={styles.manualSummaryBox}>
-                <View style={styles.manualSummaryRow}>
-                  <Text style={styles.manualSummaryLabel}>{t("manualModal.currentLabel")}</Text>
-                  <Text style={styles.manualSummaryValue}>{formatMinutes(manualLog.defaultMinutes)}</Text>
+                <View style={styles.manualTaskBox}>
+                  <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
+                    {manualLog.task?.title ?? "-"}
+                  </Text>
+                  <View style={styles.manualSummaryBox}>
+                    <View style={styles.manualSummaryRow}>
+                      <Text style={styles.manualSummaryLabel}>{t("manualModal.currentLabel")}</Text>
+                      <Text style={styles.manualSummaryValue}>{formatMinutes(manualLog.defaultMinutes)}</Text>
+                    </View>
+                    <View style={styles.manualSummaryRow}>
+                      <Text style={styles.manualSummaryLabel}>{t("manualModal.addedLabel")}</Text>
+                      <Text style={styles.manualSummaryValue}>{formatMinutes(manualAddedMinutes)}</Text>
+                    </View>
+                    <View style={styles.manualSummaryDivider} />
+                    <View style={styles.manualSummaryRow}>
+                      <Text style={styles.manualSummaryLabel}>{t("manualModal.finalLabel")}</Text>
+                      <Text style={styles.manualSummaryTotal}>{formatMinutes(manualFinalMinutes)}</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.manualSummaryRow}>
-                  <Text style={styles.manualSummaryLabel}>{t("manualModal.addedLabel")}</Text>
-                  <Text style={styles.manualSummaryValue}>{formatMinutes(manualAddedMinutes)}</Text>
+
+                <View style={styles.manualInputsRow}>
+                  <View style={styles.manualInputGroup}>
+                    <Text style={styles.label}>{t("manualModal.hoursLabel")}</Text>
+                    <TextInput
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                      value={manualLog.hours}
+                      onChangeText={handleManualHoursChange}
+                      style={styles.manualNumberInput}
+                    />
+                  </View>
+                  <View style={styles.manualInputGroup}>
+                    <Text style={styles.label}>{t("manualModal.minutesLabel")}</Text>
+                    <TextInput
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                      value={manualLog.minutes}
+                      onChangeText={handleManualMinutesChange}
+                      style={styles.manualNumberInput}
+                    />
+                  </View>
                 </View>
-                <View style={styles.manualSummaryDivider} />
-                <View style={styles.manualSummaryRow}>
-                  <Text style={styles.manualSummaryLabel}>{t("manualModal.finalLabel")}</Text>
-                  <Text style={styles.manualSummaryTotal}>{formatMinutes(manualFinalMinutes)}</Text>
+
+                <View style={styles.manualHelperRow}>
+                  <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
+                  <Text style={styles.helperText}>
+                    {t("manualModal.finalPreview", {
+                      total: formatMinutes(manualFinalMinutes),
+                      target: formatMinutes(manualTargetMinutes),
+                    })}
+                  </Text>
+                </View>
+
+                <View style={styles.modalActions}>
+                  <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
+                    <Text style={styles.secondaryButtonText}>{t("manualModal.cancel")}</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!manualLog.task || !manualInRange || !manualChanged}
+                    onPress={handleSubmitManualLog}
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      pressed && styles.primaryPressed,
+                      (!manualLog.task || !manualInRange || !manualChanged) && styles.primaryButtonDisabled,
+                    ]}
+                  >
+                    <Text style={styles.primaryButtonText}>{t("manualModal.submit")}</Text>
+                  </Pressable>
                 </View>
               </View>
-            </View>
-
-            <View style={styles.manualInputsRow}>
-              <View style={styles.manualInputGroup}>
-                <Text style={styles.label}>{t("manualModal.hoursLabel")}</Text>
-                <TextInput
-                  placeholder="0"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="number-pad"
-                  value={manualLog.hours}
-                  onChangeText={handleManualHoursChange}
-                  style={styles.manualNumberInput}
-                />
-              </View>
-              <View style={styles.manualInputGroup}>
-                <Text style={styles.label}>{t("manualModal.minutesLabel")}</Text>
-                <TextInput
-                  placeholder="0"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="number-pad"
-                  value={manualLog.minutes}
-                  onChangeText={handleManualMinutesChange}
-                  style={styles.manualNumberInput}
-                />
-              </View>
-            </View>
-
-            <View style={styles.manualHelperRow}>
-              <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
-              <Text style={styles.helperText}>
-                {t("manualModal.finalPreview", {
-                  total: formatMinutes(manualFinalMinutes),
-                  target: formatMinutes(manualTargetMinutes),
-                })}
-              </Text>
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
-                <Text style={styles.secondaryButtonText}>{t("manualModal.cancel")}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                disabled={!manualLog.task || !manualInRange || !manualChanged}
-                onPress={handleSubmitManualLog}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  pressed && styles.primaryPressed,
-                  (!manualLog.task || !manualInRange || !manualChanged) && styles.primaryButtonDisabled,
-                ]}
-              >
-                <Text style={styles.primaryButtonText}>{t("manualModal.submit")}</Text>
-              </Pressable>
-            </View>
-          </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
           {keyboardVisible ? (
             <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
           ) : null}
