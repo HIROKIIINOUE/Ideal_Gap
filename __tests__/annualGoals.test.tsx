@@ -147,6 +147,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Deep health routine with consistent sleep and workouts",
           year_goal_color: "#1E5EFF",
+          isDone: false,
           accumulated_time_year: 1820,
           order: 0,
           updated_at: "2025-01-06T09:30:00Z",
@@ -155,6 +156,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Career leap with shipped projects and portfolio refresh",
           year_goal_color: "#6EA8FF",
+          isDone: false,
           accumulated_time_year: 2450,
           order: 1,
           updated_at: "2025-01-08T13:10:00Z",
@@ -169,6 +171,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-3",
         description: "Launch a side product",
         year_goal_color: "#1E5EFF",
+        isDone: false,
         accumulated_time_year: 0,
         order: 0,
         updated_at: "2025-02-01T00:00:00Z",
@@ -181,24 +184,26 @@ describe("AnnualGoalsScreen", () => {
       single: mockSingleAfterInsert,
     });
 
-    mockSingleAfterUpdate.mockResolvedValue({
-      data: {
-        id: "goal-1",
-        description: "Updated goal",
-        year_goal_color: "#1E5EFF",
-        accumulated_time_year: 1820,
-        order: 0,
-        updated_at: "2025-02-02T00:00:00Z",
-      },
-      error: null,
-    });
-    mockSelectAfterUpdate.mockReturnThis();
-    mockUpdate.mockReturnValue({
+    mockUpdate.mockImplementation((payload) => ({
       eq: () => ({
-        select: mockSelectAfterUpdate,
-        single: mockSingleAfterUpdate,
+        select: () => ({
+          single: () =>
+            Promise.resolve({
+              data: {
+                id: "goal-1",
+                description: typeof payload.description === "string" ? payload.description : "Updated goal",
+                year_goal_color:
+                  typeof payload.year_goal_color === "string" ? payload.year_goal_color : "#1E5EFF",
+                isDone: typeof payload.isDone === "boolean" ? payload.isDone : false,
+                accumulated_time_year: 1820,
+                order: 0,
+                updated_at: "2025-02-02T00:00:00Z",
+              },
+              error: null,
+            }),
+        }),
       }),
-    });
+    }));
     mockEqAfterDelete.mockResolvedValue({ error: null });
     mockDelete.mockReturnValue({
       eq: mockEqAfterDelete,
@@ -218,6 +223,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-2",
         description: "Career leap with shipped projects and portfolio refresh",
         year_goal_color: "#6EA8FF",
+        isDone: false,
         accumulated_time_year: 2450,
         order: 0,
         user_id: "user-123",
@@ -226,6 +232,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-1",
         description: "Deep health routine with consistent sleep and workouts",
         year_goal_color: "#1E5EFF",
+        isDone: false,
         accumulated_time_year: 1820,
         order: 1,
         user_id: "user-123",
@@ -255,6 +262,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-2",
         description: "Career leap with shipped projects and portfolio refresh",
         year_goal_color: "#6EA8FF",
+        isDone: false,
         accumulated_time_year: 2450,
         order: 1,
         user_id: "user-123",
@@ -263,6 +271,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-1",
         description: "Deep health routine with consistent sleep and workouts",
         year_goal_color: "#1E5EFF",
+        isDone: false,
         accumulated_time_year: 1820,
         order: 2,
         user_id: "user-123",
@@ -271,6 +280,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-3",
         description: "Launch a side product",
         year_goal_color: "#1E5EFF",
+        isDone: false,
         accumulated_time_year: 0,
         order: 0,
         user_id: "user-123",
@@ -295,15 +305,104 @@ describe("AnnualGoalsScreen", () => {
     expect(deleteButtonLabel).toHaveStyle({ fontSize: 14 });
   });
 
-  test("renders edit and reorder buttons together in the card footer", async () => {
-    const { findByTestId } = renderScreen();
+  test("renders edit, complete, and reorder icon buttons together in the card footer", async () => {
+    const { findByTestId, queryByText } = renderScreen();
 
     await waitFor(() => expect(mockOrder).toHaveBeenCalled());
 
     const actionRow = await findByTestId("annual-goal-card-actions-goal-1");
 
     expect(within(actionRow).getByTestId("annual-goal-card-edit-goal-1")).toBeTruthy();
+    expect(within(actionRow).getByTestId("annual-goal-card-complete-goal-1")).toBeTruthy();
     expect(within(actionRow).getByTestId("annual-goal-card-reorder-goal-1")).toBeTruthy();
+    expect(queryByText("Edit")).toBeNull();
+  });
+
+  test("toggles completed state styling on and off", async () => {
+    const { findByTestId, queryByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const card = await findByTestId("annual-goal-card-goal-1");
+    const completeButton = await findByTestId("annual-goal-card-complete-goal-1");
+
+    expect(queryByTestId("annual-goal-card-completed-badge-goal-1")).toBeNull();
+
+    fireEvent.press(completeButton);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith({ isDone: true });
+    });
+
+    expect(await findByTestId("annual-goal-card-completed-badge-goal-1")).toBeTruthy();
+    expect(card).toHaveStyle({ borderColor: "rgba(56,217,150,0.55)" });
+    expect(queryByTestId("annual-goal-card-edit-goal-1")).toBeNull();
+
+    fireEvent.press(completeButton);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith({ isDone: false });
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId("annual-goal-card-completed-badge-goal-1")).toBeNull();
+    });
+    expect(await findByTestId("annual-goal-card-edit-goal-1")).toBeTruthy();
+  });
+
+  test("truncates long accumulated time text after 9 characters", async () => {
+    mockOrder.mockResolvedValueOnce({
+      data: [
+        {
+          id: "goal-1",
+          description: "Deep health routine with consistent sleep and workouts",
+          year_goal_color: "#1E5EFF",
+          isDone: false,
+          accumulated_time_year: 740740746,
+          order: 0,
+          updated_at: "2025-01-06T09:30:00Z",
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    expect(await findByTestId("annual-goal-card-time-goal-1")).toHaveTextContent("12345679h...");
+  });
+
+  test("truncates long total accumulated time text after 9 characters", async () => {
+    mockOrder.mockResolvedValueOnce({
+      data: [
+        {
+          id: "goal-1",
+          description: "Deep health routine with consistent sleep and workouts",
+          year_goal_color: "#1E5EFF",
+          isDone: false,
+          accumulated_time_year: 370370380,
+          order: 0,
+          updated_at: "2025-01-06T09:30:00Z",
+        },
+        {
+          id: "goal-2",
+          description: "Career leap with shipped projects and portfolio refresh",
+          year_goal_color: "#6EA8FF",
+          isDone: false,
+          accumulated_time_year: 370370380,
+          order: 1,
+          updated_at: "2025-01-08T13:10:00Z",
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    expect(await findByTestId("annual-goals-total-time")).toHaveTextContent("12345679h...");
   });
 
   test("prevents saving when required fields are empty", async () => {
@@ -337,6 +436,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Reset routine",
           year_goal_color: "#1E5EFF",
+          isDone: false,
           accumulated_time_year: 0,
           order: 0,
           updated_at: "2025-01-06T09:30:00Z",
@@ -345,6 +445,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Build core habits",
           year_goal_color: "#6EA8FF",
+          isDone: false,
           accumulated_time_year: 0,
           order: 1,
           updated_at: "2025-01-08T13:10:00Z",

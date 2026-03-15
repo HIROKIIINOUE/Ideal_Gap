@@ -19,7 +19,6 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PieChart } from "react-native-gifted-charts";
 import { z } from "zod";
-import KeyboardDismissButton from "../KeyboardDismissButton";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useAppZodForm } from "../../hooks/useAppZodForm";
 import { useDeleteMode } from "../../hooks/useDeleteMode";
@@ -31,6 +30,7 @@ import { deleteYearlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { useOffline } from "../../providers/OfflineProvider";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
@@ -41,10 +41,12 @@ type AnnualGoal = {
   accumulatedMinutes: number;
   order: number;
   updatedAt: string | null;
+  completed: boolean;
 };
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
+const COMPLETED_CARD_GRADIENT = ["rgba(56,217,150,0.2)", "rgba(10,28,24,0.96)"] as const;
 const COLOR_OPTIONS = [
   "#2E5FB3", // vivid royal
   "#3F7CF5", // bright cobalt
@@ -72,6 +74,7 @@ const offlineAnnualGoalSchema = z.array(
     accumulatedMinutes: z.number(),
     order: z.number(),
     updatedAt: z.string().nullable(),
+    completed: z.boolean().optional().default(false),
   }),
 );
 
@@ -105,6 +108,15 @@ const formatMinutes = (minutes: number) => {
 };
 
 
+// 合計時間、各年間目標の積上時間の表記が9桁を超えた場合は...で折りたたむ
+const truncateText = (value: string, maxLength = 9) => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength)}...`;
+};
+
+
 // データベースから取得した年間目標の情報を必要なデータのみに整形する
 const toAnnualGoal = (row: YearlyGoalRow): AnnualGoal => ({
   id: row.id,
@@ -113,6 +125,7 @@ const toAnnualGoal = (row: YearlyGoalRow): AnnualGoal => ({
   accumulatedMinutes: row.accumulated_time_year ?? 0,
   order: row.order ?? 0,
   updatedAt: row.updated_at ?? null,
+  completed: row.isDone ?? false,
 });
 
 export default function AnnualGoalsScreen() {
@@ -265,6 +278,41 @@ export default function AnnualGoalsScreen() {
     clearErrors();
   };
 
+  // 目標完了トグルボタンロジック
+  const handleToggleCompleted = async (goalId: string) => {
+    const currentGoal = goals.find((goal) => goal.id === goalId);
+    if (!currentGoal) return;
+
+    const nextCompleted = !currentGoal.completed;
+    setGoals((prev) =>
+      prev.map((goal) =>
+        goal.id === goalId ? { ...goal, completed: nextCompleted } : goal,
+      ),
+    );
+
+    try {
+      const { data, error } = await updateYearlyGoal(goalId, { isDone: nextCompleted });
+      if (error) {
+        throw error;
+      }
+      if (!data) return;
+      const row = data as unknown as YearlyGoalRow;
+      setGoals((prev) =>
+        prev.map((goal) =>
+          goal.id === goalId ? { ...toAnnualGoal(row), completed: row.isDone ?? false } : goal,
+        ),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("errors.saveFailed");
+      setGoals((prev) =>
+        prev.map((goal) =>
+          goal.id === goalId ? { ...goal, completed: currentGoal.completed } : goal,
+        ),
+      );
+      Alert.alert(t("errors.saveFailed"), message);
+    }
+  };
+
   const handleDelete = (goal: AnnualGoal) => {
     if (guardOfflineAction()) return;
     Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
@@ -303,6 +351,7 @@ export default function AnnualGoalsScreen() {
               description: item.description,
               year_goal_color: item.goalColor,
               accumulated_time_year: item.accumulatedMinutes,
+              isDone: item.completed,
               order: idx,
               user_id: uid,
             }));
@@ -347,7 +396,11 @@ export default function AnnualGoalsScreen() {
           return;
         }
         const row = data as unknown as YearlyGoalRow;
-        setGoals((prev) => prev.map((goal) => (goal.id === modalState.editingId ? toAnnualGoal(row) : goal)));
+        setGoals((prev) =>
+          prev.map((goal) =>
+            goal.id === modalState.editingId ? toAnnualGoal(row) : goal,
+          ),
+        );
       } else {
         // 「新規追加ボタン」からモーダルを開いた場合の処理
         // ↓ 既存のgoalsのorderを＋１に更新し、新しいデータをorder0として処理する準備をする
@@ -355,6 +408,7 @@ export default function AnnualGoalsScreen() {
           id: goal.id,
           description: goal.description,
           year_goal_color: goal.goalColor,
+          isDone: goal.completed,
           accumulated_time_year: goal.accumulatedMinutes,
           order: idx + 1,
           user_id: uid,
@@ -363,6 +417,7 @@ export default function AnnualGoalsScreen() {
           user_id: uid,
           description,
           year_goal_color: goalColor,
+          isDone: false,
           accumulated_time_year: 0,
           order: 0,
         });
@@ -378,6 +433,7 @@ export default function AnnualGoalsScreen() {
             id: row.id,
             description: row.description,
             year_goal_color: row.year_goal_color,
+            isDone: row.isDone ?? false,
             accumulated_time_year: row.accumulated_time_year ?? 0,
             order: 0,
             user_id: uid,
@@ -424,6 +480,7 @@ export default function AnnualGoalsScreen() {
       id: goal.id,
       description: goal.description,
       year_goal_color: goal.goalColor,
+      isDone: goal.completed,
       accumulated_time_year: goal.accumulatedMinutes,
       order: idx,
       user_id: uid,
@@ -441,22 +498,36 @@ export default function AnnualGoalsScreen() {
     <View
       style={[
         styles.goalCard,
+        item.completed && styles.goalCardCompleted,
         shadows.card,
         isActive && styles.goalCardDragging,
         deleteMode && styles.goalCardDeleteMode,
       ]}
+      testID={`annual-goal-card-${item.id}`}
     >
       <LinearGradient
-        colors={LIST_CARD_GRADIENT}
+        colors={item.completed ? COMPLETED_CARD_GRADIENT : LIST_CARD_GRADIENT}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <Text style={styles.goalTitle}>{item.description}</Text>
+      <Text style={[styles.goalTitle, item.completed && styles.goalTitleCompleted]}>
+        {item.description}
+      </Text>
       <View style={styles.goalFooter}>
         <View style={styles.colorRow}>
           <View style={[styles.colorDot, { backgroundColor: item.goalColor }]} />
-          <Text style={styles.goalTime}>{formatMinutes(item.accumulatedMinutes)}</Text>
+          <Text
+            style={[styles.goalTime, item.completed && styles.goalTimeCompleted]}
+            testID={`annual-goal-card-time-${item.id}`}
+          >
+            {truncateText(formatMinutes(item.accumulatedMinutes))}
+          </Text>
+          {item.completed ? (
+            <View style={styles.completedBadge} testID={`annual-goal-card-completed-badge-${item.id}`}>
+              <Text style={styles.completedBadgeText}>{t("completion.badge")}</Text>
+            </View>
+          ) : null}
         </View>
         <View style={styles.goalActions} testID={`annual-goal-card-actions-${item.id}`}>
           {deleteMode ? (
@@ -470,19 +541,34 @@ export default function AnnualGoalsScreen() {
             </Pressable>
           ) : (
             <>
+              {!item.completed ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("modal.editTitle")}
+                  onPress={() => handleEditPress(item)}
+                  style={[styles.goalActionIconButton, styles.dragHandleButton]}
+                  testID={`annual-goal-card-edit-${item.id}`}
+                >
+                  <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textPrimary} />
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
-                onPress={() => handleEditPress(item)}
-                style={[styles.editButton, styles.iconButtonRow]}
-                testID={`annual-goal-card-edit-${item.id}`}
+                accessibilityLabel={item.completed ? t("completion.undo") : t("completion.complete")}
+                onPress={() => handleToggleCompleted(item.id)}
+                style={[styles.goalActionIconButton, styles.completeButton, item.completed && styles.completeButtonActive]}
+                testID={`annual-goal-card-complete-${item.id}`}
               >
-                <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
-                <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
+                <MaterialCommunityIcons
+                  name={item.completed ? "check-circle" : "check-circle-outline"}
+                  size={20}
+                  color={item.completed ? colors.success : colors.textPrimary}
+                />
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
-                style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+                style={[styles.goalActionIconButton, styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
                 onLongPress={drag}
                 delayLongPress={200}
                 hitSlop={14}
@@ -562,7 +648,9 @@ export default function AnnualGoalsScreen() {
                   />
                   <View style={styles.chartSummary}>
                     <Text style={styles.centerLabelSubTitle}>{t("chart.totalLabel")}</Text>
-                    <Text style={styles.centerLabelValue}>{formatMinutes(totalMinutes)}</Text>
+                    <Text style={styles.centerLabelValue} testID="annual-goals-total-time">
+                      {truncateText(formatMinutes(totalMinutes))}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -888,6 +976,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     overflow: "hidden",
   },
+  goalCardCompleted: {
+    borderColor: "rgba(56,217,150,0.55)",
+    shadowColor: colors.success,
+    shadowOpacity: 0.22,
+  },
   goalCardDragging: {
     borderColor: "rgba(110,168,255,0.6)",
     backgroundColor: "rgba(30,94,255,0.08)",
@@ -924,6 +1017,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sm,
   },
+  goalTimeCompleted: {
+    color: "rgba(56,217,150,0.92)",
+  },
   goalTitle: {
     color: colors.textPrimary,
     fontSize: typography.lg,
@@ -931,18 +1027,25 @@ const styles = StyleSheet.create({
     lineHeight: typography.lg * 1.4,
     minHeight: 40,
   },
-  editButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderWidth: 1,
-    borderColor: colors.accentPrimary,
+  goalTitleCompleted: {
+    color: "rgba(233,237,247,0.72)",
+    textDecorationLine: "line-through",
   },
-  editButtonText: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-    fontSize: typography.sm,
+  goalActionIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  completeButton: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(56,217,150,0.3)",
+  },
+  completeButtonActive: {
+    backgroundColor: "rgba(56,217,150,0.14)",
+    borderColor: "rgba(56,217,150,0.65)",
   },
   dangerButton: {
     borderColor: "rgba(242,95,92,0.4)",
@@ -961,13 +1064,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
   },
-  dragHandleButton: {
+  completedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs / 1.5,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    paddingVertical: spacing.xs / 1.5,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: "rgba(56,217,150,0.45)",
+    backgroundColor: "rgba(56,217,150,0.12)",
+  },
+  completedBadgeText: {
+    color: colors.success,
+    fontSize: typography.sm,
+    fontWeight: "700",
+  },
+  dragHandleButton: {
     backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: colors.divider,
   },
   dragHandleButtonActive: {
     borderColor: colors.accentPrimary,

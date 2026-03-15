@@ -7,6 +7,11 @@ export type AnnualGoalsTranslations = {
   delete: string;
   deleteExit: string;
   reorderHint: string;
+  completion: {
+    complete: string;
+    undo: string;
+    badge: string;
+  };
   emptyTitle: string;
   emptyBody: string;
   emptyCta: string;
@@ -65,6 +70,11 @@ export const annualGoalsTranslations: Record<
     delete: "削除",
     deleteExit: "戻る",
     reorderHint: "カードを長押し＋ドラッグで順番を変えられます",
+    completion: {
+      complete: "完了",
+      undo: "未完了に戻す",
+      badge: "完了済み",
+    },
     emptyTitle: "まだ年間目標が登録されていません",
     emptyBody: "年間目標をリストアップし、優先順位をつけましょう。",
     emptyCta: "最初の年間目標を追加",
@@ -120,6 +130,11 @@ export const annualGoalsTranslations: Record<
     delete: "Delete",
     deleteExit: "Exit",
     reorderHint: "Long-press and drag cards to reorder.",
+    completion: {
+      complete: "Done",
+      undo: "Mark as active",
+      badge: "Done",
+    },
     emptyTitle: "No annual goals yet",
     emptyBody: "Visualize your yearly priorities.",
     emptyCta: "Add your first annual goal",
@@ -176,6 +191,11 @@ export const annualGoalsTranslations: Record<
     delete: "Supprimer",
     deleteExit: "Quitter",
     reorderHint: "Appui long puis glisser pour réordonner les cartes.",
+    completion: {
+      complete: "Terminer",
+      undo: "Réactiver",
+      badge: "Terminé",
+    },
     emptyTitle: "Aucun objectif annuel pour le moment",
     emptyBody: "Visualisez vos priorités annuelles.",
     emptyCta: "Ajouter un objectif annuel",
