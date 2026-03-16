@@ -644,7 +644,8 @@ export default function TaskTimerScreen() {
 
   const pauseResumeLabel =
     status === "running" ? t("controls.pause") : t("controls.resume");
-  const pauseResumeIcon = status === "running" ? "pause-circle" : "play-circle";
+  const pauseResumeIcon =
+    status === "running" ? "timer-off-outline" : "timer-outline";
   const musicLabel = !hasInstalledMusic
     ? t("controls.musicUnavailable")
     : musicPlaying
@@ -873,6 +874,7 @@ export default function TaskTimerScreen() {
               ]}
             >
               <MaterialCommunityIcons
+                testID="pause-resume-icon"
                 name={pauseResumeIcon}
                 size={22}
                 color={colors.textPrimary}

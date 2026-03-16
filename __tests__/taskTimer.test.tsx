@@ -16,7 +16,11 @@ import { colors } from "../constants/theme";
 jest.useFakeTimers();
 
 jest.mock("@expo/vector-icons", () => {
-  const MockIcon = () => null;
+  const React = require("react");
+  const { Text } = require("react-native");
+  const MockIcon = ({ name, testID }: { name?: string; testID?: string }) => (
+    <Text testID={testID}>{name}</Text>
+  );
   MockIcon.displayName = "MockMaterialCommunityIcons";
   return { MaterialCommunityIcons: MockIcon };
 });
@@ -251,6 +255,17 @@ describe("TaskTimerScreen", () => {
     expect(getByText("Pause")).toBeTruthy();
   });
 
+  test("uses timer icons for pause and resume", () => {
+    const { getByText, getByTestId } = renderScreen();
+
+    expect(getByTestId("pause-resume-icon")).toHaveTextContent("timer-outline");
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    expect(getByTestId("pause-resume-icon")).toHaveTextContent("timer-off-outline");
+  });
+
   test("keeps full progress after resumed timer completes on app return", () => {
     let now = 0;
     let appStateListener: ((state: AppStateStatus) => void) | null = null;
@@ -449,7 +464,7 @@ describe("TaskTimerScreen", () => {
       </I18nextProvider>,
     );
 
-    fireEvent.press(getByText("Play music"));
+    fireEvent.press(getByText("Play"));
     fireEvent.press(getByText("+5m"));
     fireEvent.press(getByText("Mark done"));
 
@@ -490,7 +505,7 @@ describe("TaskTimerScreen", () => {
       </I18nextProvider>,
     );
 
-    fireEvent.press(getByText("Play music"));
+    fireEvent.press(getByText("Play"));
     fireEvent.press(getByText("+5m"));
     fireEvent.press(getByTestId("start-button"));
 
@@ -535,7 +550,7 @@ describe("TaskTimerScreen", () => {
       </I18nextProvider>,
     );
 
-    fireEvent.press(getByText("Play music"));
+    fireEvent.press(getByText("Play"));
     unmount();
 
     await waitFor(() => expect(stop).toHaveBeenCalled());
