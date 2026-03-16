@@ -319,12 +319,18 @@ export default function TaskTimerScreen() {
       stopFocusMusic();
       completionFiredRef.current = true;
       const safeElapsed = Math.max(0, Math.round(elapsedSeconds));
+      const completed = safeElapsed >= inputSeconds;
       setCompletionElapsedSeconds(safeElapsed);
       setCompletionModalVisible(true);
-      setStatus("paused");
+      if (completed) {
+        setRemainingSeconds(0);
+        setStatus("finished");
+      } else {
+        setStatus("paused");
+      }
       setExpectedEndAt(null);
     },
-    [clearScheduledNotification, clearTick, stopFocusMusic],
+    [clearScheduledNotification, clearTick, inputSeconds, stopFocusMusic],
   );
 
   // 作業完了モーダルの「キャンセル」押下時の処理
@@ -332,8 +338,13 @@ export default function TaskTimerScreen() {
     setCompletionModalVisible(false);
     setIsSavingCompletion(false);
     completionFiredRef.current = false;
+    if (completionElapsedSeconds >= inputSeconds) {
+      setRemainingSeconds(0);
+      setStatus("finished");
+      return;
+    }
     setStatus("paused");
-  }, []);
+  }, [completionElapsedSeconds, inputSeconds]);
 
   // 状態がidle,finishedの時のみ残り時間とユーザの設定作業時間を一致させる
   // paused時は残り時間とユーザ設定時間が異なるのでここの処理は走らせない
@@ -576,7 +587,7 @@ export default function TaskTimerScreen() {
       }
       setRemainingSeconds(remaining);
     });
-    return () => subscription.remove();
+    return () => subscription?.remove?.();
   }, [expectedEndAt, inputSeconds, openCompletionModal, status]);
 
   // 作業完了ボタン押下時の処理

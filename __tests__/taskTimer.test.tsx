@@ -2,7 +2,7 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import * as Notifications from "expo-notifications";
-import { Linking } from "react-native";
+import { AppState, AppStateStatus, Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import TaskTimerScreen from "../components/feature/TaskTimerScreen";
@@ -249,6 +249,55 @@ describe("TaskTimerScreen", () => {
 
     expect(queryByTestId("start-button")).toBeNull();
     expect(getByText("Pause")).toBeTruthy();
+  });
+
+  test("keeps full progress after resumed timer completes on app return", () => {
+    let now = 0;
+    let appStateListener: ((state: AppStateStatus) => void) | null = null;
+    let cleanup = () => { };
+    const dateNowSpy = jest.spyOn(Date, "now").mockImplementation(() => now);
+    const appStateSpy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_type, listener) => {
+        appStateListener = listener;
+        return { remove: jest.fn() } as any;
+      });
+
+    try {
+      const { getByText, getByTestId, queryByTestId, unmount } = renderScreen();
+      cleanup = unmount;
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+
+      act(() => {
+        jest.advanceTimersByTime(2 * 60 * 1000);
+      });
+
+      expect(getByTestId("timer-duration")).toHaveTextContent("3:00 / 5:00");
+
+      fireEvent.press(getByText("Pause"));
+
+      now = 2 * 60 * 1000;
+      fireEvent.press(getByText("Resume"));
+
+      now = 5 * 60 * 1000;
+      act(() => {
+        appStateListener?.("active");
+      });
+
+      expect(getByText("Review before saving")).toBeTruthy();
+      expect(getByText("5:00")).toBeTruthy();
+
+      fireEvent.press(getByText("Cancel"));
+
+      expect(queryByTestId("completion-modal")).toBeNull();
+      expect(getByTestId("timer-duration")).toHaveTextContent("0:00 / 5:00");
+    } finally {
+      cleanup();
+      dateNowSpy.mockRestore();
+      appStateSpy.mockRestore();
+    }
   });
 
   test("schedules timer notification with default sound", async () => {
