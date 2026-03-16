@@ -72,6 +72,10 @@ export type TaskTimerTranslations = {
   };
   feedback: {
     startError: string;
+    permissionDenied: string;
+    permissionContinue: string;
+    permissionAction: string;
+    permissionHide: string;
     offlineSaveBlocked: string;
     offlineSaveBlockedAction: string;
   };
@@ -153,6 +157,11 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       feedback: {
         startError: "時間を設定してから開始してください",
+        permissionDenied:
+          "通知がオフになっています。設定から許可してください。",
+        permissionContinue: "通知オフで続ける",
+        permissionAction: "設定を開く",
+        permissionHide: "今後表示しない",
         offlineSaveBlocked:
           "オフラインです。通信を再接続するか、手動記録ボタンから手動で時間を記録してください。",
         offlineSaveBlockedAction: "戻る",
@@ -234,6 +243,11 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       feedback: {
         startError: "Set a duration before starting",
+        permissionDenied:
+          "Notification is disabled. Enable it to receive the notification when the timer is done.",
+        permissionContinue: "Continue without notification",
+        permissionAction: "Open settings",
+        permissionHide: "Don't show again",
         offlineSaveBlocked:
           "You are offline. Reconnect to the internet, or record your time manually from the manual log button.",
         offlineSaveBlockedAction: "Back",
@@ -318,6 +332,11 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       feedback: {
         startError: "Définissez une durée avant de démarrer",
+        permissionDenied:
+          "Les notifications sont désactivées. Autorisez-les dans les réglages.",
+        permissionContinue: "Continuer sans notifications",
+        permissionAction: "Ouvrir les réglages",
+        permissionHide: "Ne plus afficher",
         offlineSaveBlocked:
           "Vous êtes hors ligne. Reconnectez-vous à Internet, ou enregistrez le temps manuellement avec le bouton de saisie manuelle.",
         offlineSaveBlockedAction: "Retour",

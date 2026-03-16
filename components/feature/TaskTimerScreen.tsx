@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
@@ -74,6 +75,8 @@ const formatDigital = (seconds: number) => {
 
 const gradientCard = ["rgba(30,94,255,0.18)", "rgba(12,18,32,0.95)"] as const;
 const TIMER_NOTIFICATION_CHANNEL = "task-timer";
+const TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY =
+  "task_timer_notification_prompt_hidden";
 // iPad用UIのための定数群
 const isIpadDevice = Platform.OS === "ios" && Platform.isPad === true;
 const taskTimerLayout = getTaskTimerIpadLayout(isIpadDevice);
@@ -112,7 +115,6 @@ export default function TaskTimerScreen() {
   const [status, setStatus] = useState<TimerStatus>("idle");
   const [musicModalVisible, setMusicModalVisible] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
-  const [userNotificationOn, setUserNotificationOn] = useState(true);
   const [expectedEndAt, setExpectedEndAt] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [completionModalVisible, setCompletionModalVisible] = useState(false);
@@ -171,28 +173,6 @@ export default function TaskTimerScreen() {
     return uid;
   }, [userId]);
 
-  // マウント時にユーザの端末がアプリ通知ONになっているか状態チェック
-  useEffect(() => {
-    let isMounted = true;
-    const loadNotificationPermission = async () => {
-      try {
-        const { status, granted } = await Notifications.getPermissionsAsync();
-        if (!isMounted) return;
-        const isNotificationsOn = status === "granted" || granted;
-        setUserNotificationOn(isNotificationsOn);
-      } catch {
-        if (!isMounted) return;
-        setUserNotificationOn(true);
-      }
-    };
-
-    loadNotificationPermission();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   // 初回レンダリング時に紐づく週間タスクの最新データをDBから取得
   const fetchLatestLogged = useCallback(
     async (uid: string, weeklyTaskId: string) => {
@@ -249,67 +229,6 @@ export default function TaskTimerScreen() {
     }
   }, []);
 
-
-  // ユーザが端末で本アプリの通知機をONにしているかチェック
-  const ensureNotificationPermission = useCallback(async () => {
-    try {
-      const current = await Notifications.getPermissionsAsync();
-      const granted =
-        current.granted ||
-        current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-      if (granted) {
-        setUserNotificationOn(true);
-        return true;
-      }
-      const request = await Notifications.requestPermissionsAsync({
-        ios: {
-          allowAlert: true,
-          allowBadge: true,
-          allowSound: true,
-        },
-      });
-      const requestGranted =
-        request.granted ||
-        request.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-      setUserNotificationOn(requestGranted);
-      return requestGranted;
-    } catch {
-      setUserNotificationOn(false);
-      return false;
-    }
-  }, []);
-
-  // 通知機のスケージュールを予約する(iOS)
-  const scheduleTimerNotification = useCallback(
-    async (endAt: number) => {
-      if (endAt <= Date.now()) return;
-      if (lastScheduledEndAtRef.current === endAt) return;
-      const permitted = await ensureNotificationPermission();
-      if (!permitted) return;
-
-      await clearScheduledNotification();
-      const seconds = Math.max(1, Math.ceil((endAt - Date.now()) / 1000));
-      try {
-        const id = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: t("timerNotification.title"),
-            body: t("timerNotification.body"),
-            sound: "default",
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds,
-            channelId: TIMER_NOTIFICATION_CHANNEL,
-          },
-        });
-        scheduledNotificationIdRef.current = id;
-        lastScheduledEndAtRef.current = endAt;
-      } catch {
-        // scheduling failed
-      }
-    },
-    [clearScheduledNotification, ensureNotificationPermission, t],
-  );
 
   // 「カウントダウン終了モーダル」「手動でタイマー終了モーダル」の両方を開く時に実行される処理
   const openCompletionModal = useCallback(
@@ -401,10 +320,116 @@ export default function TaskTimerScreen() {
     } catch (error) {
       console.warn("Failed to open settings", error);
       showToast(t("feedback.startError"));
-    } finally {
-      setUserNotificationOn(true);
     }
   }, [showToast, t]);
+
+
+  // ユーザ端末の通知設定情報を取得
+  const hasNotificationPermission = useCallback(async () => {
+    const current = await Notifications.getPermissionsAsync();
+    return (
+      current.granted ||
+      current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+    );
+  }, []);
+
+  // タイマーカウントダウンスタート処理
+  const startTimerCountdown = useCallback(() => {
+    completionFiredRef.current = false;
+    setRemainingSeconds(inputSeconds);
+    setStatus("running");
+    setExpectedEndAt(Date.now() + inputSeconds * 1000);
+  }, [inputSeconds]);
+
+  //　通知OFFの場合はシンプルにstartTimerCountdown()のみを発火する
+  const handleContinueWithoutNotification = useCallback(() => {
+    startTimerCountdown();
+  }, [startTimerCountdown]);
+
+  // ユーザが通知誘導ポップアップを「２度と表示しない」を選択した場合はローカルでその情報を保持
+  const handleHideNotificationPrompt = useCallback(async () => {
+    await AsyncStorage.setItem(TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY, "1");
+    startTimerCountdown();
+  }, [startTimerCountdown]);
+
+  // スタート押下時に発火、通知がOFFの場合は通知許可リクエストと案内モーダル表示を行う
+  const ensureNotificationPermissionForStart = useCallback(async () => {
+    try {
+      if (await hasNotificationPermission()) {
+        return true;
+      }
+      const request = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
+      const requestGranted =
+        request.granted ||
+        request.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+      if (!requestGranted) {
+        Alert.alert(t("feedback.permissionDenied"), undefined, [
+          { text: t("feedback.permissionContinue"), onPress: handleContinueWithoutNotification },
+          { text: t("feedback.permissionAction"), onPress: handleOpenSettings },
+          { text: t("feedback.permissionHide"), onPress: () => void handleHideNotificationPrompt() },
+        ]);
+      }
+      return requestGranted;
+    } catch {
+      Alert.alert(t("feedback.permissionDenied"), undefined, [
+        { text: t("feedback.permissionContinue"), onPress: handleContinueWithoutNotification },
+        { text: t("feedback.permissionAction"), onPress: handleOpenSettings },
+        { text: t("feedback.permissionHide"), onPress: () => void handleHideNotificationPrompt() },
+      ]);
+      return false;
+    }
+  }, [
+    handleContinueWithoutNotification,
+    handleHideNotificationPrompt,
+    handleOpenSettings,
+    hasNotificationPermission,
+    t,
+  ]);
+
+  // 「タイマー終了予定時刻が有効で、通知権限もある場合、古い通知を消してから、新しい終了通知を1件だけ予約する
+  const scheduleTimerNotification = useCallback(
+    async (endAt: number) => {
+
+      // 過去時刻に通知を予約しないためのガード
+      if (endAt <= Date.now()) return;
+      // 同じ終了時刻に対して、重複して通知を予約しないためのチェック
+      if (lastScheduledEndAtRef.current === endAt) return;  // lastScheduledEndAtRef.current最後に通知予約した終了時刻
+      const permitted = await hasNotificationPermission();
+      if (!permitted) return;
+
+      // 既存の通知予約を先に消し、常に最新の終了時刻に対して通知は1件だけにする
+      await clearScheduledNotification();
+      const seconds = Math.max(1, Math.ceil((endAt - Date.now()) / 1000));
+
+      // ここから通知の予約処理
+      try {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: t("timerNotification.title"),
+            body: t("timerNotification.body"),
+            sound: "default",
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds,
+            channelId: TIMER_NOTIFICATION_CHANNEL,  // Androidの通知チャンネル
+          },
+        });
+
+        scheduledNotificationIdRef.current = id;  // 後でキャンセルするための通知ID
+        lastScheduledEndAtRef.current = endAt;  // 終了時刻(同じ終了時刻で再予約しないために)
+      } catch {
+        // scheduling failed
+      }
+    },
+    [clearScheduledNotification, hasNotificationPermission, t],
+  );
 
   // カウントダウンが「idle」「paused」の各条件下でプリセットボタンで設定作業時間を追加するロジック
   const handlePreset = (minutes: number) => {
@@ -441,15 +466,24 @@ export default function TaskTimerScreen() {
   };
 
   // スタートボタン押下時
-  const handleStart = () => {
+  const handleStart = async () => {
     if (!hasDuration) {
       showToast(t("feedback.startError"));
       return;
     }
-    completionFiredRef.current = false;
-    setRemainingSeconds(inputSeconds);
-    setStatus("running");
-    setExpectedEndAt(Date.now() + inputSeconds * 1000);
+    const hiddenPreference = await AsyncStorage.getItem(
+      TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY,
+    );
+    // 通知ポップアップを「２度と表示しない」としてる場合は無条件でタイマースタート
+    if (hiddenPreference === "1") {
+      startTimerCountdown();
+      return;
+    }
+    // ユーザの通知設定を確認
+    const permitted = await ensureNotificationPermissionForStart();
+    if (permitted) {
+      startTimerCountdown();
+    }
   };
 
   // 一時停止orリスタート ボタン押下時
@@ -682,40 +716,6 @@ export default function TaskTimerScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {!userNotificationOn && (
-          <View style={[styles.noticeCard, shadows.card]}>
-            <Text style={styles.noticeText}>
-              {t("header.notificationTitle")}
-            </Text>
-            <View style={styles.noticeActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setUserNotificationOn(true)}
-                style={({ pressed }) => [
-                  styles.noticeButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.noticeButtonText}>
-                  {t("header.notificationDismiss")}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleOpenSettings}
-                style={({ pressed }) => [
-                  styles.noticePrimary,
-                  pressed && styles.primaryPressed,
-                ]}
-              >
-                <Text style={styles.noticePrimaryText}>
-                  {t("header.notificationAction")}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
         <View style={[styles.card, styles.timerCard, shadows.card]}>
           <LinearGradient
             colors={gradientCard}
@@ -1183,6 +1183,7 @@ export default function TaskTimerScreen() {
           </View>
         </View>
       </Modal>
+
     </SafeAreaView>
   );
 }
@@ -1287,49 +1288,6 @@ const styles = StyleSheet.create({
   },
   timerCard: {
     gap: 0,
-  },
-  noticeCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    gap: spacing.sm,
-  },
-  noticeText: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    lineHeight: typography.md * 1.4,
-  },
-  noticeActions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  noticeButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
-  },
-  noticeButtonText: {
-    color: colors.textPrimary,
-    fontSize: typography.sm,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  noticePrimary: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentPrimary,
-  },
-  noticePrimaryText: {
-    color: colors.textPrimary,
-    fontSize: typography.sm,
-    fontWeight: "700",
-    textAlign: "center",
   },
   focusTitle: {
     color: colors.textPrimary,
