@@ -29,7 +29,6 @@ import {
 } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
-import KeyboardDismissButton from "../KeyboardDismissButton";
 import {
   colors,
   radius,
@@ -47,6 +46,7 @@ import {
 import { isCompactScreen } from "../../lib/ui/responsive";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { InstalledFocusTrack } from "../../types/focus-music";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
 
@@ -294,6 +294,7 @@ export default function TaskTimerScreen() {
           content: {
             title: t("timerNotification.title"),
             body: t("timerNotification.body"),
+            sound: "default",
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -556,6 +557,7 @@ export default function TaskTimerScreen() {
     Notifications.setNotificationChannelAsync(TIMER_NOTIFICATION_CHANNEL, {
       name: "Task Timer",
       importance: Notifications.AndroidImportance.MAX,
+      sound: "default",
     }).catch(() => { });
   }, []);
 

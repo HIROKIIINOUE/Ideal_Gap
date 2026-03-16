@@ -105,6 +105,20 @@ jest.mock("../lib/api/supabase/timeTracking/updateAccumulatedTimes", () => ({
 
 jest.mock("expo-notifications", () => ({
   getPermissionsAsync: jest.fn(),
+  requestPermissionsAsync: jest.fn(),
+  scheduleNotificationAsync: jest.fn(),
+  cancelScheduledNotificationAsync: jest.fn(),
+  setNotificationChannelAsync: jest.fn(),
+  SchedulableTriggerInputTypes: {
+    TIME_INTERVAL: "timeInterval",
+    DATE: "date",
+  },
+  IosAuthorizationStatus: {
+    PROVISIONAL: 2,
+  },
+  AndroidImportance: {
+    MAX: 5,
+  },
   PermissionStatus: {
     GRANTED: "granted",
     DENIED: "denied",
@@ -168,6 +182,13 @@ const buildFocusMusicStub = (
 const mockGetPermissionsAsync = Notifications.getPermissionsAsync as jest.MockedFunction<
   typeof Notifications.getPermissionsAsync
 >;
+const mockRequestPermissionsAsync = Notifications.requestPermissionsAsync as jest.MockedFunction<
+  typeof Notifications.requestPermissionsAsync
+>;
+const mockScheduleNotificationAsync =
+  Notifications.scheduleNotificationAsync as jest.MockedFunction<
+    typeof Notifications.scheduleNotificationAsync
+  >;
 const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fetch>;
 const mockOpenSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
 
@@ -186,6 +207,13 @@ describe("TaskTimerScreen", () => {
       canAskAgain: true,
       expires: "never",
     } as Notifications.NotificationPermissionsStatus);
+    mockRequestPermissionsAsync.mockResolvedValue({
+      status: Notifications.PermissionStatus.GRANTED,
+      granted: true,
+      canAskAgain: true,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
+    mockScheduleNotificationAsync.mockResolvedValue("timer-notification-id");
     mockOpenSettings.mockClear();
   });
 
@@ -221,6 +249,24 @@ describe("TaskTimerScreen", () => {
 
     expect(queryByTestId("start-button")).toBeNull();
     expect(getByText("Pause")).toBeTruthy();
+  });
+
+  test("schedules timer notification with default sound", async () => {
+    const { getByText, getByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(mockScheduleNotificationAsync).toHaveBeenCalled());
+    expect(mockScheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({
+          title: "Timer finished",
+          body: "Your session is complete.",
+          sound: "default",
+        }),
+      }),
+    );
   });
 
   test("opens music modal and selects a track", async () => {

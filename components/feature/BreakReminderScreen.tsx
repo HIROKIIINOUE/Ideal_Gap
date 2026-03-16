@@ -14,6 +14,7 @@ type StoredReminder = {
 };
 
 const STORAGE_KEY = "break_reminder_schedule";
+const BREAK_REMINDER_CHANNEL = "break-reminder";
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 
@@ -169,6 +170,16 @@ export default function BreakReminderScreen() {
     };
   }, [handleNotificationReceived, handleNotificationResponse, restoreSchedule]);
 
+  // Androidの場合の通知音設定。チャンネルの詳細設定
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    Notifications.setNotificationChannelAsync(BREAK_REMINDER_CHANNEL, {
+      name: "Break Reminder",
+      importance: Notifications.AndroidImportance.MAX,
+      sound: "default",
+    }).catch(() => { });
+  }, []);
+
   // 残り時間の表示を30秒ごとに更新し、不要なタイマーは残さない
   useEffect(() => {
     updateRemaining();
@@ -213,14 +224,22 @@ export default function BreakReminderScreen() {
     }
 
     try {
-      const trigger: Notifications.DateTriggerInput = {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: normalizedDate,
-      };
+      const trigger: Notifications.DateTriggerInput =
+        Platform.OS === "android"
+          ? {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: normalizedDate,
+            channelId: BREAK_REMINDER_CHANNEL,
+          }
+          : {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: normalizedDate,
+          };
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: t("notificationTitle"),
           body: t("notificationBody"),
+          sound: "default",
         },
         trigger,
       });

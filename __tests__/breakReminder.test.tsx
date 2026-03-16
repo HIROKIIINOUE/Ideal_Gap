@@ -19,10 +19,14 @@ jest.mock("expo-notifications", () => {
   return {
     ...actual,
     __listeners: listenerStore,
+    AndroidImportance: {
+      MAX: 5,
+    },
     requestPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
     getPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
     scheduleNotificationAsync: jest.fn().mockResolvedValue("notif-123"),
     cancelScheduledNotificationAsync: jest.fn().mockResolvedValue(undefined),
+    setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
     getAllScheduledNotificationsAsync: jest.fn().mockResolvedValue([]),
     addNotificationReceivedListener: jest.fn((cb) => {
       listenerStore.push(cb);
@@ -72,7 +76,7 @@ describe("BreakReminderScreen", () => {
     const { getByTestId } = renderScreen();
 
     expect(getByTestId("break-reminder-datetime")).toHaveStyle({
-      transform: [{ scaleX: 0.94 }, { scaleY: 0.94 }, { translateX: -8 }],
+      transform: [{ scaleX: 0.8 }, { scaleY: 0.94 }, { translateX: -39.199999999999996 }],
     });
   });
 
@@ -88,6 +92,25 @@ describe("BreakReminderScreen", () => {
     expect(getByText(/Reminder set for/)).toBeTruthy();
     expect(getByText(/Break reminder active/)).toBeTruthy();
     expect(getByText(/Time remaining/)).toBeTruthy();
+  });
+
+  test("schedules a reminder with default sound", async () => {
+    const { getByText, getByTestId } = renderScreen();
+    const nextTime = new Date(Date.now() + 5 * 60 * 1000);
+
+    fireEvent(getByTestId("break-reminder-datetime"), "onChange", { type: "set" }, nextTime);
+    fireEvent.press(getByText("Schedule reminder"));
+
+    await waitFor(() => expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled());
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({
+          title: "Break is over",
+          body: "Time to start your next task.",
+          sound: "default",
+        }),
+      }),
+    );
   });
 
   test("cancels an existing reminder", async () => {
