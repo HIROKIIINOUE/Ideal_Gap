@@ -380,9 +380,10 @@ export default function TaskTimerScreen() {
   useEffect(() => {
     return () => {
       clearTick();
+      void clearScheduledNotification();
       stopFocusMusic();
     };
-  }, [clearTick, stopFocusMusic]);
+  }, [clearScheduledNotification, clearTick, stopFocusMusic]);
 
   // 共通のトースト表示(ポップアップメッセージ)処理
   const showToast = useCallback((message: string) => {

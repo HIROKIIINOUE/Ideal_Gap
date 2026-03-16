@@ -193,6 +193,10 @@ const mockScheduleNotificationAsync =
   Notifications.scheduleNotificationAsync as jest.MockedFunction<
     typeof Notifications.scheduleNotificationAsync
   >;
+const mockCancelScheduledNotificationAsync =
+  Notifications.cancelScheduledNotificationAsync as jest.MockedFunction<
+    typeof Notifications.cancelScheduledNotificationAsync
+  >;
 const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fetch>;
 const mockOpenSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
 
@@ -218,6 +222,7 @@ describe("TaskTimerScreen", () => {
       expires: "never",
     } as Notifications.NotificationPermissionsStatus);
     mockScheduleNotificationAsync.mockResolvedValue("timer-notification-id");
+    mockCancelScheduledNotificationAsync.mockResolvedValue(undefined);
     mockOpenSettings.mockClear();
   });
 
@@ -555,6 +560,23 @@ describe("TaskTimerScreen", () => {
 
     await waitFor(() => expect(stop).toHaveBeenCalled());
     spy.mockRestore();
+  });
+
+  test("cancels scheduled notification when leaving the task timer screen during countdown", async () => {
+    const { getByText, getByTestId, unmount } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(mockScheduleNotificationAsync).toHaveBeenCalled());
+
+    unmount();
+
+    await waitFor(() =>
+      expect(mockCancelScheduledNotificationAsync).toHaveBeenCalledWith(
+        "timer-notification-id",
+      ),
+    );
   });
 
   test("shows offline alert and goes back when saving completion while offline", async () => {
