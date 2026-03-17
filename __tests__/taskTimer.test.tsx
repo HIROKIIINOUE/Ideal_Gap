@@ -2,16 +2,18 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import * as Notifications from "expo-notifications";
-import { Alert, AppState, AppStateStatus, Linking } from "react-native";
+import { Alert, AppState, AppStateStatus, Linking, Vibration } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import TaskTimerScreen from "../components/feature/TaskTimerScreen";
 import i18n from "../i18n";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 import * as FocusMusicProviderModule from "../providers/FocusMusicProvider";
+import { TimerAlarmPreferenceProvider } from "../providers/TimerAlarmPreferenceProvider";
 import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
 import { FocusMusicTrack, InstalledFocusTrack } from "../types/focus-music";
 import { colors } from "../constants/theme";
+import { TIMER_ALARM_ENABLED_STORAGE_KEY } from "../providers/TimerAlarmPreferenceProvider";
 
 jest.useFakeTimers();
 
@@ -74,22 +76,39 @@ jest.mock("expo-file-system/legacy", () => ({
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
+const mockAudioPlayers: Array<{
+  play: jest.Mock;
+  pause: jest.Mock;
+  replace: jest.Mock;
+  seekTo: jest.Mock;
+  remove: jest.Mock;
+}> = [];
+const mockAnyAudioPlay = jest.fn();
+
 jest.mock("expo-audio", () => ({
-  useAudioPlayer: () => ({
-    loop: false,
-    playing: false,
-    paused: false,
-    isLoaded: true,
-    isBuffering: false,
-    currentTime: 0,
-    duration: 10,
-    volume: 1,
-    play: jest.fn(),
-    pause: jest.fn(),
-    replace: jest.fn(),
-    seekTo: jest.fn().mockResolvedValue(undefined),
-    remove: jest.fn(),
-  }),
+  useAudioPlayer: () => {
+    const React = require("react");
+    const ref = React.useRef(null as any);
+    if (!ref.current) {
+      ref.current = {
+        loop: false,
+        playing: false,
+        paused: false,
+        isLoaded: true,
+        isBuffering: false,
+        currentTime: 0,
+        duration: 10,
+        volume: 1,
+        play: jest.fn(() => mockAnyAudioPlay()),
+        pause: jest.fn(),
+        replace: jest.fn(),
+        seekTo: jest.fn().mockResolvedValue(undefined),
+        remove: jest.fn(),
+      };
+      mockAudioPlayers.push(ref.current);
+    }
+    return ref.current;
+  },
   useAudioPlayerStatus: () => ({
     playing: false,
     currentTime: 0,
@@ -149,9 +168,11 @@ jest.mock("react-native-svg", () => {
 const renderScreen = () =>
   render(
     <I18nextProvider i18n={i18n}>
-      <FocusMusicProvider>
-        <TaskTimerScreen />
-      </FocusMusicProvider>
+      <TimerAlarmPreferenceProvider>
+        <FocusMusicProvider>
+          <TaskTimerScreen />
+        </FocusMusicProvider>
+      </TimerAlarmPreferenceProvider>
     </I18nextProvider>,
   );
 
@@ -199,11 +220,15 @@ const mockCancelScheduledNotificationAsync =
   >;
 const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fetch>;
 const mockOpenSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
+const mockVibrationVibrate = jest.spyOn(Vibration, "vibrate").mockImplementation(() => {});
+const mockVibrationCancel = jest.spyOn(Vibration, "cancel").mockImplementation(() => {});
 
 describe("TaskTimerScreen", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     jest.clearAllMocks();
+    mockAudioPlayers.length = 0;
+    mockAnyAudioPlay.mockClear();
     mockNetInfoFetch.mockResolvedValue({
       type: "wifi",
       isConnected: true,
@@ -225,6 +250,8 @@ describe("TaskTimerScreen", () => {
     mockScheduleNotificationAsync.mockResolvedValue("timer-notification-id");
     mockCancelScheduledNotificationAsync.mockResolvedValue(undefined);
   });
+
+  const getAlarmPlayer = () => mockAudioPlayers[mockAudioPlayers.length - 1];
 
   test("shows default layout with zero duration", () => {
     const { getAllByText, getByText, getByTestId } = renderScreen();
@@ -508,6 +535,102 @@ describe("TaskTimerScreen", () => {
     alertSpy.mockRestore();
   });
 
+  test("plays foreground alarm sound and vibration when timer finishes and alarm is enabled", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "true");
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    await waitFor(() => expect(getAlarmPlayer()).toBeTruthy());
+
+    act(() => {
+      jest.advanceTimersByTime(300_000);
+    });
+
+    await waitFor(() => expect(mockAnyAudioPlay).toHaveBeenCalled());
+    expect(mockVibrationVibrate).toHaveBeenCalled();
+  });
+
+  test("does not play foreground alarm when alarm preference is disabled", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "false");
+    const { getByText, getByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    act(() => {
+      jest.advanceTimersByTime(300_000);
+    });
+
+    expect(mockAnyAudioPlay).not.toHaveBeenCalled();
+    expect(mockVibrationVibrate).not.toHaveBeenCalled();
+  });
+
+  test("cancels foreground alarm when timer is paused", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "true");
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    fireEvent.press(getByText("Pause"));
+
+    act(() => {
+      jest.advanceTimersByTime(300_000);
+    });
+
+    expect(mockAnyAudioPlay).not.toHaveBeenCalled();
+    expect(mockVibrationCancel).toHaveBeenCalled();
+  });
+
+  test("re-schedules foreground alarm after returning from background while timer is still running", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "true");
+    let now = 0;
+    let appStateListener: ((state: AppStateStatus) => void) | null = null;
+    const dateNowSpy = jest.spyOn(Date, "now").mockImplementation(() => now);
+    const appStateSpy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_type, listener) => {
+        appStateListener = listener;
+        return { remove: jest.fn() } as any;
+      });
+
+    try {
+      const { getByText, getByTestId, queryByTestId } = renderScreen();
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+      await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+      now = 60_000;
+      act(() => {
+        appStateListener?.("background");
+      });
+
+      expect(mockAnyAudioPlay).not.toHaveBeenCalled();
+
+      now = 120_000;
+      act(() => {
+        appStateListener?.("active");
+      });
+      await waitFor(() =>
+        expect(getByTestId("timer-duration")).toHaveTextContent("3:00 / 5:00"),
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(180_000);
+      });
+
+      await waitFor(() => expect(mockAnyAudioPlay).toHaveBeenCalled());
+      expect(mockVibrationVibrate).toHaveBeenCalled();
+    } finally {
+      dateNowSpy.mockRestore();
+      appStateSpy.mockRestore();
+    }
+  });
+
   test("stops focus music when manually completing the timer", async () => {
     const stop = jest.fn().mockResolvedValue(undefined);
     const playSelected = jest.fn().mockResolvedValue(true);
@@ -537,9 +660,11 @@ describe("TaskTimerScreen", () => {
 
     const { getByText } = render(
       <I18nextProvider i18n={i18n}>
-        <FocusMusicProvider>
-          <TaskTimerScreen />
-        </FocusMusicProvider>
+        <TimerAlarmPreferenceProvider>
+          <FocusMusicProvider>
+            <TaskTimerScreen />
+          </FocusMusicProvider>
+        </TimerAlarmPreferenceProvider>
       </I18nextProvider>,
     );
 
@@ -580,7 +705,9 @@ describe("TaskTimerScreen", () => {
 
     const { getByText, getByTestId, queryByTestId } = render(
       <I18nextProvider i18n={i18n}>
-        <TaskTimerScreen />
+        <TimerAlarmPreferenceProvider>
+          <TaskTimerScreen />
+        </TimerAlarmPreferenceProvider>
       </I18nextProvider>,
     );
 
@@ -627,7 +754,9 @@ describe("TaskTimerScreen", () => {
 
     const { getByText, unmount } = render(
       <I18nextProvider i18n={i18n}>
-        <TaskTimerScreen />
+        <TimerAlarmPreferenceProvider>
+          <TaskTimerScreen />
+        </TimerAlarmPreferenceProvider>
       </I18nextProvider>,
     );
 
@@ -668,9 +797,11 @@ describe("TaskTimerScreen", () => {
 
     const { getByText } = render(
       <I18nextProvider i18n={i18n}>
-        <FocusMusicProvider>
-          <TaskTimerScreen />
-        </FocusMusicProvider>
+        <TimerAlarmPreferenceProvider>
+          <FocusMusicProvider>
+            <TaskTimerScreen />
+          </FocusMusicProvider>
+        </TimerAlarmPreferenceProvider>
       </I18nextProvider>,
     );
 

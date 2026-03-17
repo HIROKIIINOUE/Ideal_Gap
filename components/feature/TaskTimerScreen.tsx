@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
+import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import { router, useLocalSearchParams } from "expo-router";
@@ -25,8 +26,10 @@ import {
   Text,
   TextInput,
   ToastAndroid,
+  Vibration,
   View,
   useWindowDimensions,
+  type AppStateStatus,
 } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -46,6 +49,7 @@ import {
 } from "../../lib/ui/ipadLayout";
 import { isCompactScreen } from "../../lib/ui/responsive";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
+import { useTimerAlarmPreference } from "../../providers/TimerAlarmPreferenceProvider";
 import { InstalledFocusTrack } from "../../types/focus-music";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 
@@ -77,6 +81,8 @@ const gradientCard = ["rgba(30,94,255,0.18)", "rgba(12,18,32,0.95)"] as const;
 const TIMER_NOTIFICATION_CHANNEL = "task-timer";
 const TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY =
   "task_timer_notification_prompt_hidden";
+const FOREGROUND_ALARM_SOUND = require("../../assets/sounds/timer-alarm.wav");  // アラーム音
+const FOREGROUND_VIBRATION_PATTERN = [0, 250, 150, 250];  // バイブレーションの定義
 // iPad用UIのための定数群
 const isIpadDevice = Platform.OS === "ios" && Platform.isPad === true;
 const taskTimerLayout = getTaskTimerIpadLayout(isIpadDevice);
@@ -90,6 +96,10 @@ const formatEndTimeLabel = (timestamp: number | null) => {
   return `${hours}:${minutes}`;
 };
 
+//　アプリがフォアグランドかどうかの判定
+const isForegroundAppState = (state: AppStateStatus) =>
+  state !== "background" && state !== "inactive";
+
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
@@ -98,10 +108,14 @@ export default function TaskTimerScreen() {
   const compactScreen = isCompactScreen(width, fontScale);
   const { installedTracks, selectedTrack, selectTrack, playSelected, pause, stop } =
     useFocusMusic();
+  const { timerAlarmEnabled } = useTimerAlarmPreference();
+  const alarmPlayer = useAudioPlayer(FOREGROUND_ALARM_SOUND, {
+    // 音声セッションをアクティブなまま維持しやすくするための設定。音をタイミングよく鳴らす準備がしやすい
+    keepAudioSessionActive: true,
+  });
   const params = useLocalSearchParams<{
     title?: string;
     monthlyGoal?: string;
-    estimated?: string;
     logged?: string;
     taskId?: string;
     monthlyGoalId?: string;
@@ -124,10 +138,17 @@ export default function TaskTimerScreen() {
   const [nextStartPoint, setNextStartPoint] = useState<string | null>(null);
   const [viewStartModalVisible, setViewStartModalVisible] = useState(false);
 
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const completionFiredRef = useRef(false);
-  const scheduledNotificationIdRef = useRef<string | null>(null);
-  const lastScheduledEndAtRef = useRef<number | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);  // setIntervalのID管理/停止/リセット/完了時のclearInterval用
+  const foregroundAlarmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // タイマー終了予定時刻に合わせてforeground中だけ音+バイブを発火する予約を管理する用。キャンセル時はここに埋め込まれたIDを使用してclearTimeoutをしている。
+  const completionFiredRef = useRef(false);  // 完了処理がすでに走ったかどうかを管理
+  const scheduledNotificationIdRef = useRef<string | null>(null); // expo-notificationsで予約した通知IDを保持する。後に cancelScheduledNotificationAsyncする用
+  const lastScheduledEndAtRef = useRef<number | null>(null); // 最後に通知予約した終了時刻を保持、endAtに対する通知重複防止
+  const lastForegroundAlarmEndAtRef = useRef<number | null>(null); //最後にforegroundアラーム予約した終了時刻を保持、アラーム重複防止
+  const lastTriggeredForegroundAlarmEndAtRef = useRef<number | null>(null); //すでに発火したforegroundアラームの終了時刻を覚える
+  const statusRef = useRef<TimerStatus>("idle");  // タイマー状態(idle, running, paused, finished)
+  const expectedEndAtRef = useRef<number | null>(null);  // 終了予定時刻、アプリ復帰時の時間再計算。foregroundアラーム再予約、完了判定用。
+  const inputSecondsRef = useRef(initialSeconds);  // 設定時間(duration)
+  const appStateRef = useRef(AppState.currentState); // アプリ状態(active, background, inactive)
 
   const taskTitle = params.title || t("pageTitle");
   const taskId = params.taskId ?? null;
@@ -141,6 +162,19 @@ export default function TaskTimerScreen() {
   const hasDuration = inputSeconds > 0;
   const hasInstalledMusic = installedTracks.length > 0;
   const activeTrack = selectedTrack;
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    expectedEndAtRef.current = expectedEndAt;
+    lastTriggeredForegroundAlarmEndAtRef.current = null;
+  }, [expectedEndAt]);
+
+  useEffect(() => {
+    inputSecondsRef.current = inputSeconds;
+  }, [inputSeconds]);
 
   // 「経過した時間 / 設定作業時間」からどの割合進んだかを算出してリターンする
   const progress = useMemo(() => {
@@ -229,16 +263,110 @@ export default function TaskTimerScreen() {
     }
   }, []);
 
+  // アラーム、バイブレーションを引き止める処理
+  const stopForegroundAlarmOutput = useCallback(() => {
+    Vibration.cancel();
+    try {
+      alarmPlayer.pause(); // アラームをキャンセル
+    } catch {
+      // ignore player pause failures
+    }
+    try {
+      alarmPlayer.seekTo(0) // アラーム再生地点を開始地点へ巻戻し
+    } catch {
+      // ignore player pause failures
+    }
+  }, [alarmPlayer]);
+
+  // アラームとバイブレーションの予約をキャンセルする
+  const clearForegroundAlarmSchedule = useCallback(() => {
+    if (foregroundAlarmTimeoutRef.current) {
+      clearTimeout(foregroundAlarmTimeoutRef.current);
+      foregroundAlarmTimeoutRef.current = null;
+    }
+    lastForegroundAlarmEndAtRef.current = null;
+  }, []);
+
+  // アラーム・バイブレーションの予約をキャンセル、既に再生中であればそれらも止める。
+  const clearForegroundAlarm = useCallback(() => {
+    clearForegroundAlarmSchedule();
+    stopForegroundAlarmOutput();
+  }, [clearForegroundAlarmSchedule, stopForegroundAlarmOutput]);
+
+
+  // アラームとバイブをforegroundで引き起こす処理
+  // setIntervalで「終了予定時刻にアラームの条件を満たしていれば発火」の予約がされる
+  const triggerForegroundAlarm = useCallback(
+    (endAt: number | null) => {
+      if (!timerAlarmEnabled) return;
+      if (!endAt) return;
+      if (!isForegroundAppState(appStateRef.current)) return;
+      if (lastTriggeredForegroundAlarmEndAtRef.current === endAt) return;
+
+      lastTriggeredForegroundAlarmEndAtRef.current = endAt;
+      Vibration.vibrate(FOREGROUND_VIBRATION_PATTERN); // バイブレーションを起こす
+      const playAlarm = async () => {
+        try {
+          await alarmPlayer.seekTo(0);  // まずは音楽ファイルの0秒地点に巻戻す
+        } catch {
+          // ignore player seek failures
+        }
+        try {
+          alarmPlayer.play(); // 巻き戻した後に再生
+        } catch {
+          // ignore player play failures
+        }
+      };
+      void playAlarm();
+    },
+    [alarmPlayer, timerAlarmEnabled],
+  );
+
+  // 全ての条件を満たしている時アラームとバイブを予約する
+  const scheduleForegroundAlarm = useCallback(
+    (endAt: number) => {
+      if (!timerAlarmEnabled) return;
+      if (!isForegroundAppState(appStateRef.current)) return;
+      if (statusRef.current !== "running") return;
+      if (endAt <= Date.now()) return;
+      if (lastForegroundAlarmEndAtRef.current === endAt) return;
+
+      clearForegroundAlarmSchedule(); // 予約する前に全ての予約をキャンセルすることで重複防止
+      const delayMs = Math.max(1, endAt - Date.now());
+      lastForegroundAlarmEndAtRef.current = endAt;
+      // 現在地と終了予定時刻の差分であるdelayMs秒後に triggerForegroundAlarm() が発火することを予約
+      // foregroundAlarmTimeoutRef.currentで予約ID(setTimeoutの戻り値)を保持し、
+      // 予約キャンセル時はclearTimeoutで予約IDをクリアすることで予約をキャンセルできる。
+      foregroundAlarmTimeoutRef.current = setTimeout(() => {
+        foregroundAlarmTimeoutRef.current = null;
+        lastForegroundAlarmEndAtRef.current = null;
+        if (expectedEndAtRef.current !== endAt || statusRef.current !== "running") {
+          return;
+        }
+        triggerForegroundAlarm(endAt);
+      }, delayMs);
+    },
+    [clearForegroundAlarmSchedule, timerAlarmEnabled, triggerForegroundAlarm],
+  );
 
   // 「カウントダウン終了モーダル」「手動でタイマー終了モーダル」の両方を開く時に実行される処理
   const openCompletionModal = useCallback(
     (elapsedSeconds: number) => {
       clearTick();
       void clearScheduledNotification();
+      clearForegroundAlarmSchedule();
       stopFocusMusic();
       completionFiredRef.current = true;
       const safeElapsed = Math.max(0, Math.round(elapsedSeconds));
       const completed = safeElapsed >= inputSeconds;
+      // カウントダウンが完了してモーダルが開かれる場合はアラーム・バイブレーションを鳴らす
+      // setTimeoutで既に予約済みだが、取りこぼし防止のための保険としてここでも発火
+      // triggerForegroundAlarm()内で発火条件を敷いてるためアラームの重複は防止されている
+      if (completed) {
+        triggerForegroundAlarm(expectedEndAtRef.current);
+      } else {
+        stopForegroundAlarmOutput();
+      }
       setCompletionElapsedSeconds(safeElapsed);
       setCompletionModalVisible(true);
       if (completed) {
@@ -249,13 +377,22 @@ export default function TaskTimerScreen() {
       }
       setExpectedEndAt(null);
     },
-    [clearScheduledNotification, clearTick, inputSeconds, stopFocusMusic],
+    [
+      clearForegroundAlarmSchedule,
+      clearScheduledNotification,
+      clearTick,
+      inputSeconds,
+      stopFocusMusic,
+      stopForegroundAlarmOutput,
+      triggerForegroundAlarm,
+    ],
   );
 
   // 作業完了モーダルの「キャンセル」押下時の処理
   const handleDismissCompletion = useCallback(() => {
     setCompletionModalVisible(false);
     setIsSavingCompletion(false);
+    stopForegroundAlarmOutput();
     completionFiredRef.current = false;
     if (completionElapsedSeconds >= inputSeconds) {
       setRemainingSeconds(0);
@@ -263,7 +400,7 @@ export default function TaskTimerScreen() {
       return;
     }
     setStatus("paused");
-  }, [completionElapsedSeconds, inputSeconds]);
+  }, [completionElapsedSeconds, inputSeconds, stopForegroundAlarmOutput]);
 
   // 状態がidle,finishedの時のみ残り時間とユーザの設定作業時間を一致させる
   // paused時は残り時間とユーザ設定時間が異なるのでここの処理は走らせない
@@ -300,9 +437,10 @@ export default function TaskTimerScreen() {
     return () => {
       clearTick();
       void clearScheduledNotification();
+      clearForegroundAlarm();
       stopFocusMusic();
     };
-  }, [clearScheduledNotification, clearTick, stopFocusMusic]);
+  }, [clearForegroundAlarm, clearScheduledNotification, clearTick, stopFocusMusic]);
 
   // 共通のトースト表示(ポップアップメッセージ)処理
   const showToast = useCallback((message: string) => {
@@ -313,7 +451,7 @@ export default function TaskTimerScreen() {
     Alert.alert(message);
   }, []);
 
-  // iOS設定画面へ遷移する処理、Androidは要検討
+  // 【ここチェック】iOS設定画面へ遷移する処理、Androidは要検討
   const handleOpenSettings = useCallback(async () => {
     try {
       await Linking.openSettings();
@@ -335,11 +473,13 @@ export default function TaskTimerScreen() {
 
   // タイマーカウントダウンスタート処理
   const startTimerCountdown = useCallback(() => {
+    stopForegroundAlarmOutput();
+    lastTriggeredForegroundAlarmEndAtRef.current = null;
     completionFiredRef.current = false;
     setRemainingSeconds(inputSeconds);
     setStatus("running");
     setExpectedEndAt(Date.now() + inputSeconds * 1000);
-  }, [inputSeconds]);
+  }, [inputSeconds, stopForegroundAlarmOutput]);
 
   //　通知OFFの場合はシンプルにstartTimerCountdown()のみを発火する
   const handleContinueWithoutNotification = useCallback(() => {
@@ -455,6 +595,7 @@ export default function TaskTimerScreen() {
     if (status === "running") return;
     clearTick();
     void clearScheduledNotification();
+    clearForegroundAlarm();
     setInputSeconds(0);
     setRemainingSeconds(0);
     setStatus("idle");
@@ -492,6 +633,7 @@ export default function TaskTimerScreen() {
     if (status === "running") {
       setStatus("paused");
       setExpectedEndAt(null);
+      clearForegroundAlarm();
       completionFiredRef.current = false;
       return;
     }
@@ -563,11 +705,16 @@ export default function TaskTimerScreen() {
     ],
   );
 
-  // タイマーがカウント中(running)に切り替わった時に発火しsetIntervalをスタートさせる
+  // カウントダウン状態statusがrunningになった時に発火(厳密には違うが実質はそう)
+  // カウントダウン終了時刻をsetIntervalで予約しカウントダウンをスタートする￥
   useEffect(() => {
     if (status !== "running") {
       clearTick();
       void clearScheduledNotification();
+      clearForegroundAlarmSchedule();
+      if (status !== "finished") {
+        stopForegroundAlarmOutput();
+      }
       return;
     }
 
@@ -586,7 +733,15 @@ export default function TaskTimerScreen() {
     }, 1000);
 
     return clearTick;
-  }, [status, inputSeconds, clearTick, clearScheduledNotification, openCompletionModal]);
+  }, [
+    clearForegroundAlarmSchedule,
+    clearScheduledNotification,
+    clearTick,
+    inputSeconds,
+    openCompletionModal,
+    status,
+    stopForegroundAlarmOutput,
+  ]);
 
 
   // タイマーstatusが変更された時に新しく通知スケジュールをセットする
@@ -595,6 +750,31 @@ export default function TaskTimerScreen() {
     if (!expectedEndAt) return;
     void scheduleTimerNotification(expectedEndAt);
   }, [expectedEndAt, scheduleTimerNotification, status]);
+
+  // カウントダウン状態statusがrunningになった時に発火(厳密には違うが実質はそう)
+  // 終了時刻に応じてアラームとバイブレーションの予約をする
+  useEffect(() => {
+    if (status !== "running") {
+      clearForegroundAlarmSchedule();
+      if (status !== "finished") {
+        stopForegroundAlarmOutput();
+      }
+      return;
+    }
+    if (!expectedEndAt || !isForegroundAppState(appStateRef.current)) {
+      clearForegroundAlarm();
+      return;
+    }
+    scheduleForegroundAlarm(expectedEndAt);
+  }, [
+    clearForegroundAlarm,
+    clearForegroundAlarmSchedule,
+    expectedEndAt,
+    scheduleForegroundAlarm,
+    status,
+    stopForegroundAlarmOutput,
+    timerAlarmEnabled,
+  ]);
 
 
   // 端末OSがAndroidの場合、以下の処理で最初にチャンネルを作成し、通知を予約するscheduleTimerNotificationでそのチャンネルに通知スケジュールをセットする。
@@ -611,19 +791,27 @@ export default function TaskTimerScreen() {
   // AppStateには「active」「background」の二つがある。(細かい他の状態もあるがほとんど使わない)
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active") return;
-      if (status !== "running" || !expectedEndAt) return;
-      const remaining = Math.max(0, Math.round((expectedEndAt - Date.now()) / 1000));
+      appStateRef.current = nextState;
+      if (!isForegroundAppState(nextState)) {
+        clearForegroundAlarm();
+        return;
+      }
+      if (statusRef.current !== "running" || !expectedEndAtRef.current) return;
+      const remaining = Math.max(
+        0,
+        Math.round((expectedEndAtRef.current - Date.now()) / 1000),
+      );
       if (remaining <= 0) {
         if (!completionFiredRef.current) {
-          openCompletionModal(Math.max(0, inputSeconds));
+          openCompletionModal(Math.max(0, inputSecondsRef.current));
         }
         return;
       }
       setRemainingSeconds(remaining);
+      scheduleForegroundAlarm(expectedEndAtRef.current);
     });
     return () => subscription?.remove?.();
-  }, [expectedEndAt, inputSeconds, openCompletionModal, status]);
+  }, [clearForegroundAlarm, openCompletionModal, scheduleForegroundAlarm]);
 
   // 作業完了ボタン押下時の処理
   const handleComplete = () => {
@@ -1334,6 +1522,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: taskTimerLayout.ringMaxWidth,
     maxHeight: isIpadDevice ? 500 : undefined,
+    marginBottom: spacing.md,
     aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",

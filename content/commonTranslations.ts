@@ -31,9 +31,10 @@ export type CommonTranslations = {
     logoutSuccess: string;
     items: {
       logout: { title: string; subtitle: string };
-      toggleFunPlan: {
-        show: { title: string; subtitle: string };
-        hide: { title: string; subtitle: string };
+      toggleFunPlan: { title: string; subtitle: string };
+      toggleTimerAlarm: {
+        title: string;
+        subtitle: string;
       };
       payment: { title: string; subtitle: string };
       profile: { title: string; subtitle: string };
@@ -81,14 +82,12 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
       items: {
         logout: { title: "ログアウト", subtitle: "セッションを終了します" },
         toggleFunPlan: {
-          show: {
-            title: "次回の楽しい予定を表示",
-            subtitle: "カードをダッシュボードに戻します",
-          },
-          hide: {
-            title: "次回の楽しい予定を非表示",
-            subtitle: "カードを一時的に隠します",
-          },
+          title: "次回の楽しい予定",
+          subtitle: "ダッシュボード表示を切り替えます",
+        },
+        toggleTimerAlarm: {
+          title: "タスクタイマーアラーム",
+          subtitle: "完了時に音とバイブを鳴らします",
         },
         payment: {
           title: "支払い方法の変更・退会",
@@ -151,14 +150,12 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
       items: {
         logout: { title: "Log out", subtitle: "End your current session" },
         toggleFunPlan: {
-          show: {
-            title: "Show Next Exciting Plans",
-            subtitle: "Bring the card back to dashboard",
-          },
-          hide: {
-            title: "Hide Exciting Plan",
-            subtitle: "Temporarily hide the card",
-          },
+          title: "Next exciting plan",
+          subtitle: "Show or hide the dashboard card",
+        },
+        toggleTimerAlarm: {
+          title: "Timer end alarm",
+          subtitle: "Make alarm sound and vibration",
         },
         payment: {
           title: "Manage payment",
@@ -218,14 +215,12 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           subtitle: "Terminer la session en cours",
         },
         toggleFunPlan: {
-          show: {
-            title: "Afficher le plan sympa à venir",
-            subtitle: "Ramener la carte sur le tableau de bord",
-          },
-          hide: {
-            title: "Masquer le plan sympa à venir ",
-            subtitle: "Masquer la carte temporairement",
-          },
+          title: "Plan sympa à venir",
+          subtitle: "Afficher ou masquer la carteju",
+        },
+        toggleTimerAlarm: {
+          title: "Alarme de fin du minuteur",
+          subtitle: "Lire un son et une vibration",
         },
         payment: {
           title: "Gérer le paiement",

@@ -8,6 +8,7 @@ import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
+import { TimerAlarmPreferenceProvider } from "../providers/TimerAlarmPreferenceProvider";
 
 const mockGetSubscriptionForUser = jest.fn();
 
@@ -279,9 +280,11 @@ describe("Dashboard next fun plan hero", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <LanguageProvider>
-          <FunPlanProvider>
-            <Dashboard />
-          </FunPlanProvider>
+          <TimerAlarmPreferenceProvider>
+            <FunPlanProvider>
+              <Dashboard />
+            </FunPlanProvider>
+          </TimerAlarmPreferenceProvider>
         </LanguageProvider>
       </I18nextProvider>,
     );

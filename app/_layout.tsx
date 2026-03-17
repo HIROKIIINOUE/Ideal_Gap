@@ -31,6 +31,7 @@ import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
 import { OfflineProvider } from "../providers/OfflineProvider";
 import { RevenueCatProvider } from "../providers/RevenueCatProvider";
+import { TimerAlarmPreferenceProvider } from "../providers/TimerAlarmPreferenceProvider";
 
 SplashScreen.preventAutoHideAsync();
 initSentry();
@@ -179,30 +180,32 @@ export default function RootLayout() {
         <LanguageProvider>
           <OfflineProvider>
             <FunPlanProvider>
-              <FocusMusicProvider>
-                <RevenueCatProvider>
-                  {/* ここで共通ヘッダー(safe area)を指定できる */}
-                  <Stack
-                    screenOptions={{
-                      contentStyle: { backgroundColor: colors.surface },
-                      headerStyle: { backgroundColor: colors.surface },
-                      headerTintColor: colors.textPrimary,
-                      headerTitleStyle: {
-                        color: colors.textPrimary,
-                        fontSize: 18,
-                        fontFamily: Platform.select({
-                          ios: "Georgia-Italic",
-                          android: "serif",
-                          default: undefined,
-                        }),
-                      },
-                      headerShadowVisible: false,
-                    }}
-                  />
-                  <OfflineBanner />
-                  <SplashOverlay visible={showSplash} />
-                </RevenueCatProvider>
-              </FocusMusicProvider>
+              <TimerAlarmPreferenceProvider>
+                <FocusMusicProvider>
+                  <RevenueCatProvider>
+                    {/* ここで共通ヘッダー(safe area)を指定できる */}
+                    <Stack
+                      screenOptions={{
+                        contentStyle: { backgroundColor: colors.surface },
+                        headerStyle: { backgroundColor: colors.surface },
+                        headerTintColor: colors.textPrimary,
+                        headerTitleStyle: {
+                          color: colors.textPrimary,
+                          fontSize: 18,
+                          fontFamily: Platform.select({
+                            ios: "Georgia-Italic",
+                            android: "serif",
+                            default: undefined,
+                          }),
+                        },
+                        headerShadowVisible: false,
+                      }}
+                    />
+                    <OfflineBanner />
+                    <SplashOverlay visible={showSplash} />
+                  </RevenueCatProvider>
+                </FocusMusicProvider>
+              </TimerAlarmPreferenceProvider>
             </FunPlanProvider>
           </OfflineProvider>
         </LanguageProvider>
