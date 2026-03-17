@@ -311,6 +311,55 @@ export type Database = {
           },
         ];
       };
+      weekly_tasks: {
+        Row: {
+          accumulated_time_week: number | null;
+          created_at: string | null;
+          description: string;
+          id: string;
+          monthly_goal_id: string | null;
+          next_start_point: string | null;
+          order: number | null;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          accumulated_time_week?: number | null;
+          created_at?: string | null;
+          description: string;
+          id?: string;
+          monthly_goal_id?: string | null;
+          next_start_point?: string | null;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          accumulated_time_week?: number | null;
+          created_at?: string | null;
+          description?: string;
+          id?: string;
+          monthly_goal_id?: string | null;
+          next_start_point?: string | null;
+          order?: number | null;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "weekly_tasks_monthly_goal_id_fkey";
+            columns: ["monthly_goal_id"];
+            referencedRelation: "monthly_goals";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "weekly_tasks_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       fun_plans: {
         Row: {
           created_at: string | null;

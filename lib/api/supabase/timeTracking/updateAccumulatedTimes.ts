@@ -6,6 +6,7 @@ import { supabase } from "../../../supabaseClient";
 
 type MonthlyGoalRow = Database["public"]["Tables"]["monthly_goals"]["Row"];
 type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
+type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
 
 // 呼び出した場所から渡されたプロップス、新しい作業データの実績を含むデータの型
 export type UpdateAccumulatedTimesParams = {
@@ -58,14 +59,14 @@ const supabaseTimeTrackingClient: TimeTrackingClient = {
     newLoggedMinutes,
     nextStartPoint,
   }) {
-    const payload: Record<string, unknown> = {
+    const payload: WeeklyTaskUpdate = {
       accumulated_time_week: newLoggedMinutes,
     };
     if (typeof nextStartPoint !== "undefined") {
       payload.next_start_point = nextStartPoint ?? null;
     }
     const { error } = await supabase
-      .from("weekly_tasks" as any)
+      .from("weekly_tasks")
       .update(payload)
       .match({ id: taskId, user_id: userId });
 

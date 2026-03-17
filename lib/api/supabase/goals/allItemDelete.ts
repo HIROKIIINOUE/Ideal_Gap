@@ -1,6 +1,12 @@
 // 全件削除機能ファイル
 
 import { supabase } from "../../../supabaseClient";
+import { Database } from "../../../../types/database";
+
+type MonthlyGoalIdRow = Pick<
+  Database["public"]["Tables"]["monthly_goals"]["Row"],
+  "id"
+>;
 
 type DeleteMonthlyGoalsParams = {
   userId: string;
@@ -40,12 +46,12 @@ export const deleteMonthlyGoals = async ({
     throw new Error(selectError.message);
   }
 
-  const monthlyIds = ((monthlyRows as unknown as { id: string }[] | null | undefined) ?? [])
+  const monthlyIds = ((monthlyRows as unknown as MonthlyGoalIdRow[] | null | undefined) ?? [])
     .map((row) => row.id)
     .filter(Boolean);
   if (monthlyIds.length > 0) {
     const { error: weeklyError } = await supabase
-      .from("weekly_tasks" as any)
+      .from("weekly_tasks")
       .delete()
       .in("monthly_goal_id", monthlyIds);
     if (weeklyError) {
@@ -67,7 +73,7 @@ export const deleteMonthlyGoals = async ({
 // 年間目標を全削除
 export const deleteYearlyGoals = async ({ userId }: DeleteByUserParams) => {
   const { error: weeklyError } = await supabase
-    .from("weekly_tasks" as any)
+    .from("weekly_tasks")
     .delete()
     .eq("user_id", userId);
   if (weeklyError) {
@@ -96,7 +102,7 @@ export const deleteYearlyGoals = async ({ userId }: DeleteByUserParams) => {
 // 週間タスクを全削除
 export const deleteWeeklyTasks = async ({ userId }: DeleteByUserParams) => {
   const { error } = await supabase
-    .from("weekly_tasks" as any)
+    .from("weekly_tasks")
     .delete()
     .eq("user_id", userId);
   if (error) {

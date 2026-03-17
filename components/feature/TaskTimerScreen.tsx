@@ -50,10 +50,16 @@ import {
 import { isCompactScreen } from "../../lib/ui/responsive";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { useTimerAlarmPreference } from "../../providers/TimerAlarmPreferenceProvider";
+import { Database } from "../../types/database";
 import { InstalledFocusTrack } from "../../types/focus-music";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
+
+type WeeklyTaskTimeTrackingRow = Pick<
+  Database["public"]["Tables"]["weekly_tasks"]["Row"],
+  "accumulated_time_week" | "monthly_goal_id" | "next_start_point"
+>;
 
 const PRESETS = [
   // { label: "add10s", minutes: 10 / 60 }, // これはテスト用
@@ -211,7 +217,7 @@ export default function TaskTimerScreen() {
   const fetchLatestLogged = useCallback(
     async (uid: string, weeklyTaskId: string) => {
       const { data, error } = await supabase
-        .from("weekly_tasks" as any)
+        .from("weekly_tasks")
         .select("accumulated_time_week, monthly_goal_id, next_start_point")
         .eq("id", weeklyTaskId)
         .eq("user_id", uid)
@@ -219,17 +225,14 @@ export default function TaskTimerScreen() {
       if (error) {
         throw new Error(error.message);
       }
+      const row: WeeklyTaskTimeTrackingRow | null = data;
       return {
         accumulated: Math.max(
           0,
-          Math.round((data as any)?.accumulated_time_week ?? 0),
+          Math.round(row?.accumulated_time_week ?? 0),
         ),
-        monthlyGoalId: ((data as any)?.monthly_goal_id ?? null) as
-          | string
-          | null,
-        nextStartPoint: ((data as any)?.next_start_point ?? null) as
-          | string
-          | null,
+        monthlyGoalId: row?.monthly_goal_id ?? null,
+        nextStartPoint: row?.next_start_point ?? null,
       };
     },
     [],

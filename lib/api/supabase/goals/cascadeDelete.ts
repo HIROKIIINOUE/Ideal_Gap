@@ -2,19 +2,24 @@
 // ユーザが年間ゴール削除を実行した時は紐づく月間ゴールと週間タスクが、
 // 月間ゴール削除を実行した時は日もづく週間タスクが同時に削除されるようになっている。
 
+import { Database } from "../../../../types/database";
 import { supabase } from "../../../supabaseClient";
 
-type MonthlyGoalIdRow = { id: string };
+type MonthlyGoalIdRow = Pick<
+  Database["public"]["Tables"]["monthly_goals"]["Row"],
+  "id"
+>;
 
 const toMonthlyIds = (rows: MonthlyGoalIdRow[] | null | undefined) =>
   (rows ?? []).map((row) => row.id).filter((id) => Boolean(id));
 
 // 月間ゴールを削除する時に紐づく週間タスクを同時に削除する処理
+// 先に子データの紐づく週間タスクを削除してから月間データを削除する
 export const deleteMonthlyGoalWithWeeklyTasks = async (
   monthlyGoalId: string,
 ) => {
   const { error: weeklyError } = await supabase
-    .from("weekly_tasks" as any)
+    .from("weekly_tasks")
     .delete()
     .eq("monthly_goal_id", monthlyGoalId);
   if (weeklyError) {
@@ -48,7 +53,7 @@ export const deleteYearlyGoalWithCascade = async (yearlyGoalId: string) => {
 
   if (monthlyIds.length > 0) {
     const { error: weeklyError } = await supabase
-      .from("weekly_tasks" as any)
+      .from("weekly_tasks")
       .delete()
       .in("monthly_goal_id", monthlyIds);
     if (weeklyError) {

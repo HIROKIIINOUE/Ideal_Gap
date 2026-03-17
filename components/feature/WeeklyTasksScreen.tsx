@@ -44,15 +44,13 @@ type WeeklyTask = {
 };
 
 //データベース用データの型
-type WeeklyTaskRow = {
-  id: string;
-  user_id?: string | null;
-  description: string;
-  monthly_goal_id: string | null;
-  accumulated_time_week: number | null;
-  order: number | null;
-  updated_at?: string | null;
-};
+type WeeklyTaskRow = Database["public"]["Tables"]["weekly_tasks"]["Row"];
+type WeeklyTaskInsert = Database["public"]["Tables"]["weekly_tasks"]["Insert"];
+type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
+type WeeklyTaskListRow = Pick<
+  WeeklyTaskRow,
+  "id" | "description" | "monthly_goal_id" | "accumulated_time_week" | "order"
+>;
 type MonthlyGoalRow = Database["public"]["Tables"]["monthly_goals"]["Row"];
 
 type ManualLogState = {
@@ -198,7 +196,7 @@ export default function WeeklyTasksScreen() {
             Alert.alert(t("deleteConfirm.title"), t("modal.errorRequired"));
             return;
           }
-          const { error } = await supabase.from("weekly_tasks" as any).delete().eq("id", task.id);
+          const { error } = await supabase.from("weekly_tasks").delete().eq("id", task.id);
           if (error) {
             Alert.alert(t("deleteConfirm.title"), error.message);
             return;
@@ -214,7 +212,7 @@ export default function WeeklyTasksScreen() {
           if (reordered.length > 0) {
             const updates = reordered.map((item) => toWeeklyRow(item, uid));
             const { error: upsertError } = await supabase
-              .from("weekly_tasks" as any)
+              .from("weekly_tasks")
               .upsert(updates, { onConflict: "id" });
             if (upsertError) {
               Alert.alert(t("deleteConfirm.title"), upsertError.message ?? t("modal.errorRequired"));
@@ -252,7 +250,7 @@ export default function WeeklyTasksScreen() {
 
   //  データベースの行データから画面表示用のWeeklyTask型に変換
   const toWeeklyTask = React.useCallback(
-    (row: WeeklyTaskRow, goalLookup: Record<string, { label: string; color: string; month: number }>): WeeklyTask => ({
+    (row: WeeklyTaskListRow, goalLookup: Record<string, { label: string; color: string; month: number }>): WeeklyTask => ({
       id: row.id,
       title: row.description,
       monthlyGoalId: row.monthly_goal_id ?? "",
@@ -265,7 +263,7 @@ export default function WeeklyTasksScreen() {
 
   // 画面表示用のWeeklyTaskデータをデータベースに保存する形へ変換
   const toWeeklyRow = React.useCallback(
-    (task: WeeklyTask, uid: string) => ({
+    (task: WeeklyTask, uid: string): WeeklyTaskInsert => ({
       id: task.id,
       user_id: uid,
       description: task.title,
@@ -323,7 +321,7 @@ export default function WeeklyTasksScreen() {
         .eq("user_id", uid)
         .order("month", { ascending: true }),
       supabase
-        .from("weekly_tasks" as any)
+        .from("weekly_tasks")
         .select("id, description, monthly_goal_id, accumulated_time_week, order")
         .eq("user_id", uid)
         .order("order", { ascending: true }),
@@ -358,7 +356,7 @@ export default function WeeklyTasksScreen() {
     }, {});
 
     const weekly = reorderTasks(
-      ((weeklyData as any[]) ?? []).map((row) => toWeeklyTask(row as WeeklyTaskRow, goalLookup)),
+      ((weeklyData as WeeklyTaskListRow[] | null) ?? []).map((row) => toWeeklyTask(row, goalLookup)),
     );
 
     setMonthlyGoalOptions(monthlyOptions);
@@ -593,13 +591,14 @@ export default function WeeklyTasksScreen() {
     // 編集保存処理
     if (editingId) {
       const existing = tasks.find((task) => task.id === editingId);
+      const payload: WeeklyTaskUpdate = {
+        description: parse.data.title,
+        monthly_goal_id: parse.data.monthlyGoalId,
+        accumulated_time_week: existing?.loggedMinutes ?? 0,
+      };
       const { error } = await supabase
-        .from("weekly_tasks" as any)
-        .update({
-          description: parse.data.title,
-          monthly_goal_id: parse.data.monthlyGoalId,
-          accumulated_time_week: existing?.loggedMinutes ?? 0,
-        })
+        .from("weekly_tasks")
+        .update(payload)
         .eq("id", editingId);
       if (error) {
         Alert.alert("更新に失敗しました", error.message);
@@ -610,7 +609,7 @@ export default function WeeklyTasksScreen() {
       // 新規タスクを一番上に持ってくるために既存のタスクのorderを+1する
       const orderedExisting = reorderTasks(tasks).map((task, idx) => ({ ...task, order: idx + 1 }));
       const { data: inserted, error } = await supabase
-        .from("weekly_tasks" as any)
+        .from("weekly_tasks")
         .insert({
           description: parse.data.title,
           monthly_goal_id: parse.data.monthlyGoalId,
@@ -634,10 +633,10 @@ export default function WeeklyTasksScreen() {
         },
         {},
       );
-      const newTask = toWeeklyTask(inserted as unknown as WeeklyTaskRow, goalLookup);
+      const newTask = toWeeklyTask(inserted, goalLookup);
       const reordered = reorderTasks([...orderedExisting, newTask]);
       const updates = reordered.map((task) => toWeeklyRow(task, uid));
-      const { error: reorderError } = await supabase.from("weekly_tasks" as any).upsert(updates, { onConflict: "id" });
+      const { error: reorderError } = await supabase.from("weekly_tasks").upsert(updates, { onConflict: "id" });
       if (reorderError) {
         Alert.alert("追加に失敗しました", reorderError.message ?? "Failed to reorder");
         return;
@@ -657,13 +656,13 @@ export default function WeeklyTasksScreen() {
       return acc;
     }, {});
     const { data: weeklyData, error: weeklyError } = await supabase
-      .from("weekly_tasks" as any)
+      .from("weekly_tasks")
       .select("id, description, monthly_goal_id, accumulated_time_week, order")
       .eq("user_id", uid)
       .order("order", { ascending: true });
     if (!weeklyError && weeklyData) {
       setTasks(
-        reorderTasks(((weeklyData as any[]) ?? []).map((row) => toWeeklyTask(row as WeeklyTaskRow, goalLookup))),
+        reorderTasks(((weeklyData as WeeklyTaskListRow[] | null) ?? []).map((row) => toWeeklyTask(row, goalLookup))),
       );
     }
     setLoading(false);
@@ -682,7 +681,7 @@ export default function WeeklyTasksScreen() {
     if (reordered.length === 0) return;
 
     const updates = reordered.map((task) => toWeeklyRow(task, uid));
-    const { error } = await supabase.from("weekly_tasks" as any).upsert(updates, { onConflict: "id" });
+    const { error } = await supabase.from("weekly_tasks").upsert(updates, { onConflict: "id" });
     if (error) {
       Alert.alert(t("deleteConfirm.title"), error.message ?? t("modal.errorRequired"));
     }
