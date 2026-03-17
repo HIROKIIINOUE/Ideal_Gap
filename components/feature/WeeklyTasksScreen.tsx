@@ -20,7 +20,6 @@ import {
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
-import KeyboardDismissButton from "../KeyboardDismissButton";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
@@ -30,6 +29,7 @@ import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../..
 import { supabase } from "../../lib/supabaseClient";
 import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
@@ -39,7 +39,6 @@ type WeeklyTask = {
   title: string;
   monthlyGoalLabel: string;
   monthlyGoalId: string;
-  estimatedMinutes: number;
   loggedMinutes: number;
   order: number;
 };
@@ -50,7 +49,6 @@ type WeeklyTaskRow = {
   user_id?: string | null;
   description: string;
   monthly_goal_id: string | null;
-  estimated_time_week: number | null;
   accumulated_time_week: number | null;
   order: number | null;
   updated_at?: string | null;
@@ -76,11 +74,11 @@ const formatMinutes = (minutes: number) => {
 };
 
 // 分を時間へ変換し、小数第1位まで表示する
-const formatHours = (minutes: number) => {
+const formatCompactHours = (minutes: number) => {
   const safeMinutes = Math.max(0, minutes);
   const roundedHours = Math.round((safeMinutes / 60) * 10) / 10;
   const displayValue = Number.isInteger(roundedHours) ? String(roundedHours) : roundedHours.toFixed(1);
-  return `${displayValue} h`;
+  return `${displayValue}h`;
 };
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
@@ -91,7 +89,6 @@ const offlineWeeklyTasksSchema = z.array(
     title: z.string(),
     monthlyGoalLabel: z.string(),
     monthlyGoalId: z.string(),
-    estimatedMinutes: z.number(),
     loggedMinutes: z.number(),
     order: z.number(),
   }),
@@ -110,7 +107,6 @@ export default function WeeklyTasksScreen() {
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [tasks, setTasks] = useState<WeeklyTask[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
-  const [listMode, setListMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasOfflineCache, setHasOfflineCache] = useState(false);
@@ -123,7 +119,6 @@ export default function WeeklyTasksScreen() {
     defaultMinutes: 0,
   });
 
-  const manualTargetMinutes = Math.max(0, manualLog.task?.estimatedMinutes ?? 0);
   const manualHoursNumber = useMemo(() => Number(manualLog.hours || "0"), [manualLog.hours]);
   const manualMinutesNumber = useMemo(() => Math.min(59, Number(manualLog.minutes || "0")), [manualLog.minutes]);
   const manualAddedMinutes = useMemo(
@@ -151,13 +146,11 @@ export default function WeeklyTasksScreen() {
   const weeklyTaskSchema = z.object({
     title: z.string().trim().min(1),
     monthlyGoalId: z.string().trim().min(1),
-    estimatedHours: z.coerce.number().positive(),
   });
 
   const [draft, setDraft] = useState({
     title: "",
     monthlyGoalId: monthlyGoalOptions[0]?.id ?? "",
-    estimatedHours: "10",
     month: new Date().getMonth() + 1,
   });
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
@@ -245,7 +238,6 @@ export default function WeeklyTasksScreen() {
         monthlyGoalId: task.monthlyGoalId,
         title: task.title,
         monthlyGoal: task.monthlyGoalLabel,
-        estimated: String(task.estimatedMinutes),
         logged: String(task.loggedMinutes),
       },
     });
@@ -265,7 +257,6 @@ export default function WeeklyTasksScreen() {
       title: row.description,
       monthlyGoalId: row.monthly_goal_id ?? "",
       monthlyGoalLabel: goalLookup[row.monthly_goal_id ?? ""]?.label ?? t("task.monthlyLink"),
-      estimatedMinutes: row.estimated_time_week ?? 0,
       loggedMinutes: row.accumulated_time_week ?? 0,
       order: row.order ?? 0,
     }),
@@ -279,7 +270,6 @@ export default function WeeklyTasksScreen() {
       user_id: uid,
       description: task.title,
       monthly_goal_id: task.monthlyGoalId,
-      estimated_time_week: task.estimatedMinutes,
       accumulated_time_week: task.loggedMinutes,
       order: task.order,
     }),
@@ -334,7 +324,7 @@ export default function WeeklyTasksScreen() {
         .order("month", { ascending: true }),
       supabase
         .from("weekly_tasks" as any)
-        .select("id, description, monthly_goal_id, estimated_time_week, accumulated_time_week, order")
+        .select("id, description, monthly_goal_id, accumulated_time_week, order")
         .eq("user_id", uid)
         .order("order", { ascending: true }),
     ]);
@@ -438,7 +428,6 @@ export default function WeeklyTasksScreen() {
     setDraft({
       title: "",
       monthlyGoalId: monthGoalsForSelected[0]?.id ?? "",
-      estimatedHours: "10",
       month: selectedMonth,
     });
     setModalError(null);
@@ -483,7 +472,6 @@ export default function WeeklyTasksScreen() {
     setDraft({
       title: task.title,
       monthlyGoalId: task.monthlyGoalId,
-      estimatedHours: String(Math.max(1, task.estimatedMinutes) / 60),
       month: goalMonth ?? selectedMonth,
     });
     if (goalMonth) {
@@ -592,12 +580,9 @@ export default function WeeklyTasksScreen() {
 
     const parse = weeklyTaskSchema.safeParse(draft);
     if (!parse.success) {
-      const hasEstimated = parse.error.issues.some((issue) => issue.path.includes("estimatedHours"));
-      setModalError(hasEstimated ? t("modal.errorEstimated") : t("modal.errorRequired"));
+      setModalError(t("modal.errorRequired"));
       return;
     }
-    const estimatedMinutes = Math.round(parse.data.estimatedHours * 60);
-
 
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
@@ -613,7 +598,6 @@ export default function WeeklyTasksScreen() {
         .update({
           description: parse.data.title,
           monthly_goal_id: parse.data.monthlyGoalId,
-          estimated_time_week: estimatedMinutes,
           accumulated_time_week: existing?.loggedMinutes ?? 0,
         })
         .eq("id", editingId);
@@ -630,12 +614,11 @@ export default function WeeklyTasksScreen() {
         .insert({
           description: parse.data.title,
           monthly_goal_id: parse.data.monthlyGoalId,
-          estimated_time_week: estimatedMinutes,
           accumulated_time_week: 0,
           user_id: uid,
           order: 0,
         })
-        .select("id, description, monthly_goal_id, estimated_time_week, accumulated_time_week, order")
+        .select("id, description, monthly_goal_id, accumulated_time_week, order")
         .single();
       if (error || !inserted) {
         Alert.alert("追加に失敗しました", error?.message ?? "Failed to add");
@@ -675,7 +658,7 @@ export default function WeeklyTasksScreen() {
     }, {});
     const { data: weeklyData, error: weeklyError } = await supabase
       .from("weekly_tasks" as any)
-      .select("id, description, monthly_goal_id, estimated_time_week, accumulated_time_week, order")
+      .select("id, description, monthly_goal_id, accumulated_time_week, order")
       .eq("user_id", uid)
       .order("order", { ascending: true });
     if (!weeklyError && weeklyData) {
@@ -707,72 +690,6 @@ export default function WeeklyTasksScreen() {
 
   // 指定のPressable要素の長押しドラッグを可能にするロジック
   const renderTaskCard = ({ item, drag, isActive }: RenderItemParams<WeeklyTask>) => {
-    if (listMode) {
-      return (
-        <View
-          style={[
-            styles.listRow,
-            shadows.card,
-            deleteMode && styles.listRowDelete,
-            isActive && styles.taskCardDragging,
-            deleteMode && styles.taskCardDeleteMode,
-          ]}
-        >
-          <LinearGradient
-            colors={LIST_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <View pointerEvents="none" style={styles.cardBorderOverlay} />
-          <View style={styles.listRowContent}>
-            <Text style={styles.listRowTitle} numberOfLines={1} ellipsizeMode="tail">
-              {item.title}
-            </Text>
-            {!deleteMode && <Pressable
-              testID={`weekly-task-list-timer-${item.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={t("task.openTimer")}
-              disabled={deleteMode}
-              onPress={() => handleOpenTimer(item)}
-              style={styles.listRowButton}
-            >
-              <MaterialCommunityIcons name="timer-outline" size={18} color={colors.textPrimary} />
-
-            </Pressable>}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
-              style={[styles.listDragHandleButton, isActive && styles.dragHandleButtonActive]}
-              onLongPress={drag}
-              delayLongPress={200}
-              hitSlop={14}
-            >
-              <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
-            </Pressable>
-            {deleteMode && (
-              <Pressable
-                testID={`weekly-task-list-edit-${item.id}`}
-                accessibilityRole="button"
-                style={[styles.listRowButton, styles.dangerButton]}
-                onPress={() => {
-                  handleDeleteTask(item);
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="trash-can-outline"
-                  size={16}
-                  color={colors.error}
-                />
-              </Pressable>
-            )}
-          </View>
-        </View>
-      );
-    }
-
-    const progress = item.estimatedMinutes > 0 ? Math.min(1, item.loggedMinutes / item.estimatedMinutes) : 0;
-    const remaining = Math.max(0, item.estimatedMinutes - item.loggedMinutes);
     return (
       <View
         style={[
@@ -789,95 +706,90 @@ export default function WeeklyTasksScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View pointerEvents="none" style={styles.cardBorderOverlay} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
-          style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
-          onLongPress={drag}
-          delayLongPress={200}
-          hitSlop={14}
-        >
-          <MaterialCommunityIcons name="swap-vertical-bold" size={22} color={colors.textSecondary} />
-        </Pressable>
         <View style={styles.taskHeader}>
-          <Text style={styles.taskTitle}>{item.title}</Text>
+          <Text style={styles.taskTitle} numberOfLines={1} ellipsizeMode="tail">
+            {item.title}
+          </Text>
         </View>
 
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressTrack} />
-          <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-        </View>
-
-        <View style={styles.taskFooterRow}>
-          <View style={styles.goalStat}>
-            <Text style={styles.statLabel}>{t("summary.target")}</Text>
-            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatHours(item.estimatedMinutes)}
-            </Text>
-          </View>
-          <View style={styles.goalStat}>
-            <Text style={styles.statLabel}>{t("summary.logged")}</Text>
-            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatHours(item.loggedMinutes)}
-            </Text>
-          </View>
-          <View style={styles.goalStat}>
-            <Text style={styles.statLabel}>{t("summary.remaining")}</Text>
-            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatHours(remaining)}
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={deleteMode ? t("actions.delete") : t("modal.editTitle")}
-            style={[styles.editButton, deleteMode && styles.dangerButton]}
-            onPress={() => {
-              if (deleteMode) {
-                handleDeleteTask(item);
-              } else {
-                handleOpenEdit(item);
-              }
-            }}
-            disabled={offlineBlocked}
+        <View style={styles.taskControlRow}>
+          <Text
+            testID={`weekly-task-total-${item.id}`}
+            style={styles.totalInlineText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
-            <MaterialCommunityIcons
-              name={deleteMode ? "trash-can-outline" : "pencil-outline"}
-              size={18}
-              color={deleteMode ? colors.error : colors.textPrimary}
-            />
-          </Pressable>
-        </View>
-
-        {true && (
-          <View style={[styles.actionsColumn, styles.taskActionsRow]}>
+            {formatCompactHours(item.loggedMinutes)}
+          </Text>
+          <View style={styles.taskActionGroup}>
             <Pressable
+              testID={`weekly-task-timer-${item.id}`}
               accessibilityRole="button"
+              accessibilityLabel={t("task.openTimer")}
               disabled={deleteMode || offlineBlocked}
               onPress={() => handleOpenTimer(item)}
               style={({ pressed }) => [
-                styles.primaryButtonFull,
-                pressed && styles.primaryPressed,
-                deleteMode && styles.buttonDisabled,
+                styles.goalActionIconButton,
+                styles.timerActionButton,
+                pressed && styles.secondaryPressed,
+                (deleteMode || offlineBlocked) && styles.buttonDisabled,
               ]}
             >
-              <MaterialCommunityIcons name="timer-outline" size={18} color={colors.textPrimary} />
-              <Text style={styles.primaryButtonText}>{t("task.openTimer")}</Text>
+              <MaterialCommunityIcons name="timer-outline" size={20} color={colors.textPrimary} />
             </Pressable>
             <Pressable
+              testID={`weekly-task-manual-${item.id}`}
               accessibilityRole="button"
+              accessibilityLabel={t("task.manualLog")}
               disabled={deleteMode || offlineBlocked}
-              style={({ pressed }) => [
-                styles.secondaryButtonFull,
-                pressed && styles.secondaryPressed,
-                deleteMode && styles.buttonDisabled,
-              ]}
               onPress={() => handleOpenManualLog(item)}
+              style={({ pressed }) => [
+                styles.goalActionIconButton,
+                styles.dragHandleButton,
+                pressed && styles.secondaryPressed,
+                (deleteMode || offlineBlocked) && styles.buttonDisabled,
+              ]}
             >
-              <MaterialCommunityIcons name="playlist-edit" size={18} color={colors.textPrimary} />
-              <Text style={styles.secondaryButtonText}>{t("task.manualLog")}</Text>
+              <MaterialCommunityIcons name="playlist-edit" size={20} color={colors.textPrimary} />
+            </Pressable>
+            <Pressable
+              testID={`weekly-task-edit-${item.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={deleteMode ? t("actions.delete") : t("modal.editTitle")}
+              style={({ pressed }) => [
+                styles.goalActionIconButton,
+                deleteMode ? styles.dangerButton : styles.dragHandleButton,
+                pressed && styles.secondaryPressed,
+                offlineBlocked && styles.buttonDisabled,
+              ]}
+              onPress={() => {
+                if (deleteMode) {
+                  handleDeleteTask(item);
+                } else {
+                  handleOpenEdit(item);
+                }
+              }}
+              disabled={offlineBlocked}
+            >
+              <MaterialCommunityIcons
+                name={deleteMode ? "trash-can-outline" : "pencil-outline"}
+                size={20}
+                color={deleteMode ? colors.error : colors.textPrimary}
+              />
+            </Pressable>
+            <Pressable
+              testID={`weekly-task-reorder-${item.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+              style={[styles.goalActionIconButton, styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+              onLongPress={drag}
+              delayLongPress={200}
+              hitSlop={14}
+            >
+              <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
             </Pressable>
           </View>
-        )}
+        </View>
       </View>
     );
   };
@@ -972,28 +884,6 @@ export default function WeeklyTasksScreen() {
                       </Text>
                     </Pressable>
                   )}
-                </View>
-                <View style={styles.actionsRowSecondary}>
-                  <Pressable
-                    accessibilityRole="button"
-                    style={({ pressed }) => [
-                      styles.secondaryButton,
-                      pressed && styles.secondaryPressed,
-                      listMode && styles.secondaryButtonActive,
-                    ]}
-                    onPress={() => setListMode((prev) => !prev)}
-                  >
-                    <MaterialCommunityIcons
-                      name={listMode ? "playlist-check" : "format-list-bulleted"}
-                      size={20}
-                      color={colors.textPrimary}
-                    />
-                    <Text style={styles.secondaryButtonText}>
-                      {listMode
-                        ? t("actions.listifyExit", { defaultValue: "Back" })
-                        : t("actions.listify", { defaultValue: "List view" })}
-                    </Text>
-                  </Pressable>
                 </View>
               </View>
             </View>
@@ -1176,22 +1066,6 @@ export default function WeeklyTasksScreen() {
                   )}
                 </View>
 
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>{t("modal.targetLabel")}</Text>
-                  <TextInput
-                    placeholder={t("modal.targetPlaceholder")}
-                    placeholderTextColor={colors.textSecondary}
-                    style={styles.modalInput}
-                    value={draft.estimatedHours}
-                    keyboardType="numeric"
-                    onChangeText={(text) => {
-                      setDraft((prev) => ({ ...prev, estimatedHours: text }));
-                      setModalError(null);
-                    }}
-                  />
-                  <Text style={styles.helperText}>{t("modal.targetHelper")}</Text>
-                </View>
-
                 {modalError ? <Text style={styles.errorText}>{modalError}</Text> : null}
 
                 <View style={styles.modalFooterRow}>
@@ -1283,12 +1157,6 @@ export default function WeeklyTasksScreen() {
 
                 <View style={styles.manualHelperRow}>
                   <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
-                  <Text style={styles.helperText}>
-                    {t("manualModal.finalPreview", {
-                      total: formatMinutes(manualFinalMinutes),
-                      target: formatMinutes(manualTargetMinutes),
-                    })}
-                  </Text>
                 </View>
 
                 <View style={styles.modalActions}>
@@ -1355,11 +1223,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  actionsRowSecondary: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.sm / 2,
-  },
   primaryButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1419,24 +1282,6 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: typography.sm,
   },
-  progressBarContainer: {
-    height: 10,
-    borderRadius: radius.full,
-    overflow: "hidden",
-    position: "relative",
-    width: "100%",
-    backgroundColor: "rgba(255,255,255,0.04)",
-  },
-  progressTrack: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: radius.full,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: colors.accentPrimary,
-    borderRadius: radius.full,
-  },
   emptyBox: {
     padding: spacing.xl,
     borderRadius: radius.lg,
@@ -1448,63 +1293,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: spacing.xl * 2,
-  },
-  listRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.25)",
-    backgroundColor: "#1c3358",
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
-    overflow: "hidden",
-  },
-  listRowDelete: {
-    borderColor: "rgba(242,95,92,0.5)",
-    backgroundColor: "rgba(242,95,92,0.08)",
-  },
-  listRowContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  listDragHandleButton: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "rgba(255,255,255,0.03)",
-  },
-  listRowTitle: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
-    paddingRight: spacing.xs,
-  },
-  listRowButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 0,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "rgba(255,255,255,0.03)",
-  },
-  listRowButtonText: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-    fontSize: typography.sm,
   },
   cardBorderOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1529,7 +1317,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: "#1c3358",
-    gap: spacing.sm,
+    gap: spacing.md,
     overflow: "hidden",
     marginBottom: spacing.sm,
   },
@@ -1542,121 +1330,62 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(242,95,92,0.08)",
   },
   taskHeader: {
-    gap: spacing.xs,
+    minHeight: 32,
+    justifyContent: "center",
   },
   taskTitle: {
     color: colors.textPrimary,
-    fontSize: typography.lg,
+    fontSize: typography.md + 1,
     fontWeight: "800",
-    lineHeight: typography.lg * 1.5,
-    paddingRight: spacing.xl * 2,
-    minHeight: 40,
-  },
-  taskFooterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    marginTop: spacing.xs,
-  },
-  goalStat: {
-    flex: 1,
-    gap: spacing.xs / 2,
-  },
-  statLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.sm,
-  },
-  statValue: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
+    lineHeight: (typography.md + 1) * 1.45,
   },
   categoryDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
   },
-  editButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    alignSelf: "flex-end",
-    marginLeft: "auto",
-  },
-  dragHandleButton: {
-    position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    zIndex: 1,
-  },
   dragHandleButtonActive: {
     borderColor: colors.accentPrimary,
     backgroundColor: "rgba(30,94,255,0.16)",
   },
-  editButtonText: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-  },
   dangerButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
     backgroundColor: "rgba(242,95,92,0.14)",
     borderColor: colors.error,
-    borderWidth: 1,
   },
-  dangerButtonText: {
-    color: colors.error,
-    fontWeight: "700",
-  },
-  taskActionsRow: {
-    marginTop: spacing.sm,
-  },
-  actionsColumn: {
+  taskControlRow: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.sm,
-    flexWrap: "wrap",
   },
-  primaryButtonFull: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.accentPrimary,
-    backgroundColor: "rgba(30,94,255,0.2)",
+  totalInlineText: {
     flex: 1,
-    minWidth: "48%",
-    justifyContent: "center",
+    minWidth: 0,
+    color: colors.accentSubtle,
+    fontSize: typography.md,
+    fontWeight: "800",
   },
-  secondaryButtonFull: {
+  taskActionGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+  },
+  goalActionIconButton: {
+    width: 40,
+    height: 40,
     borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
+  },
+  dragHandleButton: {
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderColor: colors.divider,
-    backgroundColor: "rgba(255,255,255,0.03)",
-    flex: 1,
-    minWidth: "48%",
-    justifyContent: "center",
+  },
+  timerActionButton: {
+    backgroundColor: "rgba(30,94,255,0.2)",
+    borderColor: colors.accentPrimary,
   },
   modalOverlay: {
     flex: 1,

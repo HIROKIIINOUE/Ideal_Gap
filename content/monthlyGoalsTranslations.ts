@@ -167,7 +167,7 @@ export const monthlyGoalsTranslations: Record<
     summary: {
       targetLabel: "Target",
       loggedLabel: "Logged",
-      remainingLabel: "Remaining",
+      remainingLabel: "Left",
     },
     empty: {
       title: "No monthly goals for this month yet.",

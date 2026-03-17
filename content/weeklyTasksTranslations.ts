@@ -9,8 +9,6 @@ export type WeeklyTasksTranslations = {
     add: string;
     delete: string;
     deleteExit: string;
-    listify: string;
-    listifyExit: string;
   };
   deleteConfirm: {
     title: string;
@@ -60,13 +58,9 @@ export type WeeklyTasksTranslations = {
     monthLabel: string;
     monthlyGoalLabel: string;
     noMonthlyGoal: string;
-    targetLabel: string;
-    targetPlaceholder: string;
-    targetHelper: string;
     cancel: string;
     save: string;
     errorRequired: string;
-    errorEstimated: string;
   };
   manualModal: {
     title: string;
@@ -76,7 +70,6 @@ export type WeeklyTasksTranslations = {
     hoursLabel: string;
     minutesLabel: string;
     rangeHelper: string;
-    finalPreview: string;
     confirmTitle: string;
     confirmMessage: string;
     confirm: string;
@@ -102,8 +95,6 @@ export const weeklyTasksTranslations: Record<
       add: "追加",
       delete: "削除",
       deleteExit: "戻る",
-      listify: "リスト化",
-      listifyExit: "通常表示",
     },
     deleteConfirm: {
       title: "削除してもよろしいですか？",
@@ -153,13 +144,9 @@ export const weeklyTasksTranslations: Record<
       monthLabel: "月間目標リストを表示する月",
       monthlyGoalLabel: "紐づける月間目標",
       noMonthlyGoal: "{{monthLabel}}にまだ月間目標がありません",
-      targetLabel: "目標時間（時間）",
-      targetPlaceholder: "例 10",
-      targetHelper: "時間単位で入力してください",
       cancel: "キャンセル",
       save: "保存",
       errorRequired: "すべての項目を入力してください",
-      errorEstimated: "目標時間は0より大きい数値で入力してください",
     },
     manualModal: {
       title: "手動で記録",
@@ -170,7 +157,6 @@ export const weeklyTasksTranslations: Record<
       minutesLabel: "分",
       rangeHelper:
         "入力した時間を現在の実績に積み上げます。関連する月間目標、年間目標にも反映されます。",
-      finalPreview: "追加後の累計: {{total}}（目標 {{target}}）",
       confirmTitle: "この実績で更新しますか？",
       confirmMessage: "{{added}} を加算して合計を {{total}} に更新します。",
       confirm: "加算する",
@@ -191,8 +177,6 @@ export const weeklyTasksTranslations: Record<
       add: "Add",
       delete: "Delete",
       deleteExit: "Exit",
-      listify: "List view",
-      listifyExit: "Back",
     },
     deleteConfirm: {
       title: "Delete this weekly task?",
@@ -242,13 +226,9 @@ export const weeklyTasksTranslations: Record<
       monthLabel: "Month to show monthly goals",
       monthlyGoalLabel: "Link monthly goal",
       noMonthlyGoal: "No monthly goals for {{monthLabel}} yet",
-      targetLabel: "Target time (hours)",
-      targetPlaceholder: "e.g. 10",
-      targetHelper: "Enter hours",
       cancel: "Cancel",
       save: "Save",
       errorRequired: "Please fill all fields",
-      errorEstimated: "Target time must be greater than 0.",
     },
     manualModal: {
       title: "Manual record",
@@ -259,7 +239,6 @@ export const weeklyTasksTranslations: Record<
       minutesLabel: "Minutes",
       rangeHelper:
         "The time you enter will be added to the current total. It will be also applied on relating monthly and yearly goals",
-      finalPreview: "New total: {{total}} (target {{target}})",
       confirmTitle: "Update this log?",
       confirmMessage: "Add {{added}} and update the total to {{total}}.",
       confirm: "Add time",
@@ -280,8 +259,6 @@ export const weeklyTasksTranslations: Record<
       add: "Ajouter",
       delete: "Supprimer",
       deleteExit: "Quitter",
-      listify: "Voir la liste",
-      listifyExit: "Retour",
     },
     deleteConfirm: {
       title: "Supprimer cette tâche hebdomadaire ?",
@@ -331,13 +308,9 @@ export const weeklyTasksTranslations: Record<
       monthLabel: "Mois où afficher les objectifs mensuels",
       monthlyGoalLabel: "Associer un objectif mensuel",
       noMonthlyGoal: "Pas d'objectif mensuel pour {{monthLabel}}",
-      targetLabel: "Temps cible (heures)",
-      targetPlaceholder: "ex. 10",
-      targetHelper: "Saisir en heures pour simplifier les calculs.",
       cancel: "Annuler",
       save: "Enregistrer",
       errorRequired: "Veuillez remplir tous les champs",
-      errorEstimated: "Le temps cible doit être supérieur à 0.",
     },
     manualModal: {
       title: "Saisie manuelle",
@@ -348,7 +321,6 @@ export const weeklyTasksTranslations: Record<
       minutesLabel: "Minutes",
       rangeHelper:
         "Le temps que vous saisissez sera additionné au total actuel. Ce sera également appliqué aux objectifs mensuels et annuels correspondants.",
-      finalPreview: "Nouveau total : {{total}} (objectif {{target}})",
       confirmTitle: "Voulez-vous mettre à jour la progression ?",
       confirmMessage:
         "Ajouter {{added}} à votre progression et passer à {{total}}.",

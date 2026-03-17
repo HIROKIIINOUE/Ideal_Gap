@@ -132,7 +132,7 @@ describe("WeeklyTasksScreen", () => {
     expect(deleteButtonLabel).toHaveStyle({ fontSize: 14 });
   });
 
-  test("renders weekly tasks without header summary UI", async () => {
+  test("renders weekly tasks with a simplified two-row card", async () => {
     mockOrderMonthly.mockResolvedValue({
       data: [
         { id: "m1", description: "April UX", month: 4, yearly_goal_id: "y1", yearly_goals: { year_goal_color: "#1E5EFF" } },
@@ -145,7 +145,6 @@ describe("WeeklyTasksScreen", () => {
           id: "w1",
           description: "Ship UX fixes",
           monthly_goal_id: "m1",
-          estimated_time_week: 600,
           accumulated_time_week: 180,
           order: 0,
         },
@@ -153,7 +152,6 @@ describe("WeeklyTasksScreen", () => {
           id: "w2",
           description: "Write docs",
           monthly_goal_id: "m1",
-          estimated_time_week: 300,
           accumulated_time_week: 60,
           order: 1,
         },
@@ -161,18 +159,21 @@ describe("WeeklyTasksScreen", () => {
       error: null,
     });
 
-    const { findByText, queryByText } = renderScreen();
+    const { getByTestId, queryByText } = renderScreen();
 
     await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
 
-    expect(await findByText("Ship UX fixes")).toBeTruthy();
-    expect(await findByText("Write docs")).toBeTruthy();
+    expect(getByTestId("weekly-task-total-w1")).toHaveTextContent("3h");
+    expect(getByTestId("weekly-task-total-w2")).toHaveTextContent("1h");
 
     expect(queryByText("Weekly progress")).toBeFalsy();
-    expect(await findByText("3 h")).toBeTruthy();
+    expect(getByTestId("weekly-task-timer-w1")).toBeTruthy();
+    expect(getByTestId("weekly-task-manual-w1")).toBeTruthy();
+    expect(getByTestId("weekly-task-edit-w1")).toBeTruthy();
+    expect(getByTestId("weekly-task-reorder-w1")).toBeTruthy();
   });
 
-  test("formats progress stats as decimal hours", async () => {
+  test("uses the same accent border styling for the task timer button as the header add button", async () => {
     mockOrderMonthly.mockResolvedValue({
       data: [
         { id: "m1", description: "April UX", month: 4, yearly_goal_id: "y1", yearly_goals: { year_goal_color: "#1E5EFF" } },
@@ -185,35 +186,6 @@ describe("WeeklyTasksScreen", () => {
           id: "w1",
           description: "Ship UX fixes",
           monthly_goal_id: "m1",
-          estimated_time_week: 95,
-          accumulated_time_week: 65,
-          order: 0,
-        },
-      ],
-      error: null,
-    });
-
-    const { findByText } = renderScreen();
-
-    expect(await findByText("1.6 h")).toBeTruthy();
-    expect(await findByText("1.1 h")).toBeTruthy();
-    expect(await findByText("0.5 h")).toBeTruthy();
-  });
-
-  test("hides edit action in list mode and keeps timer with reorder", async () => {
-    mockOrderMonthly.mockResolvedValue({
-      data: [
-        { id: "m1", description: "April UX", month: 4, yearly_goal_id: "y1", yearly_goals: { year_goal_color: "#1E5EFF" } },
-      ],
-      error: null,
-    });
-    mockOrderWeekly.mockResolvedValue({
-      data: [
-        {
-          id: "w1",
-          description: "Ship UX fixes",
-          monthly_goal_id: "m1",
-          estimated_time_week: 600,
           accumulated_time_week: 180,
           order: 0,
         },
@@ -221,15 +193,70 @@ describe("WeeklyTasksScreen", () => {
       error: null,
     });
 
-    const { findByRole, getByRole, getByTestId, queryByTestId } = renderScreen();
+    const { getByTestId } = renderScreen();
 
     await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
 
-    fireEvent.press(getByRole("button", { name: "List view" }));
+    expect(getByTestId("weekly-task-timer-w1")).toHaveStyle({
+      borderColor: "#1E5EFF",
+      backgroundColor: "rgba(30,94,255,0.2)",
+    });
+  });
 
-    expect(await findByRole("button", { name: "Drag to reorder" })).toBeTruthy();
-    expect(getByTestId("weekly-task-list-timer-w1")).toBeTruthy();
-    expect(queryByTestId("weekly-task-list-edit-w1")).toBeFalsy();
+  test("shows only logged total hours on the simplified card", async () => {
+    mockOrderMonthly.mockResolvedValue({
+      data: [
+        { id: "m1", description: "April UX", month: 4, yearly_goal_id: "y1", yearly_goals: { year_goal_color: "#1E5EFF" } },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          monthly_goal_id: "m1",
+          accumulated_time_week: 65,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId, queryByText } = renderScreen();
+
+    expect(await findByTestId("weekly-task-total-w1")).toHaveTextContent("1.1h");
+    expect(queryByText("1.6 h")).toBeFalsy();
+    expect(queryByText("0.5 h")).toBeFalsy();
+  });
+
+  test("does not render the removed list view button", async () => {
+    mockOrderMonthly.mockResolvedValue({
+      data: [
+        { id: "m1", description: "April UX", month: 4, yearly_goal_id: "y1", yearly_goals: { year_goal_color: "#1E5EFF" } },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          monthly_goal_id: "m1",
+          accumulated_time_week: 180,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { queryByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+
+    expect(queryByRole("button", { name: "List view" })).toBeNull();
+    expect(getByTestId("weekly-task-timer-w1")).toBeTruthy();
+    expect(getByTestId("weekly-task-reorder-w1")).toBeTruthy();
   });
 
   test("localizes month labels in the add modal", async () => {
@@ -285,7 +312,6 @@ describe("WeeklyTasksScreen", () => {
           id: "w1",
           description: "Ship UX fixes",
           monthly_goal_id: "m1",
-          estimated_time_week: 600,
           accumulated_time_week: 180,
           order: 0,
         },
@@ -327,7 +353,6 @@ describe("WeeklyTasksScreen", () => {
           id: "w1",
           description: "Ship UX fixes",
           monthly_goal_id: "m1",
-          estimated_time_week: 600,
           accumulated_time_week: 180,
           order: 0,
         },
@@ -387,7 +412,6 @@ describe("WeeklyTasksScreen", () => {
           id: "w1",
           description: "Ship UX fixes",
           monthly_goal_id: "m1",
-          estimated_time_week: 600,
           accumulated_time_week: 180,
           order: 0,
         },
