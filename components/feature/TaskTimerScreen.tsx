@@ -408,7 +408,7 @@ export default function TaskTimerScreen() {
   // 状態がidle,finishedの時のみ残り時間とユーザの設定作業時間を一致させる
   // paused時は残り時間とユーザ設定時間が異なるのでここの処理は走らせない
   useEffect(() => {
-    if (status === "idle" || status === "finished") {
+    if (status === "idle") {
       setRemainingSeconds(inputSeconds);
     }
   }, [inputSeconds, status]);
@@ -479,10 +479,14 @@ export default function TaskTimerScreen() {
     stopForegroundAlarmOutput();
     lastTriggeredForegroundAlarmEndAtRef.current = null;
     completionFiredRef.current = false;
-    setRemainingSeconds(inputSeconds);
+    const countdownSeconds =
+      statusRef.current === "finished" && remainingSeconds > 0
+        ? remainingSeconds
+        : inputSeconds;
+    setRemainingSeconds(countdownSeconds);
     setStatus("running");
-    setExpectedEndAt(Date.now() + inputSeconds * 1000);
-  }, [inputSeconds, stopForegroundAlarmOutput]);
+    setExpectedEndAt(Date.now() + countdownSeconds * 1000);
+  }, [inputSeconds, remainingSeconds, stopForegroundAlarmOutput]);
 
   //　通知OFFの場合はシンプルにstartTimerCountdown()のみを発火する
   const handleContinueWithoutNotification = useCallback(() => {
@@ -584,6 +588,12 @@ export default function TaskTimerScreen() {
       const nextInput = Math.max(nextRemaining, inputSeconds + delta);
       setInputSeconds(nextInput);
       setRemainingSeconds(nextRemaining);
+      return;
+    }
+    // タイマー完了時の作業時間追加ロジック
+    if (status === "finished") {
+      setInputSeconds((prev) => Math.max(0, prev + delta));
+      setRemainingSeconds((prev) => Math.max(0, prev + delta));
       return;
     }
     // カウント開始前の時

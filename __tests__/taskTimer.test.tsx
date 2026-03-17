@@ -353,6 +353,40 @@ describe("TaskTimerScreen", () => {
     }
   });
 
+  test("adds preset time after countdown completion without resetting finished progress", async () => {
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    act(() => {
+      jest.advanceTimersByTime(300_000);
+    });
+
+    await waitFor(() => expect(getByText("Review before saving")).toBeTruthy());
+    fireEvent.press(getByText("Cancel"));
+
+    expect(getByTestId("timer-duration")).toHaveTextContent("0:00 / 5:00");
+
+    fireEvent.press(getByText("+5m"));
+
+    expect(getByTestId("timer-duration")).toHaveTextContent("5:00 / 10:00");
+
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+
+    await waitFor(() =>
+      expect(getByTestId("timer-duration")).toHaveTextContent("4:00 / 10:00"),
+    );
+  });
+
   test("schedules timer notification with default sound", async () => {
     const { getByText, getByTestId } = renderScreen();
 
