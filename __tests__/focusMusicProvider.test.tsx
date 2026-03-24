@@ -80,9 +80,7 @@ const createMockPlayer = () => ({
   remove: jest.fn(),
 });
 
-const mockPlayerA = createMockPlayer();
-const mockPlayerB = createMockPlayer();
-let mockPlayerIndex = 0;
+const mockPlayer = createMockPlayer();
 
 jest.mock("../lib/focus-music/catalog", () => ({
   fetchFocusMusicCatalog: () => mockFetchCatalog(),
@@ -122,11 +120,7 @@ jest.mock("expo-file-system/legacy", () => ({
 }));
 
 jest.mock("expo-audio", () => ({
-  useAudioPlayer: () => {
-    const player = mockPlayerIndex % 2 === 0 ? mockPlayerA : mockPlayerB;
-    mockPlayerIndex += 1;
-    return player;
-  },
+  useAudioPlayer: () => mockPlayer,
   useAudioPlayerStatus: () => ({
     playing: true,
     currentTime: 0,
@@ -145,31 +139,18 @@ describe("FocusMusicProvider", () => {
       uri: "file://test/focus-music/track-1.mp3",
     });
     latestDownloadProgressCallback = null;
-    mockPlayerIndex = 0;
-    mockPlayerA.loop = false;
-    mockPlayerA.playing = false;
-    mockPlayerA.paused = false;
-    mockPlayerA.isLoaded = true;
-    mockPlayerA.isBuffering = false;
-    mockPlayerA.currentTime = 0;
-    mockPlayerA.duration = 10;
-    mockPlayerA.volume = 1;
-    mockPlayerA.play.mockClear();
-    mockPlayerA.pause.mockClear();
-    mockPlayerA.replace.mockClear();
-    mockPlayerA.seekTo.mockClear();
-    mockPlayerB.loop = false;
-    mockPlayerB.playing = false;
-    mockPlayerB.paused = false;
-    mockPlayerB.isLoaded = true;
-    mockPlayerB.isBuffering = false;
-    mockPlayerB.currentTime = 0;
-    mockPlayerB.duration = 10;
-    mockPlayerB.volume = 1;
-    mockPlayerB.play.mockClear();
-    mockPlayerB.pause.mockClear();
-    mockPlayerB.replace.mockClear();
-    mockPlayerB.seekTo.mockClear();
+    mockPlayer.loop = false;
+    mockPlayer.playing = false;
+    mockPlayer.paused = false;
+    mockPlayer.isLoaded = true;
+    mockPlayer.isBuffering = false;
+    mockPlayer.currentTime = 0;
+    mockPlayer.duration = 10;
+    mockPlayer.volume = 1;
+    mockPlayer.play.mockClear();
+    mockPlayer.pause.mockClear();
+    mockPlayer.replace.mockClear();
+    mockPlayer.seekTo.mockClear();
   });
 
   test("installs a track on wifi and persists metadata", async () => {
@@ -265,7 +246,7 @@ describe("FocusMusicProvider", () => {
     }
   });
 
-  test("playSelected primes dual players for crossfade looping", async () => {
+  test("playSelected uses a single looping player", async () => {
     const installed = [
       {
         trackId: "track-1",
@@ -289,15 +270,12 @@ describe("FocusMusicProvider", () => {
       await result.current.playSelected();
     });
 
-    expect(mockPlayerA.replace).toHaveBeenCalledWith(
+    expect(mockPlayer.replace).toHaveBeenCalledWith(
       "file://test/focus-music/track-1.mp3",
     );
-    expect(mockPlayerA.play).toHaveBeenCalled();
-    expect(mockPlayerB.replace).toHaveBeenCalledWith(
-      "file://test/focus-music/track-1.mp3",
-    );
-    expect(mockPlayerA.volume).toBe(1);
-    expect(mockPlayerB.volume).toBe(0);
+    expect(mockPlayer.play).toHaveBeenCalled();
+    expect(mockPlayer.loop).toBe(true);
+    expect(mockPlayer.volume).toBe(1);
 
     act(() => {
       result.current.pause();

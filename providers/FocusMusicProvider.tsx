@@ -72,27 +72,10 @@ type ProviderProps = {
   children: React.ReactNode;
 };
 
-
-// ここの値で音楽ループの繋ぎ目を調整
-const CROSSFADE_DURATION_MS = 600;
-const CROSSFADE_START_BEFORE_END_SEC = 0.9;
-const FADE_INTERVAL_MS = 50;
-const MONITOR_INTERVAL_MS = 50;
-
-
-// ループの繋ぎ目問題を解消するために同じ作業用音楽を同時に2つ再生
-// 二つ目の曲を一つ目の曲の終了直前に流しループをスムーズに。
-// (詳しくはNotionの生成音楽アイデアページに記載済み)
 export function FocusMusicProvider({ children }: ProviderProps) {
-  const playerA = useAudioPlayer(null, {
+  const player = useAudioPlayer(null, {
     keepAudioSessionActive: true,
     downloadFirst: true,
-    updateInterval: 100,
-  });
-  const playerB = useAudioPlayer(null, {
-    keepAudioSessionActive: true,
-    downloadFirst: true,
-    updateInterval: 100,
   });
   const [catalog, setCatalog] = useState<FocusMusicTrack[]>([]);
   // インストールした曲のローカル保存情報の配列データ。これをもとに後に生成するinstalledTracksがユーザの手持ち曲のデータ配列になる
@@ -109,26 +92,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   // 選択中の音楽(タスクタイマーで再生される)
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
 
-  // ループの繋ぎ目をスムーズにするために必要な状態変数群
-  const activeSlotRef = useRef<"A" | "B">("A");
-  const monitorTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const crossfadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isCrossfadingRef = useRef(false);
-  const currentTrackIdRef = useRef<string | null>(null);
-  const currentTrackPathRef = useRef<string | null>(null);
   const isDownloadingRef = useRef(false);
-  useEffect(() => {
-    return () => {
-      if (monitorTimerRef.current) {
-        clearInterval(monitorTimerRef.current);
-        monitorTimerRef.current = null;
-      }
-      if (crossfadeTimerRef.current) {
-        clearInterval(crossfadeTimerRef.current);
-        crossfadeTimerRef.current = null;
-      }
-    };
-  }, []);
 
 
   // download quota (今月の曲のDL数と制限リセット日)を取得し、状態関数を更新
@@ -460,121 +424,27 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   const playSelected = useCallback(async () => {
     if (!selectedInstalledTrack) return false;
     try {
-      if (monitorTimerRef.current) {
-        clearInterval(monitorTimerRef.current);
-        monitorTimerRef.current = null;
-      }
-      if (crossfadeTimerRef.current) {
-        clearInterval(crossfadeTimerRef.current);
-        crossfadeTimerRef.current = null;
-      }
-      isCrossfadingRef.current = false;
-      activeSlotRef.current = "A";
-      currentTrackIdRef.current = selectedInstalledTrack.id;
-      currentTrackPathRef.current = selectedInstalledTrack.localPath;
-
-      playerA.pause();
-      playerB.pause();
-      await Promise.all([playerA.seekTo(0), playerB.seekTo(0)]);
-
-      playerA.loop = false;
-      playerB.loop = false;
-
-      playerA.replace(selectedInstalledTrack.localPath);
-      playerA.volume = 1;
-      playerA.play();
-
-      playerB.replace(selectedInstalledTrack.localPath);
-      playerB.volume = 0;
-      await playerB.seekTo(0);
-      playerB.pause();
-
-      if (!monitorTimerRef.current) {
-        monitorTimerRef.current = setInterval(() => {
-          if (isCrossfadingRef.current) return;
-          const activePlayer =
-            activeSlotRef.current === "A" ? playerA : playerB;
-          if (activePlayer.paused) return;
-          if (!activePlayer.isLoaded || activePlayer.isBuffering) return;
-          const duration = activePlayer.duration ?? 0;
-          if (!Number.isFinite(duration) || duration <= 0) return;
-          const currentTime = activePlayer.currentTime ?? 0;
-          const remaining = duration - currentTime;
-          if (remaining > CROSSFADE_START_BEFORE_END_SEC) return;
-
-          const nextPath = currentTrackPathRef.current;
-          if (!nextPath || !currentTrackIdRef.current) return;
-          const standbyPlayer = activeSlotRef.current === "A" ? playerB : playerA;
-
-          isCrossfadingRef.current = true;
-          standbyPlayer.loop = false;
-          standbyPlayer.volume = 0;
-          void standbyPlayer.seekTo(0);
-          standbyPlayer.play();
-
-          const steps = Math.max(
-            1,
-            Math.ceil(CROSSFADE_DURATION_MS / FADE_INTERVAL_MS),
-          );
-          let step = 0;
-          if (crossfadeTimerRef.current) {
-            clearInterval(crossfadeTimerRef.current);
-          }
-          crossfadeTimerRef.current = setInterval(() => {
-            step += 1;
-            const progress = Math.min(1, step / steps);
-            activePlayer.volume = Math.max(0, 1 - progress);
-            standbyPlayer.volume = Math.min(1, progress);
-            if (progress < 1) return;
-            if (crossfadeTimerRef.current) {
-              clearInterval(crossfadeTimerRef.current);
-              crossfadeTimerRef.current = null;
-            }
-            activePlayer.pause();
-            void activePlayer.seekTo(0);
-            activePlayer.volume = 0;
-            standbyPlayer.volume = 1;
-            activeSlotRef.current =
-              activeSlotRef.current === "A" ? "B" : "A";
-            isCrossfadingRef.current = false;
-          }, FADE_INTERVAL_MS);
-        }, MONITOR_INTERVAL_MS);
-      }
+      player.pause();
+      await player.seekTo(0);
+      player.loop = true;
+      player.volume = 1;
+      player.replace(selectedInstalledTrack.localPath);
+      player.play();
       return true;
     } catch (error) {
       captureExpoAudioError(error, "focus_music_play_selected");
       return false;
     }
-  }, [playerA, playerB, selectedInstalledTrack]);
+  }, [player, selectedInstalledTrack]);
 
   const pause = useCallback(() => {
-    if (monitorTimerRef.current) {
-      clearInterval(monitorTimerRef.current);
-      monitorTimerRef.current = null;
-    }
-    if (crossfadeTimerRef.current) {
-      clearInterval(crossfadeTimerRef.current);
-      crossfadeTimerRef.current = null;
-    }
-    isCrossfadingRef.current = false;
-    playerA.pause();
-    playerB.pause();
-  }, [playerA, playerB]);
+    player.pause();
+  }, [player]);
 
   const stop = useCallback(async () => {
-    if (monitorTimerRef.current) {
-      clearInterval(monitorTimerRef.current);
-      monitorTimerRef.current = null;
-    }
-    if (crossfadeTimerRef.current) {
-      clearInterval(crossfadeTimerRef.current);
-      crossfadeTimerRef.current = null;
-    }
-    isCrossfadingRef.current = false;
-    playerA.pause();
-    playerB.pause();
-    await Promise.all([playerA.seekTo(0), playerB.seekTo(0)]);
-  }, [playerA, playerB]);
+    player.pause();
+    await player.seekTo(0);
+  }, [player]);
 
   // useFocusMusicフックスとして返す値(グローバルに使用できる)
   const value = useMemo<FocusMusicContextValue>(
