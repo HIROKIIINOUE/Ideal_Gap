@@ -1,31 +1,11 @@
-// 年間ゴール、月間ゴールの削除処理
-// ユーザが年間ゴール削除を実行した時は紐づく月間ゴールと週間タスクが、
-// 月間ゴール削除を実行した時は日もづく週間タスクが同時に削除されるようになっている。
+// 年間目標の削除処理時、紐づく週間タスクを先に削除(cascade deletion)してから該当の年間目標削除処理を実行させる
 
-import { Database } from "../../../../types/database";
 import { supabase } from "../../../supabaseClient";
 
-type MonthlyGoalIdRow = Pick<
-  Database["public"]["Tables"]["monthly_goals"]["Row"],
-  "id"
->;
-
-const toMonthlyIds = (rows: MonthlyGoalIdRow[] | null | undefined) =>
-  (rows ?? []).map((row) => row.id).filter((id) => Boolean(id));
-
-// 月間ゴールを削除する時に紐づく週間タスクを同時に削除する処理
-// 先に子データの紐づく週間タスクを削除してから月間データを削除する
+// 今後月間目標機能を復活させる時用に念の為月間目標-週間タスクのcascade削除機能の枠のみ残す(現在はどこにも使用していない)
 export const deleteMonthlyGoalWithWeeklyTasks = async (
   monthlyGoalId: string,
 ) => {
-  const { error: weeklyError } = await supabase
-    .from("weekly_tasks")
-    .delete()
-    .eq("monthly_goal_id", monthlyGoalId);
-  if (weeklyError) {
-    throw new Error(weeklyError.message);
-  }
-
   const { error: monthlyError } = await supabase
     .from("monthly_goals")
     .delete()
@@ -37,36 +17,14 @@ export const deleteMonthlyGoalWithWeeklyTasks = async (
   return { deletedCount: 0 };
 };
 
-// 年間ゴールを削除するときに紐づく月間ゴール、週間タスクを同時に削除する処理
+// 年間ゴールを削除するときに紐づく週間タスクを先に削除してから年間ゴールを削除する処理
 export const deleteYearlyGoalWithCascade = async (yearlyGoalId: string) => {
-  const { data: monthlyRows, error: monthlySelectError } = await supabase
-    .from("monthly_goals")
-    .select("id")
-    .eq("yearly_goal_id", yearlyGoalId);
-  if (monthlySelectError) {
-    throw new Error(monthlySelectError.message);
-  }
-
-  const monthlyIds = toMonthlyIds(
-    monthlyRows as MonthlyGoalIdRow[] | null | undefined,
-  );
-
-  if (monthlyIds.length > 0) {
-    const { error: weeklyError } = await supabase
-      .from("weekly_tasks")
-      .delete()
-      .in("monthly_goal_id", monthlyIds);
-    if (weeklyError) {
-      throw new Error(weeklyError.message);
-    }
-  }
-
-  const { error: monthlyDeleteError } = await supabase
-    .from("monthly_goals")
+  const { error: weeklyError } = await supabase
+    .from("weekly_tasks")
     .delete()
     .eq("yearly_goal_id", yearlyGoalId);
-  if (monthlyDeleteError) {
-    throw new Error(monthlyDeleteError.message);
+  if (weeklyError) {
+    throw new Error(weeklyError.message);
   }
 
   const { error: yearlyDeleteError } = await supabase

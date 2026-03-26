@@ -51,10 +51,10 @@ export const landingTranslations: LandingTranslations = {
       label: "What is Ideal Gap",
       title: "理想と日常を結ぶ、6 つの柱",
       description:
-        "理想の自分を言語化し、年間/月間目標で道標を描く。週間タスクまで落とし込んだらあとは行動するだけ。カウントダウンタイマーで自分の努力の軌跡を可視化。タスクへの集中を手助けするタスク集中音楽、休憩通知。直近の楽しみな予定も表示することで「今」を楽しみながらバランスよく理想の「未来」へ進んでいく。",
+        "理想の自分を言語化し、長期目標と年間目標で道標を描く。週間タスクまで落とし込んだらあとは行動するだけ。カウントダウンタイマーで自分の努力の軌跡を可視化。タスクへの集中を手助けするタスク集中音楽、休憩通知。直近の楽しみな予定も表示することで「今」を楽しみながらバランスよく理想の「未来」へ進んでいく。",
       highlights: [
         "理想の自分リストアップ機能",
-        "年間目標/月間目標リスト・進捗管理機能",
+        "長期目標/年間目標リスト・進捗管理機能",
         "週間タスクリスト・進捗管理機能",
         "タスクタイマー・作業集中音楽機能",
         "休憩通知機能",
@@ -99,10 +99,10 @@ export const landingTranslations: LandingTranslations = {
       label: "What is Ideal Gap",
       title: "Six Pillars to Your Ideal Self",
       description:
-        "Clarify your ideal self and map your path with yearly and monthly goals. Break them into weekly tasks and just go forward. Track your effort with a countdown timer, stay focused with task music and break reminders. And also enjoy upcoming plans while moving steadily toward your ideal future.",
+        "Clarify your ideal self and map your path with long-term and yearly goals. Break them into weekly tasks and just go forward. Track your effort with a countdown timer, stay focused with task music and break reminders. And also enjoy upcoming plans while moving steadily toward your ideal future.",
       highlights: [
         "Ideal Self Vision Board",
-        "Yearly & Monthly Goal Tracking",
+        "Long-Term & Annual Goal Tracking",
         "Weekly Task Planning & Tracking",
         "Task Timer with Focus Music",
         "Smart Break Reminders",
@@ -147,10 +147,10 @@ export const landingTranslations: LandingTranslations = {
       label: "Qu’est-ce l'Ideal Gap",
       title: "Six piliers reliant l'idéal et le quotidien",
       description:
-        "Définissez votre idéal et tracez votre voie avec des objectifs annuels et mensuels. Divisez-les en tâches hebdomadaires et passez à l'action. Visualisez votre progression avec un compte à rebours, restez concentrer avec de la musique adaptées à vos envies et des rappels de temps de pause. Motivez-vous avec vos plans sympas à venir tout en avançant petit à petit vers votre avenir idéal.",
+        "Définissez votre idéal et tracez votre voie avec des objectifs long terme et annuels. Divisez-les en tâches hebdomadaires et passez à l'action. Visualisez votre progression avec un compte à rebours, restez concentrer avec de la musique adaptées à vos envies et des rappels de temps de pause. Motivez-vous avec vos plans sympas à venir tout en avançant petit à petit vers votre avenir idéal.",
       highlights: [
         "Tableau d'inspiration de votre moi idéal",
-        "Suivi des objectifs annuels et mensuels",
+        "Suivi des objectifs long terme et annuels",
         "Liste et suivi des tâches hebdomadaires",
         "Minuteur et musique de concentration",
         "Rappels de pause",

@@ -2,8 +2,8 @@ import { LanguageKey } from "../types/i18n";
 
 type CardKey =
   | "idealSelf"
+  | "longTermGoals"
   | "annualGoals"
-  | "monthlyGoals"
   | "weeklyGoals"
   | "focusMusic"
   | "breakReminders"
@@ -53,22 +53,22 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         idealSelf: {
           title: "理想の自分",
           subtitle:
-            "自分の理想の姿を想像し、言語化する。自分の長期目標にして最終目的地点。",
+            "自分の理想の姿を想像し、言語化する。自分が夢を叶えた姿であり、最終目的地点。",
+        },
+        longTermGoals: {
+          title: "長期目標",
+          subtitle:
+            "理想の自分への道標を設定する。理想の自分へ正しく近づくための長期目標",
         },
         annualGoals: {
           title: "年間目標",
           subtitle:
-            "理想の自分を軸に今年1年の目標をリストアップする。自分の理想に向けての中期目標。",
-        },
-        monthlyGoals: {
-          title: "月間目標",
-          subtitle:
-            "年間目標へ向かう道標を明確にする。達成度バーで毎月の進捗を確認。年間目標達成に向けての短期目標。",
+            "長期目標達成に向けて今年1年の目標をリストアップする。自分の理想に向けての中期目標。",
         },
         weeklyGoals: {
           title: "週間タスク",
           subtitle:
-            "目標を行動まで落とし込み、作業タイマーで作業時間を計測。紐づく月間目標/年間目標へ積上げる。",
+            "目標を行動まで落とし込み、作業タイマーで作業時間を計測。紐づく年間目標へ積み上げる。",
         },
         focusMusic: {
           title: "タスク集中音楽",
@@ -110,20 +110,20 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
           subtitle:
             "Visualize and define your ideal self. Your long-term goal and final destination.",
         },
+        longTermGoals: {
+          title: "Life Goals",
+          subtitle:
+            "Define the multi-year milestones between your ideal self and your annual goals.",
+        },
         annualGoals: {
           title: "Annual Goals",
           subtitle:
             "List this year's goals based on your ideal self. Your mid-term goal toward the ideal.",
         },
-        monthlyGoals: {
-          title: "Monthly Goals",
-          subtitle:
-            "Clarify your path toward your annual goals. Track your monthly progress visually.",
-        },
         weeklyGoals: {
           title: "Weekly Tasks",
           subtitle:
-            "Break goals into actions, track time, and build progress toward monthly and annual goals.",
+            "Break goals into actions, track time, and build progress toward your annual goals.",
         },
         focusMusic: {
           title: "Focus Music",
@@ -165,20 +165,20 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
           subtitle:
             "Visualisez et définissez la personne que vous voulez devenir, ainsi que vos objectifs à long terme et votre but final.",
         },
+        longTermGoals: {
+          title: "Objectifs long terme",
+          subtitle:
+            "Définissez les jalons sur plusieurs années entre votre idéal et vos objectifs annuels.",
+        },
         annualGoals: {
           title: "Objectif annuel",
           subtitle:
             "Énumérez vos objectifs annuels en fonction de votre moi idéal, et ceux à moyen terme vers cet idéal.",
         },
-        monthlyGoals: {
-          title: "Objectif mensuel",
-          subtitle:
-            "Définissez la manière d'atteindre vos objectifs annuels et suivez vos progrès visuellement.",
-        },
         weeklyGoals: {
           title: "Tâche hebdomadaire",
           subtitle:
-            "Suivez votre avancement avec le minuteur et progressez vers vos objectifs mensuels et annuels.",
+            "Suivez votre avancement avec le minuteur et progressez vers vos objectifs annuels.",
         },
         focusMusic: {
           title: "Musique de concentration",

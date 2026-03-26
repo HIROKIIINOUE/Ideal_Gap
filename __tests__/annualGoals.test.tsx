@@ -147,7 +147,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Deep health routine with consistent sleep and workouts",
           year_goal_color: "#1E5EFF",
-          isDone: false,
+          is_done: false,
           accumulated_time_year: 1820,
           order: 0,
           updated_at: "2025-01-06T09:30:00Z",
@@ -156,7 +156,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Career leap with shipped projects and portfolio refresh",
           year_goal_color: "#6EA8FF",
-          isDone: false,
+          is_done: false,
           accumulated_time_year: 2450,
           order: 1,
           updated_at: "2025-01-08T13:10:00Z",
@@ -171,7 +171,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-3",
         description: "Launch a side product",
         year_goal_color: "#1E5EFF",
-        isDone: false,
+        is_done: false,
         accumulated_time_year: 0,
         order: 0,
         updated_at: "2025-02-01T00:00:00Z",
@@ -194,7 +194,7 @@ describe("AnnualGoalsScreen", () => {
                 description: typeof payload.description === "string" ? payload.description : "Updated goal",
                 year_goal_color:
                   typeof payload.year_goal_color === "string" ? payload.year_goal_color : "#1E5EFF",
-                isDone: typeof payload.isDone === "boolean" ? payload.isDone : false,
+                is_done: typeof payload.is_done === "boolean" ? payload.is_done : false,
                 accumulated_time_year: 1820,
                 order: 0,
                 updated_at: "2025-02-02T00:00:00Z",
@@ -223,7 +223,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-2",
         description: "Career leap with shipped projects and portfolio refresh",
         year_goal_color: "#6EA8FF",
-        isDone: false,
+        is_done: false,
         accumulated_time_year: 2450,
         order: 0,
         user_id: "user-123",
@@ -232,7 +232,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-1",
         description: "Deep health routine with consistent sleep and workouts",
         year_goal_color: "#1E5EFF",
-        isDone: false,
+        is_done: false,
         accumulated_time_year: 1820,
         order: 1,
         user_id: "user-123",
@@ -262,7 +262,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-2",
         description: "Career leap with shipped projects and portfolio refresh",
         year_goal_color: "#6EA8FF",
-        isDone: false,
+        is_done: false,
         accumulated_time_year: 2450,
         order: 1,
         user_id: "user-123",
@@ -271,7 +271,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-1",
         description: "Deep health routine with consistent sleep and workouts",
         year_goal_color: "#1E5EFF",
-        isDone: false,
+        is_done: false,
         accumulated_time_year: 1820,
         order: 2,
         user_id: "user-123",
@@ -280,7 +280,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-3",
         description: "Launch a side product",
         year_goal_color: "#1E5EFF",
-        isDone: false,
+        is_done: false,
         accumulated_time_year: 0,
         order: 0,
         user_id: "user-123",
@@ -331,7 +331,7 @@ describe("AnnualGoalsScreen", () => {
     fireEvent.press(completeButton);
 
     await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith({ isDone: true });
+      expect(mockUpdate).toHaveBeenCalledWith({ is_done: true });
     });
 
     expect(await findByTestId("annual-goal-card-completed-badge-goal-1")).toBeTruthy();
@@ -341,7 +341,7 @@ describe("AnnualGoalsScreen", () => {
     fireEvent.press(completeButton);
 
     await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith({ isDone: false });
+      expect(mockUpdate).toHaveBeenCalledWith({ is_done: false });
     });
 
     await waitFor(() => {
@@ -357,7 +357,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Deep health routine with consistent sleep and workouts",
           year_goal_color: "#1E5EFF",
-          isDone: false,
+          is_done: false,
           accumulated_time_year: 740740746,
           order: 0,
           updated_at: "2025-01-06T09:30:00Z",
@@ -380,7 +380,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Deep health routine with consistent sleep and workouts",
           year_goal_color: "#1E5EFF",
-          isDone: false,
+          is_done: false,
           accumulated_time_year: 370370380,
           order: 0,
           updated_at: "2025-01-06T09:30:00Z",
@@ -389,7 +389,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Career leap with shipped projects and portfolio refresh",
           year_goal_color: "#6EA8FF",
-          isDone: false,
+          is_done: false,
           accumulated_time_year: 370370380,
           order: 1,
           updated_at: "2025-01-08T13:10:00Z",
@@ -436,7 +436,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Reset routine",
           year_goal_color: "#1E5EFF",
-          isDone: false,
+          is_done: false,
           accumulated_time_year: 0,
           order: 0,
           updated_at: "2025-01-06T09:30:00Z",
@@ -445,7 +445,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Build core habits",
           year_goal_color: "#6EA8FF",
-          isDone: false,
+          is_done: false,
           accumulated_time_year: 0,
           order: 1,
           updated_at: "2025-01-08T13:10:00Z",

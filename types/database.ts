@@ -12,6 +12,7 @@ export type Database = {
       users: {
         Row: {
           created_at: string | null;
+          current_point: string | null;
           email: string;
           had_account_before: boolean | null;
           id: string;
@@ -22,6 +23,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string | null;
+          current_point?: string | null;
           email: string;
           had_account_before?: boolean | null;
           id: string;
@@ -32,6 +34,7 @@ export type Database = {
         };
         Update: {
           created_at?: string | null;
+          current_point?: string | null;
           email?: string;
           had_account_before?: boolean | null;
           id?: string;
@@ -216,10 +219,50 @@ export type Database = {
           },
         ];
       };
+      long_term_goals: {
+        Row: {
+          created_at: string | null;
+          description: string;
+          id: string;
+          is_done: boolean | null;
+          order: number | null;
+          until_when: string;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          description: string;
+          id?: string;
+          is_done?: boolean | null;
+          order?: number | null;
+          until_when: string;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string;
+          id?: string;
+          is_done?: boolean | null;
+          order?: number | null;
+          until_when?: string;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "long_term_goals_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       yearly_goals: {
         Row: {
           accumulated_time_year: number | null;
-          isDone: boolean | null;
+          is_done: boolean | null;
           year_goal_color: string;
           created_at: string | null;
           description: string;
@@ -230,7 +273,7 @@ export type Database = {
         };
         Insert: {
           accumulated_time_year?: number | null;
-          isDone?: boolean | null;
+          is_done?: boolean | null;
           year_goal_color: string;
           created_at?: string | null;
           description: string;
@@ -241,7 +284,7 @@ export type Database = {
         };
         Update: {
           accumulated_time_year?: number | null;
-          isDone?: boolean | null;
+          is_done?: boolean | null;
           year_goal_color?: string;
           created_at?: string | null;
           description?: string;
@@ -317,39 +360,39 @@ export type Database = {
           created_at: string | null;
           description: string;
           id: string;
-          monthly_goal_id: string | null;
           next_start_point: string | null;
           order: number | null;
           updated_at: string | null;
           user_id: string;
+          yearly_goal_id: string | null;
         };
         Insert: {
           accumulated_time_week?: number | null;
           created_at?: string | null;
           description: string;
           id?: string;
-          monthly_goal_id?: string | null;
           next_start_point?: string | null;
           order?: number | null;
           updated_at?: string | null;
           user_id: string;
+          yearly_goal_id?: string | null;
         };
         Update: {
           accumulated_time_week?: number | null;
           created_at?: string | null;
           description?: string;
           id?: string;
-          monthly_goal_id?: string | null;
           next_start_point?: string | null;
           order?: number | null;
           updated_at?: string | null;
           user_id?: string;
+          yearly_goal_id?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "weekly_tasks_monthly_goal_id_fkey";
-            columns: ["monthly_goal_id"];
-            referencedRelation: "monthly_goals";
+            foreignKeyName: "weekly_tasks_yearly_goal_id_fkey";
+            columns: ["yearly_goal_id"];
+            referencedRelation: "yearly_goals";
             referencedColumns: ["id"];
           },
           {

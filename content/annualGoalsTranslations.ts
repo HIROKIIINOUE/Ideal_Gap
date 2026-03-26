@@ -96,7 +96,7 @@ export const annualGoalsTranslations: Record<
     },
     deleteConfirmTitle: "削除してもよろしいですか？",
     deleteConfirmBody:
-      "削除すると元に戻せません。\n紐づく月間目標・週間タスクも削除されます。",
+      "削除すると元に戻せません。\n紐づく週間タスクも削除されます。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
     deleteSuccess: {
@@ -111,7 +111,7 @@ export const annualGoalsTranslations: Record<
       button: "全削除",
       title: "年間目標を全て削除しますか？",
       message:
-        "この操作は元に戻せません。\n紐づく月間目標・週間タスクも削除されます。",
+        "この操作は元に戻せません。\n紐づく週間タスクも削除されます。",
       all: "すべて削除",
       cancel: "キャンセル",
     },
@@ -156,7 +156,7 @@ export const annualGoalsTranslations: Record<
     },
     deleteConfirmTitle: "Delete this annual goal?",
     deleteConfirmBody:
-      "You can’t undo this action after deleting.\nLinked monthly goals and weekly tasks will also be deleted.",
+      "You can’t undo this action after deleting.\nLinked weekly tasks will also be deleted.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
     deleteSuccess: {
@@ -171,7 +171,7 @@ export const annualGoalsTranslations: Record<
       button: "Delete all",
       title: "Delete all annual goals?",
       message:
-        "This cannot be undone.\nLinked monthly goals and weekly tasks will also be deleted.",
+        "This cannot be undone.\nLinked weekly tasks will also be deleted.",
       all: "Delete all",
       cancel: "Cancel",
     },
@@ -217,7 +217,7 @@ export const annualGoalsTranslations: Record<
     },
     deleteConfirmTitle: "Supprimer cet objectif annuel ?",
     deleteConfirmBody:
-      "Cette action sera définitive après la suppression.\nLes objectifs mensuels et les tâches hebdomadaires liés seront également supprimés.",
+      "Cette action sera définitive après la suppression.\nLes tâches hebdomadaires liées seront également supprimées.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
     deleteSuccess: {
@@ -232,7 +232,7 @@ export const annualGoalsTranslations: Record<
       button: "Tout supprimer",
       title: "Voulez-vous supprimer tous les objectifs annuels ?",
       message:
-        "Cette action est irréversible.\nLes objectifs mensuels et les tâches hebdomadaires liés seront également supprimés.",
+        "Cette action est irréversible.\nLes tâches hebdomadaires liées seront également supprimées.",
       all: "Tout supprimer",
       cancel: "Annuler",
     },

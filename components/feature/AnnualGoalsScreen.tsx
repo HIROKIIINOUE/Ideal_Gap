@@ -125,7 +125,7 @@ const toAnnualGoal = (row: YearlyGoalRow): AnnualGoal => ({
   accumulatedMinutes: row.accumulated_time_year ?? 0,
   order: row.order ?? 0,
   updatedAt: row.updated_at ?? null,
-  completed: row.isDone ?? false,
+  completed: row.is_done ?? false,
 });
 
 export default function AnnualGoalsScreen() {
@@ -291,7 +291,7 @@ export default function AnnualGoalsScreen() {
     );
 
     try {
-      const { data, error } = await updateYearlyGoal(goalId, { isDone: nextCompleted });
+      const { data, error } = await updateYearlyGoal(goalId, { is_done: nextCompleted });
       if (error) {
         throw error;
       }
@@ -299,7 +299,7 @@ export default function AnnualGoalsScreen() {
       const row = data as unknown as YearlyGoalRow;
       setGoals((prev) =>
         prev.map((goal) =>
-          goal.id === goalId ? { ...toAnnualGoal(row), completed: row.isDone ?? false } : goal,
+          goal.id === goalId ? { ...toAnnualGoal(row), completed: row.is_done ?? false } : goal,
         ),
       );
     } catch (error) {
@@ -351,7 +351,7 @@ export default function AnnualGoalsScreen() {
               description: item.description,
               year_goal_color: item.goalColor,
               accumulated_time_year: item.accumulatedMinutes,
-              isDone: item.completed,
+              is_done: item.completed,
               order: idx,
               user_id: uid,
             }));
@@ -408,7 +408,7 @@ export default function AnnualGoalsScreen() {
           id: goal.id,
           description: goal.description,
           year_goal_color: goal.goalColor,
-          isDone: goal.completed,
+          is_done: goal.completed,
           accumulated_time_year: goal.accumulatedMinutes,
           order: idx + 1,
           user_id: uid,
@@ -417,7 +417,7 @@ export default function AnnualGoalsScreen() {
           user_id: uid,
           description,
           year_goal_color: goalColor,
-          isDone: false,
+          is_done: false,
           accumulated_time_year: 0,
           order: 0,
         });
@@ -433,7 +433,7 @@ export default function AnnualGoalsScreen() {
             id: row.id,
             description: row.description,
             year_goal_color: row.year_goal_color,
-            isDone: row.isDone ?? false,
+            is_done: row.is_done ?? false,
             accumulated_time_year: row.accumulated_time_year ?? 0,
             order: 0,
             user_id: uid,
@@ -480,7 +480,7 @@ export default function AnnualGoalsScreen() {
       id: goal.id,
       description: goal.description,
       year_goal_color: goal.goalColor,
-      isDone: goal.completed,
+      is_done: goal.completed,
       accumulated_time_year: goal.accumulatedMinutes,
       order: idx,
       user_id: uid,

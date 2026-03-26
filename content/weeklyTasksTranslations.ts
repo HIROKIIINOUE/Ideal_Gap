@@ -35,7 +35,7 @@ export type WeeklyTasksTranslations = {
     emptyBody: string;
   };
   task: {
-    monthlyLink: string;
+    yearlyLink: string;
     openTimer: string;
     manualLog: string;
     edit: string;
@@ -53,11 +53,9 @@ export type WeeklyTasksTranslations = {
     editTitle: string;
     titleLabel: string;
     titlePlaceholder: string;
-    monthValue: string;
-    monthOptionLabel: string;
-    monthLabel: string;
-    monthlyGoalLabel: string;
-    noMonthlyGoal: string;
+    yearlyGoalLabel: string;
+    noYearlyGoal: string;
+    unlinkedYearlyGoal: string;
     cancel: string;
     save: string;
     errorRequired: string;
@@ -118,10 +116,10 @@ export const weeklyTasksTranslations: Record<
     list: {
       title: "タスクリスト",
       emptyTitle: "まだタスクがありません",
-      emptyBody: "追加ボタンからタスクを作成し、月間目標と紐づけてください。",
+      emptyBody: "追加ボタンからタスクを作成し、年間目標と紐づけてください。",
     },
     task: {
-      monthlyLink: "月間目標",
+      yearlyLink: "年間目標",
       openTimer: "タイマー",
       manualLog: "手動記録",
       edit: "編集",
@@ -139,11 +137,9 @@ export const weeklyTasksTranslations: Record<
       editTitle: "編集",
       titleLabel: "週間タスク",
       titlePlaceholder: "例 英単語600語 2周",
-      monthValue: "{{monthLabel}}",
-      monthOptionLabel: "{{monthLabel}} : {{description}}",
-      monthLabel: "月間目標リストを表示する月",
-      monthlyGoalLabel: "紐づける月間目標",
-      noMonthlyGoal: "{{monthLabel}}にまだ月間目標がありません",
+      yearlyGoalLabel: "紐づける年間目標",
+      noYearlyGoal: "まだ年間目標がありません",
+      unlinkedYearlyGoal: "年間目標に紐づけない",
       cancel: "キャンセル",
       save: "保存",
       errorRequired: "すべての項目を入力してください",
@@ -156,7 +152,7 @@ export const weeklyTasksTranslations: Record<
       hoursLabel: "時間",
       minutesLabel: "分",
       rangeHelper:
-        "入力した時間を現在の実績に積み上げます。関連する月間目標、年間目標にも反映されます。",
+        "入力した時間を現在の実績に積み上げます。関連する年間目標にも反映されます。",
       confirmTitle: "この実績で更新しますか？",
       confirmMessage: "{{added}} を加算して合計を {{total}} に更新します。",
       confirm: "加算する",
@@ -200,10 +196,10 @@ export const weeklyTasksTranslations: Record<
     list: {
       title: "Task list",
       emptyTitle: "No tasks yet",
-      emptyBody: "Add a task and link it to a monthly goal.",
+      emptyBody: "Add a task and link it to an annual goal.",
     },
     task: {
-      monthlyLink: "Monthly goal",
+      yearlyLink: "Annual goal",
       openTimer: "Timer",
       manualLog: "Manual",
       edit: "Edit",
@@ -221,11 +217,9 @@ export const weeklyTasksTranslations: Record<
       editTitle: "Edit",
       titleLabel: "Weekly task",
       titlePlaceholder: "e.g. Finish 7 pages in section4 on the textbook",
-      monthValue: "{{monthLabel}}",
-      monthOptionLabel: "{{monthLabel}}: {{description}}",
-      monthLabel: "Month to show monthly goals",
-      monthlyGoalLabel: "Link monthly goal",
-      noMonthlyGoal: "No monthly goals for {{monthLabel}} yet",
+      yearlyGoalLabel: "Link annual goal",
+      noYearlyGoal: "No annual goals yet",
+      unlinkedYearlyGoal: "Don't link an annual goal",
       cancel: "Cancel",
       save: "Save",
       errorRequired: "Please fill all fields",
@@ -238,7 +232,7 @@ export const weeklyTasksTranslations: Record<
       hoursLabel: "Hours",
       minutesLabel: "Minutes",
       rangeHelper:
-        "The time you enter will be added to the current total. It will be also applied on relating monthly and yearly goals",
+        "The time you enter will be added to the current total. It will also be applied to the related annual goal.",
       confirmTitle: "Update this log?",
       confirmMessage: "Add {{added}} and update the total to {{total}}.",
       confirm: "Add time",
@@ -282,10 +276,10 @@ export const weeklyTasksTranslations: Record<
     list: {
       title: "Liste des tâches",
       emptyTitle: "Aucune tâche pour le moment",
-      emptyBody: "Ajoutez une tâche et associez-la à un objectif mensuel.",
+      emptyBody: "Ajoutez une tâche et associez-la à un objectif annuel.",
     },
     task: {
-      monthlyLink: "Objectif mensuel",
+      yearlyLink: "Objectif annuel",
       openTimer: "Minuteur",
       manualLog: "Manuel",
       edit: "Modifier",
@@ -303,11 +297,9 @@ export const weeklyTasksTranslations: Record<
       editTitle: "Modifier",
       titleLabel: "Tâche hebdomadaire",
       titlePlaceholder: "ex. Réviser 600 mots de vocabulaire d'anglais",
-      monthValue: "{{monthLabel}}",
-      monthOptionLabel: "{{monthLabel}} : {{description}}",
-      monthLabel: "Mois où afficher les objectifs mensuels",
-      monthlyGoalLabel: "Associer un objectif mensuel",
-      noMonthlyGoal: "Pas d'objectif mensuel pour {{monthLabel}}",
+      yearlyGoalLabel: "Associer un objectif annuel",
+      noYearlyGoal: "Aucun objectif annuel pour le moment",
+      unlinkedYearlyGoal: "Ne pas associer d'objectif annuel",
       cancel: "Annuler",
       save: "Enregistrer",
       errorRequired: "Veuillez remplir tous les champs",
@@ -320,7 +312,7 @@ export const weeklyTasksTranslations: Record<
       hoursLabel: "Heures",
       minutesLabel: "Minutes",
       rangeHelper:
-        "Le temps que vous saisissez sera additionné au total actuel. Ce sera également appliqué aux objectifs mensuels et annuels correspondants.",
+        "Le temps que vous saisissez sera additionné au total actuel. Il sera également appliqué à l'objectif annuel associé.",
       confirmTitle: "Voulez-vous mettre à jour la progression ?",
       confirmMessage:
         "Ajouter {{added}} à votre progression et passer à {{total}}.",

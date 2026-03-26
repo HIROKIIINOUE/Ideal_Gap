@@ -12,7 +12,7 @@ import BreakReminderScreen from "../../components/feature/BreakReminderScreen";
 import FocusMusicScreen from "../../components/feature/FocusMusicScreen";
 import FunPlanScreen from "../../components/feature/FunPlanScreen";
 import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
-import MonthlyGoalsScreen from "../../components/feature/MonthlyGoalsScreen";
+import LongTermGoalsScreen from "../../components/feature/LongTermGoalsScreen";
 import WeeklyTasksScreen from "../../components/feature/WeeklyTasksScreen";
 import Footer from "../../components/Footer";
 import LanguageSheet from "../../components/LanguageSheet";
@@ -23,8 +23,8 @@ import { useFunPlan } from "../../providers/FunPlanProvider";
 
 type FeatureId =
   | "ideal-self"
+  | "long-term-goals"
   | "annual-goals"
-  | "monthly-goals"
   | "weekly-goals"
   | "focus-music"
   | "break-reminders"
@@ -32,8 +32,8 @@ type FeatureId =
 
 const featureKeys: Record<FeatureId, string> = {
   "ideal-self": "cards.idealSelf.title",
+  "long-term-goals": "cards.longTermGoals.title",
   "annual-goals": "cards.annualGoals.title",
-  "monthly-goals": "cards.monthlyGoals.title",
   "weekly-goals": "cards.weeklyGoals.title",
   "focus-music": "cards.focusMusic.title",
   "break-reminders": "cards.breakReminders.title",
@@ -108,8 +108,8 @@ export default function FeatureScreen() {
     if (!featureId) return null;
     const mapping: Partial<Record<FeatureId, ComponentType>> = {
       "ideal-self": IdealSelfScreen,
+      "long-term-goals": LongTermGoalsScreen,
       "annual-goals": AnnualGoalsScreen,
-      "monthly-goals": MonthlyGoalsScreen,
       "weekly-goals": WeeklyTasksScreen,
       "next-fun-plan": FunPlanScreen,
       "break-reminders": BreakReminderScreen,

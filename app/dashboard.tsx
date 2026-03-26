@@ -25,8 +25,8 @@ import { useFunPlan } from "../providers/FunPlanProvider";
 
 type CardKey =
   | "idealSelf"
+  | "longTermGoals"
   | "annualGoals"
-  | "monthlyGoals"
   | "weeklyGoals"
   | "focusMusic"
   | "breakReminders"
@@ -114,8 +114,8 @@ export default function Dashboard() {
   const cards: DashboardCard[] = useMemo(
     () => [
       { key: "idealSelf", href: { pathname: "/feature/[feature]", params: { feature: "ideal-self" } } },
+      { key: "longTermGoals", href: { pathname: "/feature/[feature]", params: { feature: "long-term-goals" } } },
       { key: "annualGoals", href: { pathname: "/feature/[feature]", params: { feature: "annual-goals" } } },
-      { key: "monthlyGoals", href: { pathname: "/feature/[feature]", params: { feature: "monthly-goals" } } },
       { key: "weeklyGoals", href: { pathname: "/feature/[feature]", params: { feature: "weekly-goals" } } },
       { key: "focusMusic", href: { pathname: "/feature/[feature]", params: { feature: "focus-music" } } },
       { key: "breakReminders", href: { pathname: "/feature/[feature]", params: { feature: "break-reminders" } } },

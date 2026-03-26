@@ -37,8 +37,8 @@ import OfflineRequiredScreen from "../OfflineRequiredScreen";
 type WeeklyTask = {
   id: string;
   title: string;
-  monthlyGoalLabel: string;
-  monthlyGoalId: string;
+  yearlyGoalLabel: string;
+  yearlyGoalId: string | null;
   loggedMinutes: number;
   order: number;
 };
@@ -49,9 +49,9 @@ type WeeklyTaskInsert = Database["public"]["Tables"]["weekly_tasks"]["Insert"];
 type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
 type WeeklyTaskListRow = Pick<
   WeeklyTaskRow,
-  "id" | "description" | "monthly_goal_id" | "accumulated_time_week" | "order"
+  "id" | "description" | "yearly_goal_id" | "accumulated_time_week" | "order"
 >;
-type MonthlyGoalRow = Database["public"]["Tables"]["monthly_goals"]["Row"];
+type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
 
 type ManualLogState = {
   visible: boolean;
@@ -59,6 +59,11 @@ type ManualLogState = {
   hours: string;
   minutes: string;
   defaultMinutes: number;
+};
+
+type WeeklyTaskDraft = {
+  title: string;
+  yearlyGoalId: string | null;
 };
 
 // 合計minutesを受け取ってそれを元に表示する文言を返す(〇〇h 〇〇m)
@@ -81,27 +86,27 @@ const formatCompactHours = (minutes: number) => {
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
+const LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY = "weekly_tasks_last_selected_yearly_goal_id";
 const offlineWeeklyTasksSchema = z.array(
   z.object({
     id: z.string(),
     title: z.string(),
-    monthlyGoalLabel: z.string(),
-    monthlyGoalId: z.string(),
+    yearlyGoalLabel: z.string(),
+    yearlyGoalId: z.string().nullable(),
     loggedMinutes: z.number(),
     order: z.number(),
   }),
 );
-const offlineMonthlyGoalOptionsSchema = z.array(
+const offlineYearlyGoalOptionsSchema = z.array(
   z.object({
     id: z.string(),
     label: z.string(),
     color: z.string(),
-    month: z.number().int().min(1).max(12),
   }),
 );
 
 export default function WeeklyTasksScreen() {
-  const { t, i18n } = useTranslation(["weeklyTasks", "monthlyGoals"]);
+  const { t, i18n } = useTranslation("weeklyTasks");
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [tasks, setTasks] = useState<WeeklyTask[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
@@ -131,57 +136,53 @@ export default function WeeklyTasksScreen() {
   const manualChanged = manualLog.task !== null && manualHasInput;
   const manualInRange = manualHasInput;
 
-  const [monthlyGoalOptions, setMonthlyGoalOptions] = useState<
-    { id: string; label: string; color: string; month: number }[]
+  const [yearlyGoalOptions, setYearlyGoalOptions] = useState<
+    { id: string; label: string; color: string }[]
   >([]);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isGoalDropdownOpen, setGoalDropdownOpen] = useState(false);
-  const [isMonthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
   const weeklyTaskSchema = z.object({
     title: z.string().trim().min(1),
-    monthlyGoalId: z.string().trim().min(1),
+    yearlyGoalId: z.string().trim().nullable(),
   });
 
-  const [draft, setDraft] = useState({
+  // draft...追加・編集モーダルで「まだ確定していない入力中の値」
+  const [draft, setDraft] = useState<WeeklyTaskDraft>({
     title: "",
-    monthlyGoalId: monthlyGoalOptions[0]?.id ?? "",
-    month: new Date().getMonth() + 1,
+    yearlyGoalId: yearlyGoalOptions[0]?.id ?? null,
   });
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
 
-  const monthsList = useMemo(() => Array.from({ length: 12 }, (_, idx) => idx + 1), []);
   const initializedDefaultGoal = useRef(false);
   const hasLoadedRef = useRef(false);
-  // 各月名の配列の翻訳データを返している。(ns = name space)
-  // returnObject:trueとすることで配列やオブジェクトの翻訳データをそのまま配列やオブジェクトとして扱える。
-  // これがないと”[aaa, bbb, ccc]”のような一つの文字列として解釈されてしまう。
-  const monthNames = useMemo(
-    () => (t("monthsShort", { ns: "monthlyGoals", returnObjects: true }) as string[]) ?? [],
-    [t],
-  );
-  // 各月名の配列の翻訳データからユーザが選択中のデータを返している
-  const monthLabel = useCallback(
-    (month: number) => {
-      const idx = Math.max(0, Math.min(11, month - 1));
-      return monthNames[idx] ?? String(month);
-    },
-    [monthNames],
-  );
-  const monthGoalsForSelected = useMemo(
-    () => monthlyGoalOptions.filter((opt) => opt.month === selectedMonth),
-    [monthlyGoalOptions, selectedMonth],
-  );
+  const hasYearlyGoals = yearlyGoalOptions.length > 0;
 
-  // 選択した月が月間目標を持つかどうかboolean
-  const hasMonthlyGoals = monthGoalsForSelected.length > 0;
+  // 以前使用した紐づく年間目標をAsyncStorageから取り出す(追加モーダルでデフォルト表示するため)
+  // AsyncStorageに記録がない場合は先頭の年間目標を表示する。
+  const getPreferredYearlyGoalId = useCallback(async (): Promise<string | null> => {
+    const savedId = await AsyncStorage.getItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY);
+    if (savedId && yearlyGoalOptions.some((opt) => opt.id === savedId)) {
+      return savedId;
+    }
+    return yearlyGoalOptions[0]?.id ?? null;
+  }, [yearlyGoalOptions]);
+
+  // 年間目標登録時に「直近の紐づく年間目標」としてAsyncStorageに保存
+  // 該当の年間目標がなければAsyncStorageをクリーンアップする
+  const persistPreferredYearlyGoalId = useCallback(async (yearlyGoalId: string | null) => {
+    if (!yearlyGoalId) {
+      await AsyncStorage.removeItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY);
+      return;
+    }
+    await AsyncStorage.setItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY, yearlyGoalId);
+  }, []);
 
   const handleDeleteTask = (task: WeeklyTask) => {
     if (guardOfflineAction()) return;
@@ -233,9 +234,9 @@ export default function WeeklyTasksScreen() {
       pathname: "/task-timer",
       params: {
         taskId: task.id,
-        monthlyGoalId: task.monthlyGoalId,
+        yearlyGoalId: task.yearlyGoalId,
         title: task.title,
-        monthlyGoal: task.monthlyGoalLabel,
+        yearlyGoal: task.yearlyGoalLabel,
         logged: String(task.loggedMinutes),
       },
     });
@@ -250,11 +251,11 @@ export default function WeeklyTasksScreen() {
 
   //  データベースの行データから画面表示用のWeeklyTask型に変換
   const toWeeklyTask = React.useCallback(
-    (row: WeeklyTaskListRow, goalLookup: Record<string, { label: string; color: string; month: number }>): WeeklyTask => ({
+    (row: WeeklyTaskListRow, goalLookup: Record<string, { label: string; color: string }>): WeeklyTask => ({
       id: row.id,
       title: row.description,
-      monthlyGoalId: row.monthly_goal_id ?? "",
-      monthlyGoalLabel: goalLookup[row.monthly_goal_id ?? ""]?.label ?? t("task.monthlyLink"),
+      yearlyGoalId: row.yearly_goal_id ?? null,
+      yearlyGoalLabel: goalLookup[row.yearly_goal_id ?? ""]?.label ?? t("modal.unlinkedYearlyGoal"),
       loggedMinutes: row.accumulated_time_week ?? 0,
       order: row.order ?? 0,
     }),
@@ -267,7 +268,7 @@ export default function WeeklyTasksScreen() {
       id: task.id,
       user_id: uid,
       description: task.title,
-      monthly_goal_id: task.monthlyGoalId,
+      yearly_goal_id: task.yearlyGoalId ?? null,
       accumulated_time_week: task.loggedMinutes,
       order: task.order,
     }),
@@ -282,7 +283,7 @@ export default function WeeklyTasksScreen() {
   }, []);
 
 
-  // 最新データ(週間タスクと月間目標)の取得
+  // 最新データ(週間タスクと年間目標)の取得
   const loadData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
@@ -295,17 +296,17 @@ export default function WeeklyTasksScreen() {
 
     // ローカルキャッシュのキー名を生成
     const taskCacheKey = buildOfflineCacheKey("weekly-tasks", uid);
-    const goalCacheKey = buildOfflineCacheKey("weekly-monthly-goals", uid);
+    const goalCacheKey = buildOfflineCacheKey("weekly-yearly-goals", uid);
 
     // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
     if (offlineBlocked) {
       const [cachedTasks, cachedGoals] = await Promise.all([
         readOfflineCache(taskCacheKey, offlineWeeklyTasksSchema),
-        readOfflineCache(goalCacheKey, offlineMonthlyGoalOptionsSchema),
+        readOfflineCache(goalCacheKey, offlineYearlyGoalOptionsSchema),
       ]);
       if (cachedTasks && cachedGoals) {
         setTasks(cachedTasks);
-        setMonthlyGoalOptions(cachedGoals);
+        setYearlyGoalOptions(cachedGoals);
         setHasOfflineCache(true);
       } else {
         setHasOfflineCache(false);
@@ -314,44 +315,37 @@ export default function WeeklyTasksScreen() {
       return; // オフラインの場合はここでデータフェッチ処理終了
     }
 
-    const [{ data: monthlyData, error: monthlyError }, { data: weeklyData, error: weeklyError }] = await Promise.all([
+    const [{ data: yearlyData, error: yearlyError }, { data: weeklyData, error: weeklyError }] = await Promise.all([
       supabase
-        .from("monthly_goals")
-        .select("id, description, month, yearly_goal_id, yearly_goals(year_goal_color)")
+        .from("yearly_goals")
+        .select("id, description, year_goal_color")
         .eq("user_id", uid)
-        .order("month", { ascending: true }),
+        .order("order", { ascending: true }),
       supabase
         .from("weekly_tasks")
-        .select("id, description, monthly_goal_id, accumulated_time_week, order")
+        .select("id, description, yearly_goal_id, accumulated_time_week, order")
         .eq("user_id", uid)
         .order("order", { ascending: true }),
     ]);
 
-    if (monthlyError || weeklyError) {
-      setErrorMessage(monthlyError?.message ?? weeklyError?.message ?? "Failed to load data");
+    if (yearlyError || weeklyError) {
+      setErrorMessage(yearlyError?.message ?? weeklyError?.message ?? "Failed to load data");
       setLoading(false);
       return;
     }
 
-    // 月間目標データを週間タスクページで使用しやすいフォーマットに変換
-    const monthlyOptions = ((monthlyData as any[]) ?? []).map((row) => {
-      const color = row?.yearly_goals?.year_goal_color ?? colors.accentPrimary;
-      const goalRow = row as MonthlyGoalRow;
+    // 年間目標データを週間タスクページで使用しやすいフォーマットに変換
+    const yearlyOptions = ((yearlyData as YearlyGoalRow[] | null) ?? []).map((goalRow) => {
       return {
         id: goalRow.id,
-        label: t("modal.monthOptionLabel", {
-          monthLabel: monthLabel(goalRow.month),
-          description: goalRow.description,
-        }),
-        color,
-        month: goalRow.month,
+        label: goalRow.description,
+        color: goalRow.year_goal_color ?? colors.accentPrimary,
       };
     });
-
-    // 月間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
+    // 年間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
     // コードがシンプルになり、パフォーマンスが安定する
-    const goalLookup = monthlyOptions.reduce<Record<string, { label: string; color: string; month: number }>>((acc, item) => {
-      acc[item.id] = { label: item.label, color: item.color, month: item.month };
+    const goalLookup = yearlyOptions.reduce<Record<string, { label: string; color: string }>>((acc, item) => {
+      acc[item.id] = { label: item.label, color: item.color };
       return acc;
     }, {});
 
@@ -359,21 +353,21 @@ export default function WeeklyTasksScreen() {
       ((weeklyData as WeeklyTaskListRow[] | null) ?? []).map((row) => toWeeklyTask(row, goalLookup)),
     );
 
-    setMonthlyGoalOptions(monthlyOptions);
+    setYearlyGoalOptions(yearlyOptions);
     setTasks(weekly);
 
     // データが空配列ではない場合、ローカルキャッシュに保存
-    setHasOfflineCache(weekly.length > 0 && monthlyOptions.length > 0);
+    setHasOfflineCache(weekly.length > 0 && yearlyOptions.length > 0);
     await Promise.all([
       writeOfflineCache(taskCacheKey, offlineWeeklyTasksSchema, weekly),
-      writeOfflineCache(goalCacheKey, offlineMonthlyGoalOptionsSchema, monthlyOptions),
+      writeOfflineCache(goalCacheKey, offlineYearlyGoalOptionsSchema, yearlyOptions),
     ]);
-    if (monthlyOptions[0] && !initializedDefaultGoal.current) {
+    if (yearlyOptions[0] && !initializedDefaultGoal.current) {
       initializedDefaultGoal.current = true;
-      setDraft((prev) => ({ ...prev, monthlyGoalId: monthlyOptions[0].id, month: monthlyOptions[0].month }));
+      setDraft((prev) => ({ ...prev, yearlyGoalId: yearlyOptions[0].id }));
     }
     setLoading(false);
-  }, [fetchUserId, initializedDefaultGoal, monthLabel, offlineBlocked, reorderTasks, t, toWeeklyTask]);
+  }, [fetchUserId, initializedDefaultGoal, offlineBlocked, reorderTasks, t, toWeeklyTask]);
 
   // 初回マウント時にもデータを1回だけ取得し、以降はフォーカス時に再取得する
   useEffect(() => {
@@ -391,42 +385,30 @@ export default function WeeklyTasksScreen() {
       loadData();
     }, [loadData]),
   );
-
-  // ユーザがタスク追加時に選んだ選択月を記憶して次回の追加時のデフォルトとしてセット
+  // draftは追加・編集モーダルで「まだ確定していない入力中の値」
+  // draft.yearlyGoalId が常に現在のyearlyGoalOptions と矛盾しないように補正する
   useEffect(() => {
-    const syncMonth = async () => {
-      const storedMonth = await AsyncStorage.getItem("weeklyTasks:selectedMonth");
-      if (storedMonth) {
-        const parsed = Number(storedMonth);
-        if (parsed >= 1 && parsed <= 12) {
-          setSelectedMonth(parsed);
-          setDraft((prev) => ({ ...prev, month: parsed }));
-        }
-      }
-    };
-    syncMonth();
-  }, []);
-
-
-  // 選択月に月間目標が存在し、ユーザが選択中の月間目標がその選択月に含まれない場合、ユーザの選択中の月間目標は「選択月の1番目の目標」に自動で設定される。
-  // 選択付きに月間目標がなく、ユーザが既に月間目標を選んでいる場合、ユーザの選択中の月間目標は自動でnullとなる
-  useEffect(() => {
-    if (monthGoalsForSelected.length > 0 && !monthGoalsForSelected.some((opt) => opt.id === draft.monthlyGoalId)) {
-      setDraft((prev) => ({ ...prev, monthlyGoalId: monthGoalsForSelected[0].id }));
+    if (
+      draft.yearlyGoalId &&
+      yearlyGoalOptions.length > 0 &&
+      !yearlyGoalOptions.some((opt) => opt.id === draft.yearlyGoalId)
+    ) {
+      setDraft((prev) => ({ ...prev, yearlyGoalId: yearlyGoalOptions[0].id }));
     }
-    if (monthGoalsForSelected.length === 0 && draft.monthlyGoalId) {
-      setDraft((prev) => ({ ...prev, monthlyGoalId: "" }));
+    if (yearlyGoalOptions.length === 0 && draft.yearlyGoalId) {
+      setDraft((prev) => ({ ...prev, yearlyGoalId: null }));
     }
-  }, [draft.monthlyGoalId, monthGoalsForSelected, selectedMonth]);
+  }, [draft.yearlyGoalId, yearlyGoalOptions]);
 
   // 「追加ボタン」からモーダルを開いた時のロジック
-  const handleOpenAdd = () => {
+  const handleOpenAdd = async () => {
     if (guardOfflineAction()) return;
+    const preferredYearlyGoalId = await getPreferredYearlyGoalId();
     setEditingId(null);
+    setGoalDropdownOpen(false);
     setDraft({
       title: "",
-      monthlyGoalId: monthGoalsForSelected[0]?.id ?? "",
-      month: selectedMonth,
+      yearlyGoalId: preferredYearlyGoalId,
     });
     setModalError(null);
     setModalVisible(true);
@@ -465,16 +447,12 @@ export default function WeeklyTasksScreen() {
   // 「編集ボタン」からモーダルを開いた時のロジック
   const handleOpenEdit = (task: WeeklyTask) => {
     if (guardOfflineAction()) return;
-    const goalMonth = monthlyGoalOptions.find((opt) => opt.id === task.monthlyGoalId)?.month;
     setEditingId(task.id);
+    setGoalDropdownOpen(false);
     setDraft({
       title: task.title,
-      monthlyGoalId: task.monthlyGoalId,
-      month: goalMonth ?? selectedMonth,
+      yearlyGoalId: task.yearlyGoalId,
     });
-    if (goalMonth) {
-      setSelectedMonth(goalMonth);
-    }
     setModalError(null);
     setModalVisible(true);
   };
@@ -543,7 +521,7 @@ export default function WeeklyTasksScreen() {
               const result = await updateAccumulatedTimes({
                 userId: uid,
                 taskId: manualLog.task.id,
-                monthlyGoalId: manualLog.task.monthlyGoalId,
+                yearlyGoalId: manualLog.task.yearlyGoalId,
                 newLoggedMinutes: safeTotal,
                 previousLoggedMinutes: manualLog.defaultMinutes,
               });
@@ -570,17 +548,13 @@ export default function WeeklyTasksScreen() {
 
   const handleSave = async () => {
     if (guardOfflineAction()) return;
-    // 選択月に月間目標がない場合は早期return
-    if (!hasMonthlyGoals) {
-      setModalError(t("modal.noMonthlyGoal", { monthLabel: monthLabel(selectedMonth) }));
-      return;
-    }
 
     const parse = weeklyTaskSchema.safeParse(draft);
     if (!parse.success) {
       setModalError(t("modal.errorRequired"));
       return;
     }
+    await persistPreferredYearlyGoalId(parse.data.yearlyGoalId);
 
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
@@ -593,7 +567,7 @@ export default function WeeklyTasksScreen() {
       const existing = tasks.find((task) => task.id === editingId);
       const payload: WeeklyTaskUpdate = {
         description: parse.data.title,
-        monthly_goal_id: parse.data.monthlyGoalId,
+        yearly_goal_id: parse.data.yearlyGoalId ?? null,
         accumulated_time_week: existing?.loggedMinutes ?? 0,
       };
       const { error } = await supabase
@@ -612,23 +586,21 @@ export default function WeeklyTasksScreen() {
         .from("weekly_tasks")
         .insert({
           description: parse.data.title,
-          monthly_goal_id: parse.data.monthlyGoalId,
+          yearly_goal_id: parse.data.yearlyGoalId ?? null,
           accumulated_time_week: 0,
           user_id: uid,
           order: 0,
         })
-        .select("id, description, monthly_goal_id, accumulated_time_week, order")
+        .select("id, description, yearly_goal_id, accumulated_time_week, order")
         .single();
       if (error || !inserted) {
         Alert.alert("追加に失敗しました", error?.message ?? "Failed to add");
         return;
       }
 
-      // 月間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
-      // コードがシンプルになり、パフォーマンスが安定する
-      const goalLookup = monthlyGoalOptions.reduce<Record<string, { label: string; color: string; month: number }>>(
+      const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>(
         (acc, item) => {
-          acc[item.id] = { label: item.label, color: item.color, month: item.month };
+          acc[item.id] = { label: item.label, color: item.color };
           return acc;
         },
         {},
@@ -645,19 +617,16 @@ export default function WeeklyTasksScreen() {
     }
 
     setModalVisible(false);
-
-
-    // ↓ 追加・更新後に再度Supabase DBから週間タスクを取得する
-
-    // 月間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
+    // 年間目標リスト配列から{ [id]: { label, color} }　の辞書のようなものを作る
     // コードがシンプルになり、パフォーマンスが安定する
-    const goalLookup = monthlyGoalOptions.reduce<Record<string, { label: string; color: string; month: number }>>((acc, item) => {
-      acc[item.id] = { label: item.label, color: item.color, month: item.month };
+    const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>((acc, item) => {
+      acc[item.id] = { label: item.label, color: item.color };
       return acc;
     }, {});
+    // ↓ 追加・更新後に再度Supabase DBから週間タスクを取得する
     const { data: weeklyData, error: weeklyError } = await supabase
       .from("weekly_tasks")
-      .select("id, description, monthly_goal_id, accumulated_time_week, order")
+      .select("id, description, yearly_goal_id, accumulated_time_week, order")
       .eq("user_id", uid)
       .order("order", { ascending: true });
     if (!weeklyError && weeklyData) {
@@ -721,72 +690,83 @@ export default function WeeklyTasksScreen() {
             {formatCompactHours(item.loggedMinutes)}
           </Text>
           <View style={styles.taskActionGroup}>
-            <Pressable
-              testID={`weekly-task-timer-${item.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={t("task.openTimer")}
-              disabled={deleteMode || offlineBlocked}
-              onPress={() => handleOpenTimer(item)}
-              style={({ pressed }) => [
-                styles.goalActionIconButton,
-                styles.timerActionButton,
-                pressed && styles.secondaryPressed,
-                (deleteMode || offlineBlocked) && styles.buttonDisabled,
-              ]}
-            >
-              <MaterialCommunityIcons name="timer-outline" size={20} color={colors.textPrimary} />
-            </Pressable>
-            <Pressable
-              testID={`weekly-task-manual-${item.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={t("task.manualLog")}
-              disabled={deleteMode || offlineBlocked}
-              onPress={() => handleOpenManualLog(item)}
-              style={({ pressed }) => [
-                styles.goalActionIconButton,
-                styles.dragHandleButton,
-                pressed && styles.secondaryPressed,
-                (deleteMode || offlineBlocked) && styles.buttonDisabled,
-              ]}
-            >
-              <MaterialCommunityIcons name="playlist-edit" size={20} color={colors.textPrimary} />
-            </Pressable>
-            <Pressable
-              testID={`weekly-task-edit-${item.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={deleteMode ? t("actions.delete") : t("modal.editTitle")}
-              style={({ pressed }) => [
-                styles.goalActionIconButton,
-                deleteMode ? styles.dangerButton : styles.dragHandleButton,
-                pressed && styles.secondaryPressed,
-                offlineBlocked && styles.buttonDisabled,
-              ]}
-              onPress={() => {
-                if (deleteMode) {
-                  handleDeleteTask(item);
-                } else {
-                  handleOpenEdit(item);
-                }
-              }}
-              disabled={offlineBlocked}
-            >
-              <MaterialCommunityIcons
-                name={deleteMode ? "trash-can-outline" : "pencil-outline"}
-                size={20}
-                color={deleteMode ? colors.error : colors.textPrimary}
-              />
-            </Pressable>
-            <Pressable
-              testID={`weekly-task-reorder-${item.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
-              style={[styles.goalActionIconButton, styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
-              onLongPress={drag}
-              delayLongPress={200}
-              hitSlop={14}
-            >
-              <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
-            </Pressable>
+            {deleteMode ? (
+              <Pressable
+                testID={`weekly-task-delete-${item.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={t("actions.delete")}
+                style={({ pressed }) => [
+                  styles.dangerButton,
+                  styles.iconButtonRow,
+                  pressed && styles.secondaryPressed,
+                  offlineBlocked && styles.buttonDisabled,
+                ]}
+                onPress={() => handleDeleteTask(item)}
+                disabled={offlineBlocked}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
+                <Text style={styles.dangerButtonText}>{t("actions.delete")}</Text>
+              </Pressable>
+            ) : (
+              <>
+                <Pressable
+                  testID={`weekly-task-timer-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("task.openTimer")}
+                  disabled={offlineBlocked}
+                  onPress={() => handleOpenTimer(item)}
+                  style={({ pressed }) => [
+                    styles.goalActionIconButton,
+                    styles.timerActionButton,
+                    pressed && styles.secondaryPressed,
+                    offlineBlocked && styles.buttonDisabled,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="timer-outline" size={20} color={colors.textPrimary} />
+                </Pressable>
+                <Pressable
+                  testID={`weekly-task-manual-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("task.manualLog")}
+                  disabled={offlineBlocked}
+                  onPress={() => handleOpenManualLog(item)}
+                  style={({ pressed }) => [
+                    styles.goalActionIconButton,
+                    styles.dragHandleButton,
+                    pressed && styles.secondaryPressed,
+                    offlineBlocked && styles.buttonDisabled,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="playlist-edit" size={20} color={colors.textPrimary} />
+                </Pressable>
+                <Pressable
+                  testID={`weekly-task-edit-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("modal.editTitle")}
+                  style={({ pressed }) => [
+                    styles.goalActionIconButton,
+                    styles.dragHandleButton,
+                    pressed && styles.secondaryPressed,
+                    offlineBlocked && styles.buttonDisabled,
+                  ]}
+                  onPress={() => handleOpenEdit(item)}
+                  disabled={offlineBlocked}
+                >
+                  <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textPrimary} />
+                </Pressable>
+                <Pressable
+                  testID={`weekly-task-reorder-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+                  style={[styles.goalActionIconButton, styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+                  onLongPress={drag}
+                  delayLongPress={200}
+                  hitSlop={14}
+                >
+                  <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -944,57 +924,14 @@ export default function WeeklyTasksScreen() {
                 </View>
 
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>{t("modal.monthLabel")}</Text>
+                  <Text style={styles.label}>{t("modal.yearlyGoalLabel")}</Text>
                   <Pressable
                     accessibilityRole="button"
-                    style={[styles.selectInput, isMonthDropdownOpen && styles.selectInputActive]}
-                    onPress={() => setMonthDropdownOpen((prev) => !prev)}
-                  >
-                    <Text style={styles.selectValue}>{t("modal.monthValue", { monthLabel: monthLabel(selectedMonth) })}</Text>
-                    <MaterialCommunityIcons
-                      name={isMonthDropdownOpen ? "chevron-up" : "chevron-down"}
-                      size={18}
-                      color={colors.textPrimary}
-                    />
-                  </Pressable>
-                  {isMonthDropdownOpen && (
-                    <View style={styles.selectList}>
-                      <View style={styles.selectEdge}>
-                        <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
-                      </View>
-                      <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
-                        {monthsList.map((month) => (
-                          <Pressable
-                            key={month}
-                            accessibilityRole="button"
-                            style={[styles.selectOption, month === selectedMonth && styles.selectOptionActive]}
-                            onPress={async () => {
-                              setSelectedMonth(month);
-                              setDraft((prev) => ({ ...prev, month }));
-                              await AsyncStorage.setItem("weeklyTasks:selectedMonth", String(month));
-                              setMonthDropdownOpen(false);
-                            }}
-                          >
-                            <Text style={[styles.selectOptionText, month === selectedMonth && styles.selectOptionTextActive]}>
-                              {t("modal.monthValue", { monthLabel: monthLabel(month) })}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                      <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
-                        <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
-                      </View>
-                    </View>
-                  )}
-
-                  <Text style={styles.label}>{t("modal.monthlyGoalLabel")}</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={!hasMonthlyGoals}
+                    testID="weekly-tasks-yearly-goal-select"
                     style={[
                       styles.selectInput,
                       isGoalDropdownOpen && styles.selectInputActive,
-                      !hasMonthlyGoals && styles.selectInputDisabled,
+                      !hasYearlyGoals && styles.selectInputDisabled,
                     ]}
                     onPress={() => setGoalDropdownOpen((prev) => !prev)}
                   >
@@ -1004,17 +941,21 @@ export default function WeeklyTasksScreen() {
                           styles.categoryDot,
                           {
                             backgroundColor:
-                              monthlyGoalOptions.find((opt) => opt.id === draft.monthlyGoalId)?.color ?? colors.accentPrimary,
+                              yearlyGoalOptions.find((opt) => opt.id === draft.yearlyGoalId)?.color ?? colors.accentPrimary,
                           },
                         ]}
                       />
-                      {hasMonthlyGoals ? (
+                      {hasYearlyGoals && draft.yearlyGoalId ? (
                         <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
-                          {monthlyGoalOptions.find((opt) => opt.id === draft.monthlyGoalId)?.label ?? t("task.monthlyLink")}
+                          {yearlyGoalOptions.find((opt) => opt.id === draft.yearlyGoalId)?.label ?? t("modal.unlinkedYearlyGoal")}
+                        </Text>
+                      ) : hasYearlyGoals ? (
+                        <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
+                          {t("modal.unlinkedYearlyGoal")}
                         </Text>
                       ) : (
                         <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
-                          {t("modal.noMonthlyGoal", { monthLabel: monthLabel(selectedMonth) })}
+                          {t("modal.noYearlyGoal")}
                         </Text>
                       )}
                     </View>
@@ -1024,39 +965,60 @@ export default function WeeklyTasksScreen() {
                       color={colors.textPrimary}
                     />
                   </Pressable>
-                  {isGoalDropdownOpen && hasMonthlyGoals && (
+                  {isGoalDropdownOpen && hasYearlyGoals && (
                     <View style={styles.selectList}>
                       <View style={styles.selectEdge}>
                         <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
                       </View>
                       <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
-                        {monthlyGoalOptions
-                          .filter((opt) => opt.month === selectedMonth)
-                          .map((opt) => {
-                            const active = opt.id === draft.monthlyGoalId;
-                            return (
-                              <Pressable
-                                key={opt.id}
-                                accessibilityRole="button"
-                                style={[styles.selectOption, active && styles.selectOptionActive]}
-                                onPress={() => {
-                                  setDraft((prev) => ({ ...prev, monthlyGoalId: opt.id }));
-                                  setGoalDropdownOpen(false);
-                                }}
-                              >
-                                <View style={styles.selectValueRow}>
-                                  <View style={[styles.categoryDot, { backgroundColor: opt.color }]} />
-                                  <Text
-                                    style={[styles.selectOptionText, active && styles.selectOptionTextActive]}
-                                    numberOfLines={2}
-                                    ellipsizeMode="tail"
-                                  >
-                                    {opt.label}
-                                  </Text>
-                                </View>
-                              </Pressable>
-                            );
-                          })}
+                        <Pressable
+                          accessibilityRole="button"
+                          testID="weekly-tasks-yearly-goal-option-none"
+                          style={[styles.selectOption, !draft.yearlyGoalId && styles.selectOptionActive]}
+                          onPress={async () => {
+                            setDraft((prev) => ({ ...prev, yearlyGoalId: null }));
+                            await persistPreferredYearlyGoalId("");
+                            setGoalDropdownOpen(false);
+                          }}
+                        >
+                          <View style={styles.selectValueRow}>
+                            <View style={[styles.categoryDot, { backgroundColor: colors.divider }]} />
+                            <Text
+                              style={[styles.selectOptionText, !draft.yearlyGoalId && styles.selectOptionTextActive]}
+                              numberOfLines={2}
+                              ellipsizeMode="tail"
+                            >
+                              {t("modal.unlinkedYearlyGoal")}
+                            </Text>
+                          </View>
+                        </Pressable>
+                        {yearlyGoalOptions.map((opt) => {
+                          const active = opt.id === draft.yearlyGoalId;
+                          return (
+                            <Pressable
+                              key={opt.id}
+                              accessibilityRole="button"
+                              testID={`weekly-tasks-yearly-goal-option-${opt.id}`}
+                              style={[styles.selectOption, active && styles.selectOptionActive]}
+                              onPress={async () => {
+                                setDraft((prev) => ({ ...prev, yearlyGoalId: opt.id }));
+                                await persistPreferredYearlyGoalId(opt.id);
+                                setGoalDropdownOpen(false);
+                              }}
+                            >
+                              <View style={styles.selectValueRow}>
+                                <View style={[styles.categoryDot, { backgroundColor: opt.color }]} />
+                                <Text
+                                  style={[styles.selectOptionText, active && styles.selectOptionTextActive]}
+                                  numberOfLines={2}
+                                  ellipsizeMode="tail"
+                                >
+                                  {opt.label}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          );
+                        })}
                       </ScrollView>
                       <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
                         <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
@@ -1074,9 +1036,8 @@ export default function WeeklyTasksScreen() {
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
-                      style={[styles.primaryButton, !hasMonthlyGoals && styles.primaryButtonDisabled]}
+                      style={styles.primaryButton}
                       onPress={handleSave}
-                      disabled={!hasMonthlyGoals}
                     >
                       <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
                     </Pressable>
@@ -1350,6 +1311,20 @@ const styles = StyleSheet.create({
   dangerButton: {
     backgroundColor: "rgba(242,95,92,0.14)",
     borderColor: colors.error,
+  },
+  dangerButtonText: {
+    color: colors.error,
+    fontWeight: "700",
+    fontSize: typography.sm,
+  },
+  iconButtonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
   },
   taskControlRow: {
     flexDirection: "row",

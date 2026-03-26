@@ -4,7 +4,7 @@ export type TaskTimerTranslations = {
   pageTitle: string;
   header: {
     taskLabel: string;
-    monthlyLabel: string;
+    yearlyLabel: string;
     estimatedLabel: string;
     loggedLabel: string;
     notificationTitle: string;
@@ -87,7 +87,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       pageTitle: "タスクタイマー",
       header: {
         taskLabel: "対象タスク",
-        monthlyLabel: "紐づけた月間目標",
+        yearlyLabel: "紐づけた年間目標",
         estimatedLabel: "目標時間",
         loggedLabel: "実績",
         notificationTitle:
@@ -171,7 +171,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       pageTitle: "Task timer",
       header: {
         taskLabel: "Task",
-        monthlyLabel: "Monthly goal",
+        yearlyLabel: "Annual goal",
         estimatedLabel: "Planned",
         loggedLabel: "Logged",
         notificationTitle:
@@ -257,7 +257,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       pageTitle: "Minuteur de tâche",
       header: {
         taskLabel: "Tâche",
-        monthlyLabel: "Objectif mensuel",
+        yearlyLabel: "Objectif annuel",
         estimatedLabel: "Temps prévu",
         loggedLabel: "Enregistré",
         notificationTitle:

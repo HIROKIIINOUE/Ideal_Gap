@@ -1,12 +1,6 @@
 // 全件削除機能ファイル
 
 import { supabase } from "../../../supabaseClient";
-import { Database } from "../../../../types/database";
-
-type MonthlyGoalIdRow = Pick<
-  Database["public"]["Tables"]["monthly_goals"]["Row"],
-  "id"
->;
 
 type DeleteMonthlyGoalsParams = {
   userId: string;
@@ -19,16 +13,17 @@ type DeleteByUserParams = {
 
 type GoalDeletionClient = {
   deleteMonthlyGoals: (
-    params: DeleteMonthlyGoalsParams
+    params: DeleteMonthlyGoalsParams,
   ) => Promise<{ deletedCount: number }>;
   deleteYearlyGoals: (
-    params: DeleteByUserParams
+    params: DeleteByUserParams,
   ) => Promise<{ deletedCount: number }>;
   deleteWeeklyTasks: (
-    params: DeleteByUserParams
+    params: DeleteByUserParams,
   ) => Promise<{ deletedCount: number }>;
 };
 
+// 今後月間目標機能を復活させる時用に念の為月間目標全削除機能の枠のみ残す(現在はどこにも使用していない)
 export const deleteMonthlyGoals = async ({
   userId,
   month,
@@ -38,27 +33,6 @@ export const deleteMonthlyGoals = async ({
   if (month) {
     filters.month = month;
   }
-  const { data: monthlyRows, error: selectError } = await supabase
-    .from("monthly_goals" as any)
-    .select("id")
-    .match(filters);
-  if (selectError) {
-    throw new Error(selectError.message);
-  }
-
-  const monthlyIds = ((monthlyRows as unknown as MonthlyGoalIdRow[] | null | undefined) ?? [])
-    .map((row) => row.id)
-    .filter(Boolean);
-  if (monthlyIds.length > 0) {
-    const { error: weeklyError } = await supabase
-      .from("weekly_tasks")
-      .delete()
-      .in("monthly_goal_id", monthlyIds);
-    if (weeklyError) {
-      throw new Error(weeklyError.message);
-    }
-  }
-
   // eq()ではなくmatch()を使用することで複数の条件でもフィルターできる(「ユーザ」「指定の月」二つのデータを参照する場合に対応)
   const { error: deleteError } = await supabase
     .from("monthly_goals" as any)

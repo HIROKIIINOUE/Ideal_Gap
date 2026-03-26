@@ -58,7 +58,7 @@ type TimerStatus = "idle" | "running" | "paused" | "finished";
 
 type WeeklyTaskTimeTrackingRow = Pick<
   Database["public"]["Tables"]["weekly_tasks"]["Row"],
-  "accumulated_time_week" | "monthly_goal_id" | "next_start_point"
+  "accumulated_time_week" | "yearly_goal_id" | "next_start_point"
 >;
 
 const PRESETS = [
@@ -121,10 +121,10 @@ export default function TaskTimerScreen() {
   });
   const params = useLocalSearchParams<{
     title?: string;
-    monthlyGoal?: string;
+    yearlyGoal?: string;
     logged?: string;
     taskId?: string;
-    monthlyGoalId?: string;
+    yearlyGoalId?: string;
   }>();
 
   // タイマーの初期値は常に0から開始する
@@ -158,8 +158,8 @@ export default function TaskTimerScreen() {
 
   const taskTitle = params.title || t("pageTitle");
   const taskId = params.taskId ?? null;
-  const monthlyGoalId = params.monthlyGoalId ?? null;
-  const monthlyGoalIdSafe = monthlyGoalId || null;
+  const yearlyGoalId = params.yearlyGoalId ?? null;
+  const yearlyGoalIdSafe = yearlyGoalId || null;
   const previousLoggedMinutes = useMemo(
     () => Math.max(0, Math.round(Number(params.logged ?? 0))),
     [params.logged],
@@ -218,7 +218,7 @@ export default function TaskTimerScreen() {
     async (uid: string, weeklyTaskId: string) => {
       const { data, error } = await supabase
         .from("weekly_tasks")
-        .select("accumulated_time_week, monthly_goal_id, next_start_point")
+        .select("accumulated_time_week, yearly_goal_id, next_start_point")
         .eq("id", weeklyTaskId)
         .eq("user_id", uid)
         .single();
@@ -231,7 +231,7 @@ export default function TaskTimerScreen() {
           0,
           Math.round(row?.accumulated_time_week ?? 0),
         ),
-        monthlyGoalId: row?.monthly_goal_id ?? null,
+        yearlyGoalId: row?.yearly_goal_id ?? null,
         nextStartPoint: row?.next_start_point ?? null,
       };
     },
@@ -677,7 +677,7 @@ export default function TaskTimerScreen() {
         await updateAccumulatedTimes({
           userId: uid,
           taskId,
-          monthlyGoalId: latest.monthlyGoalId ?? monthlyGoalIdSafe,
+          yearlyGoalId: latest.yearlyGoalId ?? yearlyGoalIdSafe,
           newLoggedMinutes,
           previousLoggedMinutes: baseLogged,
           nextStartPoint:
@@ -711,7 +711,7 @@ export default function TaskTimerScreen() {
       fetchLatestLogged,
       fetchUserId,
       loggedBaseline,
-      monthlyGoalIdSafe,
+      yearlyGoalIdSafe,
       showToast,
       t,
       taskId,
