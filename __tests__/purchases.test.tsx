@@ -11,7 +11,7 @@ const mockFetchTestStorePackage = jest.fn();
 const mockPurchaseSelectedPackage = jest.fn();
 const mockEnsureSignupAwaitSubscription = jest.fn();
 const mockGetUserProfile = jest.fn();
-const mockUpdateSubscriptionAfterPurchase = jest.fn();
+const mockWaitForActiveSubscription = jest.fn();
 
 let mockParams: Record<string, string> = {};
 
@@ -32,20 +32,25 @@ jest.mock("../components/Footer", () => () => null);
 jest.mock("../lib/revenuecatOfferings", () => ({
   fetchTestStorePackage: (...args: unknown[]) => mockFetchTestStorePackage(...args),
   purchaseSelectedPackage: (...args: unknown[]) => mockPurchaseSelectedPackage(...args),
+  hasActiveEntitlement: (customerInfo: any, entitlementId = "premium") =>
+    Boolean(customerInfo?.entitlements?.active?.[entitlementId]),
 }));
 
 jest.mock("../lib/subscription", () => ({
   ensureSignupAwaitSubscription: (...args: unknown[]) =>
     mockEnsureSignupAwaitSubscription(...args),
   getUserProfile: (...args: unknown[]) => mockGetUserProfile(...args),
-  updateSubscriptionAfterPurchase: (...args: unknown[]) =>
-    mockUpdateSubscriptionAfterPurchase(...args),
+  waitForActiveSubscription: (...args: unknown[]) =>
+    mockWaitForActiveSubscription(...args),
+  canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
+    status === "active" || status === "trial",
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
       getSession: jest.fn(),
+      signOut: jest.fn(),
     },
   },
 }));
@@ -64,6 +69,7 @@ beforeEach(() => {
     data: { session: { user: { id: "user-123" } } },
     error: null,
   });
+  (supabase.auth.signOut as jest.Mock).mockResolvedValue({ error: null });
   mockFetchTestStorePackage.mockResolvedValue({
     package: {
       identifier: "monthly",
@@ -83,8 +89,10 @@ beforeEach(() => {
   });
   mockEnsureSignupAwaitSubscription.mockResolvedValue({ status: "signupAwait" });
   mockGetUserProfile.mockResolvedValue({ id: "user-123", had_account_before: false });
-  mockPurchaseSelectedPackage.mockResolvedValue({ customerInfo: {} });
-  mockUpdateSubscriptionAfterPurchase.mockResolvedValue({ status: "trial" });
+  mockPurchaseSelectedPackage.mockResolvedValue({
+    customerInfo: { entitlements: { active: { premium: { identifier: "premium" } } } },
+  });
+  mockWaitForActiveSubscription.mockResolvedValue({ status: "trial" });
 });
 
 describe("Purchases screen", () => {
@@ -99,7 +107,7 @@ describe("Purchases screen", () => {
     alertSpy.mockRestore();
   });
 
-  test("purchases package and updates subscription", async () => {
+  test("purchases package and redirects after webhook sync", async () => {
     const { getByText } = renderScreen();
 
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
@@ -107,7 +115,45 @@ describe("Purchases screen", () => {
     fireEvent.press(getByText("Complete sign-up"));
 
     await waitFor(() => expect(mockPurchaseSelectedPackage).toHaveBeenCalled());
-    expect(mockUpdateSubscriptionAfterPurchase).toHaveBeenCalledWith("user-123", false);
+    expect(mockWaitForActiveSubscription).toHaveBeenCalledWith("user-123");
     expect(router.replace).toHaveBeenCalledWith("/dashboard");
+  });
+
+  test("does not proceed when premium entitlement is not active", async () => {
+    mockPurchaseSelectedPackage.mockResolvedValueOnce({
+      customerInfo: { entitlements: { active: {} } },
+    });
+
+    const { getByText } = renderScreen();
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+
+    fireEvent.press(getByText("Complete sign-up"));
+
+    await waitFor(() => expect(mockPurchaseSelectedPackage).toHaveBeenCalled());
+    expect(mockWaitForActiveSubscription).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
+  });
+
+  test("keeps load error message wrapped inside the plan card", async () => {
+    mockFetchTestStorePackage.mockRejectedValueOnce(new Error("load failed"));
+    const { findByText, getByRole } = renderScreen();
+
+    const errorText = await findByText("Could not load pricing. Please try again.");
+    expect(errorText).toHaveStyle({ flexShrink: 1 });
+
+    fireEvent.press(getByRole("button", { name: "Retry pricing" }));
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalledTimes(2));
+  });
+
+  test("returns to home after sign out when return-home button is pressed", async () => {
+    const { getByRole } = renderScreen();
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Return to home" }));
+
+    await waitFor(() => {
+      expect(supabase.auth.signOut).toHaveBeenCalled();
+      expect(router.replace).toHaveBeenCalledWith("/");
+    });
   });
 });

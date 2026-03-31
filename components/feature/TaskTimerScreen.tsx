@@ -1,4 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
+import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import { router, useLocalSearchParams } from "expo-router";
@@ -13,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import {
   Alert,
   AppState,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -22,7 +26,10 @@ import {
   Text,
   TextInput,
   ToastAndroid,
+  Vibration,
   View,
+  useWindowDimensions,
+  type AppStateStatus,
 } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -33,12 +40,26 @@ import {
   spacing,
   typography,
 } from "../../constants/theme";
+import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import { supabase } from "../../lib/supabaseClient";
+import {
+  getTaskTimerIpadLayout,
+  scaleFontSizeForIpad,
+} from "../../lib/ui/ipadLayout";
+import { isCompactScreen } from "../../lib/ui/responsive";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
+import { useTimerAlarmPreference } from "../../providers/TimerAlarmPreferenceProvider";
+import { Database } from "../../types/database";
 import { InstalledFocusTrack } from "../../types/focus-music";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
+
+type WeeklyTaskTimeTrackingRow = Pick<
+  Database["public"]["Tables"]["weekly_tasks"]["Row"],
+  "accumulated_time_week" | "yearly_goal_id" | "next_start_point"
+>;
 
 const PRESETS = [
   // { label: "add10s", minutes: 10 / 60 }, // これはテスト用
@@ -64,6 +85,13 @@ const formatDigital = (seconds: number) => {
 
 const gradientCard = ["rgba(30,94,255,0.18)", "rgba(12,18,32,0.95)"] as const;
 const TIMER_NOTIFICATION_CHANNEL = "task-timer";
+const TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY =
+  "task_timer_notification_prompt_hidden";
+const FOREGROUND_ALARM_SOUND = require("../../assets/sounds/timer-alarm.wav");  // アラーム音
+const FOREGROUND_VIBRATION_PATTERN = [0, 250, 150, 250];  // バイブレーションの定義
+// iPad用UIのための定数群
+const isIpadDevice = Platform.OS === "ios" && Platform.isPad === true;
+const taskTimerLayout = getTaskTimerIpadLayout(isIpadDevice);
 
 // カウントダウン終了時刻を算出するロジック
 const formatEndTimeLabel = (timestamp: number | null) => {
@@ -74,17 +102,29 @@ const formatEndTimeLabel = (timestamp: number | null) => {
   return `${hours}:${minutes}`;
 };
 
+//　アプリがフォアグランドかどうかの判定
+const isForegroundAppState = (state: AppStateStatus) =>
+  state !== "background" && state !== "inactive";
+
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
+  // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
+  const { width, fontScale } = useWindowDimensions();
+  const compactScreen = isCompactScreen(width, fontScale);
   const { installedTracks, selectedTrack, selectTrack, playSelected, pause, stop } =
     useFocusMusic();
+  const { timerAlarmEnabled } = useTimerAlarmPreference();
+  const alarmPlayer = useAudioPlayer(FOREGROUND_ALARM_SOUND, {
+    // 音声セッションをアクティブなまま維持しやすくするための設定。音をタイミングよく鳴らす準備がしやすい
+    keepAudioSessionActive: true,
+  });
   const params = useLocalSearchParams<{
     title?: string;
-    monthlyGoal?: string;
-    estimated?: string;
+    yearlyGoal?: string;
     logged?: string;
     taskId?: string;
-    monthlyGoalId?: string;
+    yearlyGoalId?: string;
   }>();
 
   // タイマーの初期値は常に0から開始する
@@ -95,7 +135,6 @@ export default function TaskTimerScreen() {
   const [status, setStatus] = useState<TimerStatus>("idle");
   const [musicModalVisible, setMusicModalVisible] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
-  const [userNotificationOn, setUserNotificationOn] = useState(true);
   const [expectedEndAt, setExpectedEndAt] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [completionModalVisible, setCompletionModalVisible] = useState(false);
@@ -105,15 +144,22 @@ export default function TaskTimerScreen() {
   const [nextStartPoint, setNextStartPoint] = useState<string | null>(null);
   const [viewStartModalVisible, setViewStartModalVisible] = useState(false);
 
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const completionFiredRef = useRef(false);
-  const scheduledNotificationIdRef = useRef<string | null>(null);
-  const lastScheduledEndAtRef = useRef<number | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);  // setIntervalのID管理/停止/リセット/完了時のclearInterval用
+  const foregroundAlarmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // タイマー終了予定時刻に合わせてforeground中だけ音+バイブを発火する予約を管理する用。キャンセル時はここに埋め込まれたIDを使用してclearTimeoutをしている。
+  const completionFiredRef = useRef(false);  // 完了処理がすでに走ったかどうかを管理
+  const scheduledNotificationIdRef = useRef<string | null>(null); // expo-notificationsで予約した通知IDを保持する。後に cancelScheduledNotificationAsyncする用
+  const lastScheduledEndAtRef = useRef<number | null>(null); // 最後に通知予約した終了時刻を保持、endAtに対する通知重複防止
+  const lastForegroundAlarmEndAtRef = useRef<number | null>(null); //最後にforegroundアラーム予約した終了時刻を保持、アラーム重複防止
+  const lastTriggeredForegroundAlarmEndAtRef = useRef<number | null>(null); //すでに発火したforegroundアラームの終了時刻を覚える
+  const statusRef = useRef<TimerStatus>("idle");  // タイマー状態(idle, running, paused, finished)
+  const expectedEndAtRef = useRef<number | null>(null);  // 終了予定時刻、アプリ復帰時の時間再計算。foregroundアラーム再予約、完了判定用。
+  const inputSecondsRef = useRef(initialSeconds);  // 設定時間(duration)
+  const appStateRef = useRef(AppState.currentState); // アプリ状態(active, background, inactive)
 
   const taskTitle = params.title || t("pageTitle");
   const taskId = params.taskId ?? null;
-  const monthlyGoalId = params.monthlyGoalId ?? null;
-  const monthlyGoalIdSafe = monthlyGoalId || null;
+  const yearlyGoalId = params.yearlyGoalId ?? null;
+  const yearlyGoalIdSafe = yearlyGoalId || null;
   const previousLoggedMinutes = useMemo(
     () => Math.max(0, Math.round(Number(params.logged ?? 0))),
     [params.logged],
@@ -122,6 +168,19 @@ export default function TaskTimerScreen() {
   const hasDuration = inputSeconds > 0;
   const hasInstalledMusic = installedTracks.length > 0;
   const activeTrack = selectedTrack;
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    expectedEndAtRef.current = expectedEndAt;
+    lastTriggeredForegroundAlarmEndAtRef.current = null;
+  }, [expectedEndAt]);
+
+  useEffect(() => {
+    inputSecondsRef.current = inputSeconds;
+  }, [inputSeconds]);
 
   // 「経過した時間 / 設定作業時間」からどの割合進んだかを算出してリターンする
   const progress = useMemo(() => {
@@ -154,51 +213,26 @@ export default function TaskTimerScreen() {
     return uid;
   }, [userId]);
 
-  // マウント時にユーザの端末がアプリ通知ONになっているか状態チェック
-  useEffect(() => {
-    let isMounted = true;
-    const loadNotificationPermission = async () => {
-      try {
-        const { status, granted } = await Notifications.getPermissionsAsync();
-        if (!isMounted) return;
-        const isNotificationsOn = status === "granted" || granted;
-        setUserNotificationOn(isNotificationsOn);
-      } catch {
-        if (!isMounted) return;
-        setUserNotificationOn(true);
-      }
-    };
-
-    loadNotificationPermission();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   // 初回レンダリング時に紐づく週間タスクの最新データをDBから取得
   const fetchLatestLogged = useCallback(
     async (uid: string, weeklyTaskId: string) => {
       const { data, error } = await supabase
-        .from("weekly_tasks" as any)
-        .select("accumulated_time_week, monthly_goal_id, next_start_point")
+        .from("weekly_tasks")
+        .select("accumulated_time_week, yearly_goal_id, next_start_point")
         .eq("id", weeklyTaskId)
         .eq("user_id", uid)
         .single();
       if (error) {
         throw new Error(error.message);
       }
+      const row: WeeklyTaskTimeTrackingRow | null = data;
       return {
         accumulated: Math.max(
           0,
-          Math.round((data as any)?.accumulated_time_week ?? 0),
+          Math.round(row?.accumulated_time_week ?? 0),
         ),
-        monthlyGoalId: ((data as any)?.monthly_goal_id ?? null) as
-          | string
-          | null,
-        nextStartPoint: ((data as any)?.next_start_point ?? null) as
-          | string
-          | null,
+        yearlyGoalId: row?.yearly_goal_id ?? null,
+        nextStartPoint: row?.next_start_point ?? null,
       };
     },
     [],
@@ -232,65 +266,90 @@ export default function TaskTimerScreen() {
     }
   }, []);
 
-
-  // ユーザが端末で本アプリの通知機をONにしているかチェック
-  const ensureNotificationPermission = useCallback(async () => {
+  // アラーム、バイブレーションを引き止める処理
+  const stopForegroundAlarmOutput = useCallback(() => {
+    Vibration.cancel();
     try {
-      const current = await Notifications.getPermissionsAsync();
-      const granted =
-        current.granted ||
-        current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-      if (granted) {
-        setUserNotificationOn(true);
-        return true;
-      }
-      const request = await Notifications.requestPermissionsAsync({
-        ios: {
-          allowAlert: true,
-          allowBadge: true,
-          allowSound: true,
-        },
-      });
-      const requestGranted =
-        request.granted ||
-        request.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-      setUserNotificationOn(requestGranted);
-      return requestGranted;
+      alarmPlayer.pause(); // アラームをキャンセル
     } catch {
-      setUserNotificationOn(false);
-      return false;
+      // ignore player pause failures
     }
+    try {
+      alarmPlayer.seekTo(0) // アラーム再生地点を開始地点へ巻戻し
+    } catch {
+      // ignore player pause failures
+    }
+  }, [alarmPlayer]);
+
+  // アラームとバイブレーションの予約をキャンセルする
+  const clearForegroundAlarmSchedule = useCallback(() => {
+    if (foregroundAlarmTimeoutRef.current) {
+      clearTimeout(foregroundAlarmTimeoutRef.current);
+      foregroundAlarmTimeoutRef.current = null;
+    }
+    lastForegroundAlarmEndAtRef.current = null;
   }, []);
 
-  // 通知機のスケージュールを予約する(iOS)
-  const scheduleTimerNotification = useCallback(
-    async (endAt: number) => {
-      if (endAt <= Date.now()) return;
-      if (lastScheduledEndAtRef.current === endAt) return;
-      const permitted = await ensureNotificationPermission();
-      if (!permitted) return;
+  // アラーム・バイブレーションの予約をキャンセル、既に再生中であればそれらも止める。
+  const clearForegroundAlarm = useCallback(() => {
+    clearForegroundAlarmSchedule();
+    stopForegroundAlarmOutput();
+  }, [clearForegroundAlarmSchedule, stopForegroundAlarmOutput]);
 
-      await clearScheduledNotification();
-      const seconds = Math.max(1, Math.ceil((endAt - Date.now()) / 1000));
-      try {
-        const id = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: t("timerNotification.title"),
-            body: t("timerNotification.body"),
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds,
-            channelId: TIMER_NOTIFICATION_CHANNEL,
-          },
-        });
-        scheduledNotificationIdRef.current = id;
-        lastScheduledEndAtRef.current = endAt;
-      } catch {
-        // scheduling failed
-      }
+
+  // アラームとバイブをforegroundで引き起こす処理
+  // setIntervalで「終了予定時刻にアラームの条件を満たしていれば発火」の予約がされる
+  const triggerForegroundAlarm = useCallback(
+    (endAt: number | null) => {
+      if (!timerAlarmEnabled) return;
+      if (!endAt) return;
+      if (!isForegroundAppState(appStateRef.current)) return;
+      if (lastTriggeredForegroundAlarmEndAtRef.current === endAt) return;
+
+      lastTriggeredForegroundAlarmEndAtRef.current = endAt;
+      Vibration.vibrate(FOREGROUND_VIBRATION_PATTERN); // バイブレーションを起こす
+      const playAlarm = async () => {
+        try {
+          await alarmPlayer.seekTo(0);  // まずは音楽ファイルの0秒地点に巻戻す
+        } catch {
+          // ignore player seek failures
+        }
+        try {
+          alarmPlayer.play(); // 巻き戻した後に再生
+        } catch {
+          // ignore player play failures
+        }
+      };
+      void playAlarm();
     },
-    [clearScheduledNotification, ensureNotificationPermission, t],
+    [alarmPlayer, timerAlarmEnabled],
+  );
+
+  // 全ての条件を満たしている時アラームとバイブを予約する
+  const scheduleForegroundAlarm = useCallback(
+    (endAt: number) => {
+      if (!timerAlarmEnabled) return;
+      if (!isForegroundAppState(appStateRef.current)) return;
+      if (statusRef.current !== "running") return;
+      if (endAt <= Date.now()) return;
+      if (lastForegroundAlarmEndAtRef.current === endAt) return;
+
+      clearForegroundAlarmSchedule(); // 予約する前に全ての予約をキャンセルすることで重複防止
+      const delayMs = Math.max(1, endAt - Date.now());
+      lastForegroundAlarmEndAtRef.current = endAt;
+      // 現在地と終了予定時刻の差分であるdelayMs秒後に triggerForegroundAlarm() が発火することを予約
+      // foregroundAlarmTimeoutRef.currentで予約ID(setTimeoutの戻り値)を保持し、
+      // 予約キャンセル時はclearTimeoutで予約IDをクリアすることで予約をキャンセルできる。
+      foregroundAlarmTimeoutRef.current = setTimeout(() => {
+        foregroundAlarmTimeoutRef.current = null;
+        lastForegroundAlarmEndAtRef.current = null;
+        if (expectedEndAtRef.current !== endAt || statusRef.current !== "running") {
+          return;
+        }
+        triggerForegroundAlarm(endAt);
+      }, delayMs);
+    },
+    [clearForegroundAlarmSchedule, timerAlarmEnabled, triggerForegroundAlarm],
   );
 
   // 「カウントダウン終了モーダル」「手動でタイマー終了モーダル」の両方を開く時に実行される処理
@@ -298,29 +357,58 @@ export default function TaskTimerScreen() {
     (elapsedSeconds: number) => {
       clearTick();
       void clearScheduledNotification();
+      clearForegroundAlarmSchedule();
       stopFocusMusic();
       completionFiredRef.current = true;
       const safeElapsed = Math.max(0, Math.round(elapsedSeconds));
+      const completed = safeElapsed >= inputSeconds;
+      // カウントダウンが完了してモーダルが開かれる場合はアラーム・バイブレーションを鳴らす
+      // setTimeoutで既に予約済みだが、取りこぼし防止のための保険としてここでも発火
+      // triggerForegroundAlarm()内で発火条件を敷いてるためアラームの重複は防止されている
+      if (completed) {
+        triggerForegroundAlarm(expectedEndAtRef.current);
+      } else {
+        stopForegroundAlarmOutput();
+      }
       setCompletionElapsedSeconds(safeElapsed);
       setCompletionModalVisible(true);
-      setStatus("paused");
+      if (completed) {
+        setRemainingSeconds(0);
+        setStatus("finished");
+      } else {
+        setStatus("paused");
+      }
       setExpectedEndAt(null);
     },
-    [clearScheduledNotification, clearTick, stopFocusMusic],
+    [
+      clearForegroundAlarmSchedule,
+      clearScheduledNotification,
+      clearTick,
+      inputSeconds,
+      stopFocusMusic,
+      stopForegroundAlarmOutput,
+      triggerForegroundAlarm,
+    ],
   );
 
   // 作業完了モーダルの「キャンセル」押下時の処理
   const handleDismissCompletion = useCallback(() => {
     setCompletionModalVisible(false);
     setIsSavingCompletion(false);
+    stopForegroundAlarmOutput();
     completionFiredRef.current = false;
+    if (completionElapsedSeconds >= inputSeconds) {
+      setRemainingSeconds(0);
+      setStatus("finished");
+      return;
+    }
     setStatus("paused");
-  }, []);
+  }, [completionElapsedSeconds, inputSeconds, stopForegroundAlarmOutput]);
 
   // 状態がidle,finishedの時のみ残り時間とユーザの設定作業時間を一致させる
   // paused時は残り時間とユーザ設定時間が異なるのでここの処理は走らせない
   useEffect(() => {
-    if (status === "idle" || status === "finished") {
+    if (status === "idle") {
       setRemainingSeconds(inputSeconds);
     }
   }, [inputSeconds, status]);
@@ -351,9 +439,11 @@ export default function TaskTimerScreen() {
   useEffect(() => {
     return () => {
       clearTick();
+      void clearScheduledNotification();
+      clearForegroundAlarm();
       stopFocusMusic();
     };
-  }, [clearTick, stopFocusMusic]);
+  }, [clearForegroundAlarm, clearScheduledNotification, clearTick, stopFocusMusic]);
 
   // 共通のトースト表示(ポップアップメッセージ)処理
   const showToast = useCallback((message: string) => {
@@ -364,17 +454,129 @@ export default function TaskTimerScreen() {
     Alert.alert(message);
   }, []);
 
-  // iOS設定画面へ遷移する処理、Androidは要検討
+  // 【ここチェック】iOS設定画面へ遷移する処理、Androidは要検討
   const handleOpenSettings = useCallback(async () => {
     try {
       await Linking.openSettings();
     } catch (error) {
       console.warn("Failed to open settings", error);
       showToast(t("feedback.startError"));
-    } finally {
-      setUserNotificationOn(true);
     }
   }, [showToast, t]);
+
+
+  // ユーザ端末の通知設定情報を取得
+  const hasNotificationPermission = useCallback(async () => {
+    const current = await Notifications.getPermissionsAsync();
+    return (
+      current.granted ||
+      current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+    );
+  }, []);
+
+  // タイマーカウントダウンスタート処理
+  const startTimerCountdown = useCallback(() => {
+    stopForegroundAlarmOutput();
+    lastTriggeredForegroundAlarmEndAtRef.current = null;
+    completionFiredRef.current = false;
+    const countdownSeconds =
+      statusRef.current === "finished" && remainingSeconds > 0
+        ? remainingSeconds
+        : inputSeconds;
+    setRemainingSeconds(countdownSeconds);
+    setStatus("running");
+    setExpectedEndAt(Date.now() + countdownSeconds * 1000);
+  }, [inputSeconds, remainingSeconds, stopForegroundAlarmOutput]);
+
+  //　通知OFFの場合はシンプルにstartTimerCountdown()のみを発火する
+  const handleContinueWithoutNotification = useCallback(() => {
+    startTimerCountdown();
+  }, [startTimerCountdown]);
+
+  // ユーザが通知誘導ポップアップを「２度と表示しない」を選択した場合はローカルでその情報を保持
+  const handleHideNotificationPrompt = useCallback(async () => {
+    await AsyncStorage.setItem(TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY, "1");
+    startTimerCountdown();
+  }, [startTimerCountdown]);
+
+  // スタート押下時に発火、通知がOFFの場合は通知許可リクエストと案内モーダル表示を行う
+  const ensureNotificationPermissionForStart = useCallback(async () => {
+    try {
+      if (await hasNotificationPermission()) {
+        return true;
+      }
+      const request = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
+      const requestGranted =
+        request.granted ||
+        request.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+      if (!requestGranted) {
+        Alert.alert(t("feedback.permissionDenied"), undefined, [
+          { text: t("feedback.permissionContinue"), onPress: handleContinueWithoutNotification },
+          { text: t("feedback.permissionAction"), onPress: handleOpenSettings },
+          { text: t("feedback.permissionHide"), onPress: () => void handleHideNotificationPrompt() },
+        ]);
+      }
+      return requestGranted;
+    } catch {
+      Alert.alert(t("feedback.permissionDenied"), undefined, [
+        { text: t("feedback.permissionContinue"), onPress: handleContinueWithoutNotification },
+        { text: t("feedback.permissionAction"), onPress: handleOpenSettings },
+        { text: t("feedback.permissionHide"), onPress: () => void handleHideNotificationPrompt() },
+      ]);
+      return false;
+    }
+  }, [
+    handleContinueWithoutNotification,
+    handleHideNotificationPrompt,
+    handleOpenSettings,
+    hasNotificationPermission,
+    t,
+  ]);
+
+  // 「タイマー終了予定時刻が有効で、通知権限もある場合、古い通知を消してから、新しい終了通知を1件だけ予約する
+  const scheduleTimerNotification = useCallback(
+    async (endAt: number) => {
+
+      // 過去時刻に通知を予約しないためのガード
+      if (endAt <= Date.now()) return;
+      // 同じ終了時刻に対して、重複して通知を予約しないためのチェック
+      if (lastScheduledEndAtRef.current === endAt) return;  // lastScheduledEndAtRef.current最後に通知予約した終了時刻
+      const permitted = await hasNotificationPermission();
+      if (!permitted) return;
+
+      // 既存の通知予約を先に消し、常に最新の終了時刻に対して通知は1件だけにする
+      await clearScheduledNotification();
+      const seconds = Math.max(1, Math.ceil((endAt - Date.now()) / 1000));
+
+      // ここから通知の予約処理
+      try {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: t("timerNotification.title"),
+            body: t("timerNotification.body"),
+            sound: "default",
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds,
+            channelId: TIMER_NOTIFICATION_CHANNEL,  // Androidの通知チャンネル
+          },
+        });
+
+        scheduledNotificationIdRef.current = id;  // 後でキャンセルするための通知ID
+        lastScheduledEndAtRef.current = endAt;  // 終了時刻(同じ終了時刻で再予約しないために)
+      } catch {
+        // scheduling failed
+      }
+    },
+    [clearScheduledNotification, hasNotificationPermission, t],
+  );
 
   // カウントダウンが「idle」「paused」の各条件下でプリセットボタンで設定作業時間を追加するロジック
   const handlePreset = (minutes: number) => {
@@ -386,6 +588,12 @@ export default function TaskTimerScreen() {
       const nextInput = Math.max(nextRemaining, inputSeconds + delta);
       setInputSeconds(nextInput);
       setRemainingSeconds(nextRemaining);
+      return;
+    }
+    // タイマー完了時の作業時間追加ロジック
+    if (status === "finished") {
+      setInputSeconds((prev) => Math.max(0, prev + delta));
+      setRemainingSeconds((prev) => Math.max(0, prev + delta));
       return;
     }
     // カウント開始前の時
@@ -400,6 +608,7 @@ export default function TaskTimerScreen() {
     if (status === "running") return;
     clearTick();
     void clearScheduledNotification();
+    clearForegroundAlarm();
     setInputSeconds(0);
     setRemainingSeconds(0);
     setStatus("idle");
@@ -411,15 +620,24 @@ export default function TaskTimerScreen() {
   };
 
   // スタートボタン押下時
-  const handleStart = () => {
+  const handleStart = async () => {
     if (!hasDuration) {
       showToast(t("feedback.startError"));
       return;
     }
-    completionFiredRef.current = false;
-    setRemainingSeconds(inputSeconds);
-    setStatus("running");
-    setExpectedEndAt(Date.now() + inputSeconds * 1000);
+    const hiddenPreference = await AsyncStorage.getItem(
+      TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY,
+    );
+    // 通知ポップアップを「２度と表示しない」としてる場合は無条件でタイマースタート
+    if (hiddenPreference === "1") {
+      startTimerCountdown();
+      return;
+    }
+    // ユーザの通知設定を確認
+    const permitted = await ensureNotificationPermissionForStart();
+    if (permitted) {
+      startTimerCountdown();
+    }
   };
 
   // 一時停止orリスタート ボタン押下時
@@ -428,6 +646,7 @@ export default function TaskTimerScreen() {
     if (status === "running") {
       setStatus("paused");
       setExpectedEndAt(null);
+      clearForegroundAlarm();
       completionFiredRef.current = false;
       return;
     }
@@ -458,7 +677,7 @@ export default function TaskTimerScreen() {
         await updateAccumulatedTimes({
           userId: uid,
           taskId,
-          monthlyGoalId: latest.monthlyGoalId ?? monthlyGoalIdSafe,
+          yearlyGoalId: latest.yearlyGoalId ?? yearlyGoalIdSafe,
           newLoggedMinutes,
           previousLoggedMinutes: baseLogged,
           nextStartPoint:
@@ -492,18 +711,23 @@ export default function TaskTimerScreen() {
       fetchLatestLogged,
       fetchUserId,
       loggedBaseline,
-      monthlyGoalIdSafe,
+      yearlyGoalIdSafe,
       showToast,
       t,
       taskId,
     ],
   );
 
-  // タイマーがカウント中(running)に切り替わった時に発火しsetIntervalをスタートさせる
+  // カウントダウン状態statusがrunningになった時に発火(厳密には違うが実質はそう)
+  // カウントダウン終了時刻をsetIntervalで予約しカウントダウンをスタートする￥
   useEffect(() => {
     if (status !== "running") {
       clearTick();
       void clearScheduledNotification();
+      clearForegroundAlarmSchedule();
+      if (status !== "finished") {
+        stopForegroundAlarmOutput();
+      }
       return;
     }
 
@@ -522,7 +746,15 @@ export default function TaskTimerScreen() {
     }, 1000);
 
     return clearTick;
-  }, [status, inputSeconds, clearTick, clearScheduledNotification, openCompletionModal]);
+  }, [
+    clearForegroundAlarmSchedule,
+    clearScheduledNotification,
+    clearTick,
+    inputSeconds,
+    openCompletionModal,
+    status,
+    stopForegroundAlarmOutput,
+  ]);
 
 
   // タイマーstatusが変更された時に新しく通知スケジュールをセットする
@@ -532,6 +764,31 @@ export default function TaskTimerScreen() {
     void scheduleTimerNotification(expectedEndAt);
   }, [expectedEndAt, scheduleTimerNotification, status]);
 
+  // カウントダウン状態statusがrunningになった時に発火(厳密には違うが実質はそう)
+  // 終了時刻に応じてアラームとバイブレーションの予約をする
+  useEffect(() => {
+    if (status !== "running") {
+      clearForegroundAlarmSchedule();
+      if (status !== "finished") {
+        stopForegroundAlarmOutput();
+      }
+      return;
+    }
+    if (!expectedEndAt || !isForegroundAppState(appStateRef.current)) {
+      clearForegroundAlarm();
+      return;
+    }
+    scheduleForegroundAlarm(expectedEndAt);
+  }, [
+    clearForegroundAlarm,
+    clearForegroundAlarmSchedule,
+    expectedEndAt,
+    scheduleForegroundAlarm,
+    status,
+    stopForegroundAlarmOutput,
+    timerAlarmEnabled,
+  ]);
+
 
   // 端末OSがAndroidの場合、以下の処理で最初にチャンネルを作成し、通知を予約するscheduleTimerNotificationでそのチャンネルに通知スケジュールをセットする。
   useEffect(() => {
@@ -539,6 +796,7 @@ export default function TaskTimerScreen() {
     Notifications.setNotificationChannelAsync(TIMER_NOTIFICATION_CHANNEL, {
       name: "Task Timer",
       importance: Notifications.AndroidImportance.MAX,
+      sound: "default",
     }).catch(() => { });
   }, []);
 
@@ -546,19 +804,27 @@ export default function TaskTimerScreen() {
   // AppStateには「active」「background」の二つがある。(細かい他の状態もあるがほとんど使わない)
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active") return;
-      if (status !== "running" || !expectedEndAt) return;
-      const remaining = Math.max(0, Math.round((expectedEndAt - Date.now()) / 1000));
+      appStateRef.current = nextState;
+      if (!isForegroundAppState(nextState)) {
+        clearForegroundAlarm();
+        return;
+      }
+      if (statusRef.current !== "running" || !expectedEndAtRef.current) return;
+      const remaining = Math.max(
+        0,
+        Math.round((expectedEndAtRef.current - Date.now()) / 1000),
+      );
       if (remaining <= 0) {
         if (!completionFiredRef.current) {
-          openCompletionModal(Math.max(0, inputSeconds));
+          openCompletionModal(Math.max(0, inputSecondsRef.current));
         }
         return;
       }
       setRemainingSeconds(remaining);
+      scheduleForegroundAlarm(expectedEndAtRef.current);
     });
-    return () => subscription.remove();
-  }, [expectedEndAt, inputSeconds, openCompletionModal, status]);
+    return () => subscription?.remove?.();
+  }, [clearForegroundAlarm, openCompletionModal, scheduleForegroundAlarm]);
 
   // 作業完了ボタン押下時の処理
   const handleComplete = () => {
@@ -574,6 +840,17 @@ export default function TaskTimerScreen() {
   // 作業モーダルの「完了」ボタン押下時の処理
   const handleConfirmCompletion = useCallback(async () => {
     if (isSavingCompletion) return;
+
+    // ネットワーク状況を確認し、オフラインの場合はポップアップ画面で保存できない旨を伝え、週間タスクページに遷移させる。
+    const network = await NetInfo.fetch();
+    if (!network.isConnected || network.isInternetReachable === false) {
+      Alert.alert(
+        t("controls.completeConfirmTitle"),
+        t("feedback.offlineSaveBlocked"),
+        [{ text: t("feedback.offlineSaveBlockedAction"), onPress: () => router.back() }],
+      );
+      return;
+    }
     setIsSavingCompletion(true);
     const trimmedNextStart = nextStartNote.trim();
     const nextStartPayload =
@@ -592,6 +869,7 @@ export default function TaskTimerScreen() {
     isSavingCompletion,
     nextStartNote,
     persistElapsedAndExit,
+    t,
   ]);
 
   const handleSelectMusic = (option: InstalledFocusTrack) => {
@@ -602,7 +880,8 @@ export default function TaskTimerScreen() {
 
   const pauseResumeLabel =
     status === "running" ? t("controls.pause") : t("controls.resume");
-  const pauseResumeIcon = status === "running" ? "pause-circle" : "play-circle";
+  const pauseResumeIcon =
+    status === "running" ? "timer-off-outline" : "timer-outline";
   const musicLabel = !hasInstalledMusic
     ? t("controls.musicUnavailable")
     : musicPlaying
@@ -638,40 +917,6 @@ export default function TaskTimerScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {!userNotificationOn && (
-          <View style={[styles.noticeCard, shadows.card]}>
-            <Text style={styles.noticeText}>
-              {t("header.notificationTitle")}
-            </Text>
-            <View style={styles.noticeActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setUserNotificationOn(true)}
-                style={({ pressed }) => [
-                  styles.noticeButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.noticeButtonText}>
-                  {t("header.notificationDismiss")}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleOpenSettings}
-                style={({ pressed }) => [
-                  styles.noticePrimary,
-                  pressed && styles.primaryPressed,
-                ]}
-              >
-                <Text style={styles.noticePrimaryText}>
-                  {t("header.notificationAction")}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
         <View style={[styles.card, styles.timerCard, shadows.card]}>
           <LinearGradient
             colors={gradientCard}
@@ -680,7 +925,7 @@ export default function TaskTimerScreen() {
             style={StyleSheet.absoluteFill}
           />
           <Text
-            style={styles.focusTitle}
+            style={[styles.focusTitle, compactScreen && styles.focusTitleCompact]}
             numberOfLines={2}
             ellipsizeMode="tail"
           >
@@ -711,22 +956,25 @@ export default function TaskTimerScreen() {
           <View style={styles.timerWrapper}>
             <View style={styles.progressWrapper}>
               <AnimatedCircularProgress
-                size={260}
-                width={24}
+                size={taskTimerLayout.ringSize}
+                width={taskTimerLayout.ringStrokeWidth}
                 fill={progress * 100}
                 tintColor={colors.accentPrimary}
                 backgroundColor={colors.divider}
                 lineCap="round"
                 rotation={0}
-                backgroundWidth={20}
+                backgroundWidth={taskTimerLayout.ringBackgroundStrokeWidth}
                 style={styles.circularProgress}
               >
                 {() => (
                   <View style={styles.ringCenter}>
-                    <Text style={styles.durationLabel} testID="timer-duration">
+                    <Text
+                      style={[styles.durationLabel, compactScreen && styles.durationLabelCompact]}
+                      testID="timer-duration"
+                    >
                       {durationLabel}
                     </Text>
-                    <Text style={styles.remainingLabel}>
+                    <Text style={[styles.remainingLabel, compactScreen && styles.remainingLabelCompact]}>
                       {t("timerCard.endTimeLabel", { time: endTimeText })}
                     </Text>
                     {statusLabel && (
@@ -742,6 +990,7 @@ export default function TaskTimerScreen() {
             {PRESETS.map((preset) => (
               <Pressable
                 key={preset.label}
+                testID={`timer-preset-${preset.label}`}
                 accessibilityRole="button"
                 disabled={status === "running"}
                 onPress={() => handlePreset(preset.minutes)}
@@ -752,12 +1001,17 @@ export default function TaskTimerScreen() {
                   status === "running" && styles.buttonDisabled,
                 ]}
               >
-                <Text style={styles.secondaryButtonText}>
+                <Text
+                  style={[styles.secondaryButtonText, styles.presetButtonText, compactScreen && styles.presetButtonTextCompact]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {t(`presets.${preset.label}`)}
                 </Text>
               </Pressable>
             ))}
             <Pressable
+              testID="timer-preset-clear"
               accessibilityRole="button"
               onPress={handleClear}
               disabled={status === "running"}
@@ -770,7 +1024,13 @@ export default function TaskTimerScreen() {
                 status === "running" && styles.clearButtonDisabled,
               ]}
             >
-              <Text style={styles.clearButtonText}>{t("presets.clear")}</Text>
+              <Text
+                style={[styles.clearButtonText, styles.presetButtonText, compactScreen && styles.presetButtonTextCompact]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {t("presets.clear")}
+              </Text>
             </Pressable>
           </View>
 
@@ -816,6 +1076,7 @@ export default function TaskTimerScreen() {
               ]}
             >
               <MaterialCommunityIcons
+                testID="pause-resume-icon"
                 name={pauseResumeIcon}
                 size={22}
                 color={colors.textPrimary}
@@ -913,76 +1174,94 @@ export default function TaskTimerScreen() {
         onRequestClose={handleDismissCompletion}
       >
         <View style={styles.modalOverlay}>
-          <View
-            style={[styles.modalCard, styles.completionCard, shadows.card]}
-            testID="completion-modal"
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="completion-modal-keyboard-avoiding"
           >
-            <Text style={styles.modalTitle}>{t("completionModal.title")}</Text>
-            <Text style={styles.modalSubtitle}>
-              {t("completionModal.description")}
-            </Text>
-
-            <View style={styles.completionSummary}>
-              <Text style={styles.summaryLabel}>
-                {t("completionModal.actualTimeLabel")}
-              </Text>
-              <Text style={styles.summaryTime}>{completionDurationLabel}</Text>
-              <Text style={styles.summaryHint}>
-                {t("completionModal.minutesLabel", {
-                  minutes: completionMinutes,
-                })}
-              </Text>
-            </View>
-
-            <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>
-                {t("completionModal.nextStartLabel")}
-              </Text>
-              <TextInput
-                value={nextStartNote}
-                onChangeText={setNextStartNote}
-                placeholder={t("completionModal.nextStartPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.textInput}
-                multiline
-              />
-              <Text style={styles.fieldHelper}>
-                {t("completionModal.nextStartHelper")}
-              </Text>
-            </View>
-
-            <View style={styles.completionActions}>
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="completion-modal-scroll"
+            >
               <Pressable
-                accessibilityRole="button"
-                onPress={handleDismissCompletion}
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  styles.controlButton,
-                  pressed && styles.secondaryPressed,
-                ]}
+                style={[styles.modalCard, styles.completionCard, shadows.card]}
+                onPress={(event) => event.stopPropagation()}
+                testID="completion-modal"
               >
-                <Text style={styles.secondaryButtonText}>
-                  {t("controls.cancel")}
+                <Text style={styles.modalTitle}>{t("completionModal.title")}</Text>
+                <Text style={styles.modalSubtitle}>
+                  {t("completionModal.description")}
                 </Text>
+
+                <View style={styles.completionSummary}>
+                  <Text style={styles.summaryLabel}>
+                    {t("completionModal.actualTimeLabel")}
+                  </Text>
+                  <Text style={styles.summaryTime}>{completionDurationLabel}</Text>
+                  <Text style={styles.summaryHint}>
+                    {t("completionModal.minutesLabel", {
+                      minutes: completionMinutes,
+                    })}
+                  </Text>
+                </View>
+
+                <View style={styles.fieldBlock}>
+                  <Text style={styles.fieldLabel}>
+                    {t("completionModal.nextStartLabel")}
+                  </Text>
+                  <TextInput
+                    value={nextStartNote}
+                    onChangeText={setNextStartNote}
+                    placeholder={t("completionModal.nextStartPlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.textInput}
+                    multiline
+                  />
+                  <Text style={styles.fieldHelper}>
+                    {t("completionModal.nextStartHelper")}
+                  </Text>
+                </View>
+
+                <View style={styles.completionActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleDismissCompletion}
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      styles.controlButton,
+                      pressed && styles.secondaryPressed,
+                    ]}
+                  >
+                    <Text style={styles.secondaryButtonText}>
+                      {t("controls.cancel")}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleConfirmCompletion}
+                    disabled={isSavingCompletion}
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      styles.controlButton,
+                      styles.completionPrimary,
+                      pressed && styles.primaryPressed,
+                      isSavingCompletion && styles.buttonDisabled,
+                    ]}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {t("completionModal.confirm")}
+                    </Text>
+                  </Pressable>
+                </View>
               </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleConfirmCompletion}
-                disabled={isSavingCompletion}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  styles.controlButton,
-                  styles.completionPrimary,
-                  pressed && styles.primaryPressed,
-                  isSavingCompletion && styles.buttonDisabled,
-                ]}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {t("completionModal.confirm")}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
         </View>
       </Modal>
 
@@ -1105,6 +1384,7 @@ export default function TaskTimerScreen() {
           </View>
         </View>
       </Modal>
+
     </SafeAreaView>
   );
 }
@@ -1112,7 +1392,7 @@ export default function TaskTimerScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   container: {
     padding: spacing.xl,
@@ -1210,55 +1490,16 @@ const styles = StyleSheet.create({
   timerCard: {
     gap: 0,
   },
-  noticeCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    gap: spacing.sm,
-  },
-  noticeText: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    lineHeight: typography.md * 1.4,
-  },
-  noticeActions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  noticeButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
-  },
-  noticeButtonText: {
-    color: colors.textPrimary,
-    fontSize: typography.sm,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  noticePrimary: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.accentPrimary,
-  },
-  noticePrimaryText: {
-    color: colors.textPrimary,
-    fontSize: typography.sm,
-    fontWeight: "700",
-    textAlign: "center",
-  },
   focusTitle: {
     color: colors.textPrimary,
     fontSize: typography.lg,
     fontWeight: "800",
     textAlign: "center",
     marginBottom: spacing.lg,
+  },
+  focusTitleCompact: {
+    fontSize: typography.md * 1.15,
+    lineHeight: typography.lg * 1.2,
   },
   nextStartBox: {
     backgroundColor: "rgba(255,255,255,0.04)",
@@ -1286,11 +1527,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 0,
+    marginBottom: taskTimerLayout.timerWrapperMarginBottom,
+    maxHeight: isIpadDevice ? 800 : undefined,
     width: "100%",
   },
   progressWrapper: {
     width: "100%",
-    maxWidth: 260,
+    maxWidth: taskTimerLayout.ringMaxWidth,
+    maxHeight: isIpadDevice ? 500 : undefined,
+    marginBottom: spacing.md,
     aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -1311,16 +1556,22 @@ const styles = StyleSheet.create({
   },
   durationLabel: {
     color: colors.textPrimary,
-    fontSize: 20,
+    fontSize: scaleFontSizeForIpad(20, isIpadDevice),
     fontWeight: "800",
     letterSpacing: 0.4,
     textAlign: "center",
   },
+  durationLabelCompact: {
+    fontSize: scaleFontSizeForIpad(18, isIpadDevice),
+  },
   remainingLabel: {
     color: colors.textSecondary,
-    fontSize: 18,
+    fontSize: scaleFontSizeForIpad(18, isIpadDevice),
     marginTop: spacing.xs,
     textAlign: "center",
+  },
+  remainingLabelCompact: {
+    fontSize: scaleFontSizeForIpad(15, isIpadDevice),
   },
   statusInline: {
     marginTop: spacing.xs / 2,
@@ -1332,11 +1583,25 @@ const styles = StyleSheet.create({
   presetsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
-    marginTop: -spacing.lg, //【ここチェック】 他のデバイスでもデザインが崩れないかどうか
+    rowGap: spacing.sm,
+    marginTop: taskTimerLayout.presetsMarginTop,
+    justifyContent: "center",
   },
   presetButton: {
-    minWidth: 92,
+    flexBasis: "31%",
+    maxWidth: "31%",
+    minWidth: 0,
+    flexGrow: 0,
+    flexShrink: 0,
+    paddingHorizontal: spacing.sm,
+    marginHorizontal: "1%",
+  },
+  presetButtonText: {
+    fontSize: typography.md * 0.92,
+    lineHeight: typography.md * 1.05,
+  },
+  presetButtonTextCompact: {
+    fontSize: typography.md,
   },
   clearButton: {
     borderColor: colors.error,
@@ -1415,6 +1680,17 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
+  },
+  modalContainer: {
+    width: "100%",
+    maxHeight: "100%",
+  },
+  modalScroll: {
+    width: "100%",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   modalTitle: {
     color: colors.textPrimary,

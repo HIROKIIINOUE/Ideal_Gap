@@ -1,16 +1,30 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useHeaderHeight } from "@react-navigation/elements";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  ToastAndroid,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 import Footer from "../components/Footer";
+import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
@@ -47,6 +61,8 @@ export default function Contact() {
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [messageTouched, setMessageTouched] = useState(false);
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
+  const headerHeight = useHeaderHeight();
 
   const categoryOptions = useMemo(
     () =>
@@ -152,6 +168,7 @@ export default function Contact() {
     };
   }, []);
 
+
   const handleMoreSelect = async (key: string) => {
     if (key === "logout") {
       Alert.alert(tCommon("confirmTitle"), tCommon("confirmBody"), [
@@ -176,162 +193,180 @@ export default function Contact() {
     if (key === "contact") {
       router.push("/contact");
     }
+    if (key === "payment") {
+      router.push("/payment-management");
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
-      <Stack.Screen options={{ title: t("pageTitle"), headerBackTitle: tCommonNav("back") }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.card, shadows.card]}>
-          <LinearGradient
-            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.cardHeader}>
-            <Text style={styles.title}>{t("pageTitle")}</Text>
-            <Text style={styles.subtitle}>{t("intro")}</Text>
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("fields.nameLabel")}</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder={t("fields.namePlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              autoCapitalize="words"
-              keyboardAppearance="dark"
-              onBlur={() => setNameTouched(true)}
-            />
-            {!validation.success && nameTouched && fieldErrors.name && (
-              <Text style={styles.errorText}>{t("validation.name")}</Text>
-            )}
-          </View>
-
-          <TextInput
-            value={honeypot}
-            onChangeText={setHoneypot}
-            autoCapitalize="none"
-            autoCorrect={false}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            testID="contact-honeypot"
-            style={styles.honeypot}
-          />
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("fields.emailLabel")}</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder={t("fields.emailPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              keyboardAppearance="dark"
-              onBlur={() => setEmailTouched(true)}
-            />
-            {!validation.success && emailTouched && fieldErrors.email && (
-              <Text style={styles.errorText}>{t("validation.email")}</Text>
-            )}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("fields.categoryLabel")}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={category ? t(`categories.${category}`) : t("fields.categoryPlaceholder")}
-              onPress={() => {
-                setCategoryOpen((prev) => !prev);
-                setCategoryTouched(true);
-              }}
-              style={({ pressed }) => [styles.selectButton, pressed && styles.pressed]}
-            >
-              <View style={styles.selectHeader}>
-                <Text style={styles.selectLabel}>
-                  {category ? t(`categories.${category}`) : t("fields.categoryPlaceholder")}
-                </Text>
-                <MaterialCommunityIcons name="chevron-down" size={18} color={colors.textPrimary} />
-              </View>
-              <Text style={styles.selectHelper}>{t("fields.helper")}</Text>
-            </Pressable>
-
-            {categoryOpen && (
-              <View style={styles.optionList}>
-                {categoryOptions.map((option) => (
-                  <Pressable
-                    key={option.key}
-                    accessibilityRole="button"
-                    accessibilityLabel={option.label}
-                    onPress={() => {
-                      setCategory(option.key);
-                      setCategoryOpen(false);
-                      setCategoryTouched(true);
-                    }}
-                    style={({ pressed }) => [styles.optionButton, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.optionLabel}>{option.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-            {!validation.success && categoryTouched && fieldErrors.category && (
-              <Text style={styles.errorText}>{t("validation.category")}</Text>
-            )}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("fields.messageLabel")}</Text>
-            <TextInput
-              value={message}
-              onChangeText={setMessage}
-              placeholder={t("fields.messagePlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.input, styles.textArea]}
-              multiline
-              numberOfLines={5}
-              textAlignVertical="top"
-              keyboardAppearance="dark"
-              onBlur={() => setMessageTouched(true)}
-            />
-            {!validation.success && messageTouched && fieldErrors.message && (
-              <Text style={styles.errorText}>{t("validation.message")}</Text>
-            )}
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("submit.label")}
-            disabled={!isValid || isSubmitting || status === "submitted"}
-            onPress={handleSubmit}
-            style={({ pressed }) => [
-              styles.submitButton,
-              (!isValid || pressed || isSubmitting || status === "submitted") && styles.pressed,
-              (!isValid || isSubmitting || status === "submitted") && styles.submitDisabled,
-            ]}
+      <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommonNav("back") }} />
+      <Pressable style={styles.formOverlay} onPress={dismissKeyboard} testID="contact-form-overlay">
+        <KeyboardAvoidingView
+          behavior={Platform.select({ ios: "padding", android: undefined })}
+          keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
+          style={styles.formContainer}
+          testID="contact-form-kav"
+        >
+          <ScrollView
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            style={styles.formScroll}
+            testID="contact-form-scroll"
           >
-            <Text style={styles.submitLabel}>
-              {isSubmitting ? t("submit.sending") : status === "submitted" ? t("submit.sent") : t("submit.label")}
-            </Text>
-          </Pressable>
+            <Pressable style={[styles.card, shadows.card]} onPress={(event) => event?.stopPropagation?.()}>
+              <LinearGradient
+                colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.cardHeader}>
+                <Text style={styles.title}>{t("pageTitle")}</Text>
+                <Text style={styles.subtitle}>{t("intro")}</Text>
+              </View>
 
-          {status === "submitted" && (
-            <View style={styles.successCard}>
-              <Text style={styles.successTitle}>{t("submit.successTitle")}</Text>
-              <Text style={styles.successBody}>{t("submit.successBody")}</Text>
-            </View>
-          )}
-          {submissionError && (
-            <View style={styles.errorCard}>
-              <Text style={styles.errorBody}>{submissionError}</Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>{t("fields.nameLabel")}</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder={t("fields.namePlaceholder")}
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.input}
+                  autoCapitalize="words"
+                  keyboardAppearance="dark"
+                  onBlur={() => setNameTouched(true)}
+                />
+                {!validation.success && nameTouched && fieldErrors.name && (
+                  <Text style={styles.errorText}>{t("validation.name")}</Text>
+                )}
+              </View>
+
+              <TextInput
+                value={honeypot}
+                onChangeText={setHoneypot}
+                autoCapitalize="none"
+                autoCorrect={false}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                testID="contact-honeypot"
+                style={styles.honeypot}
+              />
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>{t("fields.emailLabel")}</Text>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder={t("fields.emailPlaceholder")}
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.input}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  keyboardAppearance="dark"
+                  onBlur={() => setEmailTouched(true)}
+                />
+                {!validation.success && emailTouched && fieldErrors.email && (
+                  <Text style={styles.errorText}>{t("validation.email")}</Text>
+                )}
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>{t("fields.categoryLabel")}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={category ? t(`categories.${category}`) : t("fields.categoryPlaceholder")}
+                  onPress={() => {
+                    setCategoryOpen((prev) => !prev);
+                    setCategoryTouched(true);
+                  }}
+                  style={({ pressed }) => [styles.selectButton, pressed && styles.pressed]}
+                >
+                  <View style={styles.selectHeader}>
+                    <Text style={styles.selectLabel}>
+                      {category ? t(`categories.${category}`) : t("fields.categoryPlaceholder")}
+                    </Text>
+                    <MaterialCommunityIcons name="chevron-down" size={18} color={colors.textPrimary} />
+                  </View>
+                  <Text style={styles.selectHelper}>{t("fields.helper")}</Text>
+                </Pressable>
+
+                {categoryOpen && (
+                  <View style={styles.optionList}>
+                    {categoryOptions.map((option) => (
+                      <Pressable
+                        key={option.key}
+                        accessibilityRole="button"
+                        accessibilityLabel={option.label}
+                        onPress={() => {
+                          setCategory(option.key);
+                          setCategoryOpen(false);
+                          setCategoryTouched(true);
+                        }}
+                        style={({ pressed }) => [styles.optionButton, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.optionLabel}>{option.label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+                {!validation.success && categoryTouched && fieldErrors.category && (
+                  <Text style={styles.errorText}>{t("validation.category")}</Text>
+                )}
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>{t("fields.messageLabel")}</Text>
+                <TextInput
+                  value={message}
+                  onChangeText={setMessage}
+                  placeholder={t("fields.messagePlaceholder")}
+                  placeholderTextColor={colors.textSecondary}
+                  style={[styles.input, styles.textArea]}
+                  multiline
+                  numberOfLines={5}
+                  textAlignVertical="top"
+                  keyboardAppearance="dark"
+                  onBlur={() => setMessageTouched(true)}
+                />
+                {!validation.success && messageTouched && fieldErrors.message && (
+                  <Text style={styles.errorText}>{t("validation.message")}</Text>
+                )}
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("submit.label")}
+                disabled={!isValid || isSubmitting || status === "submitted"}
+                onPress={handleSubmit}
+                style={({ pressed }) => [
+                  styles.submitButton,
+                  (!isValid || pressed || isSubmitting || status === "submitted") && styles.pressed,
+                  (!isValid || isSubmitting || status === "submitted") && styles.submitDisabled,
+                ]}
+              >
+                <Text style={styles.submitLabel}>
+                  {isSubmitting ? t("submit.sending") : status === "submitted" ? t("submit.sent") : t("submit.label")}
+                </Text>
+              </Pressable>
+
+              {status === "submitted" && (
+                <View style={styles.successCard}>
+                  <Text style={styles.successTitle}>{t("submit.successTitle")}</Text>
+                  <Text style={styles.successBody}>{t("submit.successBody")}</Text>
+                </View>
+              )}
+              {submissionError && (
+                <View style={styles.errorCard}>
+                  <Text style={styles.errorBody}>{submissionError}</Text>
+                </View>
+              )}
+            </Pressable>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Pressable>
       <Footer
         isAuthenticated={isAuthenticated}
         guestActions="home"
@@ -349,6 +384,9 @@ export default function Contact() {
           onSelect={handleMoreSelect}
         />
       )}
+      {keyboardVisible ? (
+        <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} testID="contact-keyboard-dismiss" />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -358,9 +396,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
   },
+  formOverlay: {
+    flex: 1,
+  },
+  formContainer: {
+    flex: 1,
+    width: "100%",
+  },
+  formScroll: {
+    flex: 1,
+    width: "100%",
+  },
   content: {
-    padding: spacing.xl,
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 0,
     paddingBottom: spacing.xl * 2,
+    justifyContent: "center",
   },
   card: {
     backgroundColor: colors.surface,

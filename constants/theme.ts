@@ -1,3 +1,10 @@
+// 統一デザインの一括管理ファイル
+
+import { Platform } from "react-native";
+import { scaleFontSizeForIpad } from "../lib/ui/ipadLayout";
+
+const isIpad = Platform.OS === "ios" && Platform.isPad === true;
+
 export const colors = {
   background: "#0B0D11",
   surface: "#0F1C2F",
@@ -28,11 +35,12 @@ export const radius = {
   full: 999,
 } as const;
 
+// iPadの時は文字サイズを大きくする
 export const typography = {
-  sm: 13,
-  md: 16,
-  lg: 20,
-  xl: 28,
+  sm: scaleFontSizeForIpad(13, isIpad),
+  md: scaleFontSizeForIpad(16, isIpad),
+  lg: scaleFontSizeForIpad(20, isIpad),
+  xl: scaleFontSizeForIpad(28, isIpad),
 } as const;
 
 export const shadows = {

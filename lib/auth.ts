@@ -5,8 +5,8 @@
 import { AuthError } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
-import * as Localization from "expo-localization";
 import { LanguageKey } from "../types/i18n";
+import { captureSupabaseAuthUnexpectedError } from "./sentry";
 import { supabase, supabaseRecovery } from "./supabaseClient";
 
 type SignUpParams = {
@@ -48,9 +48,6 @@ type CompletePasswordResetResult =
       reason: "missing_session" | "rate_limited" | "unknown";
       message: string;
     };
-
-const resolveTimeZone = () =>
-  Localization.getCalendars?.()[0]?.timeZone ?? "UTC";
 
 // redirectTo/emailRedirectTo に使うアプリURLスキームを、環境(本番or開発)に応じて決める関数
 const getAppScheme = () => {
@@ -99,8 +96,6 @@ export const signUpWithEmailConfirmation = async ({
   try {
     // Eメールのサインアップリンククリック時の遷移先指定
     const emailRedirectTo = buildRedirect("/purchases?signup=1");
-    // ユーザサインアップ時のユーザの端末からタイムゾーンを取得
-    const timeZone = resolveTimeZone();
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -109,7 +104,6 @@ export const signUpWithEmailConfirmation = async ({
         data: {
           name: username,
           language,
-          time_zone: timeZone,
         },
         emailRedirectTo,
       },
@@ -119,6 +113,7 @@ export const signUpWithEmailConfirmation = async ({
       if (isExistingEmailError(error)) {
         return { ok: false, reason: "email_exists", message: error.message };
       }
+      captureSupabaseAuthUnexpectedError(error, "sign_up");
       return { ok: false, reason: "unknown", message: error.message };
     }
 
@@ -132,6 +127,7 @@ export const signUpWithEmailConfirmation = async ({
 
     return { ok: true };
   } catch (error) {
+    captureSupabaseAuthUnexpectedError(error, "sign_up");
     const message = error instanceof Error ? error.message : "Unexpected error";
     return { ok: false, reason: "unknown", message };
   }
@@ -144,6 +140,10 @@ export const requestPasswordResetEmail = async (
   try {
     const userExistsResult = await checkUserExists(email);
     if (!userExistsResult.ok) {
+      captureSupabaseAuthUnexpectedError(
+        new Error(userExistsResult.message),
+        "request_password_reset",
+      );
       return {
         ok: false,
         reason: "unknown",
@@ -164,11 +164,13 @@ export const requestPasswordResetEmail = async (
       if (error.status === 429 || message.toLowerCase().includes("rate")) {
         return { ok: false, reason: "rate_limited", message };
       }
+      captureSupabaseAuthUnexpectedError(error, "request_password_reset");
       return { ok: false, reason: "unknown", message: error.message };
     }
 
     return { ok: true };
   } catch (error) {
+    captureSupabaseAuthUnexpectedError(error, "request_password_reset");
     const message = error instanceof Error ? error.message : "Unexpected error";
     return { ok: false, reason: "unknown", message };
   }
@@ -213,6 +215,7 @@ export const completePasswordReset = async (
   try {
     const { data, error } = await supabaseRecovery.auth.getSession();
     if (error) {
+      captureSupabaseAuthUnexpectedError(error, "complete_password_reset");
       return { ok: false, reason: "unknown", message: error.message };
     }
     if (!data.session) {
@@ -232,14 +235,16 @@ export const completePasswordReset = async (
         updateError.status === 429 ||
         message.toLowerCase().includes("rate")
       ) {
-        return { ok: false, reason: "rate_limited", message };
+      return { ok: false, reason: "rate_limited", message };
       }
+      captureSupabaseAuthUnexpectedError(updateError, "complete_password_reset");
       return { ok: false, reason: "unknown", message: updateError.message };
     }
 
     await supabaseRecovery.auth.signOut();
     return { ok: true };
   } catch (error) {
+    captureSupabaseAuthUnexpectedError(error, "complete_password_reset");
     const message = error instanceof Error ? error.message : "Unexpected error";
     return { ok: false, reason: "unknown", message };
   }
@@ -273,6 +278,7 @@ export const signInWithEmailPassword = async ({
   try {
     const userExistsResult = await checkUserExists(email);
     if (!userExistsResult.ok) {
+      captureSupabaseAuthUnexpectedError(new Error(userExistsResult.message), "sign_in");
       return {
         ok: false,
         reason: "unknown",
@@ -299,11 +305,13 @@ export const signInWithEmailPassword = async ({
           message: error.message,
         };
       }
+      captureSupabaseAuthUnexpectedError(error, "sign_in");
       return { ok: false, reason: "unknown", message: error.message };
     }
 
     return { ok: true };
   } catch (error) {
+    captureSupabaseAuthUnexpectedError(error, "sign_in");
     const message = error instanceof Error ? error.message : "Unexpected error";
     return { ok: false, reason: "unknown", message };
   }

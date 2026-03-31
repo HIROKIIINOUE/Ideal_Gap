@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useLanguage } from "../../providers/LanguageProvider";
 
@@ -14,6 +14,7 @@ type StoredReminder = {
 };
 
 const STORAGE_KEY = "break_reminder_schedule";
+const BREAK_REMINDER_CHANNEL = "break-reminder";
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 
@@ -169,6 +170,16 @@ export default function BreakReminderScreen() {
     };
   }, [handleNotificationReceived, handleNotificationResponse, restoreSchedule]);
 
+  // Androidの場合の通知音設定。チャンネルの詳細設定
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    Notifications.setNotificationChannelAsync(BREAK_REMINDER_CHANNEL, {
+      name: "Break Reminder",
+      importance: Notifications.AndroidImportance.MAX,
+      sound: "default",
+    }).catch(() => { });
+  }, []);
+
   // 残り時間の表示を30秒ごとに更新し、不要なタイマーは残さない
   useEffect(() => {
     updateRemaining();
@@ -213,14 +224,22 @@ export default function BreakReminderScreen() {
     }
 
     try {
-      const trigger: Notifications.DateTriggerInput = {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: normalizedDate,
-      };
+      const trigger: Notifications.DateTriggerInput =
+        Platform.OS === "android"
+          ? {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: normalizedDate,
+            channelId: BREAK_REMINDER_CHANNEL,
+          }
+          : {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: normalizedDate,
+          };
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: t("notificationTitle"),
           body: t("notificationBody"),
+          sound: "default",
         },
         trigger,
       });
@@ -242,7 +261,12 @@ export default function BreakReminderScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+      testID="break-reminder-scroll"
+    >
       <View style={[styles.card, scheduled && styles.activeCard, shadows.card]}>
         {scheduled && (
           <LinearGradient
@@ -305,13 +329,17 @@ export default function BreakReminderScreen() {
           </>
         )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  contentContainer: {
     gap: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
   card: {
     backgroundColor: colors.surface,
@@ -358,7 +386,7 @@ const styles = StyleSheet.create({
   picker: {
     width: "100%",
     alignSelf: "stretch",
-    transform: [{ translateX: -spacing.lg }],
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.94 }, { translateX: -spacing.xl * 1.4 }],
   },
   primaryButton: {
     marginTop: spacing.sm,

@@ -17,9 +17,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 import Footer from "../components/Footer";
+import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { buildRedirectUrl } from "../lib/auth";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
@@ -49,6 +51,7 @@ export default function ProfileUpdate() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [initialEmail, setInitialEmail] = useState<string | null>(null);
   const [emailChangeRequested, setEmailChangeRequested] = useState(false);
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
 
   const validation = useMemo(() => profileSchema.safeParse({ username, email, password }), [email, password, username]);
   const fieldErrors = validation.success ? {} : z.flattenError(validation.error).fieldErrors;
@@ -244,11 +247,14 @@ export default function ProfileUpdate() {
     if (key === "contact") {
       router.push("/contact");
     }
+    if (key === "payment") {
+      router.push("/payment-management");
+    }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Stack.Screen options={{ title: t("title"), headerBackTitle: tCommonNav("back") }} />
+    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
+      <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommonNav("back") }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: "padding", android: undefined })}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={[styles.card, shadows.card]}>
@@ -355,6 +361,9 @@ export default function ProfileUpdate() {
         onToggleFunPlan={toggleFunPlan}
         onSelect={handleMoreSelect}
       />
+      {keyboardVisible ? (
+        <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -365,7 +374,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   content: {
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 0,
     gap: spacing.lg,
     paddingBottom: spacing.xl * 2,
   },

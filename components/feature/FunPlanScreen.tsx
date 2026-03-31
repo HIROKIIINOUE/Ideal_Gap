@@ -6,7 +6,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,10 +17,16 @@ import {
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
+import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
+import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { supabase } from "../../lib/supabaseClient";
+import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
+import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
 type FunPlanCard = {
   id: string;
@@ -32,6 +40,14 @@ type FunPlanRow = Database["public"]["Tables"]["fun_plans"]["Row"];
 const planSchema = z.object({
   description: z.string().trim().min(1),
 });
+const offlineFunPlanSchema = z.array(
+  z.object({
+    id: z.string(),
+    description: z.string(),
+    order: z.number(),
+    updatedAt: z.string().nullable(),
+  }),
+);
 
 const HEADER_CARD_GRADIENT = ["rgba(110,168,255,0.32)", "rgba(20,34,60,0.95)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(104,195,255,0.26)", "rgba(17,38,70,0.96)"] as const;
@@ -58,7 +74,8 @@ const toPlanCard = (row: { id: string; description: string; order: number | null
 });
 
 export default function FunPlanScreen() {
-  const { t } = useTranslation("funPlan");
+  const { t, i18n } = useTranslation("funPlan");
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [plans, setPlans] = useState<FunPlanCard[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -69,7 +86,12 @@ export default function FunPlanScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasOfflineCache, setHasOfflineCache] = useState(false);
+  const { offlineBlocked } = useOffline();
+  const guardOfflineAction = useOfflineActionGuard();
   const updatedLabel = t("updatedSuffix");
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const isFrench = currentLanguage.startsWith("fr");
   const limitReached = plans.length >= MAX_PLANS;
 
   const getUserId = useMemo(
@@ -92,6 +114,23 @@ export default function FunPlanScreen() {
         setLoading(false);
         return;
       }
+
+      // ローカルキャッシュのキー名を生成
+      const cacheKey = buildOfflineCacheKey("fun-plan", uid);
+      // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
+      if (offlineBlocked) {
+        const cached = await readOfflineCache(cacheKey, offlineFunPlanSchema);
+        if (active) {
+          if (cached) {
+            setPlans(cached);
+            setHasOfflineCache(true);
+          } else {
+            setHasOfflineCache(false);
+          }
+          setLoading(false);
+        }
+        return;// オフラインの場合はここでデータフェッチ処理終了
+      }
       const { data, error } = await supabase
         .from("fun_plans")
         .select("id, description, order, updated_at")
@@ -110,6 +149,9 @@ export default function FunPlanScreen() {
           }),
         );
         setPlans(mapped);
+        // データが空配列ではない場合、ローカルキャッシュに保存
+        setHasOfflineCache(mapped.length > 0);
+        await writeOfflineCache(cacheKey, offlineFunPlanSchema, mapped);
       }
       setLoading(false);
     };
@@ -117,10 +159,11 @@ export default function FunPlanScreen() {
     return () => {
       active = false;
     };
-  }, [getUserId, t]);
+  }, [getUserId, offlineBlocked, t]);
 
   // 追加ボタン押下時の処理、インプットに必要な全ての状態変数がリセットされる
   const handleAddPress = () => {
+    if (guardOfflineAction()) return;
     if (limitReached) return;
     setEditingId(null);
     setModalDraft("");
@@ -131,6 +174,7 @@ export default function FunPlanScreen() {
 
   // 削除ボタン・編集ボタン押下時の処理
   const handleButtonPress = (item: FunPlanCard) => {
+    if (guardOfflineAction()) return;
     if (deleteMode) {
       Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
         { text: t("deleteConfirmNo"), style: "cancel" },
@@ -162,6 +206,7 @@ export default function FunPlanScreen() {
   };
 
   const handleSave = async () => {
+    if (guardOfflineAction()) return;
     const parsed = planSchema.safeParse({ description: modalDraft });
     if (!parsed.success) {
       setModalError(t("modal.errorRequired"));
@@ -244,12 +289,14 @@ export default function FunPlanScreen() {
   };
 
   const toggleDeleteMode = () => {
+    if (guardOfflineAction()) return;
     setDeleteMode((prev) => !prev);
   };
 
 
   // カード長押しドラッグで順番を入れ替えたあとの表示データ・DBデータのorderの更新
   const handleDragEnd = async ({ data }: { data: FunPlanCard[] }) => {
+    if (guardOfflineAction()) return;
     setPlans(data);
     const uid = await getUserId();
     if (!uid) {
@@ -275,17 +322,13 @@ export default function FunPlanScreen() {
     const onEditPress = () => handleButtonPress(item);
 
     return (
-      <Pressable
-        key={item.id}
+      <View
         style={[
           styles.planCard,
           shadows.card,
           isActive && styles.planCardDragging,
           deleteMode && styles.planCardDeleteMode,
         ]}
-        onLongPress={drag}
-        delayLongPress={120}
-        disabled={deleteMode && isActive}
       >
         <LinearGradient
           colors={LIST_CARD_GRADIENT}
@@ -295,7 +338,7 @@ export default function FunPlanScreen() {
         />
         <Text style={styles.planTitle}>{item.description}</Text>
 
-        <View style={styles.planActions}>
+        <View style={styles.planActions} testID={`fun-plan-card-actions-${item.id}`}>
           {deleteMode ? (
             <Pressable
               accessibilityRole="button"
@@ -306,17 +349,34 @@ export default function FunPlanScreen() {
               <Text style={styles.dangerButtonText}>{t("delete")}</Text>
             </Pressable>
           ) : (
-            <Pressable accessibilityRole="button" onPress={onEditPress} style={[styles.editButton, styles.iconButtonRow]}>
-              <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
-              <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
-            </Pressable>
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onEditPress}
+                style={[styles.editButton, styles.iconButtonRow]}
+                testID={`fun-plan-card-edit-${item.id}`}
+              >
+                <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
+                <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+                style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+                onLongPress={drag}
+                delayLongPress={200}
+                hitSlop={14}
+                testID={`fun-plan-card-reorder-${item.id}`}
+              >
+                <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </>
           )}
         </View>
-      </Pressable>
+      </View>
     );
   };
 
-  const hasPlans = plans.length > 0;
   const modalTitle = editingId ? t("modal.editTitle") : t("modal.addTitle");
   const modalUpdatedText = editingMeta?.updatedAt ? formatUpdated(editingMeta.updatedAt, updatedLabel) : null;
 
@@ -327,124 +387,155 @@ export default function FunPlanScreen() {
       </GestureHandlerRootView>
     );
   }
+  // オフラインかつキャッシュデータがない場合は専用のオフラインページを表示する
+  if (offlineBlocked && !hasOfflineCache) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <OfflineRequiredScreen />
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
-      <View style={[styles.card, shadows.card]}>
-        <LinearGradient
-          colors={HEADER_CARD_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.headerRow}>
-          <View style={styles.headerText}>
-            <Text style={styles.heading}>{t("pageTitle")}</Text>
-            <Text style={styles.body}>{t("pageSubtitle")}</Text>
-          </View>
-        </View>
-
-        <View style={styles.actionRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: limitReached }}
-            style={[styles.primaryButton, limitReached && styles.buttonDisabled]}
-            onPress={handleAddPress}
-            disabled={limitReached}
-          >
-            <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("add")}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
-            onPress={toggleDeleteMode}
-          >
-            <MaterialCommunityIcons
-              name={deleteMode ? "close" : "trash-can-outline"}
-              size={20}
-              color={colors.textPrimary}
+      {/* DraggableFlatListは１つのコンポーネントとして記載している */}
+      {/* 各属性としてDOMなどを設定する特殊な書き方なので注意 */}
+      {/* データが空の時にDOM表示する”ListEmptyComponent”など特殊な属性が使われている */}
+      <DraggableFlatList
+        data={plans}
+        keyExtractor={(item) => item.id}
+        renderItem={renderPlanCard}
+        onDragEnd={handleDragEnd}
+        activationDistance={8}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.planGrid}
+        ListHeaderComponent={(
+          <View style={[styles.card, shadows.card]}>
+            <LinearGradient
+              colors={HEADER_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
-          </Pressable>
-        </View>
-        {limitReached && <Text style={styles.limitText}>{t("limitHelper")}</Text>}
-        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-      </View>
-
-      {loading ? (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <Text style={styles.emptyBody}>{t("loading")}</Text>
-        </View>
-      ) : hasPlans ? (
-        <View style={styles.listSpacing}>
-          <DraggableFlatList
-            data={plans}
-            keyExtractor={(item) => item.id}
-            renderItem={renderPlanCard}
-            onDragEnd={handleDragEnd}
-            scrollEnabled={false}
-            activationDistance={10}
-            contentContainerStyle={styles.planGrid}
-          />
-        </View>
-      ) : (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <LinearGradient
-            colors={LIST_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
-          <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
-            <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
-          </Pressable>
-        </View>
-      )}
-
-      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior="padding" style={styles.modalContainer}>
-            <View style={[styles.modalCard, shadows.card]}>
-              <Text style={styles.modalTitle}>{modalTitle}</Text>
-              {editingMeta && (
-                <View style={styles.modalMeta}>
-                  {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
-                </View>
-              )}
-              <TextInput
-                autoFocus
-                multiline
-                placeholder={t("modal.placeholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.modalInput}
-                value={modalDraft}
-                onChangeText={(text) => {
-                  setModalDraft(text);
-                  setModalError(null);
-                }}
-              />
-              {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
-              <View style={styles.modalActions}>
-                <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.primaryButton, saving && styles.buttonDisabled]}
-                  onPress={handleSave}
-                  disabled={saving}
-                >
-                  <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
-                </Pressable>
+            <View style={styles.headerRow}>
+              <View style={styles.headerText}>
+                <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
+                <Text style={styles.body}>{t("pageSubtitle")}</Text>
               </View>
             </View>
+
+            <View style={styles.actionRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: limitReached }}
+                style={[styles.primaryButton, limitReached && styles.buttonDisabled]}
+                onPress={handleAddPress}
+                disabled={limitReached || offlineBlocked}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+                <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>{t("add")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
+                onPress={toggleDeleteMode}
+                disabled={offlineBlocked}
+              >
+                <MaterialCommunityIcons
+                  name={deleteMode ? "close" : "trash-can-outline"}
+                  size={20}
+                  color={colors.textPrimary}
+                />
+                <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
+                  {deleteMode ? t("deleteExit") : t("delete")}
+                </Text>
+              </Pressable>
+            </View>
+            {limitReached && <Text style={styles.limitText}>{t("limitHelper")}</Text>}
+            {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+          </View>
+        )}
+        ListHeaderComponentStyle={styles.listHeader}
+        ListEmptyComponent={(
+          <View style={[styles.card, shadows.card, styles.emptyCard]}>
+            <LinearGradient
+              colors={LIST_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
+            <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
+            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
+              <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
+              <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
+            </Pressable>
+          </View>
+        )}
+      />
+
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={dismissKeyboard}
+          testID="fun-plan-modal-overlay"
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="fun-plan-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="fun-plan-modal-scroll"
+            >
+              <Pressable
+                style={[styles.modalCard, shadows.card]}
+                onPress={(event) => event.stopPropagation()}
+              >
+                <Text style={styles.modalTitle}>{modalTitle}</Text>
+                {editingMeta && (
+                  <View style={styles.modalMeta}>
+                    {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
+                  </View>
+                )}
+                <TextInput
+                  multiline
+                  placeholder={t("modal.placeholder")}
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.modalInput}
+                  value={modalDraft}
+                  onChangeText={(text) => {
+                    setModalDraft(text);
+                    setModalError(null);
+                  }}
+                />
+                {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
+                <View style={styles.modalFooterRow}>
+                  <View style={[styles.modalActions, styles.modalActionsRight]}>
+                    <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
+                      <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={[styles.primaryButton, saving && styles.buttonDisabled]}
+                      onPress={handleSave}
+                      disabled={saving}
+                    >
+                      <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </Pressable>
+            </ScrollView>
           </KeyboardAvoidingView>
-        </View>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
+        </Pressable>
       </Modal>
     </GestureHandlerRootView>
   );
@@ -477,6 +568,10 @@ const styles = StyleSheet.create({
     fontSize: typography.xl,
     fontWeight: "800",
     lineHeight: typography.xl * 1.3,
+  },
+  headingFrench: {
+    fontSize: 24,
+    lineHeight: 31,
   },
   body: {
     color: colors.textSecondary,
@@ -534,6 +629,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: typography.md,
   },
+  headerButtonTextFrench: {
+    fontSize: 14,
+  },
   errorText: {
     color: colors.error,
     fontSize: typography.sm,
@@ -547,6 +645,7 @@ const styles = StyleSheet.create({
   planGrid: {
     gap: spacing.md,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
   planCard: {
     backgroundColor: "#123457",
@@ -606,12 +705,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
   },
+  dragHandleButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  dragHandleButtonActive: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(30,94,255,0.16)",
+  },
   emptyCard: {
     alignItems: "flex-start",
     gap: spacing.sm,
   },
-  listSpacing: {
-    marginTop: spacing.md,
+  listHeader: {
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     color: colors.textPrimary,
@@ -632,6 +743,14 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: "100%",
+    maxHeight: "100%",
+  },
+  modalScroll: {
+    width: "100%",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   modalCard: {
     backgroundColor: "#1b355c",
@@ -675,6 +794,25 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  modalActionsRight: {
+    marginLeft: "auto",
+  },
+  modalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: spacing.md,
+  },
+  keyboardIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonDisabled: {
     opacity: 0.6,

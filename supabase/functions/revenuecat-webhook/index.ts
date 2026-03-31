@@ -5,7 +5,7 @@
 // 要件 2-2-3, 2-2-4 に基づき、署名検証後にサブスク状態を upsert する
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { z } from "zod";
+import { z } from "https://esm.sh/zod@4.1.13";
 
 // RevenueCat から飛んでくる JSON のうち、使う部分だけ型定義 + バリデーション
 // v4 では unknown keys を許容する場合は looseObject を使う
@@ -27,6 +27,7 @@ type RevenueCatPayload = z.infer<typeof revenueCatPayloadSchema>;
 type RevenueCatEvent = z.infer<typeof revenueCatEventSchema>;
 
 const REVENUECAT_SIGNATURE_HEADER = "x-revenuecat-signature";
+const AUTHORIZATION_HEADER = "authorization";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -45,8 +46,8 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-// REVENUECAT_WEBHOOK_SECRET をもとに HMAC-SHA256 キーを作り、crypto.subtle.sign("HMAC", key, body) で HMAC を計算。リクエストヘッダーの x-revenuecat-signature と一致するかチェック。
-const verifySignature = async (
+// 旧方式互換: REVENUECAT_WEBHOOK_SECRET をもとに HMAC-SHA256 を計算し、x-revenuecat-signature と一致するかチェック。
+const verifyLegacySignature = async (
   body: string,
   signature: string | null
 ): Promise<boolean> => {
@@ -62,6 +63,15 @@ const verifySignature = async (
   const digest = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
   const computed = btoa(String.fromCharCode(...new Uint8Array(digest)));
   return signature === computed;
+};
+
+// 現行方式: RevenueCatのAuthorizationヘッダー値（または Bearer 形式）を検証する
+const verifyAuthorization = (authorization: string | null): boolean => {
+  if (!authorization) return false;
+  const normalized = authorization.trim();
+  return (
+    normalized === webhookSecret || normalized === `Bearer ${webhookSecret}`
+  );
 };
 
 const nowIso = () => new Date().toISOString();
@@ -138,11 +148,14 @@ const mapStatus = (
 // メインハンドラー
 serve(async (req: Request) => {
   const bodyText = await req.text();
+  const authorization = req.headers.get(AUTHORIZATION_HEADER);
   const signature = req.headers.get(REVENUECAT_SIGNATURE_HEADER);
 
-  const valid = await verifySignature(bodyText, signature);
+  const valid =
+    verifyAuthorization(authorization) ||
+    (await verifyLegacySignature(bodyText, signature));
   if (!valid) {
-    return new Response("invalid signature", { status: 401 });
+    return new Response("unauthorized webhook", { status: 401 });
   }
 
   let payload: RevenueCatPayload | null = null;
@@ -159,6 +172,9 @@ serve(async (req: Request) => {
   const event = payload.event;
   if (!event) {
     return new Response("missing app_user_id", { status: 400 });
+  }
+  if (event.type === "TEST") {
+    return new Response("ok", { status: 200 });
   }
   const appUserId = event.app_user_id ?? event.original_app_user_id;
   if (!appUserId) {

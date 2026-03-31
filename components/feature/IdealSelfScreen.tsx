@@ -8,7 +8,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,13 +19,19 @@ import {
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useAppZodForm } from "../../hooks/useAppZodForm";
 import { useDeleteMode } from "../../hooks/useDeleteMode";
+import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
+import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { getUserId } from "../../lib/api/supabase/common";
 import { deleteIdeal, fetchIdealSelf, insertIdeal, updateIdeal, upsertIdeals } from "../../lib/api/supabase/idealSelf";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
+import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { useOffline } from "../../providers/OfflineProvider";
 import Loading from "../Loading";
+import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
 type IdealCard = {
   id: string;
@@ -46,6 +54,14 @@ const idealSchema = z.object({
 
 // Zodで定義したidealSchemaを型IdealFormValueとして取り出す
 type IdealFormValues = z.infer<typeof idealSchema>;
+const offlineIdealSchema = z.array(
+  z.object({
+    id: z.string(),
+    description: z.string(),
+    order: z.number(),
+    updatedAt: z.string().nullable(),
+  }),
+);
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 
@@ -69,7 +85,8 @@ const toIdealCard = (row: { id: string; description: string; order: number | nul
 });
 
 export default function IdealSelfScreen() {
-  const { t } = useTranslation("idealSelf");
+  const { t, i18n } = useTranslation("idealSelf");
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [ideals, setIdeals] = useState<IdealCard[]>([]);
   const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
@@ -77,7 +94,12 @@ export default function IdealSelfScreen() {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [hasOfflineCache, setHasOfflineCache] = useState(false);
+  const { offlineBlocked } = useOffline();
+  const guardOfflineAction = useOfflineActionGuard();
   const updatedLabel = t("updatedSuffix");
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const isFrench = currentLanguage.startsWith("fr");
   const {
     control, // Controller が使う“フォーム管理本体”
     handleSubmit,
@@ -101,6 +123,25 @@ export default function IdealSelfScreen() {
         setLoading(false);
         return;
       }
+
+      // ローカルキャッシュのキー名を生成
+      const cacheKey = buildOfflineCacheKey("ideal-self", uid);
+
+      // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
+      if (offlineBlocked) {
+        const cached = await readOfflineCache(cacheKey, offlineIdealSchema);
+        if (active) {
+          if (cached) {
+            setIdeals(cached);
+            setHasOfflineCache(true);
+          } else {
+            setHasOfflineCache(false);
+          }
+          setLoading(false);
+        }
+        return;  //オフラインの場合はここでデータフェッチ処理終了
+      }
+
       const { data, error } = await fetchIdealSelf(uid);
       if (error) {
         if (active) setErrorMessage(error.message);
@@ -114,6 +155,9 @@ export default function IdealSelfScreen() {
           }),
         );
         setIdeals(mapped);
+        //データが空配列ではない場合、ローカルキャッシュに保存
+        setHasOfflineCache(mapped.length > 0);
+        await writeOfflineCache(cacheKey, offlineIdealSchema, mapped);
       }
       if (active) setLoading(false);
     };
@@ -121,10 +165,11 @@ export default function IdealSelfScreen() {
     return () => {
       active = false;
     };
-  }, [t]);
+  }, [offlineBlocked, t]);
 
   // 追加インプットモーダル表示ボタン
   const handleAddPress = () => {
+    if (guardOfflineAction()) return;
     setModalError(null);
     reset({ description: "" });
     setModalState(createAddModalState());
@@ -133,6 +178,7 @@ export default function IdealSelfScreen() {
 
   // 更新ボタンと削除ボタンを状況に応じて管理
   const handleButtonPress = (item: IdealCard) => {
+    if (guardOfflineAction()) return;
     if (deleteMode) {
       Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
         { text: t("deleteConfirmNo"), style: "cancel" },
@@ -160,6 +206,7 @@ export default function IdealSelfScreen() {
 
   // 保存・更新ボタン両方を管理するロジック
   const onValidSubmit = async ({ description }: IdealFormValues) => {
+    if (guardOfflineAction()) return;
     setSaving(true);
     setModalError(null);
 
@@ -217,12 +264,13 @@ export default function IdealSelfScreen() {
     }
   };
 
-  const handleInvalidSubmit = (formErrors: FieldErrors<IdealFormValues>) => {
-    setModalError(formErrors.description?.message ?? t("modal.errorRequired"));
+  const handleInvalidSubmit = (_formErrors: FieldErrors<IdealFormValues>) => {
+    setModalError(t("modal.errorRequired"));
   };
 
   // ドラッグ並び替え終了時の配列データをセットする
   const handleDragEnd = async ({ data }: { data: IdealCard[] }) => {
+    if (guardOfflineAction()) return;
     setIdeals(data);
     const uid = await getUserId();
     if (!uid) {
@@ -249,17 +297,13 @@ export default function IdealSelfScreen() {
     const onEditPress = () => handleButtonPress(item);
 
     return (
-      <Pressable
-        key={item.id}
+      <View
         style={[
           styles.idealCard,
           shadows.card,
           isActive && styles.idealCardDragging,
           deleteMode && styles.idealCardDeleteMode,
         ]}
-        onLongPress={drag} // ここで長押しタップ発火
-        delayLongPress={120}
-        disabled={deleteMode && isActive}
       >
         <LinearGradient
           colors={LIST_CARD_GRADIENT}
@@ -269,7 +313,7 @@ export default function IdealSelfScreen() {
         />
         <Text style={styles.idealTitle}>{item.description}</Text>
 
-        <View style={styles.idealActions}>
+        <View style={styles.idealActions} testID={`ideal-self-card-actions-${item.id}`}>
           {deleteMode ? (
             <Pressable
               accessibilityRole="button"
@@ -280,17 +324,34 @@ export default function IdealSelfScreen() {
               <Text style={styles.dangerButtonText}>{t("delete")}</Text>
             </Pressable>
           ) : (
-            <Pressable accessibilityRole="button" onPress={onEditPress} style={[styles.editButton, styles.iconButtonRow]}>
-              <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
-              <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
-            </Pressable>
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onEditPress}
+                style={[styles.editButton, styles.iconButtonRow]}
+                testID={`ideal-self-card-edit-${item.id}`}
+              >
+                <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
+                <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+                style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+                onLongPress={drag}
+                delayLongPress={200}
+                hitSlop={14}
+                testID={`ideal-self-card-reorder-${item.id}`}
+              >
+                <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </>
           )}
         </View>
-      </Pressable>
+      </View>
     );
   };
 
-  const hasIdeals = ideals.length > 0;
   const modalTitle = modalState.editingId ? t("modal.editTitle") : t("modal.addTitle");
   // list label was removed
   const modalUpdatedText = modalState.meta?.updatedAt ? formatUpdated(modalState.meta.updatedAt, updatedLabel) : null;
@@ -302,72 +363,80 @@ export default function IdealSelfScreen() {
       </GestureHandlerRootView>
     );
   }
+  //オフラインかつキャッシュデータがない場合は専用のオフラインページを表示する
+  if (offlineBlocked && !hasOfflineCache) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <OfflineRequiredScreen />
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
-      <View style={[styles.card, shadows.card]}>
-        <LinearGradient
-          colors={HEADER_CARD_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <Text style={styles.heading}>{t("pageTitle")}</Text>
-
-        <View style={styles.actionRow}>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading}>
-            <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("add")}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
-            onPress={toggleDeleteMode}
-          >
-            <MaterialCommunityIcons
-              name={deleteMode ? "close" : "trash-can-outline"}
-              size={20}
-              color={colors.textPrimary}
+      {/* DraggableFlatListは１つのコンポーネントとして記載している */}
+      {/* 各属性としてDOMなどを設定する特殊な書き方なので注意 */}
+      {/* データが空の時にDOM表示する”ListEmptyComponent”など特殊な属性が使われている */}
+      <DraggableFlatList
+        data={ideals}
+        keyExtractor={(item) => item.id}
+        renderItem={renderIdealCard}
+        onDragEnd={handleDragEnd}
+        activationDistance={8}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.idealGrid}
+        ListHeaderComponent={(
+          <View style={[styles.card, shadows.card]}>
+            <LinearGradient
+              colors={HEADER_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.secondaryButtonText}>{deleteMode ? t("deleteExit") : t("delete")}</Text>
-          </Pressable>
-        </View>
-        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-      </View>
+            <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
 
-      {loading ? (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <Text style={styles.emptyBody}>{t("loading")}</Text>
-        </View>
-      ) : hasIdeals ? (
-        // DraggableFlatListタグはrenderItemにdragを渡しdragを使って発火のタイミングを操作できる。受け取った先でonLongPress={drag}を付与した要素がトリガーを握る。drag処理が終わるとonDragEndが発火する。
-        <View style={styles.listSpacing}>
-          <DraggableFlatList
-            data={ideals}
-            keyExtractor={(item) => item.id}
-            renderItem={renderIdealCard}
-            onDragEnd={handleDragEnd}
-            scrollEnabled={false}
-            activationDistance={10}
-            contentContainerStyle={styles.idealGrid}
-          />
-        </View>
-      ) : (
-        <View style={[styles.card, shadows.card, styles.emptyCard, styles.listSpacing]}>
-          <LinearGradient
-            colors={LIST_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
-          <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
-          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress}>
-            <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
-            <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
-          </Pressable>
-        </View>
-      )}
+            <View style={styles.actionRow}>
+              <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading || offlineBlocked}>
+                <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+                <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>{t("add")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.secondaryButton, deleteMode && styles.secondaryButtonActive]}
+                onPress={toggleDeleteMode}
+                disabled={offlineBlocked}
+              >
+                <MaterialCommunityIcons
+                  name={deleteMode ? "close" : "trash-can-outline"}
+                  size={20}
+                  color={colors.textPrimary}
+                />
+                <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
+                  {deleteMode ? t("deleteExit") : t("delete")}
+                </Text>
+              </Pressable>
+            </View>
+            {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+          </View>
+        )}
+        ListHeaderComponentStyle={styles.listHeader}
+        ListEmptyComponent={(
+          <View style={[styles.card, shadows.card, styles.emptyCard]}>
+            <LinearGradient
+              colors={LIST_CARD_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={styles.emptyTitle}>{t("emptyTitle")}</Text>
+            <Text style={styles.emptyBody}>{t("emptyBody")}</Text>
+            <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
+              <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
+              <Text style={styles.primaryButtonText}>{t("emptyCta")}</Text>
+            </Pressable>
+          </View>
+        )}
+      />
 
       <Modal
         visible={modalState.visible}
@@ -378,60 +447,82 @@ export default function IdealSelfScreen() {
           disableDeleteMode();
         }}
       >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior="padding" style={styles.modalContainer}>
-            <View style={[styles.modalCard, shadows.card]}>
-              <Text style={styles.modalTitle}>{modalTitle}</Text>
-              {modalState.meta && (
-                <View style={styles.modalMeta}>
-                  {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
-                </View>
-              )}
-              <Controller
-                control={control}
-                name="description"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    autoFocus
-                    multiline
-                    placeholder={t("modal.placeholder")}
-                    placeholderTextColor={colors.textSecondary}
-                    style={styles.modalInput}
-                    value={value}
-                    onChangeText={(text) => {
-                      onChange(text);
-                      setModalError(null);
-                      clearErrors("description");
-                    }}
-                    onBlur={onBlur}
-                  />
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={dismissKeyboard}
+          testID="ideal-self-modal-overlay"
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="ideal-self-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="ideal-self-modal-scroll"
+            >
+              <Pressable
+                style={[styles.modalCard, shadows.card]}
+                onPress={(event) => event.stopPropagation()}
+              >
+                <Text style={styles.modalTitle}>{modalTitle}</Text>
+                {modalState.meta && (
+                  <View style={styles.modalMeta}>
+                    {!!modalUpdatedText && <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>}
+                  </View>
                 )}
-              />
-              {(modalError || errors.description?.message) && (
-                <Text style={styles.modalError}>{modalError ?? errors.description?.message}</Text>
-              )}
-              <View style={styles.modalActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.secondaryButton}
-                  onPress={() => setModalState(closedModalState)}
-                >
-                  <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.primaryButton, saving && styles.buttonDisabled]}
-                  // handleSubmitがフォーム全体を検証し、OKならonValidSubmit(values)、NGならhandleInvalidSubmit(error)を発火
-                  onPress={handleSubmit(onValidSubmit, handleInvalidSubmit)}
-                  disabled={saving}
-                >
-                  <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
-                </Pressable>
-              </View>
-            </View>
+                <Controller
+                  control={control}
+                  name="description"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      multiline
+                      placeholder={t("modal.placeholder")}
+                      placeholderTextColor={colors.textSecondary}
+                      style={styles.modalInput}
+                      value={value}
+                      onChangeText={(text) => {
+                        onChange(text);
+                        setModalError(null);
+                        clearErrors("description");
+                      }}
+                      onBlur={onBlur}
+                    />
+                  )}
+                />
+                {(modalError || errors.description?.message) && (
+                  <Text style={styles.modalError}>{modalError ?? errors.description?.message}</Text>
+                )}
+                <View style={styles.modalFooterRow}>
+                  <View style={[styles.modalActions, styles.modalActionsRight]}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.secondaryButton}
+                      onPress={() => setModalState(closedModalState)}
+                    >
+                      <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={[styles.primaryButton, saving && styles.buttonDisabled]}
+                      // handleSubmitがフォーム全体を検証し、OKならonValidSubmit(values)、NGならhandleInvalidSubmit(error)を発火
+                      onPress={handleSubmit(onValidSubmit, handleInvalidSubmit)}
+                      disabled={saving}
+                    >
+                      <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </Pressable>
+            </ScrollView>
           </KeyboardAvoidingView>
-        </View>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
+        </Pressable>
       </Modal>
     </GestureHandlerRootView>
   );
@@ -455,6 +546,10 @@ const styles = StyleSheet.create({
     fontSize: typography.xl,
     fontWeight: "800",
     lineHeight: typography.xl * 1.3,
+  },
+  headingFrench: {
+    fontSize: 24,
+    lineHeight: 31,
   },
   body: {
     color: colors.textSecondary,
@@ -503,6 +598,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: typography.md,
   },
+  headerButtonTextFrench: {
+    fontSize: 14,
+  },
   errorText: {
     color: colors.error,
     fontSize: typography.sm,
@@ -511,6 +609,7 @@ const styles = StyleSheet.create({
   idealGrid: {
     gap: spacing.md,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
   idealCard: {
     backgroundColor: "#1c3358",
@@ -587,12 +686,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
   },
+  dragHandleButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  dragHandleButtonActive: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(30,94,255,0.16)",
+  },
   emptyCard: {
     alignItems: "flex-start",
     gap: spacing.sm,
   },
-  listSpacing: {
-    marginTop: spacing.md,
+  listHeader: {
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     color: colors.textPrimary,
@@ -613,6 +724,14 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: "100%",
+    maxHeight: "100%",
+  },
+  modalScroll: {
+    width: "100%",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   modalCard: {
     backgroundColor: "#1f3a63",
@@ -661,6 +780,25 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  modalActionsRight: {
+    marginLeft: "auto",
+  },
+  modalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: spacing.md,
+  },
+  keyboardIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonDisabled: {
     opacity: 0.7,

@@ -20,6 +20,10 @@ import {
 import { deleteTrackFile, downloadTrackFile } from "../lib/focus-music/file";
 import { createFocusMusicSignedUrl } from "../lib/focus-music/signedUrl";
 import {
+  captureExpoAudioError,
+  captureMusicDownloadError,
+} from "../lib/sentry";
+import {
   incrementMonthlyDownloadQuota,
   loadInstalledTracks,
   loadMonthlyDownloadQuota,
@@ -29,6 +33,7 @@ import {
   FocusMusicTrack,
   InstalledFocusTrack,
   InstalledTrack,
+  InstallProgress,
   InstallResult,
   RemoveResult,
 } from "../types/focus-music";
@@ -47,6 +52,7 @@ type FocusMusicContextValue = {
   isInstalling: (id: string) => boolean;
   isDownloadInProgress: boolean;
   isLoadingCatalog: boolean;
+  getInstallProgress: (id: string) => InstallProgress | null;
   installTrack: (
     id: string,
     options?: { allowCellular?: boolean },
@@ -66,32 +72,19 @@ type ProviderProps = {
   children: React.ReactNode;
 };
 
-
-// ここの値で音楽ループの繋ぎ目を調整
-const CROSSFADE_DURATION_MS = 600;
-const CROSSFADE_START_BEFORE_END_SEC = 0.9;
-const FADE_INTERVAL_MS = 50;
-const MONITOR_INTERVAL_MS = 50;
-
-
-// ループの繋ぎ目問題を解消するために同じ作業用音楽を同時に2つ再生
-// 二つ目の曲を一つ目の曲の終了直前に流しループをスムーズに。
-// (詳しくはNotionの生成音楽アイデアページに記載済み)
 export function FocusMusicProvider({ children }: ProviderProps) {
-  const playerA = useAudioPlayer(null, {
+  const player = useAudioPlayer(null, {
     keepAudioSessionActive: true,
     downloadFirst: true,
-    updateInterval: 100,
-  });
-  const playerB = useAudioPlayer(null, {
-    keepAudioSessionActive: true,
-    downloadFirst: true,
-    updateInterval: 100,
   });
   const [catalog, setCatalog] = useState<FocusMusicTrack[]>([]);
   // インストールした曲のローカル保存情報の配列データ。これをもとに後に生成するinstalledTracksがユーザの手持ち曲のデータ配列になる
   const [installedEntries, setInstalledEntries] = useState<InstalledTrack[]>([]);
   const [installingIds, setInstallingIds] = useState<string[]>([]);
+  // 「どの曲が今どこまでDLされたか」をIDごとに保持
+  const [installProgressById, setInstallProgressById] = useState<
+    Record<string, InstallProgress>
+  >({});
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   // 書くユーザの1ヶ月のDL数を制御
   const [monthlyDownloadRemaining, setMonthlyDownloadRemaining] = useState<number | null>(null);
@@ -99,26 +92,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   // 選択中の音楽(タスクタイマーで再生される)
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
 
-  // ループの繋ぎ目をスムーズにするために必要な状態変数群
-  const activeSlotRef = useRef<"A" | "B">("A");
-  const monitorTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const crossfadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isCrossfadingRef = useRef(false);
-  const currentTrackIdRef = useRef<string | null>(null);
-  const currentTrackPathRef = useRef<string | null>(null);
   const isDownloadingRef = useRef(false);
-  useEffect(() => {
-    return () => {
-      if (monitorTimerRef.current) {
-        clearInterval(monitorTimerRef.current);
-        monitorTimerRef.current = null;
-      }
-      if (crossfadeTimerRef.current) {
-        clearInterval(crossfadeTimerRef.current);
-        crossfadeTimerRef.current = null;
-      }
-    };
-  }, []);
 
 
   // download quota (今月の曲のDL数と制限リセット日)を取得し、状態関数を更新
@@ -143,7 +117,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     };
   }, []);
 
-  // 【ここチェック】現段階では使用していない。ユーザがUIからカタログを手動更新する関数。今後必要の可否を検討
+  // カタログを最新のものに更新
   const refreshCatalog = useCallback(async () => {
     setIsLoadingCatalog(true);
     try {
@@ -199,6 +173,12 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   // 曲のダウンロード中は他の曲のダウンロードを制御するための関数
   const isDownloadInProgress = installingIds.length > 0;
 
+  // 引数で指定されたidの音楽がDL進捗情報を保持していればそれを返却
+  const getInstallProgress = useCallback(
+    (id: string) => installProgressById[id] ?? null,
+    [installProgressById],
+  );
+
   const persistInstalledEntries = useCallback(async (next: InstalledTrack[]) => {
     setInstalledEntries(next);
     await saveInstalledTracks(next);
@@ -234,6 +214,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       if (quota.count >= FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT) {
         return { ok: false, reason: "monthly_limit" };
       }
+
+      // カタログにない音楽は却下
       const track = catalog.find((item) => item.id === id);
       if (!track) return { ok: false, reason: "not_found" };
 
@@ -250,9 +232,54 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       // 該当の音楽をインストール中リストに追加
       isDownloadingRef.current = true;
       setInstallingIds((prev) => [...prev, id]);
+      // 該当音楽のダウンロード進捗情報を初期化
+      setInstallProgressById((prev) => ({
+        ...prev,
+        [id]: {
+          progress: null,
+          writtenBytes: 0,
+          totalBytes: null,
+          remainingBytes: null,
+          isIndeterminate: true,
+        },
+      }));
+
+      // ダウンロード開始
       try {
-        const signedUrl = await createFocusMusicSignedUrl(id); // signedUrl発行
-        const localPath = await downloadTrackFile(signedUrl, track);  //ローカルファイルへダウンロード。ローカルの格納先を返却してる。
+        // signedUrl発行
+        const signedUrl = await createFocusMusicSignedUrl(id);
+        // ローカルファイルへダウンロード。resultとしてローカルの格納先を返却してる。
+        const localPath = await downloadTrackFile(
+          signedUrl,
+          track,
+          // 進捗情報を繰り返し更新するコールバック
+          (downloadProgress) => {
+            setInstallProgressById((prev) => {
+              const totalBytes = downloadProgress.totalBytes;
+              const writtenBytes =
+                totalBytes !== null
+                  ? Math.min(downloadProgress.writtenBytes, totalBytes)
+                  : downloadProgress.writtenBytes;
+              const progress =
+                totalBytes !== null
+                  ? Math.min(Math.max(writtenBytes / totalBytes, 0), 1)
+                  : null;
+              return {
+                ...prev,
+                [id]: {
+                  progress,
+                  writtenBytes,
+                  totalBytes,
+                  remainingBytes:
+                    totalBytes !== null
+                      ? Math.max(totalBytes - writtenBytes, 0)
+                      : null,
+                  isIndeterminate: totalBytes === null,
+                },
+              };
+            });
+          },
+        );
         // 今回ダウンロードしたタスク集中音楽の保存情報データ
         const nextEntry: InstalledTrack = {
           trackId: id,
@@ -274,10 +301,17 @@ export function FocusMusicProvider({ children }: ProviderProps) {
         }
         return { ok: true, track: { ...track, ...nextEntry } };
       } catch (error) {
+        captureMusicDownloadError(error, id);
         return { ok: false, reason: "download_failed" };
       } finally {
         // ダウンロードが成功しても失敗してもダウンロード完了待ちリストから実行終了データを削除する
         setInstallingIds((prev) => prev.filter((trackId) => trackId !== id));
+        // 進捗情報を削除。進捗情報はダウンロード中のみ存在する。
+        setInstallProgressById((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
         isDownloadingRef.current = false;
       }
     },
@@ -293,14 +327,21 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       try {
         await deleteTrackFile(target.localPath);
       } catch (error) {
-        return { ok: false, reason: "remove_failed" };
+        // ローカルの音楽削除処理が失敗した場合でもreturnせずに続行。
+        // 以下に続く「端末の音楽メタ情報を更新する」ことで手持ちの音楽を削除する
+        // ※ここで音楽ファイルのみがユーザ端末に残る恐れはあるが、アプリをアンインストールすればファイルは一掃される
+        console.warn("Failed to delete focus music file", error);
       }
       const nextEntries = installedEntries.filter(
         (entry) => entry.trackId !== id,
       );
 
       // 最新の手持ちの音楽リスト保存情報(メタ情報)をプロジェクト内と端末内(Async Storage)の両方で更新する
-      await persistInstalledEntries(nextEntries);
+      try {
+        await persistInstalledEntries(nextEntries);
+      } catch (error) {
+        return { ok: false, reason: "remove_failed" };
+      }
       return { ok: true };
     },
     [installedEntries, persistInstalledEntries],
@@ -382,117 +423,28 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   // 選択中の音楽を無限ループ再生。(タスクタイマーページでも音楽を選択できる)
   const playSelected = useCallback(async () => {
     if (!selectedInstalledTrack) return false;
-    if (monitorTimerRef.current) {
-      clearInterval(monitorTimerRef.current);
-      monitorTimerRef.current = null;
+    try {
+      player.pause();
+      await player.seekTo(0);
+      player.loop = true;
+      player.volume = 1;
+      player.replace(selectedInstalledTrack.localPath);
+      player.play();
+      return true;
+    } catch (error) {
+      captureExpoAudioError(error, "focus_music_play_selected");
+      return false;
     }
-    if (crossfadeTimerRef.current) {
-      clearInterval(crossfadeTimerRef.current);
-      crossfadeTimerRef.current = null;
-    }
-    isCrossfadingRef.current = false;
-    activeSlotRef.current = "A";
-    currentTrackIdRef.current = selectedInstalledTrack.id;
-    currentTrackPathRef.current = selectedInstalledTrack.localPath;
-
-    playerA.pause();
-    playerB.pause();
-    await Promise.all([playerA.seekTo(0), playerB.seekTo(0)]);
-
-    playerA.loop = false;
-    playerB.loop = false;
-
-    playerA.replace(selectedInstalledTrack.localPath);
-    playerA.volume = 1;
-    playerA.play();
-
-    playerB.replace(selectedInstalledTrack.localPath);
-    playerB.volume = 0;
-    await playerB.seekTo(0);
-    playerB.pause();
-
-    if (!monitorTimerRef.current) {
-      monitorTimerRef.current = setInterval(() => {
-        if (isCrossfadingRef.current) return;
-        const activePlayer =
-          activeSlotRef.current === "A" ? playerA : playerB;
-        if (activePlayer.paused) return;
-        if (!activePlayer.isLoaded || activePlayer.isBuffering) return;
-        const duration = activePlayer.duration ?? 0;
-        if (!Number.isFinite(duration) || duration <= 0) return;
-        const currentTime = activePlayer.currentTime ?? 0;
-        const remaining = duration - currentTime;
-        if (remaining > CROSSFADE_START_BEFORE_END_SEC) return;
-
-        const nextPath = currentTrackPathRef.current;
-        if (!nextPath || !currentTrackIdRef.current) return;
-        const standbyPlayer = activeSlotRef.current === "A" ? playerB : playerA;
-
-        isCrossfadingRef.current = true;
-        standbyPlayer.loop = false;
-        standbyPlayer.volume = 0;
-        void standbyPlayer.seekTo(0);
-        standbyPlayer.play();
-
-        const steps = Math.max(
-          1,
-          Math.ceil(CROSSFADE_DURATION_MS / FADE_INTERVAL_MS),
-        );
-        let step = 0;
-        if (crossfadeTimerRef.current) {
-          clearInterval(crossfadeTimerRef.current);
-        }
-        crossfadeTimerRef.current = setInterval(() => {
-          step += 1;
-          const progress = Math.min(1, step / steps);
-          activePlayer.volume = Math.max(0, 1 - progress);
-          standbyPlayer.volume = Math.min(1, progress);
-          if (progress < 1) return;
-          if (crossfadeTimerRef.current) {
-            clearInterval(crossfadeTimerRef.current);
-            crossfadeTimerRef.current = null;
-          }
-          activePlayer.pause();
-          void activePlayer.seekTo(0);
-          activePlayer.volume = 0;
-          standbyPlayer.volume = 1;
-          activeSlotRef.current =
-            activeSlotRef.current === "A" ? "B" : "A";
-          isCrossfadingRef.current = false;
-        }, FADE_INTERVAL_MS);
-      }, MONITOR_INTERVAL_MS);
-    }
-    return true;
-  }, [playerA, playerB, selectedInstalledTrack]);
+  }, [player, selectedInstalledTrack]);
 
   const pause = useCallback(() => {
-    if (monitorTimerRef.current) {
-      clearInterval(monitorTimerRef.current);
-      monitorTimerRef.current = null;
-    }
-    if (crossfadeTimerRef.current) {
-      clearInterval(crossfadeTimerRef.current);
-      crossfadeTimerRef.current = null;
-    }
-    isCrossfadingRef.current = false;
-    playerA.pause();
-    playerB.pause();
-  }, [playerA, playerB]);
+    player.pause();
+  }, [player]);
 
   const stop = useCallback(async () => {
-    if (monitorTimerRef.current) {
-      clearInterval(monitorTimerRef.current);
-      monitorTimerRef.current = null;
-    }
-    if (crossfadeTimerRef.current) {
-      clearInterval(crossfadeTimerRef.current);
-      crossfadeTimerRef.current = null;
-    }
-    isCrossfadingRef.current = false;
-    playerA.pause();
-    playerB.pause();
-    await Promise.all([playerA.seekTo(0), playerB.seekTo(0)]);
-  }, [playerA, playerB]);
+    player.pause();
+    await player.seekTo(0);
+  }, [player]);
 
   // useFocusMusicフックスとして返す値(グローバルに使用できる)
   const value = useMemo<FocusMusicContextValue>(
@@ -510,6 +462,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       isInstalling,
       isDownloadInProgress,
       isLoadingCatalog,
+      getInstallProgress,
       installTrack,
       removeTrack,
       selectTrack,
@@ -526,6 +479,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       isInstalling,
       isDownloadInProgress,
       isLoadingCatalog,
+      getInstallProgress,
       monthlyDownloadRemaining,
       downloadResetAt,
       installTrack,

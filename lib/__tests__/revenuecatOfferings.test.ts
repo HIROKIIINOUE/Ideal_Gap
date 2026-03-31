@@ -1,6 +1,8 @@
 import Purchases from "react-native-purchases";
 import {
   fetchTestStorePackage,
+  hasActiveEntitlement,
+  PREMIUM_ENTITLEMENT_ID,
   TEST_STORE_OFFERING_ID,
   TEST_STORE_PACKAGE_ID,
 } from "../revenuecatOfferings";
@@ -56,5 +58,32 @@ describe("fetchTestStorePackage", () => {
 
     const plan = await fetchTestStorePackage();
     expect(plan).toBeNull();
+  });
+});
+
+describe("hasActiveEntitlement", () => {
+  it("returns true when premium entitlement is active", () => {
+    const customerInfo = {
+      entitlements: {
+        active: {
+          [PREMIUM_ENTITLEMENT_ID]: {
+            identifier: PREMIUM_ENTITLEMENT_ID,
+            isActive: true,
+          },
+        },
+      },
+    } as any;
+
+    expect(hasActiveEntitlement(customerInfo)).toBe(true);
+  });
+
+  it("returns false when premium entitlement is missing", () => {
+    const customerInfo = {
+      entitlements: {
+        active: {},
+      },
+    } as any;
+
+    expect(hasActiveEntitlement(customerInfo)).toBe(false);
   });
 });

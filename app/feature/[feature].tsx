@@ -5,14 +5,14 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ComponentType, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AnnualGoalsScreen from "../../components/feature/AnnualGoalsScreen";
 import BreakReminderScreen from "../../components/feature/BreakReminderScreen";
 import FocusMusicScreen from "../../components/feature/FocusMusicScreen";
 import FunPlanScreen from "../../components/feature/FunPlanScreen";
 import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
-import MonthlyGoalsScreen from "../../components/feature/MonthlyGoalsScreen";
+import LongTermGoalsScreen from "../../components/feature/LongTermGoalsScreen";
 import WeeklyTasksScreen from "../../components/feature/WeeklyTasksScreen";
 import Footer from "../../components/Footer";
 import LanguageSheet from "../../components/LanguageSheet";
@@ -23,8 +23,8 @@ import { useFunPlan } from "../../providers/FunPlanProvider";
 
 type FeatureId =
   | "ideal-self"
+  | "long-term-goals"
   | "annual-goals"
-  | "monthly-goals"
   | "weekly-goals"
   | "focus-music"
   | "break-reminders"
@@ -32,8 +32,8 @@ type FeatureId =
 
 const featureKeys: Record<FeatureId, string> = {
   "ideal-self": "cards.idealSelf.title",
+  "long-term-goals": "cards.longTermGoals.title",
   "annual-goals": "cards.annualGoals.title",
-  "monthly-goals": "cards.monthlyGoals.title",
   "weekly-goals": "cards.weeklyGoals.title",
   "focus-music": "cards.focusMusic.title",
   "break-reminders": "cards.breakReminders.title",
@@ -89,6 +89,9 @@ export default function FeatureScreen() {
     if (key === "contact") {
       router.push("/contact");
     }
+    if (key === "payment") {
+      router.push("/payment-management");
+    }
   };
 
   const featureTitle = useMemo(() => {
@@ -105,8 +108,8 @@ export default function FeatureScreen() {
     if (!featureId) return null;
     const mapping: Partial<Record<FeatureId, ComponentType>> = {
       "ideal-self": IdealSelfScreen,
+      "long-term-goals": LongTermGoalsScreen,
       "annual-goals": AnnualGoalsScreen,
-      "monthly-goals": MonthlyGoalsScreen,
       "weekly-goals": WeeklyTasksScreen,
       "next-fun-plan": FunPlanScreen,
       "break-reminders": BreakReminderScreen,
@@ -135,14 +138,10 @@ export default function FeatureScreen() {
   return (
     // 白帯ヘッダーとタイトルカードの余白を狭める方法→edges={["left", "right", "bottom"]}
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
-      <Stack.Screen options={{ title: featureTitle, headerBackTitle: tCommonNav("back") }} />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        contentInsetAdjustmentBehavior="never"
-        showsVerticalScrollIndicator={false}
-      >
+      <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommonNav("back") }} />
+      <View style={styles.content}>
         {ScreenComponent ? <ScreenComponent /> : <Placeholder />}
-      </ScrollView>
+      </View>
       <Footer
         isAuthenticated
         onLanguagePress={() => setLanguageSheetVisible(true)}
@@ -164,12 +163,11 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
-    paddingVertical: spacing.xl,
   },
   content: {
+    flex: 1,
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl * 2,
-    gap: spacing.md,
+    paddingBottom: 0,
   },
   card: {
     backgroundColor: colors.surface,

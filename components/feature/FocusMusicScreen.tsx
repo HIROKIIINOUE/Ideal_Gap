@@ -1,9 +1,11 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -12,6 +14,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { AnimatedCircularProgress } from "react-native-circular-progress";
 import {
   colors,
   radius,
@@ -21,6 +24,7 @@ import {
 } from "../../constants/theme";
 import { FOCUS_MUSIC_MAX_INSTALLED } from "../../lib/focus-music/constants";
 import { createFocusMusicSignedUrl } from "../../lib/focus-music/signedUrl";
+import { captureExpoAudioError } from "../../lib/sentry";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { FocusMusicCategory } from "../../types/focus-music";
 
@@ -54,6 +58,8 @@ export default function FocusMusicScreen() {
     isInstalling,
     isDownloadInProgress,
     isLoadingCatalog,
+    getInstallProgress,
+    refreshCatalog,
     installTrack,
     removeTrack,
     selectTrack,
@@ -92,6 +98,12 @@ export default function FocusMusicScreen() {
       setLimitMessageVisible(false);
     }
   }, [canInstall]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshCatalog();
+    }, [refreshCatalog]),
+  );
 
   // フィルターされた場合はフィルターされたカタログ、
   // フィルターされなければここでそのままのカタログデータを返す。
@@ -178,7 +190,8 @@ export default function FocusMusicScreen() {
       previewPlayer.replace(url);
       previewPlayer.play();
       setPreviewTrackId(trackId);
-    } catch {
+    } catch (error) {
+      captureExpoAudioError(error, "focus_music_preview");
       Alert.alert(t("previewFailedTitle"), t("previewFailedBody"));
     } finally {
       setPreviewLoadingId(null);
@@ -253,9 +266,16 @@ export default function FocusMusicScreen() {
                 </View>
                 <View style={styles.trackActions}>
                   {isSelected && (
-                    <Text style={styles.selectedLabel}>
-                      {t("selectedLabel")}
-                    </Text>
+                    <View
+                      style={styles.selectedIconBadge}
+                      testID={`focus-music-selected-icon-${track.id}`}
+                    >
+                      <MaterialCommunityIcons
+                        name="check-circle"
+                        size={18}
+                        color={colors.accentSubtle}
+                      />
+                    </View>
                   )}
                   <Pressable
                     accessibilityRole="button"
@@ -379,6 +399,21 @@ export default function FocusMusicScreen() {
                   const installed = isInstalled(track.id);
                   const isPreviewing = previewTrackId === track.id;
                   const isPreviewLoading = previewLoadingId === track.id;
+                  const installing = isInstalling(track.id);
+                  // 音楽ダウンロードに関する進捗データを取得
+                  const installProgress = getInstallProgress(track.id);
+                  // 進捗データをもとにパーセントを計算
+                  const progressPercent =
+                    installProgress?.progress !== null &&
+                      installProgress?.progress !== undefined
+                      ? Math.round(installProgress.progress * 100)
+                      : null;
+                  // 進捗データをもとに残りのバイト数(データ容量)を計算
+                  const remainingMb =
+                    installProgress?.remainingBytes !== null &&
+                      installProgress?.remainingBytes !== undefined
+                      ? (installProgress.remainingBytes / (1024 * 1024)).toFixed(1)
+                      : null;
                   return (
                     <View
                       key={track.id}
@@ -429,26 +464,64 @@ export default function FocusMusicScreen() {
                           style={({ pressed }) => [
                             styles.installButton,
                             pressed && styles.installButtonPressed,
-                            (installed || isInstalling(track.id)) &&
+                            (installed || installing) &&
                             styles.installButtonDisabled,
                             isDownloadInProgress &&
-                            !isInstalling(track.id) &&
+                            !installing &&
                             styles.installButtonDisabled,
                           ]}
                           disabled={
                             installed ||
-                            isInstalling(track.id) ||
-                            (isDownloadInProgress && !isInstalling(track.id))
+                            installing ||
+                            (isDownloadInProgress && !installing)
                           }
                           testID={`focus-music-install-${track.id}`}
                         >
-                          <Text style={styles.installButtonText}>
-                            {installed
-                              ? t("installedLabel")
-                              : isInstalling(track.id)
-                                ? t("downloadingLabel")
-                                : t("installLabel")}
-                          </Text>
+                          {/* インストール中は進捗リング表示 */}
+                          {installed ? (
+                            <Text style={styles.installButtonText}>
+                              {t("installedLabel")}
+                            </Text>
+                          ) : installing ? (
+                            <View style={styles.progressWrap}>
+                              {installProgress && !installProgress.isIndeterminate && progressPercent !== null ? (
+                                <View
+                                  testID={`focus-music-install-progress-${track.id}`}
+                                >
+                                  <AnimatedCircularProgress
+                                    size={22}
+                                    width={3}
+                                    fill={progressPercent}
+                                    tintColor={colors.accentPrimary}
+                                    backgroundColor="rgba(255,255,255,0.2)"
+                                    rotation={0}
+                                    lineCap="round"
+                                  />
+                                </View>
+                              ) : (
+                                <ActivityIndicator
+                                  testID={`focus-music-install-progress-indeterminate-${track.id}`}
+                                  size="small"
+                                  color={colors.accentPrimary}
+                                />
+                              )}
+                              <View style={styles.progressLabelBlock}>
+                                <Text style={styles.installButtonText}>
+                                  {t("downloadingLabel")}
+                                  {progressPercent !== null ? ` ${progressPercent}%` : ""}
+                                </Text>
+                                {remainingMb ? (
+                                  <Text style={styles.installProgressSubtext}>
+                                    ~{remainingMb}MB
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </View>
+                          ) : (
+                            <Text style={styles.installButtonText}>
+                              {t("installLabel")}
+                            </Text>
+                          )}
                         </Pressable>
                       </View>
                     </View>
@@ -565,10 +638,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
-  selectedLabel: {
-    color: colors.accentSubtle,
-    fontSize: typography.sm,
-    fontWeight: "600",
+  selectedIconBadge: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconButton: {
     width: 32,
@@ -735,6 +809,19 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.sm,
     fontWeight: "700",
+  },
+  progressWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  progressLabelBlock: {
+    alignItems: "flex-start",
+  },
+  installProgressSubtext: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.2,
   },
   closeButton: {
     paddingVertical: spacing.sm,

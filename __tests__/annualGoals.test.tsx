@@ -1,6 +1,6 @@
 import React from "react";
-import { Alert } from "react-native";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { Alert, Keyboard } from "react-native";
+import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import AnnualGoalsScreen from "../components/feature/AnnualGoalsScreen";
 import i18n from "../i18n";
@@ -51,12 +51,20 @@ jest.mock("react-native-draggable-flatlist", () => {
     data,
     renderItem,
     onDragEnd,
+    ListHeaderComponent,
+    ListEmptyComponent,
   }: {
     data: unknown[];
     renderItem: (params: { item: unknown; index: number; drag: () => void; isActive: boolean; getIndex: () => number }) => React.ReactNode;
     onDragEnd: (params: { data: unknown[] }) => void;
+    ListHeaderComponent?: React.ReactNode | (() => React.ReactNode);
+    ListEmptyComponent?: React.ReactNode | (() => React.ReactNode);
   }) => {
     const firedRef = React.useRef(false);
+    const renderSlot = (slot?: React.ReactNode | (() => React.ReactNode)) => {
+      if (!slot) return null;
+      return typeof slot === "function" ? slot() : slot;
+    };
     React.useEffect(() => {
       if (!firedRef.current && data.length > 0) {
         firedRef.current = true;
@@ -66,6 +74,8 @@ jest.mock("react-native-draggable-flatlist", () => {
 
     return (
       <>
+        {renderSlot(ListHeaderComponent)}
+        {data.length === 0 && renderSlot(ListEmptyComponent)}
         {data.map((item, index) =>
           renderItem({
             item,
@@ -107,8 +117,9 @@ describe("AnnualGoalsScreen", () => {
       </I18nextProvider>,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await i18n.changeLanguage("en");
     lastPieData = null;
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
@@ -136,6 +147,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Deep health routine with consistent sleep and workouts",
           year_goal_color: "#1E5EFF",
+          is_done: false,
           accumulated_time_year: 1820,
           order: 0,
           updated_at: "2025-01-06T09:30:00Z",
@@ -144,6 +156,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Career leap with shipped projects and portfolio refresh",
           year_goal_color: "#6EA8FF",
+          is_done: false,
           accumulated_time_year: 2450,
           order: 1,
           updated_at: "2025-01-08T13:10:00Z",
@@ -158,6 +171,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-3",
         description: "Launch a side product",
         year_goal_color: "#1E5EFF",
+        is_done: false,
         accumulated_time_year: 0,
         order: 0,
         updated_at: "2025-02-01T00:00:00Z",
@@ -170,24 +184,26 @@ describe("AnnualGoalsScreen", () => {
       single: mockSingleAfterInsert,
     });
 
-    mockSingleAfterUpdate.mockResolvedValue({
-      data: {
-        id: "goal-1",
-        description: "Updated goal",
-        year_goal_color: "#1E5EFF",
-        accumulated_time_year: 1820,
-        order: 0,
-        updated_at: "2025-02-02T00:00:00Z",
-      },
-      error: null,
-    });
-    mockSelectAfterUpdate.mockReturnThis();
-    mockUpdate.mockReturnValue({
+    mockUpdate.mockImplementation((payload) => ({
       eq: () => ({
-        select: mockSelectAfterUpdate,
-        single: mockSingleAfterUpdate,
+        select: () => ({
+          single: () =>
+            Promise.resolve({
+              data: {
+                id: "goal-1",
+                description: typeof payload.description === "string" ? payload.description : "Updated goal",
+                year_goal_color:
+                  typeof payload.year_goal_color === "string" ? payload.year_goal_color : "#1E5EFF",
+                is_done: typeof payload.is_done === "boolean" ? payload.is_done : false,
+                accumulated_time_year: 1820,
+                order: 0,
+                updated_at: "2025-02-02T00:00:00Z",
+              },
+              error: null,
+            }),
+        }),
       }),
-    });
+    }));
     mockEqAfterDelete.mockResolvedValue({ error: null });
     mockDelete.mockReturnValue({
       eq: mockEqAfterDelete,
@@ -197,7 +213,7 @@ describe("AnnualGoalsScreen", () => {
   test("fetches goals, renders them, and persists reordered data with user id", async () => {
     const { findByText } = renderScreen();
 
-    expect(await findByText("Total focus time")).toBeTruthy();
+    expect(await findByText("Total Focus Time")).toBeTruthy();
     expect(await findByText("Career leap with shipped projects and portfolio refresh")).toBeTruthy();
 
     await waitFor(() => expect(mockUpsert).toHaveBeenCalled());
@@ -207,6 +223,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-2",
         description: "Career leap with shipped projects and portfolio refresh",
         year_goal_color: "#6EA8FF",
+        is_done: false,
         accumulated_time_year: 2450,
         order: 0,
         user_id: "user-123",
@@ -215,6 +232,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-1",
         description: "Deep health routine with consistent sleep and workouts",
         year_goal_color: "#1E5EFF",
+        is_done: false,
         accumulated_time_year: 1820,
         order: 1,
         user_id: "user-123",
@@ -244,6 +262,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-2",
         description: "Career leap with shipped projects and portfolio refresh",
         year_goal_color: "#6EA8FF",
+        is_done: false,
         accumulated_time_year: 2450,
         order: 1,
         user_id: "user-123",
@@ -252,6 +271,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-1",
         description: "Deep health routine with consistent sleep and workouts",
         year_goal_color: "#1E5EFF",
+        is_done: false,
         accumulated_time_year: 1820,
         order: 2,
         user_id: "user-123",
@@ -260,11 +280,129 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-3",
         description: "Launch a side product",
         year_goal_color: "#1E5EFF",
+        is_done: false,
         accumulated_time_year: 0,
         order: 0,
         user_id: "user-123",
       },
     ]);
+  });
+
+  test("uses smaller header typography for French title and buttons", async () => {
+    await i18n.changeLanguage("fr");
+
+    const { findByText, findByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const title = await findByText("Objectifs annuels");
+    const addButtonLabel = await findByText("Ajouter");
+    const deleteButton = await findByRole("button", { name: "Supprimer" });
+    const deleteButtonLabel = within(deleteButton).getByText("Supprimer");
+
+    expect(title).toHaveStyle({ fontSize: 24 });
+    expect(addButtonLabel).toHaveStyle({ fontSize: 14 });
+    expect(deleteButtonLabel).toHaveStyle({ fontSize: 14 });
+  });
+
+  test("renders edit, complete, and reorder icon buttons together in the card footer", async () => {
+    const { findByTestId, queryByText } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const actionRow = await findByTestId("annual-goal-card-actions-goal-1");
+
+    expect(within(actionRow).getByTestId("annual-goal-card-edit-goal-1")).toBeTruthy();
+    expect(within(actionRow).getByTestId("annual-goal-card-complete-goal-1")).toBeTruthy();
+    expect(within(actionRow).getByTestId("annual-goal-card-reorder-goal-1")).toBeTruthy();
+    expect(queryByText("Edit")).toBeNull();
+  });
+
+  test("toggles completed state styling on and off", async () => {
+    const { findByTestId, queryByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const card = await findByTestId("annual-goal-card-goal-1");
+    const completeButton = await findByTestId("annual-goal-card-complete-goal-1");
+
+    expect(queryByTestId("annual-goal-card-completed-badge-goal-1")).toBeNull();
+
+    fireEvent.press(completeButton);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith({ is_done: true });
+    });
+
+    expect(await findByTestId("annual-goal-card-completed-badge-goal-1")).toBeTruthy();
+    expect(card).toHaveStyle({ borderColor: "rgba(56,217,150,0.55)" });
+    expect(queryByTestId("annual-goal-card-edit-goal-1")).toBeNull();
+
+    fireEvent.press(completeButton);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith({ is_done: false });
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId("annual-goal-card-completed-badge-goal-1")).toBeNull();
+    });
+    expect(await findByTestId("annual-goal-card-edit-goal-1")).toBeTruthy();
+  });
+
+  test("truncates long accumulated time text after 9 characters", async () => {
+    mockOrder.mockResolvedValueOnce({
+      data: [
+        {
+          id: "goal-1",
+          description: "Deep health routine with consistent sleep and workouts",
+          year_goal_color: "#1E5EFF",
+          is_done: false,
+          accumulated_time_year: 740740746,
+          order: 0,
+          updated_at: "2025-01-06T09:30:00Z",
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    expect(await findByTestId("annual-goal-card-time-goal-1")).toHaveTextContent("12345679h...");
+  });
+
+  test("truncates long total accumulated time text after 9 characters", async () => {
+    mockOrder.mockResolvedValueOnce({
+      data: [
+        {
+          id: "goal-1",
+          description: "Deep health routine with consistent sleep and workouts",
+          year_goal_color: "#1E5EFF",
+          is_done: false,
+          accumulated_time_year: 370370380,
+          order: 0,
+          updated_at: "2025-01-06T09:30:00Z",
+        },
+        {
+          id: "goal-2",
+          description: "Career leap with shipped projects and portfolio refresh",
+          year_goal_color: "#6EA8FF",
+          is_done: false,
+          accumulated_time_year: 370370380,
+          order: 1,
+          updated_at: "2025-01-08T13:10:00Z",
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    expect(await findByTestId("annual-goals-total-time")).toHaveTextContent("12345679h...");
   });
 
   test("prevents saving when required fields are empty", async () => {
@@ -298,6 +436,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Reset routine",
           year_goal_color: "#1E5EFF",
+          is_done: false,
           accumulated_time_year: 0,
           order: 0,
           updated_at: "2025-01-06T09:30:00Z",
@@ -306,6 +445,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Build core habits",
           year_goal_color: "#6EA8FF",
+          is_done: false,
           accumulated_time_year: 0,
           order: 1,
           updated_at: "2025-01-08T13:10:00Z",
@@ -363,5 +503,35 @@ describe("AnnualGoalsScreen", () => {
     });
 
     alertSpy.mockRestore();
+  });
+
+  test("dismisses keyboard when tapping modal overlay", async () => {
+    const dismissSpy = jest.spyOn(Keyboard, "dismiss");
+    const { getByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    fireEvent.press(getByTestId("annual-goals-modal-overlay"));
+
+    expect(dismissSpy).toHaveBeenCalled();
+  });
+
+  test("renders keyboard avoiding view and scroll area in modal", async () => {
+    const { getByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+
+    expect(getByTestId("annual-goals-modal-kav")).toBeTruthy();
+    expect(getByTestId("annual-goals-modal-scroll")).toBeTruthy();
+  });
+
+  test("hides keyboard icon when keyboard is not visible", async () => {
+    const { getByRole, queryByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+
+    expect(queryByTestId("annual-goals-modal-keyboard-button")).toBeNull();
   });
 });

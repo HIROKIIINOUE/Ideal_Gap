@@ -37,7 +37,7 @@ export const breakReminderTranslations: Record<
     notificationBody: "次のタスクを始める時間です。",
   },
   en: {
-    title: "Break alarm",
+    title: "Break Reminder",
     description:
       "Set when to end your break and we’ll notify you. Only one reminder can be active.",
     inputLabel: "Break end time",
@@ -65,7 +65,7 @@ export const breakReminderTranslations: Record<
     timeRemaining: "Temps restant : {{minutes}} min",
     errorPast: "Choisissez une heure future.",
     permissionDenied:
-      "Les notifications sont désactivées. Autorisez-les pour recevoir les rappels.",
+      "Les notifications sont désactivées. Autorisez-les pour recevoir le rappel.",
     permissionAction: "Ouvrir les réglages",
     notificationTitle: "Fin de pause",
     notificationBody: "Il est temps de reprendre votre prochaine tâche.",

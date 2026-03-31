@@ -3,15 +3,12 @@ import { LanguageKey } from "../types/i18n";
 export type WeeklyTasksTranslations = {
   pageTitle: string;
   header: {
-    title: string;
     applyNextMemo: string;
   };
   actions: {
     add: string;
     delete: string;
     deleteExit: string;
-    listify: string;
-    listifyExit: string;
   };
   deleteConfirm: {
     title: string;
@@ -38,7 +35,7 @@ export type WeeklyTasksTranslations = {
     emptyBody: string;
   };
   task: {
-    monthlyLink: string;
+    yearlyLink: string;
     openTimer: string;
     manualLog: string;
     edit: string;
@@ -56,18 +53,12 @@ export type WeeklyTasksTranslations = {
     editTitle: string;
     titleLabel: string;
     titlePlaceholder: string;
-    monthValue: string;
-    monthOptionLabel: string;
-    monthLabel: string;
-    monthlyGoalLabel: string;
-    noMonthlyGoal: string;
-    targetLabel: string;
-    targetPlaceholder: string;
-    targetHelper: string;
+    yearlyGoalLabel: string;
+    noYearlyGoal: string;
+    unlinkedYearlyGoal: string;
     cancel: string;
     save: string;
     errorRequired: string;
-    errorEstimated: string;
   };
   manualModal: {
     title: string;
@@ -77,7 +68,6 @@ export type WeeklyTasksTranslations = {
     hoursLabel: string;
     minutesLabel: string;
     rangeHelper: string;
-    finalPreview: string;
     confirmTitle: string;
     confirmMessage: string;
     confirm: string;
@@ -97,19 +87,16 @@ export const weeklyTasksTranslations: Record<
   ja: {
     pageTitle: "週間タスク",
     header: {
-      title: "週の進捗",
       applyNextMemo: "来週メモを今週へ適用",
     },
     actions: {
       add: "追加",
       delete: "削除",
       deleteExit: "戻る",
-      listify: "リスト化",
-      listifyExit: "通常表示",
     },
     deleteConfirm: {
       title: "削除してもよろしいですか？",
-      body: "この週間タスクを削除すると元に戻せません。",
+      body: "削除すると元に戻せません。",
       yes: "削除する",
       no: "キャンセル",
     },
@@ -124,15 +111,15 @@ export const weeklyTasksTranslations: Record<
     summary: {
       target: "目標",
       logged: "実績",
-      remaining: "残り",
+      remaining: "目標まで",
     },
     list: {
       title: "タスクリスト",
       emptyTitle: "まだタスクがありません",
-      emptyBody: "追加ボタンからタスクを作成し、月間目標と紐づけてください。",
+      emptyBody: "追加ボタンからタスクを作成し、年間目標と紐づけてください。",
     },
     task: {
-      monthlyLink: "月間目標",
+      yearlyLink: "年間目標",
       openTimer: "タイマー",
       manualLog: "手動記録",
       edit: "編集",
@@ -149,19 +136,13 @@ export const weeklyTasksTranslations: Record<
       addTitle: "週間タスクを追加",
       editTitle: "編集",
       titleLabel: "週間タスク",
-      titlePlaceholder: "例）英単語600語 2周",
-      monthValue: "{{monthLabel}}",
-      monthOptionLabel: "{{monthLabel}} : {{description}}",
-      monthLabel: "月間目標リストを表示する月",
-      monthlyGoalLabel: "紐づける月間目標",
-      noMonthlyGoal: "{{monthLabel}}にまだ月間目標がありません",
-      targetLabel: "目標時間（時間）",
-      targetPlaceholder: "例）10",
-      targetHelper: "時間単位で入力すると計算しやすいです",
+      titlePlaceholder: "例 英単語600語 2周",
+      yearlyGoalLabel: "紐づける年間目標",
+      noYearlyGoal: "まだ年間目標がありません",
+      unlinkedYearlyGoal: "年間目標に紐づけない",
       cancel: "キャンセル",
       save: "保存",
       errorRequired: "すべての項目を入力してください",
-      errorEstimated: "目標時間は0より大きい数値で入力してください",
     },
     manualModal: {
       title: "手動で記録",
@@ -171,8 +152,7 @@ export const weeklyTasksTranslations: Record<
       hoursLabel: "時間",
       minutesLabel: "分",
       rangeHelper:
-        "入力した時間を現在の実績に積み上げます。関連する月間目標、年間目標にも反映されます。",
-      finalPreview: "追加後の累計: {{total}}（目標 {{target}}）",
+        "入力した時間を現在の実績に積み上げます。関連する年間目標にも反映されます。",
       confirmTitle: "この実績で更新しますか？",
       confirmMessage: "{{added}} を加算して合計を {{total}} に更新します。",
       confirm: "加算する",
@@ -187,15 +167,12 @@ export const weeklyTasksTranslations: Record<
   en: {
     pageTitle: "Weekly Tasks",
     header: {
-      title: "Weekly progress",
       applyNextMemo: "Apply next memo to this week",
     },
     actions: {
       add: "Add",
       delete: "Delete",
       deleteExit: "Exit",
-      listify: "List view",
-      listifyExit: "Back",
     },
     deleteConfirm: {
       title: "Delete this weekly task?",
@@ -205,11 +182,11 @@ export const weeklyTasksTranslations: Record<
     },
     deleteSuccess: {
       title: "Deleted",
-      body: "Deletion completed.",
+      body: "Deleted successfully.",
     },
     bulkDeleteSuccess: {
       title: "Deleted all",
-      body: "All weekly tasks were removed.",
+      body: "All weekly tasks were deleted.",
     },
     summary: {
       target: "Target",
@@ -219,10 +196,10 @@ export const weeklyTasksTranslations: Record<
     list: {
       title: "Task list",
       emptyTitle: "No tasks yet",
-      emptyBody: "Add a task and link it to a monthly goal.",
+      emptyBody: "Add a task and link it to an annual goal.",
     },
     task: {
-      monthlyLink: "Monthly goal",
+      yearlyLink: "Annual goal",
       openTimer: "Timer",
       manualLog: "Manual",
       edit: "Edit",
@@ -240,18 +217,12 @@ export const weeklyTasksTranslations: Record<
       editTitle: "Edit",
       titleLabel: "Weekly task",
       titlePlaceholder: "e.g. Finish 7 pages in section4 on the textbook",
-      monthValue: "{{monthLabel}}",
-      monthOptionLabel: "{{monthLabel}}: {{description}}",
-      monthLabel: "Month to show monthly goals",
-      monthlyGoalLabel: "Link monthly goal",
-      noMonthlyGoal: "No monthly goals for {{monthLabel}} yet",
-      targetLabel: "Target time (hours)",
-      targetPlaceholder: "e.g. 10",
-      targetHelper: "Enter hours to keep calculations simple.",
+      yearlyGoalLabel: "Link annual goal",
+      noYearlyGoal: "No annual goals yet",
+      unlinkedYearlyGoal: "Don't link an annual goal",
       cancel: "Cancel",
       save: "Save",
       errorRequired: "Please fill all fields",
-      errorEstimated: "Target time must be greater than 0.",
     },
     manualModal: {
       title: "Manual record",
@@ -261,8 +232,7 @@ export const weeklyTasksTranslations: Record<
       hoursLabel: "Hours",
       minutesLabel: "Minutes",
       rangeHelper:
-        "The time you enter will be added to the current total. It will be also applied on relating monthly and yearly goals",
-      finalPreview: "New total: {{total}} (target {{target}})",
+        "The time you enter will be added to the current total. It will also be applied to the related annual goal.",
       confirmTitle: "Update this log?",
       confirmMessage: "Add {{added}} and update the total to {{total}}.",
       confirm: "Add time",
@@ -277,19 +247,16 @@ export const weeklyTasksTranslations: Record<
   fr: {
     pageTitle: "Tâches hebdomadaires",
     header: {
-      title: "Progression de la semaine",
       applyNextMemo: "Appliquer le mémo à cette semaine",
     },
     actions: {
       add: "Ajouter",
       delete: "Supprimer",
       deleteExit: "Quitter",
-      listify: "Vue liste",
-      listifyExit: "Retour",
     },
     deleteConfirm: {
       title: "Supprimer cette tâche hebdomadaire ?",
-      body: "Cette action est définitive après suppression.",
+      body: "Cette action sera définitive après la suppression.",
       yes: "Supprimer",
       no: "Annuler",
     },
@@ -298,7 +265,7 @@ export const weeklyTasksTranslations: Record<
       body: "Suppression terminée.",
     },
     bulkDeleteSuccess: {
-      title: "Tout supprimé",
+      title: "Tout supprimer",
       body: "Toutes les tâches hebdomadaires ont été supprimées.",
     },
     summary: {
@@ -309,10 +276,10 @@ export const weeklyTasksTranslations: Record<
     list: {
       title: "Liste des tâches",
       emptyTitle: "Aucune tâche pour le moment",
-      emptyBody: "Ajoutez une tâche et associez-la à un objectif mensuel.",
+      emptyBody: "Ajoutez une tâche et associez-la à un objectif annuel.",
     },
     task: {
-      monthlyLink: "Objectif mensuel",
+      yearlyLink: "Objectif annuel",
       openTimer: "Minuteur",
       manualLog: "Manuel",
       edit: "Modifier",
@@ -320,7 +287,7 @@ export const weeklyTasksTranslations: Record<
     },
     bulkDelete: {
       button: "Tout supprimer",
-      title: "Supprimer toutes les tâches hebdomadaires ?",
+      title: "Voulez-vous supprimer toutes les tâches hebdomadaires ?",
       message: "Cette action est irréversible.",
       all: "Tout supprimer",
       cancel: "Annuler",
@@ -329,32 +296,26 @@ export const weeklyTasksTranslations: Record<
       addTitle: "Ajouter une tâche hebdomadaire",
       editTitle: "Modifier",
       titleLabel: "Tâche hebdomadaire",
-      titlePlaceholder: "ex. Réviser 600 mots de vocabulaire anglais",
-      monthValue: "{{monthLabel}}",
-      monthOptionLabel: "{{monthLabel}} : {{description}}",
-      monthLabel: "Mois pour afficher les objectifs mensuels",
-      monthlyGoalLabel: "Associer un objectif mensuel",
-      noMonthlyGoal: "Pas d'objectif mensuel pour {{monthLabel}}",
-      targetLabel: "Temps cible (heures)",
-      targetPlaceholder: "ex. 10",
-      targetHelper: "Saisir en heures pour simplifier les calculs.",
+      titlePlaceholder: "ex. Réviser 600 mots de vocabulaire d'anglais",
+      yearlyGoalLabel: "Associer un objectif annuel",
+      noYearlyGoal: "Aucun objectif annuel pour le moment",
+      unlinkedYearlyGoal: "Ne pas associer d'objectif annuel",
       cancel: "Annuler",
       save: "Enregistrer",
       errorRequired: "Veuillez remplir tous les champs",
-      errorEstimated: "Le temps cible doit être supérieur à 0.",
     },
     manualModal: {
       title: "Saisie manuelle",
       currentLabel: "Enregistré",
       addedLabel: "Ajout",
-      finalLabel: "Total après ajout",
+      finalLabel: "Progression totale",
       hoursLabel: "Heures",
       minutesLabel: "Minutes",
       rangeHelper:
-        "Le temps que vous saisissez sera ajouté au total actuel. Il sera également appliqué aux objectifs mensuels et annuels correspondants.",
-      finalPreview: "Nouveau total : {{total}} (objectif {{target}})",
-      confirmTitle: "Mettre à jour ce suivi ?",
-      confirmMessage: "Ajouter {{added}} au suivi et passer à {{total}}.",
+        "Le temps que vous saisissez sera additionné au total actuel. Il sera également appliqué à l'objectif annuel associé.",
+      confirmTitle: "Voulez-vous mettre à jour la progression ?",
+      confirmMessage:
+        "Ajouter {{added}} à votre progression et passer à {{total}}.",
       confirm: "Ajouter",
       cancel: "Retour",
       submit: "Ajouter",

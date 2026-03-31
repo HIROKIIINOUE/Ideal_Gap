@@ -4,7 +4,7 @@ export type TaskTimerTranslations = {
   pageTitle: string;
   header: {
     taskLabel: string;
-    monthlyLabel: string;
+    yearlyLabel: string;
     estimatedLabel: string;
     loggedLabel: string;
     notificationTitle: string;
@@ -72,6 +72,12 @@ export type TaskTimerTranslations = {
   };
   feedback: {
     startError: string;
+    permissionDenied: string;
+    permissionContinue: string;
+    permissionAction: string;
+    permissionHide: string;
+    offlineSaveBlocked: string;
+    offlineSaveBlockedAction: string;
   };
 };
 
@@ -81,7 +87,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       pageTitle: "タスクタイマー",
       header: {
         taskLabel: "対象タスク",
-        monthlyLabel: "紐づけた月間目標",
+        yearlyLabel: "紐づけた年間目標",
         estimatedLabel: "目標時間",
         loggedLabel: "実績",
         notificationTitle:
@@ -145,23 +151,31 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         minutesLabel: "{{minutes}}分として記録されます",
         nextStartLabel: "次回のスタート地点（任意）",
         currentStartLabel: "今回のスタート地点",
-        nextStartPlaceholder: "例: 第2章から / 3番目のサブタスクから",
-        nextStartHelper: "メモを残すと次のセッションで迷いません。",
-        confirm: "完了して記録",
+        nextStartPlaceholder: "例: 第2章から / 単語帳セクション3から",
+        nextStartHelper: "メモを残すと次のセッション開始時に表示されます",
+        confirm: "完了",
       },
       feedback: {
         startError: "時間を設定してから開始してください",
+        permissionDenied:
+          "通知がオフになっています。設定から許可してください。",
+        permissionContinue: "通知オフで続ける",
+        permissionAction: "設定を開く",
+        permissionHide: "今後表示しない",
+        offlineSaveBlocked:
+          "オフラインです。通信を再接続するか、手動記録ボタンから手動で時間を記録してください。",
+        offlineSaveBlockedAction: "戻る",
       },
     },
     en: {
       pageTitle: "Task timer",
       header: {
         taskLabel: "Task",
-        monthlyLabel: "Monthly goal",
+        yearlyLabel: "Annual goal",
         estimatedLabel: "Planned",
         loggedLabel: "Logged",
         notificationTitle:
-          "Allow notifications so we can alert you when the timer ends.",
+          "Allow notifications so we can notify you when the timer ends.",
         notificationAction: "Open settings",
         notificationDismiss: "Dismiss",
       },
@@ -202,10 +216,10 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         confirm: "Finish",
         cancel: "Cancel",
         completeToast: "Elapsed time recorded",
-        musicPlay: "Play music",
-        musicPause: "Pause music",
+        musicPlay: "Play",
+        musicPause: "Pause",
         musicUnavailable: "No music",
-        musicSelect: "Choose track",
+        musicSelect: "Select",
         musicModalTitle: "Pick focus music",
         musicModalSubtitle: "Downloaded tracks",
         musicSelected: "{{title}} selected",
@@ -222,20 +236,28 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         minutesLabel: "Saved as {{minutes}} min",
         nextStartLabel: "Next starting point (optional)",
         currentStartLabel: "Starting point this session",
-        nextStartPlaceholder: "e.g. Resume from section 2 or subtask 3",
+        nextStartPlaceholder: "e.g. Resume from section 2",
         nextStartHelper:
-          "Leave a short note so you can jump back in next time.",
-        confirm: "Save and finish",
+          "Leave a short note so you can resume from the proper point in next time.",
+        confirm: "Save",
       },
       feedback: {
         startError: "Set a duration before starting",
+        permissionDenied:
+          "Notification is disabled. Enable it to receive the notification when the timer is done.",
+        permissionContinue: "Continue without notification",
+        permissionAction: "Open settings",
+        permissionHide: "Don't show again",
+        offlineSaveBlocked:
+          "You are offline. Reconnect to the internet, or record your time manually from the manual log button.",
+        offlineSaveBlockedAction: "Back",
       },
     },
     fr: {
       pageTitle: "Minuteur de tâche",
       header: {
         taskLabel: "Tâche",
-        monthlyLabel: "Objectif mensuel",
+        yearlyLabel: "Objectif annuel",
         estimatedLabel: "Temps prévu",
         loggedLabel: "Enregistré",
         notificationTitle:
@@ -248,8 +270,9 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         body: "Votre session est terminée.",
       },
       timerCard: {
-        title: "Minuteur de focus",
-        helper: "Définissez la durée de focus puis lancez le compte à rebours.",
+        title: "Minuteur de concentration",
+        helper:
+          "Définissez la durée de concentration et lancez le compte à rebours.",
         endLabel: "Fin prévue {{time}}",
         endTimeLabel: "Fin prévue {{time}}",
         start: "Démarrer",
@@ -261,35 +284,36 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       presets: {
         add10s: "10 s", // これはテスト用
-        add1m: "1 min", // これはテスト用
-        add5: "+5 min",
-        add10: "+10 min",
-        add30: "+30 min",
-        add1h: "+1 h",
-        add2h: "+2 h",
+        add1m: "1m", // これはテスト用
+        add5: "+5m",
+        add10: "+10m",
+        add30: "+30m",
+        add1h: "+1h",
+        add2h: "+2h",
         clear: "clear",
       },
       controls: {
         title: "Contrôles",
-        pause: "Mettre en pause",
+        pause: "Pause",
         resume: "Reprendre",
-        complete: "Marquer terminé",
+        complete: "Terminer",
         completeConfirmTitle: "Terminer cette session ?",
         completeConfirmBody:
           "Nous enregistrerons le temps écoulé et reviendrons aux tâches hebdomadaires.",
         confirm: "Terminer",
         cancel: "Annuler",
         completeToast: "Temps écoulé enregistré",
-        musicPlay: "Lancer la musique",
-        musicPause: "Mettre la musique en pause",
+        musicPlay: "Lancer",
+        musicPause: "Pause",
         musicUnavailable: "Aucune musique",
-        musicSelect: "Choisir un morceau",
-        musicModalTitle: "Choisir la musique de focus",
+        musicSelect: "Choisir",
+        musicModalTitle: "Choisir la musique de concentration",
         musicModalSubtitle: "Morceaux téléchargés",
         musicSelected: "{{title}} sélectionné",
         musicNone: "Aucun morceau sélectionné",
         musicEmptyTitle: "Aucune musique installée",
-        musicEmptyBody: "Installez un morceau depuis la page musique de focus.",
+        musicEmptyBody:
+          "Installez un morceau depuis la page musique de concentration.",
         musicEmptyCta: "Aller à la musique",
       },
       completionModal: {
@@ -297,17 +321,25 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         description:
           "Vérifiez le temps enregistré et notez le prochain point de reprise avant de revenir aux tâches hebdomadaires.",
         actualTimeLabel: "Temps passé sur cette session",
-        minutesLabel: "Enregistré en {{minutes}} min",
+        minutesLabel: "Enregistré en {{minutes}}m",
         nextStartLabel: "Point de reprise (optionnel)",
         currentStartLabel: "Point de départ de cette session",
         nextStartPlaceholder:
           "ex. Reprendre à la section 2 ou à la sous-tâche 3",
         nextStartHelper:
           "Ajoutez une note pour reprendre plus vite la prochaine fois.",
-        confirm: "Enregistrer et terminer",
+        confirm: "Enregistrer",
       },
       feedback: {
         startError: "Définissez une durée avant de démarrer",
+        permissionDenied:
+          "Les notifications sont désactivées. Autorisez-les dans les réglages.",
+        permissionContinue: "Continuer sans notifications",
+        permissionAction: "Ouvrir les réglages",
+        permissionHide: "Ne plus afficher",
+        offlineSaveBlocked:
+          "Vous êtes hors ligne. Reconnectez-vous à Internet, ou enregistrez le temps manuellement avec le bouton de saisie manuelle.",
+        offlineSaveBlockedAction: "Retour",
       },
     },
   };

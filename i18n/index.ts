@@ -5,6 +5,7 @@ import { commonTranslations } from "../content/commonTranslations";
 import { dashboardTranslations } from "../content/dashboardTranslations";
 import { idealSelfTranslations } from "../content/idealSelfTranslations";
 import { annualGoalsTranslations } from "../content/annualGoalsTranslations";
+import { longTermGoalsTranslations } from "../content/longTermGoalsTranslations";
 import { monthlyGoalsTranslations } from "../content/monthlyGoalsTranslations";
 import { landingTranslations } from "../content/landingTranslations";
 import { loginTranslations } from "../content/loginTranslations";
@@ -19,6 +20,7 @@ import { taskTimerTranslations } from "../content/taskTimerTranslations";
 import { LanguageKey, SUPPORTED_LANGUAGES } from "../types/i18n";
 import { breakReminderTranslations } from "../content/breakReminderTranslations";
 import { focusMusicTranslations } from "../content/focusMusicTranslations";
+import { paymentManagementTranslations } from "../content/paymentManagementTranslations";
 
 const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
   // useTranslationの参照先をコントロール
@@ -27,6 +29,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     dashboard: dashboardTranslations[lang],
     idealSelf: idealSelfTranslations[lang],
     annualGoals: annualGoalsTranslations[lang],
+    longTermGoals: longTermGoalsTranslations[lang],
     monthlyGoals: monthlyGoalsTranslations[lang],
     landing: landingTranslations[lang],
     login: loginTranslations[lang],
@@ -40,6 +43,7 @@ const resources = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
     funPlan: funPlanTranslations[lang],
     breakReminder: breakReminderTranslations[lang],
     focusMusic: focusMusicTranslations[lang],
+    paymentManagement: paymentManagementTranslations[lang],
   };
   return acc;
 }, {} as Resource);
@@ -57,6 +61,7 @@ if (!i18n.isInitialized) {
       "dashboard",
       "idealSelf",
       "annualGoals",
+      "longTermGoals",
       "monthlyGoals",
       "landing",
       "login",
@@ -70,6 +75,7 @@ if (!i18n.isInitialized) {
       "funPlan",
       "breakReminder",
       "focusMusic",
+      "paymentManagement",
     ],
     interpolation: {
       escapeValue: false,

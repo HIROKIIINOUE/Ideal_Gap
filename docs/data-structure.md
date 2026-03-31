@@ -6,13 +6,13 @@
 
 - ユーザー情報
 - サブスク状態
-- 理想 / 年間 / 月間 / 週間タスク
+- 理想 / 長期目標　/　年間ゴール / 週間タスク
 - タスクログ（work_sessions）
 - ミュージック情報、楽しい予定
 
 ### ローカル DB: SQLite
 
-- 理想/年間/⽉間/週間タスクのコピー
+- 理想/長期目標/年間/週間タスクのコピー
   <!-- アプリ起動時にSupabaseから「上記のユーザー最新データ」を取得 → SQLiteに保存 -->
   <!-- オフライン時も起動時に取得したデータを表示、オンライン復帰時にSupabaseに同期 -->
 
@@ -34,8 +34,8 @@
     id uuid [pk]
     email varchar [not null, unique]
     name varchar [not null]
+    current_point varchar
     language language
-    time_zone varchar  //サインアップ時のもの(手動変更可能)
     created_at timestamptz
     updated_at timestamptz
     had_account_before boolean
@@ -71,15 +71,6 @@
     "signupAwait"
   }
 
-  Table user_settings {
-    user_id uuid [pk, ref: > users.id]
-    show_fun_plan_on_dashboard boolean //実装の有無検討中
-    break_notification_enabled boolean
-    default_focus_music_id uuid [ref: > focus_musics.id]
-    created_at timestamptz
-    updated_at timestamptz
-  }
-
   Table user_ideal {
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
@@ -93,11 +84,26 @@
     }
   }
 
+  Table long_term_goals {
+    id uuid [pk]
+    user_id uuid [not null, ref: > users.id]
+    until_when varchar [not null]
+    description varchar [not null]
+    is_done boolean
+    "order" int // ソート用
+    created_at timestamptz
+    updated_at timestamptz
+      Indexes {
+         (user_id, "order")
+      }
+}
+
   Table yearly_goals {
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
     description varchar [not null]
     year_goal_color varchar [not null]
+    is_done boolean
     "order" int // ソート用
     accumulated_time_year int // 円グラフ計算用
     created_at timestamptz
@@ -108,14 +114,15 @@
     }
   }
 
+  <!-- 現在削除(今後の復活可能性を含めてスキーマのみDBに残す) -->
   Table monthly_goals {
     yearly_goal_id uuid [not null, ref: > yearly_goals.id]
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
     month int [not null]
     description varchar [not null]
-    estimated_time_month int  //月間ゴール目標時間
-    accumulated_time_month int // 紐づく週間タスクから積み上げられる
+    estimated_time_month int
+    accumulated_time_month int
     "order" int // ソート用
     created_at timestamptz
     updated_at timestamptz
@@ -126,21 +133,20 @@
     }
   }
 
-
+  <!-- 新仕様でスキーマ変更 -->
   Table weekly_tasks {
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
-    monthly_goal_id uuid [ref: > monthly_goals.id]
+    yearly_goal_id uuid [ref: > yearly_goals.id]
     description varchar [not null]
     next_start_point varchar
-    estimated_time_week int // 各週間タスクの目標作業時間
     accumulated_time_week int // 作業タイマーの実績
     "order" int
     created_at timestamptz
     updated_at timestamptz
 
     Indexes {
-      (monthly_goal_id)
+      (yearly_goal_id)
     }
   }
 

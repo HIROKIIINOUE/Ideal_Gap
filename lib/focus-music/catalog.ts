@@ -5,6 +5,32 @@ import {
 import { supabase } from "../supabaseClient";
 import { FOCUS_MUSIC_CATALOG_TABLE } from "./constants";
 
+const extractLeadingNumber = (value: string) => {
+  // 曲のタイトル先頭から連続する1桁以上の数値を抽出
+  const match = value.match(/^\d+/);
+  if (!match) return null;
+
+  // 抽出した文字列としての数字を10進数の数字に変換
+  return Number.parseInt(match[0], 10);
+};
+
+// 曲のタイトル冒頭の数字を昇順にソートするためのロジック
+const compareCatalogTitle = (a: FocusMusicTrack, b: FocusMusicTrack) => {
+  const aNum = extractLeadingNumber(a.title);
+  const bNum = extractLeadingNumber(b.title);
+
+  if (aNum !== null && bNum !== null && aNum !== bNum) {
+    return aNum - bNum;
+  }
+  if (aNum !== null && bNum === null) return -1;
+  if (aNum === null && bNum !== null) return 1;
+
+  return a.title.localeCompare(b.title, "ja", {
+    numeric: true,
+    sensitivity: "base",
+  });
+};
+
 // Supabaseから取得したカタログデータの配列をzodで検証し正常な要素のみで配列を生成
 const mapRowToTrack = (row: {
   id: string;
@@ -41,5 +67,6 @@ export const fetchFocusMusicCatalog = async (): Promise<FocusMusicTrack[]> => {
 
   return (data ?? [])
     .map(mapRowToTrack)
-    .filter((track): track is FocusMusicTrack => track !== null);
+    .filter((track): track is FocusMusicTrack => track !== null)
+    .sort(compareCatalogTitle);
 };

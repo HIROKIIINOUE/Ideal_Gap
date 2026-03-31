@@ -3,23 +3,38 @@
 
 import { setAudioModeAsync } from "expo-audio";
 import * as Linking from "expo-linking";
-import { Stack, router } from "expo-router";
+import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { I18nextProvider } from "react-i18next";
+import { Platform } from "react-native";
+import OfflineBanner from "../components/OfflineBanner";
 import SplashOverlay from "../components/SplashOverlay";
+import { colors } from "../constants/theme";
 import i18n from "../i18n";
 import { restoreSession } from "../lib/authBootstrap";
 import { getNormalizedLinkPath, resolveAuthCallbackTarget } from "../lib/authCallbackRouting";
 import { parseAuthTokensFromUrl } from "../lib/deepLink";
-import { ensureSignupAwaitSubscription } from "../lib/subscription";
+import {
+  captureExpoAudioError,
+  initSentry,
+  SentryErrorBoundary,
+} from "../lib/sentry";
+import {
+  canAccessDashboardWithSubscriptionStatus,
+  ensureSignupAwaitSubscription,
+  getSubscriptionForUser,
+} from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
+import { OfflineProvider } from "../providers/OfflineProvider";
 import { RevenueCatProvider } from "../providers/RevenueCatProvider";
+import { TimerAlarmPreferenceProvider } from "../providers/TimerAlarmPreferenceProvider";
 
 SplashScreen.preventAutoHideAsync();
+initSentry();
 
 //　URLの＃以降からトークン(access_tokenとrefresh_token)を抽出するロジック。両方とも揃ってなければnullを返す。
 // access_token: 認証済みユーザであることを示すJWT(APIアクセス時に使う)
@@ -41,7 +56,7 @@ const getSignupQuery = (url: string) => {
   return signup ? "?signup=1" : "";
 };
 
-const MIN_SPLASH_DURATION_MS = 1500;  // スプラッシュ画面の最短表示時間を調整
+const MIN_SPLASH_DURATION_MS = 600;  // スプラッシュ画面の最短表示時間を調整
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
@@ -55,14 +70,33 @@ export default function RootLayout() {
       shouldRouteThroughEarpiece: false,
     }).catch((error) => {
       console.warn("Failed to set audio mode", error);
+      captureExpoAudioError(error, "set_audio_mode");
     });
   }, []);
 
   useEffect(() => {
     let active = true;
+    const waitForNextFrame = () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    const resolveInitialRouteForSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id;
+      if (error || !userId) return;
+
+      const subscription = await getSubscriptionForUser(userId);
+      const destination = canAccessDashboardWithSubscriptionStatus(subscription?.status)
+        ? "/dashboard"
+        : "/purchases";
+      router.replace(destination);
+      // router.replaceの反映を1フレーム待ってからスプラッシュを隠す
+      await waitForNextFrame();
+    };
+
     // Supabaseによって発行されたトークンをユーザ端末のAsyncStorageにローカル保存する処理
     // また同時にsubscription行も確実に作成する
-    const handleUrl = async (url: string) => {
+    const handleUrl = async (url: string): Promise<boolean> => {
       const tokens = parseTokensFromUrl(url);
       if (tokens) {
         const { error } = await supabase.auth.setSession({
@@ -71,7 +105,7 @@ export default function RootLayout() {
         });
         if (error) {
           console.warn("Failed to set Supabase session from deep link", error.message);
-          return;
+          return false;
         }
         // ディープリンク経由でのサインアップ完了時に subscription行を確実に作成
         const session = await supabase.auth.getSession();
@@ -89,23 +123,29 @@ export default function RootLayout() {
       if (isPurchasePath(url)) {
         const signupQuery = getSignupQuery(url);
         router.replace(`/purchases${signupQuery}`);
-        return;
+        return true;
       }
 
       // メールアドレス変更ページかどうかを確認
       const authCallbackTarget = resolveAuthCallbackTarget(url);
       if (authCallbackTarget) {
         router.replace(authCallbackTarget);
+        return true;
       }
+      return false;
     };
 
     const bootstrap = async () => {
       const start = Date.now();
       const initialUrl = await Linking.getInitialURL();
+      let isRoutedByInitialUrl = false;
       if (initialUrl) {
-        await handleUrl(initialUrl);
+        isRoutedByInitialUrl = await handleUrl(initialUrl);
       }
       await restoreSession();
+      if (!isRoutedByInitialUrl) {
+        await resolveInitialRouteForSession();
+      }
       const elapsed = Date.now() - start;
       const remaining = Math.max(0, MIN_SPLASH_DURATION_MS - elapsed);
       setTimeout(() => {
@@ -135,17 +175,41 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <I18nextProvider i18n={i18n}>
-      <LanguageProvider>
-        <FunPlanProvider>
-          <FocusMusicProvider>
-            <RevenueCatProvider>
-              <Stack />
-              <SplashOverlay visible={showSplash} />
-            </RevenueCatProvider>
-          </FocusMusicProvider>
-        </FunPlanProvider>
-      </LanguageProvider>
-    </I18nextProvider>
+    <SentryErrorBoundary>
+      <I18nextProvider i18n={i18n}>
+        <LanguageProvider>
+          <OfflineProvider>
+            <FunPlanProvider>
+              <TimerAlarmPreferenceProvider>
+                <FocusMusicProvider>
+                  <RevenueCatProvider>
+                    {/* ここで共通ヘッダー(safe area)を指定できる */}
+                    <Stack
+                      screenOptions={{
+                        contentStyle: { backgroundColor: colors.surface },
+                        headerStyle: { backgroundColor: colors.surface },
+                        headerTintColor: colors.textPrimary,
+                        headerTitleStyle: {
+                          color: colors.textPrimary,
+                          fontSize: 18,
+                          fontFamily: Platform.select({
+                            ios: "Georgia-Italic",
+                            android: "serif",
+                            default: undefined,
+                          }),
+                        },
+                        headerShadowVisible: false,
+                      }}
+                    />
+                    <OfflineBanner />
+                    <SplashOverlay visible={showSplash} />
+                  </RevenueCatProvider>
+                </FocusMusicProvider>
+              </TimerAlarmPreferenceProvider>
+            </FunPlanProvider>
+          </OfflineProvider>
+        </LanguageProvider>
+      </I18nextProvider>
+    </SentryErrorBoundary>
   );
 }

@@ -56,8 +56,8 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
       helper: "返信が必要な場合は正しいメールアドレスをご記入ください。",
     },
     categories: {
-      bug: "バグ報告",
-      request: "機能要望",
+      bug: "不具合、故障",
+      request: "追加機能要望",
       feedback: "フィードバック",
       other: "その他",
     },
@@ -95,7 +95,7 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
       helper: "Use an email we can reply to if you’d like a response.",
     },
     categories: {
-      bug: "Bug",
+      bug: "Bug, Error",
       request: "Feature request",
       feedback: "Feedback",
       other: "Other",
@@ -119,25 +119,26 @@ export const contactTranslations: Record<LanguageKey, ContactTranslations> = {
   fr: {
     pageTitle: "Contact",
     intro:
-      "Signalez un bug, demandez une fonctionnalité ou partagez votre avis. Accessible même sans connexion.",
+      "Signalez un problème, suggérez une fonctionnalité ou partagez votre avis. Accessible même sans connexion.",
     demoNotice:
-      "Formulaire de démonstration pour le moment. Les messages ne sont pas enregistrés, mais nous les examinons.",
+      "Formulaire de démonstration pour le moment. Les messages ne sont pas enregistrés, mais nous les examinerons.",
     fields: {
       nameLabel: "Nom",
       namePlaceholder: "Votre nom",
       emailLabel: "E-mail",
-      emailPlaceholder: "vous@example.com",
+      emailPlaceholder: "vous@exemple.com",
       categoryLabel: "Catégorie",
       categoryPlaceholder: "Choisir une catégorie",
       messageLabel: "Message",
       messagePlaceholder: "Donnez le plus de détails possible",
-      helper: "Indiquez un e-mail valide si vous souhaitez une réponse.",
+      helper:
+        "Indiquez une adresse e-mail valide si vous souhaitez une réponse.",
     },
     categories: {
-      bug: "Bug",
+      bug: "Problème",
       request: "Demande de fonctionnalité",
       feedback: "Retour général",
-      other: "Autre",
+      other: "Autres",
     },
     submit: {
       label: "Envoyer",

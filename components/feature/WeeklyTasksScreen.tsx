@@ -5,40 +5,53 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
+import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
+import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { supabase } from "../../lib/supabaseClient";
+import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
+import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
 // 画面表示用データの型
 type WeeklyTask = {
   id: string;
   title: string;
-  monthlyGoalLabel: string;
-  monthlyGoalId: string;
-  estimatedMinutes: number;
+  yearlyGoalLabel: string;
+  yearlyGoalId: string | null;
   loggedMinutes: number;
   order: number;
 };
 
 //データベース用データの型
-type WeeklyTaskRow = {
-  id: string;
-  user_id?: string | null;
-  description: string;
-  monthly_goal_id: string | null;
-  estimated_time_week: number | null;
-  accumulated_time_week: number | null;
-  order: number | null;
-  updated_at?: string | null;
-};
-type MonthlyGoalRow = Database["public"]["Tables"]["monthly_goals"]["Row"];
+type WeeklyTaskRow = Database["public"]["Tables"]["weekly_tasks"]["Row"];
+type WeeklyTaskInsert = Database["public"]["Tables"]["weekly_tasks"]["Insert"];
+type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
+type WeeklyTaskListRow = Pick<
+  WeeklyTaskRow,
+  "id" | "description" | "yearly_goal_id" | "accumulated_time_week" | "order"
+>;
+type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
 
 type ManualLogState = {
   visible: boolean;
@@ -46,6 +59,11 @@ type ManualLogState = {
   hours: string;
   minutes: string;
   defaultMinutes: number;
+};
+
+type WeeklyTaskDraft = {
+  title: string;
+  yearlyGoalId: string | null;
 };
 
 // 合計minutesを受け取ってそれを元に表示する文言を返す(〇〇h 〇〇m)
@@ -58,16 +76,43 @@ const formatMinutes = (minutes: number) => {
   return `${hours}h ${mins}m`;
 };
 
+// 分を時間へ変換し、小数第1位まで表示する
+const formatCompactHours = (minutes: number) => {
+  const safeMinutes = Math.max(0, minutes);
+  const roundedHours = Math.round((safeMinutes / 60) * 10) / 10;
+  const displayValue = Number.isInteger(roundedHours) ? String(roundedHours) : roundedHours.toFixed(1);
+  return `${displayValue}h`;
+};
+
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
+const LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY = "weekly_tasks_last_selected_yearly_goal_id";
+const offlineWeeklyTasksSchema = z.array(
+  z.object({
+    id: z.string(),
+    title: z.string(),
+    yearlyGoalLabel: z.string(),
+    yearlyGoalId: z.string().nullable(),
+    loggedMinutes: z.number(),
+    order: z.number(),
+  }),
+);
+const offlineYearlyGoalOptionsSchema = z.array(
+  z.object({
+    id: z.string(),
+    label: z.string(),
+    color: z.string(),
+  }),
+);
 
 export default function WeeklyTasksScreen() {
-  const { t } = useTranslation(["weeklyTasks", "monthlyGoals"]);
+  const { t, i18n } = useTranslation("weeklyTasks");
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [tasks, setTasks] = useState<WeeklyTask[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
-  const [listMode, setListMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasOfflineCache, setHasOfflineCache] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [manualLog, setManualLog] = useState<ManualLogState>({
     visible: false,
@@ -77,7 +122,6 @@ export default function WeeklyTasksScreen() {
     defaultMinutes: 0,
   });
 
-  const manualTargetMinutes = Math.max(0, manualLog.task?.estimatedMinutes ?? 0);
   const manualHoursNumber = useMemo(() => Number(manualLog.hours || "0"), [manualLog.hours]);
   const manualMinutesNumber = useMemo(() => Math.min(59, Number(manualLog.minutes || "0")), [manualLog.minutes]);
   const manualAddedMinutes = useMemo(
@@ -92,65 +136,56 @@ export default function WeeklyTasksScreen() {
   const manualChanged = manualLog.task !== null && manualHasInput;
   const manualInRange = manualHasInput;
 
-  // 全てのタスクの「目標時間合計」「タスク実行時間合計」「達成度」を算出
-  const totals = useMemo(() => {
-    const target = tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
-    const logged = tasks.reduce((sum, task) => sum + task.loggedMinutes, 0);
-    const progress = target > 0 ? Math.min(1, logged / target) : 0;
-    return { target, logged, progress };
-  }, [tasks]);
-
-  const [monthlyGoalOptions, setMonthlyGoalOptions] = useState<
-    { id: string; label: string; color: string; month: number }[]
+  const [yearlyGoalOptions, setYearlyGoalOptions] = useState<
+    { id: string; label: string; color: string }[]
   >([]);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isGoalDropdownOpen, setGoalDropdownOpen] = useState(false);
-  const [isMonthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
   const weeklyTaskSchema = z.object({
     title: z.string().trim().min(1),
-    monthlyGoalId: z.string().trim().min(1),
-    estimatedHours: z.coerce.number().positive(),
+    yearlyGoalId: z.string().trim().nullable(),
   });
 
-  const [draft, setDraft] = useState({
+  // draft...追加・編集モーダルで「まだ確定していない入力中の値」
+  const [draft, setDraft] = useState<WeeklyTaskDraft>({
     title: "",
-    monthlyGoalId: monthlyGoalOptions[0]?.id ?? "",
-    estimatedHours: "10",
-    month: new Date().getMonth() + 1,
+    yearlyGoalId: yearlyGoalOptions[0]?.id ?? null,
   });
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const { offlineBlocked } = useOffline();
+  const guardOfflineAction = useOfflineActionGuard();
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const isFrench = currentLanguage.startsWith("fr");
 
-  const monthsList = useMemo(() => Array.from({ length: 12 }, (_, idx) => idx + 1), []);
   const initializedDefaultGoal = useRef(false);
   const hasLoadedRef = useRef(false);
-  // 各月名の配列の翻訳データを返している。(ns = name space)
-  // returnObject:trueとすることで配列やオブジェクトの翻訳データをそのまま配列やオブジェクトとして扱える。
-  // これがないと”[aaa, bbb, ccc]”のような一つの文字列として解釈されてしまう。
-  const monthNames = useMemo(
-    () => (t("monthsShort", { ns: "monthlyGoals", returnObjects: true }) as string[]) ?? [],
-    [t],
-  );
-  // 各月名の配列の翻訳データからユーザが選択中のデータを返している
-  const monthLabel = useCallback(
-    (month: number) => {
-      const idx = Math.max(0, Math.min(11, month - 1));
-      return monthNames[idx] ?? String(month);
-    },
-    [monthNames],
-  );
-  const monthGoalsForSelected = useMemo(
-    () => monthlyGoalOptions.filter((opt) => opt.month === selectedMonth),
-    [monthlyGoalOptions, selectedMonth],
-  );
+  const hasYearlyGoals = yearlyGoalOptions.length > 0;
 
-  // 選択した月が月間目標を持つかどうかboolean
-  const hasMonthlyGoals = monthGoalsForSelected.length > 0;
+  // 以前使用した紐づく年間目標をAsyncStorageから取り出す(追加モーダルでデフォルト表示するため)
+  // AsyncStorageに記録がない場合は先頭の年間目標を表示する。
+  const getPreferredYearlyGoalId = useCallback(async (): Promise<string | null> => {
+    const savedId = await AsyncStorage.getItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY);
+    if (savedId && yearlyGoalOptions.some((opt) => opt.id === savedId)) {
+      return savedId;
+    }
+    return yearlyGoalOptions[0]?.id ?? null;
+  }, [yearlyGoalOptions]);
+
+  // 年間目標登録時に「直近の紐づく年間目標」としてAsyncStorageに保存
+  // 該当の年間目標がなければAsyncStorageをクリーンアップする
+  const persistPreferredYearlyGoalId = useCallback(async (yearlyGoalId: string | null) => {
+    if (!yearlyGoalId) {
+      await AsyncStorage.removeItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY);
+      return;
+    }
+    await AsyncStorage.setItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY, yearlyGoalId);
+  }, []);
 
   const handleDeleteTask = (task: WeeklyTask) => {
+    if (guardOfflineAction()) return;
     Alert.alert(t("deleteConfirm.title"), t("deleteConfirm.body"), [
       { text: t("deleteConfirm.no"), style: "cancel" },
       {
@@ -162,7 +197,7 @@ export default function WeeklyTasksScreen() {
             Alert.alert(t("deleteConfirm.title"), t("modal.errorRequired"));
             return;
           }
-          const { error } = await supabase.from("weekly_tasks" as any).delete().eq("id", task.id);
+          const { error } = await supabase.from("weekly_tasks").delete().eq("id", task.id);
           if (error) {
             Alert.alert(t("deleteConfirm.title"), error.message);
             return;
@@ -178,7 +213,7 @@ export default function WeeklyTasksScreen() {
           if (reordered.length > 0) {
             const updates = reordered.map((item) => toWeeklyRow(item, uid));
             const { error: upsertError } = await supabase
-              .from("weekly_tasks" as any)
+              .from("weekly_tasks")
               .upsert(updates, { onConflict: "id" });
             if (upsertError) {
               Alert.alert(t("deleteConfirm.title"), upsertError.message ?? t("modal.errorRequired"));
@@ -186,9 +221,7 @@ export default function WeeklyTasksScreen() {
             }
           }
 
-          if (!reorderFailed) {
-            Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
-          }
+          if (reorderFailed) return;
         },
       },
     ]);
@@ -196,14 +229,14 @@ export default function WeeklyTasksScreen() {
 
   //　作業タイマーへ遷移する
   const handleOpenTimer = (task: WeeklyTask) => {
+    if (guardOfflineAction()) return;
     router.push({
       pathname: "/task-timer",
       params: {
         taskId: task.id,
-        monthlyGoalId: task.monthlyGoalId,
+        yearlyGoalId: task.yearlyGoalId,
         title: task.title,
-        monthlyGoal: task.monthlyGoalLabel,
-        estimated: String(task.estimatedMinutes),
+        yearlyGoal: task.yearlyGoalLabel,
         logged: String(task.loggedMinutes),
       },
     });
@@ -218,12 +251,11 @@ export default function WeeklyTasksScreen() {
 
   //  データベースの行データから画面表示用のWeeklyTask型に変換
   const toWeeklyTask = React.useCallback(
-    (row: WeeklyTaskRow, goalLookup: Record<string, { label: string; color: string; month: number }>): WeeklyTask => ({
+    (row: WeeklyTaskListRow, goalLookup: Record<string, { label: string; color: string }>): WeeklyTask => ({
       id: row.id,
       title: row.description,
-      monthlyGoalId: row.monthly_goal_id ?? "",
-      monthlyGoalLabel: goalLookup[row.monthly_goal_id ?? ""]?.label ?? t("task.monthlyLink"),
-      estimatedMinutes: row.estimated_time_week ?? 0,
+      yearlyGoalId: row.yearly_goal_id ?? null,
+      yearlyGoalLabel: goalLookup[row.yearly_goal_id ?? ""]?.label ?? t("modal.unlinkedYearlyGoal"),
       loggedMinutes: row.accumulated_time_week ?? 0,
       order: row.order ?? 0,
     }),
@@ -232,12 +264,11 @@ export default function WeeklyTasksScreen() {
 
   // 画面表示用のWeeklyTaskデータをデータベースに保存する形へ変換
   const toWeeklyRow = React.useCallback(
-    (task: WeeklyTask, uid: string) => ({
+    (task: WeeklyTask, uid: string): WeeklyTaskInsert => ({
       id: task.id,
       user_id: uid,
       description: task.title,
-      monthly_goal_id: task.monthlyGoalId,
-      estimated_time_week: task.estimatedMinutes,
+      yearly_goal_id: task.yearlyGoalId ?? null,
       accumulated_time_week: task.loggedMinutes,
       order: task.order,
     }),
@@ -252,7 +283,7 @@ export default function WeeklyTasksScreen() {
   }, []);
 
 
-  // 最新データ(週間タスクと月間目標)の取得
+  // 最新データ(週間タスクと年間目標)の取得
   const loadData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
@@ -263,59 +294,80 @@ export default function WeeklyTasksScreen() {
       return;
     }
 
-    const [{ data: monthlyData, error: monthlyError }, { data: weeklyData, error: weeklyError }] = await Promise.all([
+    // ローカルキャッシュのキー名を生成
+    const taskCacheKey = buildOfflineCacheKey("weekly-tasks", uid);
+    const goalCacheKey = buildOfflineCacheKey("weekly-yearly-goals", uid);
+
+    // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
+    if (offlineBlocked) {
+      const [cachedTasks, cachedGoals] = await Promise.all([
+        readOfflineCache(taskCacheKey, offlineWeeklyTasksSchema),
+        readOfflineCache(goalCacheKey, offlineYearlyGoalOptionsSchema),
+      ]);
+      if (cachedTasks && cachedGoals) {
+        setTasks(cachedTasks);
+        setYearlyGoalOptions(cachedGoals);
+        setHasOfflineCache(true);
+      } else {
+        setHasOfflineCache(false);
+      }
+      setLoading(false);
+      return; // オフラインの場合はここでデータフェッチ処理終了
+    }
+
+    const [{ data: yearlyData, error: yearlyError }, { data: weeklyData, error: weeklyError }] = await Promise.all([
       supabase
-        .from("monthly_goals")
-        .select("id, description, month, yearly_goal_id, yearly_goals(year_goal_color)")
+        .from("yearly_goals")
+        .select("id, description, year_goal_color")
         .eq("user_id", uid)
-        .order("month", { ascending: true }),
+        .order("order", { ascending: true }),
       supabase
-        .from("weekly_tasks" as any)
-        .select("id, description, monthly_goal_id, estimated_time_week, accumulated_time_week, order")
+        .from("weekly_tasks")
+        .select("id, description, yearly_goal_id, accumulated_time_week, order")
         .eq("user_id", uid)
         .order("order", { ascending: true }),
     ]);
 
-    if (monthlyError || weeklyError) {
-      setErrorMessage(monthlyError?.message ?? weeklyError?.message ?? "Failed to load data");
+    if (yearlyError || weeklyError) {
+      setErrorMessage(yearlyError?.message ?? weeklyError?.message ?? "Failed to load data");
       setLoading(false);
       return;
     }
 
-    // 月間目標データを週間タスクページで使用しやすいフォーマットに変換
-    const monthlyOptions = ((monthlyData as any[]) ?? []).map((row) => {
-      const color = row?.yearly_goals?.year_goal_color ?? colors.accentPrimary;
-      const goalRow = row as MonthlyGoalRow;
+    // 年間目標データを週間タスクページで使用しやすいフォーマットに変換
+    const yearlyOptions = ((yearlyData as YearlyGoalRow[] | null) ?? []).map((goalRow) => {
       return {
         id: goalRow.id,
-        label: t("modal.monthOptionLabel", {
-          monthLabel: monthLabel(goalRow.month),
-          description: goalRow.description,
-        }),
-        color,
-        month: goalRow.month,
+        label: goalRow.description,
+        color: goalRow.year_goal_color ?? colors.accentPrimary,
       };
     });
-
-    // 月間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
+    // 年間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
     // コードがシンプルになり、パフォーマンスが安定する
-    const goalLookup = monthlyOptions.reduce<Record<string, { label: string; color: string; month: number }>>((acc, item) => {
-      acc[item.id] = { label: item.label, color: item.color, month: item.month };
+    const goalLookup = yearlyOptions.reduce<Record<string, { label: string; color: string }>>((acc, item) => {
+      acc[item.id] = { label: item.label, color: item.color };
       return acc;
     }, {});
 
     const weekly = reorderTasks(
-      ((weeklyData as any[]) ?? []).map((row) => toWeeklyTask(row as WeeklyTaskRow, goalLookup)),
+      ((weeklyData as WeeklyTaskListRow[] | null) ?? []).map((row) => toWeeklyTask(row, goalLookup)),
     );
 
-    setMonthlyGoalOptions(monthlyOptions);
+    setYearlyGoalOptions(yearlyOptions);
     setTasks(weekly);
-    if (monthlyOptions[0] && !initializedDefaultGoal.current) {
+
+    // データが空配列ではない場合、ローカルキャッシュに保存
+    setHasOfflineCache(weekly.length > 0 && yearlyOptions.length > 0);
+    await Promise.all([
+      writeOfflineCache(taskCacheKey, offlineWeeklyTasksSchema, weekly),
+      writeOfflineCache(goalCacheKey, offlineYearlyGoalOptionsSchema, yearlyOptions),
+    ]);
+    if (yearlyOptions[0] && !initializedDefaultGoal.current) {
       initializedDefaultGoal.current = true;
-      setDraft((prev) => ({ ...prev, monthlyGoalId: monthlyOptions[0].id, month: monthlyOptions[0].month }));
+      setDraft((prev) => ({ ...prev, yearlyGoalId: yearlyOptions[0].id }));
     }
     setLoading(false);
-  }, [fetchUserId, initializedDefaultGoal, monthLabel, reorderTasks, t, toWeeklyTask]);
+  }, [fetchUserId, initializedDefaultGoal, offlineBlocked, reorderTasks, t, toWeeklyTask]);
 
   // 初回マウント時にもデータを1回だけ取得し、以降はフォーカス時に再取得する
   useEffect(() => {
@@ -333,43 +385,30 @@ export default function WeeklyTasksScreen() {
       loadData();
     }, [loadData]),
   );
-
-  // ユーザがタスク追加時に選んだ選択月を記憶して次回の追加時のデフォルトとしてセット
+  // draftは追加・編集モーダルで「まだ確定していない入力中の値」
+  // draft.yearlyGoalId が常に現在のyearlyGoalOptions と矛盾しないように補正する
   useEffect(() => {
-    const syncMonth = async () => {
-      const storedMonth = await AsyncStorage.getItem("weeklyTasks:selectedMonth");
-      if (storedMonth) {
-        const parsed = Number(storedMonth);
-        if (parsed >= 1 && parsed <= 12) {
-          setSelectedMonth(parsed);
-          setDraft((prev) => ({ ...prev, month: parsed }));
-        }
-      }
-    };
-    syncMonth();
-  }, []);
-
-
-  // 選択月に月間目標が存在し、ユーザが選択中の月間目標がその選択月に含まれない場合、ユーザの選択中の月間目標は「選択月の1番目の目標」に自動で設定される。
-  // 選択付きに月間目標がなく、ユーザが既に月間目標を選んでいる場合、ユーザの選択中の月間目標は自動でnullとなる
-  useEffect(() => {
-    if (monthGoalsForSelected.length > 0 && !monthGoalsForSelected.some((opt) => opt.id === draft.monthlyGoalId)) {
-      setDraft((prev) => ({ ...prev, monthlyGoalId: monthGoalsForSelected[0].id }));
+    if (
+      draft.yearlyGoalId &&
+      yearlyGoalOptions.length > 0 &&
+      !yearlyGoalOptions.some((opt) => opt.id === draft.yearlyGoalId)
+    ) {
+      setDraft((prev) => ({ ...prev, yearlyGoalId: yearlyGoalOptions[0].id }));
     }
-    if (monthGoalsForSelected.length === 0 && draft.monthlyGoalId) {
-      setDraft((prev) => ({ ...prev, monthlyGoalId: "" }));
+    if (yearlyGoalOptions.length === 0 && draft.yearlyGoalId) {
+      setDraft((prev) => ({ ...prev, yearlyGoalId: null }));
     }
-  }, [draft.monthlyGoalId, monthGoalsForSelected, selectedMonth]);
-
+  }, [draft.yearlyGoalId, yearlyGoalOptions]);
 
   // 「追加ボタン」からモーダルを開いた時のロジック
-  const handleOpenAdd = () => {
+  const handleOpenAdd = async () => {
+    if (guardOfflineAction()) return;
+    const preferredYearlyGoalId = await getPreferredYearlyGoalId();
     setEditingId(null);
+    setGoalDropdownOpen(false);
     setDraft({
       title: "",
-      monthlyGoalId: monthGoalsForSelected[0]?.id ?? "",
-      estimatedHours: "10",
-      month: selectedMonth,
+      yearlyGoalId: preferredYearlyGoalId,
     });
     setModalError(null);
     setModalVisible(true);
@@ -377,6 +416,7 @@ export default function WeeklyTasksScreen() {
 
   // 全ての週間タスク削除機能
   const handleBulkDelete = async () => {
+    if (guardOfflineAction()) return;
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
       Alert.alert(t("deleteConfirm.title"), t("modal.errorRequired"));
@@ -406,23 +446,20 @@ export default function WeeklyTasksScreen() {
 
   // 「編集ボタン」からモーダルを開いた時のロジック
   const handleOpenEdit = (task: WeeklyTask) => {
-    const goalMonth = monthlyGoalOptions.find((opt) => opt.id === task.monthlyGoalId)?.month;
+    if (guardOfflineAction()) return;
     setEditingId(task.id);
+    setGoalDropdownOpen(false);
     setDraft({
       title: task.title,
-      monthlyGoalId: task.monthlyGoalId,
-      estimatedHours: String(Math.max(1, task.estimatedMinutes) / 60),
-      month: goalMonth ?? selectedMonth,
+      yearlyGoalId: task.yearlyGoalId,
     });
-    if (goalMonth) {
-      setSelectedMonth(goalMonth);
-    }
     setModalError(null);
     setModalVisible(true);
   };
 
   // 手動で作業時間積み上げモーダルをオープンする処理
   const handleOpenManualLog = (task: WeeklyTask) => {
+    if (guardOfflineAction()) return;
     setManualLog({
       visible: true,
       task,
@@ -459,6 +496,7 @@ export default function WeeklyTasksScreen() {
   };
 
   const handleSubmitManualLog = () => {
+    if (guardOfflineAction()) return;
     if (!manualLog.task || !manualInRange || !manualChanged) return;
     const safeTotal = Math.max(0, manualFinalMinutes);
     Alert.alert(
@@ -483,7 +521,7 @@ export default function WeeklyTasksScreen() {
               const result = await updateAccumulatedTimes({
                 userId: uid,
                 taskId: manualLog.task.id,
-                monthlyGoalId: manualLog.task.monthlyGoalId,
+                yearlyGoalId: manualLog.task.yearlyGoalId,
                 newLoggedMinutes: safeTotal,
                 previousLoggedMinutes: manualLog.defaultMinutes,
               });
@@ -509,20 +547,14 @@ export default function WeeklyTasksScreen() {
 
 
   const handleSave = async () => {
-    // 選択月に月間目標がない場合は早期return
-    if (!hasMonthlyGoals) {
-      setModalError(t("modal.noMonthlyGoal", { monthLabel: monthLabel(selectedMonth) }));
-      return;
-    }
+    if (guardOfflineAction()) return;
 
     const parse = weeklyTaskSchema.safeParse(draft);
     if (!parse.success) {
-      const hasEstimated = parse.error.issues.some((issue) => issue.path.includes("estimatedHours"));
-      setModalError(hasEstimated ? t("modal.errorEstimated") : t("modal.errorRequired"));
+      setModalError(t("modal.errorRequired"));
       return;
     }
-    const estimatedMinutes = Math.round(parse.data.estimatedHours * 60);
-
+    await persistPreferredYearlyGoalId(parse.data.yearlyGoalId);
 
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
@@ -533,14 +565,14 @@ export default function WeeklyTasksScreen() {
     // 編集保存処理
     if (editingId) {
       const existing = tasks.find((task) => task.id === editingId);
+      const payload: WeeklyTaskUpdate = {
+        description: parse.data.title,
+        yearly_goal_id: parse.data.yearlyGoalId ?? null,
+        accumulated_time_week: existing?.loggedMinutes ?? 0,
+      };
       const { error } = await supabase
-        .from("weekly_tasks" as any)
-        .update({
-          description: parse.data.title,
-          monthly_goal_id: parse.data.monthlyGoalId,
-          estimated_time_week: estimatedMinutes,
-          accumulated_time_week: existing?.loggedMinutes ?? 0,
-        })
+        .from("weekly_tasks")
+        .update(payload)
         .eq("id", editingId);
       if (error) {
         Alert.alert("更新に失敗しました", error.message);
@@ -551,35 +583,32 @@ export default function WeeklyTasksScreen() {
       // 新規タスクを一番上に持ってくるために既存のタスクのorderを+1する
       const orderedExisting = reorderTasks(tasks).map((task, idx) => ({ ...task, order: idx + 1 }));
       const { data: inserted, error } = await supabase
-        .from("weekly_tasks" as any)
+        .from("weekly_tasks")
         .insert({
           description: parse.data.title,
-          monthly_goal_id: parse.data.monthlyGoalId,
-          estimated_time_week: estimatedMinutes,
+          yearly_goal_id: parse.data.yearlyGoalId ?? null,
           accumulated_time_week: 0,
           user_id: uid,
           order: 0,
         })
-        .select("id, description, monthly_goal_id, estimated_time_week, accumulated_time_week, order")
+        .select("id, description, yearly_goal_id, accumulated_time_week, order")
         .single();
       if (error || !inserted) {
         Alert.alert("追加に失敗しました", error?.message ?? "Failed to add");
         return;
       }
 
-      // 月間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
-      // コードがシンプルになり、パフォーマンスが安定する
-      const goalLookup = monthlyGoalOptions.reduce<Record<string, { label: string; color: string; month: number }>>(
+      const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>(
         (acc, item) => {
-          acc[item.id] = { label: item.label, color: item.color, month: item.month };
+          acc[item.id] = { label: item.label, color: item.color };
           return acc;
         },
         {},
       );
-      const newTask = toWeeklyTask(inserted as unknown as WeeklyTaskRow, goalLookup);
+      const newTask = toWeeklyTask(inserted, goalLookup);
       const reordered = reorderTasks([...orderedExisting, newTask]);
       const updates = reordered.map((task) => toWeeklyRow(task, uid));
-      const { error: reorderError } = await supabase.from("weekly_tasks" as any).upsert(updates, { onConflict: "id" });
+      const { error: reorderError } = await supabase.from("weekly_tasks").upsert(updates, { onConflict: "id" });
       if (reorderError) {
         Alert.alert("追加に失敗しました", reorderError.message ?? "Failed to reorder");
         return;
@@ -588,24 +617,21 @@ export default function WeeklyTasksScreen() {
     }
 
     setModalVisible(false);
-
-
-    // ↓ 追加・更新後に再度Supabase DBから週間タスクを取得する
-
-    // 月間目標リスト配列から{ [id]: { label, color, month} }　の辞書のようなものを作る
+    // 年間目標リスト配列から{ [id]: { label, color} }　の辞書のようなものを作る
     // コードがシンプルになり、パフォーマンスが安定する
-    const goalLookup = monthlyGoalOptions.reduce<Record<string, { label: string; color: string; month: number }>>((acc, item) => {
-      acc[item.id] = { label: item.label, color: item.color, month: item.month };
+    const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>((acc, item) => {
+      acc[item.id] = { label: item.label, color: item.color };
       return acc;
     }, {});
+    // ↓ 追加・更新後に再度Supabase DBから週間タスクを取得する
     const { data: weeklyData, error: weeklyError } = await supabase
-      .from("weekly_tasks" as any)
-      .select("id, description, monthly_goal_id, estimated_time_week, accumulated_time_week, order")
+      .from("weekly_tasks")
+      .select("id, description, yearly_goal_id, accumulated_time_week, order")
       .eq("user_id", uid)
       .order("order", { ascending: true });
     if (!weeklyError && weeklyData) {
       setTasks(
-        reorderTasks(((weeklyData as any[]) ?? []).map((row) => toWeeklyTask(row as WeeklyTaskRow, goalLookup))),
+        reorderTasks(((weeklyData as WeeklyTaskListRow[] | null) ?? []).map((row) => toWeeklyTask(row, goalLookup))),
       );
     }
     setLoading(false);
@@ -613,6 +639,7 @@ export default function WeeklyTasksScreen() {
 
   // ドラッグの順番並び替えが終わった時に発火
   const handleDragEnd = async ({ data }: { data: WeeklyTask[] }) => {
+    if (guardOfflineAction()) return;
     const uid = userId ?? (await fetchUserId());
     if (!uid) {
       Alert.alert(t("deleteConfirm.title"), t("modal.errorRequired"));
@@ -623,7 +650,7 @@ export default function WeeklyTasksScreen() {
     if (reordered.length === 0) return;
 
     const updates = reordered.map((task) => toWeeklyRow(task, uid));
-    const { error } = await supabase.from("weekly_tasks" as any).upsert(updates, { onConflict: "id" });
+    const { error } = await supabase.from("weekly_tasks").upsert(updates, { onConflict: "id" });
     if (error) {
       Alert.alert(t("deleteConfirm.title"), error.message ?? t("modal.errorRequired"));
     }
@@ -631,69 +658,8 @@ export default function WeeklyTasksScreen() {
 
   // 指定のPressable要素の長押しドラッグを可能にするロジック
   const renderTaskCard = ({ item, drag, isActive }: RenderItemParams<WeeklyTask>) => {
-    if (listMode) {
-      return (
-        <Pressable
-          onLongPress={drag}
-          delayLongPress={120}
-          disabled={deleteMode && isActive}
-          style={[
-            styles.listRow,
-            shadows.card,
-            deleteMode && styles.listRowDelete,
-            isActive && styles.taskCardDragging,
-            deleteMode && styles.taskCardDeleteMode,
-          ]}
-        >
-          <LinearGradient
-            colors={LIST_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <View pointerEvents="none" style={styles.cardBorderOverlay} />
-          <View style={styles.listRowContent}>
-            <Text style={styles.listRowTitle} numberOfLines={1} ellipsizeMode="tail">
-              {item.title}
-            </Text>
-            {!deleteMode && <Pressable
-              accessibilityRole="button"
-              disabled={deleteMode}
-              onPress={() => handleOpenTimer(item)}
-              style={styles.listRowButton}
-            >
-              <MaterialCommunityIcons name="timer-outline" size={18} color={colors.textPrimary} />
-
-            </Pressable>}
-            <Pressable
-              accessibilityRole="button"
-              style={[styles.listRowButton, deleteMode && styles.dangerButton]}
-              onPress={() => {
-                if (deleteMode) {
-                  handleDeleteTask(item);
-                } else {
-                  handleOpenEdit(item);
-                }
-              }}
-            >
-              <MaterialCommunityIcons
-                name={deleteMode ? "trash-can-outline" : "pencil-outline"}
-                size={16}
-                color={deleteMode ? colors.error : colors.textPrimary}
-              />
-            </Pressable>
-          </View>
-        </Pressable>
-      );
-    }
-
-    const progress = item.estimatedMinutes > 0 ? Math.min(1, item.loggedMinutes / item.estimatedMinutes) : 0;
-    const remaining = Math.max(0, item.estimatedMinutes - item.loggedMinutes);
     return (
-      <Pressable
-        onLongPress={drag}
-        delayLongPress={120}
-        disabled={deleteMode && isActive}
+      <View
         style={[
           styles.taskCard,
           shadows.card,
@@ -709,84 +675,101 @@ export default function WeeklyTasksScreen() {
         />
         <View pointerEvents="none" style={styles.cardBorderOverlay} />
         <View style={styles.taskHeader}>
-          <Text style={styles.taskTitle}>{item.title}</Text>
+          <Text style={styles.taskTitle} numberOfLines={1} ellipsizeMode="tail">
+            {item.title}
+          </Text>
         </View>
 
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressTrack} />
-          <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-        </View>
-
-        <View style={styles.taskFooterRow}>
-          <View style={styles.goalStat}>
-            <Text style={styles.statLabel}>{t("summary.target")}</Text>
-            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatMinutes(item.estimatedMinutes)}
-            </Text>
-          </View>
-          <View style={styles.goalStat}>
-            <Text style={styles.statLabel}>{t("summary.logged")}</Text>
-            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatMinutes(item.loggedMinutes)}
-            </Text>
-          </View>
-          <View style={styles.goalStat}>
-            <Text style={styles.statLabel}>{t("summary.remaining")}</Text>
-            <Text style={styles.statValue} numberOfLines={1} ellipsizeMode="tail">
-              {formatMinutes(remaining)}
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={deleteMode ? t("actions.delete") : t("modal.editTitle")}
-            style={[styles.editButton, deleteMode && styles.dangerButton]}
-            onPress={() => {
-              if (deleteMode) {
-                handleDeleteTask(item);
-              } else {
-                handleOpenEdit(item);
-              }
-            }}
+        <View style={styles.taskControlRow}>
+          <Text
+            testID={`weekly-task-total-${item.id}`}
+            style={styles.totalInlineText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
-            <MaterialCommunityIcons
-              name={deleteMode ? "trash-can-outline" : "pencil-outline"}
-              size={18}
-              color={deleteMode ? colors.error : colors.textPrimary}
-            />
-          </Pressable>
-        </View>
-
-        {true && (
-          <View style={[styles.actionsColumn, styles.taskActionsRow]}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={deleteMode}
-              onPress={() => handleOpenTimer(item)}
-              style={({ pressed }) => [
-                styles.primaryButtonFull,
-                pressed && styles.primaryPressed,
-                deleteMode && styles.buttonDisabled,
-              ]}
-            >
-              <MaterialCommunityIcons name="timer-outline" size={18} color={colors.textPrimary} />
-              <Text style={styles.primaryButtonText}>{t("task.openTimer")}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={deleteMode}
-              style={({ pressed }) => [
-                styles.secondaryButtonFull,
-                pressed && styles.secondaryPressed,
-                deleteMode && styles.buttonDisabled,
-              ]}
-              onPress={() => handleOpenManualLog(item)}
-            >
-              <MaterialCommunityIcons name="playlist-edit" size={18} color={colors.textPrimary} />
-              <Text style={styles.secondaryButtonText}>{t("task.manualLog")}</Text>
-            </Pressable>
+            {formatCompactHours(item.loggedMinutes)}
+          </Text>
+          <View style={styles.taskActionGroup}>
+            {deleteMode ? (
+              <Pressable
+                testID={`weekly-task-delete-${item.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={t("actions.delete")}
+                style={({ pressed }) => [
+                  styles.dangerButton,
+                  styles.iconButtonRow,
+                  pressed && styles.secondaryPressed,
+                  offlineBlocked && styles.buttonDisabled,
+                ]}
+                onPress={() => handleDeleteTask(item)}
+                disabled={offlineBlocked}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
+                <Text style={styles.dangerButtonText}>{t("actions.delete")}</Text>
+              </Pressable>
+            ) : (
+              <>
+                <Pressable
+                  testID={`weekly-task-timer-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("task.openTimer")}
+                  disabled={offlineBlocked}
+                  onPress={() => handleOpenTimer(item)}
+                  style={({ pressed }) => [
+                    styles.goalActionIconButton,
+                    styles.timerActionButton,
+                    pressed && styles.secondaryPressed,
+                    offlineBlocked && styles.buttonDisabled,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="timer-outline" size={20} color={colors.textPrimary} />
+                </Pressable>
+                <Pressable
+                  testID={`weekly-task-manual-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("task.manualLog")}
+                  disabled={offlineBlocked}
+                  onPress={() => handleOpenManualLog(item)}
+                  style={({ pressed }) => [
+                    styles.goalActionIconButton,
+                    styles.dragHandleButton,
+                    pressed && styles.secondaryPressed,
+                    offlineBlocked && styles.buttonDisabled,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="playlist-edit" size={20} color={colors.textPrimary} />
+                </Pressable>
+                <Pressable
+                  testID={`weekly-task-edit-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("modal.editTitle")}
+                  style={({ pressed }) => [
+                    styles.goalActionIconButton,
+                    styles.dragHandleButton,
+                    pressed && styles.secondaryPressed,
+                    offlineBlocked && styles.buttonDisabled,
+                  ]}
+                  onPress={() => handleOpenEdit(item)}
+                  disabled={offlineBlocked}
+                >
+                  <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textPrimary} />
+                </Pressable>
+                <Pressable
+                  testID={`weekly-task-reorder-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+                  style={[styles.goalActionIconButton, styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+                  onLongPress={drag}
+                  delayLongPress={200}
+                  hitSlop={14}
+                >
+                  <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </>
+            )}
           </View>
-        )}
-      </Pressable>
+        </View>
+      </View>
     );
   };
 
@@ -798,117 +781,96 @@ export default function WeeklyTasksScreen() {
     );
   }
 
+  // オフラインかつキャッシュデータがない場合は専用のオフラインページを表示する
+  if (offlineBlocked && !hasOfflineCache) {
+    return (
+      <GestureHandlerRootView style={styles.ghRoot}>
+        <OfflineRequiredScreen />
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={styles.ghRoot}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={[styles.headerCard, shadows.card]}>
-          <LinearGradient
-            colors={HEADER_CARD_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
+      <DraggableFlatList
+        data={tasks}
+        keyExtractor={(item) => item.id}
+        onDragEnd={handleDragEnd}
+        renderItem={renderTaskCard}
+        activationDistance={8}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={(
+          <>
+            <View style={[styles.headerCard, shadows.card]}>
+              <LinearGradient
+                colors={HEADER_CARD_GRADIENT}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
 
-          <View style={styles.headerTop}>
-            <Text style={styles.pageTitle}>{t("pageTitle")}</Text>
+              <View style={styles.headerTop}>
+                <Text style={[styles.pageTitle, isFrench && styles.pageTitleFrench]}>{t("pageTitle")}</Text>
 
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>{t("header.title")}</Text>
-
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressTrack} />
-                <View style={[styles.progressFill, { width: `${totals.progress * 100}%` }]} />
+                <View style={styles.actionsRow}>
+                  {!deleteMode && (
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
+                      onPress={handleOpenAdd}
+                      disabled={offlineBlocked}
+                    >
+                      <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
+                      <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>
+                        {t("actions.add")}
+                      </Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && styles.secondaryPressed,
+                      deleteMode && styles.secondaryButtonActive,
+                    ]}
+                    onPress={() => setDeleteMode((prev) => !prev)}
+                    disabled={offlineBlocked}
+                  >
+                    <MaterialCommunityIcons
+                      name={deleteMode ? "close" : "trash-can-outline"}
+                      size={20}
+                      color={colors.textPrimary}
+                    />
+                    <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
+                      {deleteMode ? t("actions.deleteExit") ?? t("actions.delete") : t("actions.delete")}
+                    </Text>
+                  </Pressable>
+                  {deleteMode && (
+                    <Pressable
+                      accessibilityRole="button"
+                      style={({ pressed }) => [
+                        styles.secondaryButton,
+                        pressed && styles.secondaryPressed,
+                        styles.bulkDeleteButton,
+                      ]}
+                      onPress={confirmBulkDelete}
+                      disabled={offlineBlocked}
+                    >
+                      <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
+                      <Text style={[styles.secondaryButtonText, isFrench && styles.headerButtonTextFrench]}>
+                        {t("bulkDelete.button", { defaultValue: "Delete all" })}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
               </View>
-
-              <View style={styles.summaryStatsRow}>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>{t("summary.target")}</Text>
-                  <Text style={styles.summaryValue}>{formatMinutes(totals.target)}</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>{t("summary.logged")}</Text>
-                  <Text style={styles.summaryValue}>{formatMinutes(totals.logged)}</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>{t("summary.remaining")}</Text>
-                  <Text style={styles.summaryValue}>{formatMinutes(Math.max(0, totals.target - totals.logged))}</Text>
-                </View>
-              </View>
             </View>
-
-            <View style={styles.actionsRow}>
-              {!deleteMode && (
-                <Pressable
-                  accessibilityRole="button"
-                  style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
-                  onPress={handleOpenAdd}
-                >
-                  <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
-                  <Text style={styles.primaryButtonText}>{t("actions.add")}</Text>
-                </Pressable>
-              )}
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.secondaryPressed,
-                  deleteMode && styles.secondaryButtonActive,
-                ]}
-                onPress={() => setDeleteMode((prev) => !prev)}
-              >
-                <MaterialCommunityIcons
-                  name={deleteMode ? "close" : "trash-can-outline"}
-                  size={20}
-                  color={colors.textPrimary}
-                />
-                <Text style={styles.secondaryButtonText}>
-                  {deleteMode ? t("actions.deleteExit") ?? t("actions.delete") : t("actions.delete")}
-                </Text>
-              </Pressable>
-              {deleteMode && (
-                <Pressable
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    pressed && styles.secondaryPressed,
-                    styles.bulkDeleteButton,
-                  ]}
-                  onPress={confirmBulkDelete}
-                >
-                  <MaterialCommunityIcons name="delete-sweep-outline" size={20} color={colors.textPrimary} />
-                  <Text style={styles.secondaryButtonText}>
-                    {t("bulkDelete.button", { defaultValue: "Delete all" })}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-            <View style={styles.actionsRowSecondary}>
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.secondaryPressed,
-                  listMode && styles.secondaryButtonActive,
-                ]}
-                onPress={() => setListMode((prev) => !prev)}
-              >
-                <MaterialCommunityIcons
-                  name={listMode ? "playlist-check" : "format-list-bulleted"}
-                  size={20}
-                  color={colors.textPrimary}
-                />
-                <Text style={styles.secondaryButtonText}>
-                  {listMode
-                    ? t("actions.listifyExit", { defaultValue: "Back" })
-                    : t("actions.listify", { defaultValue: "List view" })}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-
-        {tasks.length === 0 ? (
+            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          </>
+        )}
+        ListHeaderComponentStyle={styles.listHeader}
+        ListEmptyComponent={(
           <View style={[styles.emptyBox, shadows.card]}>
             <LinearGradient
               colors={LIST_CARD_GRADIENT}
@@ -919,135 +881,128 @@ export default function WeeklyTasksScreen() {
             <Text style={styles.emptyTitle}>{t("list.emptyTitle")}</Text>
             <Text style={styles.emptyBody}>{t("list.emptyBody")}</Text>
           </View>
-        ) : (
-          <DraggableFlatList
-            data={tasks}
-            keyExtractor={(item) => item.id}
-            onDragEnd={handleDragEnd}
-            renderItem={renderTaskCard}
-            scrollEnabled={false}
-            contentContainerStyle={styles.listContent}
-          />
         )}
+      />
 
-        <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalCard, shadows.card]}>
-              <Text style={styles.modalTitle}>{editingId ? t("modal.editTitle") : t("modal.addTitle")}</Text>
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={dismissKeyboard}
+          testID="weekly-tasks-modal-overlay"
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="weekly-tasks-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="weekly-tasks-modal-scroll"
+            >
+              <Pressable
+                style={[styles.modalCard, shadows.card]}
+                onPress={(event) => event.stopPropagation()}
+              >
+                <Text style={styles.modalTitle}>{editingId ? t("modal.editTitle") : t("modal.addTitle")}</Text>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t("modal.titleLabel")}</Text>
-                <TextInput
-                  multiline
-                  placeholder={t("modal.titlePlaceholder")}
-                  placeholderTextColor={colors.textSecondary}
-                  style={styles.modalInput}
-                  value={draft.title}
-                  onChangeText={(text) => {
-                    setDraft((prev) => ({ ...prev, title: text }));
-                    setModalError(null);
-                  }}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t("modal.monthLabel")}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.selectInput, isMonthDropdownOpen && styles.selectInputActive]}
-                  onPress={() => setMonthDropdownOpen((prev) => !prev)}
-                >
-                  <Text style={styles.selectValue}>{t("modal.monthValue", { monthLabel: monthLabel(selectedMonth) })}</Text>
-                  <MaterialCommunityIcons
-                    name={isMonthDropdownOpen ? "chevron-up" : "chevron-down"}
-                    size={18}
-                    color={colors.textPrimary}
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t("modal.titleLabel")}</Text>
+                  <TextInput
+                    multiline
+                    placeholder={t("modal.titlePlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.modalInput}
+                    value={draft.title}
+                    onChangeText={(text) => {
+                      setDraft((prev) => ({ ...prev, title: text }));
+                      setModalError(null);
+                    }}
                   />
-                </Pressable>
-                {isMonthDropdownOpen && (
-                  <View style={styles.selectList}>
-                    <View style={styles.selectEdge}>
-                      <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t("modal.yearlyGoalLabel")}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    testID="weekly-tasks-yearly-goal-select"
+                    style={[
+                      styles.selectInput,
+                      isGoalDropdownOpen && styles.selectInputActive,
+                      !hasYearlyGoals && styles.selectInputDisabled,
+                    ]}
+                    onPress={() => setGoalDropdownOpen((prev) => !prev)}
+                  >
+                    <View style={styles.selectValueRow}>
+                      <View
+                        style={[
+                          styles.categoryDot,
+                          {
+                            backgroundColor:
+                              yearlyGoalOptions.find((opt) => opt.id === draft.yearlyGoalId)?.color ?? colors.accentPrimary,
+                          },
+                        ]}
+                      />
+                      {hasYearlyGoals && draft.yearlyGoalId ? (
+                        <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
+                          {yearlyGoalOptions.find((opt) => opt.id === draft.yearlyGoalId)?.label ?? t("modal.unlinkedYearlyGoal")}
+                        </Text>
+                      ) : hasYearlyGoals ? (
+                        <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
+                          {t("modal.unlinkedYearlyGoal")}
+                        </Text>
+                      ) : (
+                        <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
+                          {t("modal.noYearlyGoal")}
+                        </Text>
+                      )}
                     </View>
-                    <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
-                      {monthsList.map((month) => (
+                    <MaterialCommunityIcons
+                      name={isGoalDropdownOpen ? "chevron-up" : "chevron-down"}
+                      size={18}
+                      color={colors.textPrimary}
+                    />
+                  </Pressable>
+                  {isGoalDropdownOpen && hasYearlyGoals && (
+                    <View style={styles.selectList}>
+                      <View style={styles.selectEdge}>
+                        <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
+                      </View>
+                      <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
                         <Pressable
-                          key={month}
                           accessibilityRole="button"
-                          style={[styles.selectOption, month === selectedMonth && styles.selectOptionActive]}
+                          testID="weekly-tasks-yearly-goal-option-none"
+                          style={[styles.selectOption, !draft.yearlyGoalId && styles.selectOptionActive]}
                           onPress={async () => {
-                            setSelectedMonth(month);
-                            setDraft((prev) => ({ ...prev, month }));
-                            await AsyncStorage.setItem("weeklyTasks:selectedMonth", String(month));
-                            setMonthDropdownOpen(false);
+                            setDraft((prev) => ({ ...prev, yearlyGoalId: null }));
+                            await persistPreferredYearlyGoalId("");
+                            setGoalDropdownOpen(false);
                           }}
                         >
-                          <Text style={[styles.selectOptionText, month === selectedMonth && styles.selectOptionTextActive]}>
-                            {t("modal.monthValue", { monthLabel: monthLabel(month) })}
-                          </Text>
+                          <View style={styles.selectValueRow}>
+                            <View style={[styles.categoryDot, { backgroundColor: colors.divider }]} />
+                            <Text
+                              style={[styles.selectOptionText, !draft.yearlyGoalId && styles.selectOptionTextActive]}
+                              numberOfLines={2}
+                              ellipsizeMode="tail"
+                            >
+                              {t("modal.unlinkedYearlyGoal")}
+                            </Text>
+                          </View>
                         </Pressable>
-                      ))}
-                    </ScrollView>
-                    <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
-                      <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
-                    </View>
-                  </View>
-                )}
-
-                <Text style={styles.label}>{t("modal.monthlyGoalLabel")}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!hasMonthlyGoals}
-                  style={[
-                    styles.selectInput,
-                    isGoalDropdownOpen && styles.selectInputActive,
-                    !hasMonthlyGoals && styles.selectInputDisabled,
-                  ]}
-                  onPress={() => setGoalDropdownOpen((prev) => !prev)}
-                >
-                  <View style={styles.selectValueRow}>
-                    <View
-                      style={[
-                        styles.categoryDot,
-                        {
-                          backgroundColor:
-                            monthlyGoalOptions.find((opt) => opt.id === draft.monthlyGoalId)?.color ?? colors.accentPrimary,
-                        },
-                      ]}
-                    />
-                    {hasMonthlyGoals ? (
-                      <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
-                        {monthlyGoalOptions.find((opt) => opt.id === draft.monthlyGoalId)?.label ?? t("task.monthlyLink")}
-                      </Text>
-                    ) : (
-                      <Text style={styles.selectValue} numberOfLines={2} ellipsizeMode="tail">
-                        {t("modal.noMonthlyGoal", { monthLabel: monthLabel(selectedMonth) })}
-                      </Text>
-                    )}
-                  </View>
-                  <MaterialCommunityIcons
-                    name={isGoalDropdownOpen ? "chevron-up" : "chevron-down"}
-                    size={18}
-                    color={colors.textPrimary}
-                  />
-                </Pressable>
-                {isGoalDropdownOpen && hasMonthlyGoals && (
-                  <View style={styles.selectList}>
-                    <View style={styles.selectEdge}>
-                      <MaterialCommunityIcons name="chevron-double-up" size={14} color={colors.textSecondary} />
-                    </View>
-                    <ScrollView style={styles.selectListScroll} showsVerticalScrollIndicator>
-                      {monthlyGoalOptions
-                        .filter((opt) => opt.month === selectedMonth)
-                        .map((opt) => {
-                          const active = opt.id === draft.monthlyGoalId;
+                        {yearlyGoalOptions.map((opt) => {
+                          const active = opt.id === draft.yearlyGoalId;
                           return (
                             <Pressable
                               key={opt.id}
                               accessibilityRole="button"
+                              testID={`weekly-tasks-yearly-goal-option-${opt.id}`}
                               style={[styles.selectOption, active && styles.selectOptionActive]}
-                              onPress={() => {
-                                setDraft((prev) => ({ ...prev, monthlyGoalId: opt.id }));
+                              onPress={async () => {
+                                setDraft((prev) => ({ ...prev, yearlyGoalId: opt.id }));
+                                await persistPreferredYearlyGoalId(opt.id);
                                 setGoalDropdownOpen(false);
                               }}
                             >
@@ -1064,131 +1019,131 @@ export default function WeeklyTasksScreen() {
                             </Pressable>
                           );
                         })}
-                    </ScrollView>
-                    <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
-                      <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
+                      </ScrollView>
+                      <View style={[styles.selectEdge, styles.selectEdgeBottom]}>
+                        <MaterialCommunityIcons name="chevron-double-down" size={14} color={colors.textSecondary} />
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                {modalError ? <Text style={styles.errorText}>{modalError}</Text> : null}
+
+                <View style={styles.modalFooterRow}>
+                  <View style={[styles.modalActions, styles.modalActionsRight]}>
+                    <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
+                      <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.primaryButton}
+                      onPress={handleSave}
+                    >
+                      <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </Pressable>
+            </ScrollView>
+          </KeyboardAvoidingView>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
+        </Pressable>
+      </Modal>
+
+      <Modal visible={manualLog.visible} transparent animationType="fade" onRequestClose={closeManualLog}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: "padding", android: undefined })}
+            style={styles.modalContainer}
+            testID="manual-log-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="manual-log-modal-scroll"
+            >
+              <View style={[styles.manualCard, shadows.card]}>
+                <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
+
+                <View style={styles.manualTaskBox}>
+                  <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
+                    {manualLog.task?.title ?? "-"}
+                  </Text>
+                  <View style={styles.manualSummaryBox}>
+                    <View style={styles.manualSummaryRow}>
+                      <Text style={styles.manualSummaryLabel}>{t("manualModal.currentLabel")}</Text>
+                      <Text style={styles.manualSummaryValue}>{formatMinutes(manualLog.defaultMinutes)}</Text>
+                    </View>
+                    <View style={styles.manualSummaryRow}>
+                      <Text style={styles.manualSummaryLabel}>{t("manualModal.addedLabel")}</Text>
+                      <Text style={styles.manualSummaryValue}>{formatMinutes(manualAddedMinutes)}</Text>
+                    </View>
+                    <View style={styles.manualSummaryDivider} />
+                    <View style={styles.manualSummaryRow}>
+                      <Text style={styles.manualSummaryLabel}>{t("manualModal.finalLabel")}</Text>
+                      <Text style={styles.manualSummaryTotal}>{formatMinutes(manualFinalMinutes)}</Text>
                     </View>
                   </View>
-                )}
-              </View>
+                </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t("modal.targetLabel")}</Text>
-                <TextInput
-                  placeholder={t("modal.targetPlaceholder")}
-                  placeholderTextColor={colors.textSecondary}
-                  style={styles.modalInput}
-                  value={draft.estimatedHours}
-                  keyboardType="numeric"
-                  onChangeText={(text) => {
-                    setDraft((prev) => ({ ...prev, estimatedHours: text }));
-                    setModalError(null);
-                  }}
-                />
-                <Text style={styles.helperText}>{t("modal.targetHelper")}</Text>
-              </View>
-
-              {modalError ? <Text style={styles.errorText}>{modalError}</Text> : null}
-
-              <View style={styles.modalActions}>
-                <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  style={[styles.primaryButton, !hasMonthlyGoals && styles.primaryButtonDisabled]}
-                  onPress={handleSave}
-                  disabled={!hasMonthlyGoals}
-                >
-                  <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal visible={manualLog.visible} transparent animationType="fade" onRequestClose={closeManualLog}>
-          <View style={styles.modalOverlay}>
-            <View style={[styles.manualCard, shadows.card]}>
-              <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
-
-              <View style={styles.manualTaskBox}>
-                <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
-                  {manualLog.task?.title ?? "-"}
-                </Text>
-                <View style={styles.manualSummaryBox}>
-                  <View style={styles.manualSummaryRow}>
-                    <Text style={styles.manualSummaryLabel}>{t("manualModal.currentLabel")}</Text>
-                    <Text style={styles.manualSummaryValue}>{formatMinutes(manualLog.defaultMinutes)}</Text>
+                <View style={styles.manualInputsRow}>
+                  <View style={styles.manualInputGroup}>
+                    <Text style={styles.label}>{t("manualModal.hoursLabel")}</Text>
+                    <TextInput
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                      value={manualLog.hours}
+                      onChangeText={handleManualHoursChange}
+                      style={styles.manualNumberInput}
+                    />
                   </View>
-                  <View style={styles.manualSummaryRow}>
-                    <Text style={styles.manualSummaryLabel}>{t("manualModal.addedLabel")}</Text>
-                    <Text style={styles.manualSummaryValue}>{formatMinutes(manualAddedMinutes)}</Text>
-                  </View>
-                  <View style={styles.manualSummaryDivider} />
-                  <View style={styles.manualSummaryRow}>
-                    <Text style={styles.manualSummaryLabel}>{t("manualModal.finalLabel")}</Text>
-                    <Text style={styles.manualSummaryTotal}>{formatMinutes(manualFinalMinutes)}</Text>
+                  <View style={styles.manualInputGroup}>
+                    <Text style={styles.label}>{t("manualModal.minutesLabel")}</Text>
+                    <TextInput
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                      value={manualLog.minutes}
+                      onChangeText={handleManualMinutesChange}
+                      style={styles.manualNumberInput}
+                    />
                   </View>
                 </View>
-              </View>
 
-              <View style={styles.manualInputsRow}>
-                <View style={styles.manualInputGroup}>
-                  <Text style={styles.label}>{t("manualModal.hoursLabel")}</Text>
-                  <TextInput
-                    placeholder="0"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="number-pad"
-                    value={manualLog.hours}
-                    onChangeText={handleManualHoursChange}
-                    style={styles.manualNumberInput}
-                  />
+                <View style={styles.manualHelperRow}>
+                  <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
                 </View>
-                <View style={styles.manualInputGroup}>
-                  <Text style={styles.label}>{t("manualModal.minutesLabel")}</Text>
-                  <TextInput
-                    placeholder="0"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="number-pad"
-                    value={manualLog.minutes}
-                    onChangeText={handleManualMinutesChange}
-                    style={styles.manualNumberInput}
-                  />
+
+                <View style={styles.modalActions}>
+                  <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
+                    <Text style={styles.secondaryButtonText}>{t("manualModal.cancel")}</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!manualLog.task || !manualInRange || !manualChanged}
+                    onPress={handleSubmitManualLog}
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      pressed && styles.primaryPressed,
+                      (!manualLog.task || !manualInRange || !manualChanged) && styles.primaryButtonDisabled,
+                    ]}
+                  >
+                    <Text style={styles.primaryButtonText}>{t("manualModal.submit")}</Text>
+                  </Pressable>
                 </View>
               </View>
-
-              <View style={styles.manualHelperRow}>
-                <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
-                <Text style={styles.helperText}>
-                  {t("manualModal.finalPreview", {
-                    total: formatMinutes(manualFinalMinutes),
-                    target: formatMinutes(manualTargetMinutes),
-                  })}
-                </Text>
-              </View>
-
-              <View style={styles.modalActions}>
-                <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
-                  <Text style={styles.secondaryButtonText}>{t("manualModal.cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!manualLog.task || !manualInRange || !manualChanged}
-                  onPress={handleSubmitManualLog}
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    pressed && styles.primaryPressed,
-                    (!manualLog.task || !manualInRange || !manualChanged) && styles.primaryButtonDisabled,
-                  ]}
-                >
-                  <Text style={styles.primaryButtonText}>{t("manualModal.submit")}</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      </ScrollView>
+            </ScrollView>
+          </KeyboardAvoidingView>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
+        </View>
+      </Modal>
     </GestureHandlerRootView>
   );
 }
@@ -1197,9 +1152,8 @@ const styles = StyleSheet.create({
   ghRoot: {
     flex: 1,
   },
-  container: {
-    paddingBottom: spacing.xl,
-    gap: spacing.lg,
+  listHeader: {
+    marginBottom: spacing.lg,
   },
   headerCard: {
     backgroundColor: "#1c3358",
@@ -1211,7 +1165,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   headerTop: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   pageTitle: {
     color: colors.textPrimary,
@@ -1219,16 +1173,15 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: typography.xl * 1.3,
   },
+  pageTitleFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
   actionsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
     marginTop: spacing.sm,
-  },
-  actionsRowSecondary: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.sm / 2,
   },
   primaryButton: {
     flexDirection: "row",
@@ -1274,6 +1227,9 @@ const styles = StyleSheet.create({
     fontSize: typography.md,
     fontWeight: "700",
   },
+  headerButtonTextFrench: {
+    fontSize: 14,
+  },
   secondaryButtonActive: {
     borderColor: colors.accentSubtle,
     backgroundColor: "rgba(110,168,255,0.08)",
@@ -1286,55 +1242,6 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: typography.sm,
   },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  summaryTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
-  },
-  summaryLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.md,
-  },
-  summaryValue: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
-  },
-  summaryStatsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  summaryStat: {
-    flex: 1,
-    gap: spacing.xs / 2,
-  },
-  progressBarContainer: {
-    height: 10,
-    borderRadius: radius.full,
-    overflow: "hidden",
-    position: "relative",
-    width: "100%",
-    backgroundColor: "rgba(255,255,255,0.04)",
-  },
-  progressTrack: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: radius.full,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: colors.accentPrimary,
-    borderRadius: radius.full,
-  },
   emptyBox: {
     padding: spacing.xl,
     borderRadius: radius.lg,
@@ -1345,52 +1252,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   listContent: {
-    paddingBottom: spacing.lg,
-  },
-  listRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.25)",
-    backgroundColor: "#1c3358",
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
-    overflow: "hidden",
-  },
-  listRowDelete: {
-    borderColor: "rgba(242,95,92,0.5)",
-    backgroundColor: "rgba(242,95,92,0.08)",
-  },
-  listRowContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  listRowTitle: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
-  },
-  listRowButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: "rgba(255,255,255,0.03)",
-  },
-  listRowButtonText: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-    fontSize: typography.sm,
+    paddingBottom: spacing.xl * 2,
   },
   cardBorderOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1415,7 +1277,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: "#1c3358",
-    gap: spacing.sm,
+    gap: spacing.md,
     overflow: "hidden",
     marginBottom: spacing.sm,
   },
@@ -1428,102 +1290,76 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(242,95,92,0.08)",
   },
   taskHeader: {
-    gap: spacing.xs,
+    minHeight: 32,
+    justifyContent: "center",
   },
   taskTitle: {
     color: colors.textPrimary,
-    fontSize: typography.lg,
+    fontSize: typography.md + 1,
     fontWeight: "800",
-    lineHeight: typography.lg * 1.5,
-  },
-  taskFooterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  goalStat: {
-    flex: 1,
-    gap: spacing.xs / 2,
-  },
-  statLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.sm,
-  },
-  statValue: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
+    lineHeight: (typography.md + 1) * 1.45,
   },
   categoryDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
   },
-  editButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    alignSelf: "flex-end",
-    marginLeft: "auto",
-  },
-  editButtonText: {
-    color: colors.textPrimary,
-    fontWeight: "700",
+  dragHandleButtonActive: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(30,94,255,0.16)",
   },
   dangerButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
     backgroundColor: "rgba(242,95,92,0.14)",
     borderColor: colors.error,
-    borderWidth: 1,
   },
   dangerButtonText: {
     color: colors.error,
     fontWeight: "700",
+    fontSize: typography.sm,
   },
-  taskActionsRow: {
-    marginTop: spacing.sm,
-  },
-  actionsColumn: {
+  iconButtonRow: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  taskControlRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.sm,
-    flexWrap: "wrap",
   },
-  primaryButtonFull: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.accentPrimary,
-    backgroundColor: "rgba(30,94,255,0.2)",
+  totalInlineText: {
     flex: 1,
-    minWidth: "48%",
-    justifyContent: "center",
+    minWidth: 0,
+    color: colors.accentSubtle,
+    fontSize: typography.md,
+    fontWeight: "800",
   },
-  secondaryButtonFull: {
+  taskActionGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+  },
+  goalActionIconButton: {
+    width: 40,
+    height: 40,
     borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
+  },
+  dragHandleButton: {
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderColor: colors.divider,
-    backgroundColor: "rgba(255,255,255,0.03)",
-    flex: 1,
-    minWidth: "48%",
-    justifyContent: "center",
+  },
+  timerActionButton: {
+    backgroundColor: "rgba(30,94,255,0.2)",
+    borderColor: colors.accentPrimary,
   },
   modalOverlay: {
     flex: 1,
@@ -1540,6 +1376,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
     width: "100%",
+  },
+  modalContainer: {
+    width: "100%",
+    maxHeight: "100%",
+  },
+  modalScroll: {
+    width: "100%",
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   manualCard: {
     backgroundColor: "#1f3a63",
@@ -1724,6 +1571,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     gap: spacing.sm,
+  },
+  modalActionsRight: {
+    marginLeft: "auto",
+  },
+  modalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  keyboardIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   primaryButtonDisabled: {
     opacity: 0.6,

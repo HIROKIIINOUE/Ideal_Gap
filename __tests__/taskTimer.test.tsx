@@ -2,19 +2,27 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import * as Notifications from "expo-notifications";
-import { Linking } from "react-native";
+import { Alert, AppState, AppStateStatus, Linking, Vibration } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 import TaskTimerScreen from "../components/feature/TaskTimerScreen";
 import i18n from "../i18n";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 import * as FocusMusicProviderModule from "../providers/FocusMusicProvider";
+import { TimerAlarmPreferenceProvider } from "../providers/TimerAlarmPreferenceProvider";
 import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
 import { FocusMusicTrack, InstalledFocusTrack } from "../types/focus-music";
+import { colors } from "../constants/theme";
+import { TIMER_ALARM_ENABLED_STORAGE_KEY } from "../providers/TimerAlarmPreferenceProvider";
 
 jest.useFakeTimers();
 
 jest.mock("@expo/vector-icons", () => {
-  const MockIcon = () => null;
+  const React = require("react");
+  const { Text } = require("react-native");
+  const MockIcon = ({ name, testID }: { name?: string; testID?: string }) => (
+    <Text testID={testID}>{name}</Text>
+  );
   MockIcon.displayName = "MockMaterialCommunityIcons";
   return { MaterialCommunityIcons: MockIcon };
 });
@@ -60,26 +68,47 @@ jest.mock("@react-native-community/netinfo", () => ({
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file://test/",
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
-  downloadAsync: jest.fn().mockResolvedValue({ uri: "file://test/focus-music/track-1.mp3" }),
+  createDownloadResumable: jest.fn().mockReturnValue({
+    downloadAsync: jest
+      .fn()
+      .mockResolvedValue({ uri: "file://test/focus-music/track-1.mp3" }),
+  }),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
+const mockAudioPlayers: Array<{
+  play: jest.Mock;
+  pause: jest.Mock;
+  replace: jest.Mock;
+  seekTo: jest.Mock;
+  remove: jest.Mock;
+}> = [];
+const mockAnyAudioPlay = jest.fn();
+
 jest.mock("expo-audio", () => ({
-  useAudioPlayer: () => ({
-    loop: false,
-    playing: false,
-    paused: false,
-    isLoaded: true,
-    isBuffering: false,
-    currentTime: 0,
-    duration: 10,
-    volume: 1,
-    play: jest.fn(),
-    pause: jest.fn(),
-    replace: jest.fn(),
-    seekTo: jest.fn().mockResolvedValue(undefined),
-    remove: jest.fn(),
-  }),
+  useAudioPlayer: () => {
+    const React = require("react");
+    const ref = React.useRef(null as any);
+    if (!ref.current) {
+      ref.current = {
+        loop: false,
+        playing: false,
+        paused: false,
+        isLoaded: true,
+        isBuffering: false,
+        currentTime: 0,
+        duration: 10,
+        volume: 1,
+        play: jest.fn(() => mockAnyAudioPlay()),
+        pause: jest.fn(),
+        replace: jest.fn(),
+        seekTo: jest.fn().mockResolvedValue(undefined),
+        remove: jest.fn(),
+      };
+      mockAudioPlayers.push(ref.current);
+    }
+    return ref.current;
+  },
   useAudioPlayerStatus: () => ({
     playing: false,
     currentTime: 0,
@@ -99,6 +128,20 @@ jest.mock("../lib/api/supabase/timeTracking/updateAccumulatedTimes", () => ({
 
 jest.mock("expo-notifications", () => ({
   getPermissionsAsync: jest.fn(),
+  requestPermissionsAsync: jest.fn(),
+  scheduleNotificationAsync: jest.fn(),
+  cancelScheduledNotificationAsync: jest.fn(),
+  setNotificationChannelAsync: jest.fn(),
+  SchedulableTriggerInputTypes: {
+    TIME_INTERVAL: "timeInterval",
+    DATE: "date",
+  },
+  IosAuthorizationStatus: {
+    PROVISIONAL: 2,
+  },
+  AndroidImportance: {
+    MAX: 5,
+  },
   PermissionStatus: {
     GRANTED: "granted",
     DENIED: "denied",
@@ -125,9 +168,11 @@ jest.mock("react-native-svg", () => {
 const renderScreen = () =>
   render(
     <I18nextProvider i18n={i18n}>
-      <FocusMusicProvider>
-        <TaskTimerScreen />
-      </FocusMusicProvider>
+      <TimerAlarmPreferenceProvider>
+        <FocusMusicProvider>
+          <TaskTimerScreen />
+        </FocusMusicProvider>
+      </TimerAlarmPreferenceProvider>
     </I18nextProvider>,
   );
 
@@ -147,6 +192,7 @@ const buildFocusMusicStub = (
   isInstalling: jest.fn(() => false),
   isDownloadInProgress: false,
   isLoadingCatalog: false,
+  getInstallProgress: jest.fn(() => null),
   installTrack: jest.fn(),
   removeTrack: jest.fn(),
   selectTrack: jest.fn(),
@@ -161,19 +207,51 @@ const buildFocusMusicStub = (
 const mockGetPermissionsAsync = Notifications.getPermissionsAsync as jest.MockedFunction<
   typeof Notifications.getPermissionsAsync
 >;
+const mockRequestPermissionsAsync = Notifications.requestPermissionsAsync as jest.MockedFunction<
+  typeof Notifications.requestPermissionsAsync
+>;
+const mockScheduleNotificationAsync =
+  Notifications.scheduleNotificationAsync as jest.MockedFunction<
+    typeof Notifications.scheduleNotificationAsync
+  >;
+const mockCancelScheduledNotificationAsync =
+  Notifications.cancelScheduledNotificationAsync as jest.MockedFunction<
+    typeof Notifications.cancelScheduledNotificationAsync
+  >;
+const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fetch>;
 const mockOpenSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
+const mockVibrationVibrate = jest.spyOn(Vibration, "vibrate").mockImplementation(() => {});
+const mockVibrationCancel = jest.spyOn(Vibration, "cancel").mockImplementation(() => {});
 
 describe("TaskTimerScreen", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    jest.clearAllMocks();
+    mockAudioPlayers.length = 0;
+    mockAnyAudioPlay.mockClear();
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+      details: null,
+    } as any);
     mockGetPermissionsAsync.mockResolvedValue({
       status: Notifications.PermissionStatus.GRANTED,
       granted: true,
       canAskAgain: true,
       expires: "never",
     } as Notifications.NotificationPermissionsStatus);
-    mockOpenSettings.mockClear();
+    mockRequestPermissionsAsync.mockResolvedValue({
+      status: Notifications.PermissionStatus.GRANTED,
+      granted: true,
+      canAskAgain: true,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
+    mockScheduleNotificationAsync.mockResolvedValue("timer-notification-id");
+    mockCancelScheduledNotificationAsync.mockResolvedValue(undefined);
   });
+
+  const getAlarmPlayer = () => mockAudioPlayers[mockAudioPlayers.length - 1];
 
   test("shows default layout with zero duration", () => {
     const { getAllByText, getByText, getByTestId } = renderScreen();
@@ -191,14 +269,140 @@ describe("TaskTimerScreen", () => {
     expect(getByTestId("timer-duration")).toHaveTextContent("10:00 / 10:00");
   });
 
-  test("hides start button when timer is running", () => {
+  test("keeps preset buttons as a 3-column grid", () => {
+    const { getByTestId } = renderScreen();
+
+    expect(getByTestId("timer-preset-add5")).toHaveStyle({ flexBasis: "31%" });
+    expect(getByTestId("timer-preset-add10")).toHaveStyle({ flexBasis: "31%" });
+    expect(getByTestId("timer-preset-clear")).toHaveStyle({ flexBasis: "31%" });
+  });
+
+  test("hides start button when timer is running", async () => {
     const { getByText, getByTestId, queryByTestId } = renderScreen();
 
     fireEvent.press(getByText("+5m"));
     fireEvent.press(getByTestId("start-button"));
 
-    expect(queryByTestId("start-button")).toBeNull();
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
     expect(getByText("Pause")).toBeTruthy();
+  });
+
+  test("uses timer icons for pause and resume", async () => {
+    const { getByText, getByTestId } = renderScreen();
+
+    expect(getByTestId("pause-resume-icon")).toHaveTextContent("timer-outline");
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() =>
+      expect(getByTestId("pause-resume-icon")).toHaveTextContent("timer-off-outline"),
+    );
+  });
+
+  test("keeps full progress after resumed timer completes on app return", async () => {
+    let now = 0;
+    let appStateListener: ((state: AppStateStatus) => void) | null = null;
+    let cleanup = () => { };
+    const dateNowSpy = jest.spyOn(Date, "now").mockImplementation(() => now);
+    const appStateSpy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_type, listener) => {
+        appStateListener = listener;
+        return { remove: jest.fn() } as any;
+      });
+
+    try {
+      const { getByText, getByTestId, queryByTestId, unmount } = renderScreen();
+      cleanup = unmount;
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+
+      await waitFor(() =>
+        expect(queryByTestId("start-button")).toBeNull(),
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(2 * 60 * 1000);
+      });
+
+      expect(getByTestId("timer-duration")).toHaveTextContent("3:00 / 5:00");
+
+      fireEvent.press(getByText("Pause"));
+
+      now = 2 * 60 * 1000;
+      fireEvent.press(getByText("Resume"));
+
+      now = 5 * 60 * 1000;
+      act(() => {
+        appStateListener?.("active");
+      });
+
+      await waitFor(() => expect(getByText("Review before saving")).toBeTruthy());
+      expect(getByText("5:00")).toBeTruthy();
+
+      fireEvent.press(getByText("Cancel"));
+
+      expect(queryByTestId("completion-modal")).toBeNull();
+      expect(getByTestId("timer-duration")).toHaveTextContent("0:00 / 5:00");
+    } finally {
+      cleanup();
+      dateNowSpy.mockRestore();
+      appStateSpy.mockRestore();
+    }
+  });
+
+  test("adds preset time after countdown completion without resetting finished progress", async () => {
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    act(() => {
+      jest.advanceTimersByTime(300_000);
+    });
+
+    await waitFor(() => expect(getByText("Review before saving")).toBeTruthy());
+    fireEvent.press(getByText("Cancel"));
+
+    expect(getByTestId("timer-duration")).toHaveTextContent("0:00 / 5:00");
+
+    fireEvent.press(getByText("+5m"));
+
+    expect(getByTestId("timer-duration")).toHaveTextContent("5:00 / 10:00");
+
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+
+    await waitFor(() =>
+      expect(getByTestId("timer-duration")).toHaveTextContent("4:00 / 10:00"),
+    );
+  });
+
+  test("schedules timer notification with default sound", async () => {
+    const { getByText, getByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(mockScheduleNotificationAsync).toHaveBeenCalled());
+    expect(mockScheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({
+          title: "Timer finished",
+          body: "Your session is complete.",
+          sound: "default",
+        }),
+      }),
+    );
   });
 
   test("opens music modal and selects a track", async () => {
@@ -226,74 +430,238 @@ describe("TaskTimerScreen", () => {
     expect(getByText("Deep Focus selected")).toBeTruthy();
   });
 
-  test("shows notification prompt when notifications are off", async () => {
-    jest.useRealTimers();
-    try {
-      mockGetPermissionsAsync.mockResolvedValueOnce({
-        status: Notifications.PermissionStatus.DENIED,
-        granted: false,
-        canAskAgain: false,
-        expires: "never",
-      } as Notifications.NotificationPermissionsStatus);
+  test("shows notification popup when notifications stay denied", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    mockGetPermissionsAsync.mockResolvedValueOnce({
+      status: Notifications.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: true,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
+    mockRequestPermissionsAsync.mockResolvedValueOnce({
+      status: Notifications.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: false,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
 
-      const { getByText } = renderScreen();
+    const { getByText, getByTestId, queryByText } = renderScreen();
 
-      await act(async () => {
-        await Promise.resolve();
-      });
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
 
-      expect(mockGetPermissionsAsync).toHaveBeenCalled();
-      expect(getByText("Allow notifications so we can alert you when the timer ends.")).toBeTruthy();
-    } finally {
-      jest.useFakeTimers();
-    }
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith(
+        "Notification is disabled. Enable it to receive the notification when the timer is done.",
+        undefined,
+        [
+          { text: "Continue without notification", onPress: expect.any(Function) },
+          { text: "Open settings", onPress: expect.any(Function) },
+          { text: "Don't show again", onPress: expect.any(Function) },
+        ],
+      ),
+    );
+    expect(mockScheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(getByTestId("start-button")).toBeTruthy();
+    expect(queryByText("Pause")).toBeNull();
+    alertSpy.mockRestore();
   });
 
-  test("hides notification prompt when notifications are granted", async () => {
-    jest.useRealTimers();
-    try {
-      mockGetPermissionsAsync.mockResolvedValueOnce({
-        status: Notifications.PermissionStatus.GRANTED,
-        granted: true,
-        canAskAgain: true,
-        expires: "never",
-      } as Notifications.NotificationPermissionsStatus);
+  test("opens device settings from notification popup when start is pressed", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    mockGetPermissionsAsync.mockResolvedValueOnce({
+      status: Notifications.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: true,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
+    mockRequestPermissionsAsync.mockResolvedValueOnce({
+      status: Notifications.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: false,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
 
-      const { queryByText } = renderScreen();
+    const { getByText, getByTestId } = renderScreen();
 
-      await act(async () => {
-        await Promise.resolve();
-      });
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
 
-      expect(mockGetPermissionsAsync).toHaveBeenCalled();
-      expect(queryByText("Allow notifications so we can alert you when the timer ends.")).toBeNull();
-    } finally {
-      jest.useFakeTimers();
-    }
+    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
+    const buttons = alertSpy.mock.calls[0]?.[2] as Array<{ onPress?: () => void }>;
+    await act(async () => {
+      buttons[1]?.onPress?.();
+    });
+
+    await waitFor(() => expect(mockOpenSettings).toHaveBeenCalled());
+    alertSpy.mockRestore();
   });
 
-  test("opens device settings when tapping notification action", async () => {
-    jest.useRealTimers();
-    try {
-      mockGetPermissionsAsync.mockResolvedValueOnce({
-        status: Notifications.PermissionStatus.DENIED,
-        granted: false,
-        canAskAgain: false,
-        expires: "never",
-      } as Notifications.NotificationPermissionsStatus);
+  test("starts timer when continuing without notifications", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    mockGetPermissionsAsync.mockResolvedValue({
+      status: Notifications.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: true,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
+    mockRequestPermissionsAsync.mockResolvedValue({
+      status: Notifications.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: false,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
 
-      const { getByText, queryByText } = renderScreen();
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
 
-      await act(async () => {
-        await Promise.resolve();
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
+    const buttons = alertSpy.mock.calls[0]?.[2] as Array<{ onPress?: () => void }>;
+    await act(async () => {
+      buttons[0]?.onPress?.();
+    });
+
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+    expect(mockScheduleNotificationAsync).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
+  test("starts timer and suppresses future notification popup after opting out", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    mockGetPermissionsAsync.mockResolvedValue({
+      status: Notifications.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: true,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
+    mockRequestPermissionsAsync.mockResolvedValue({
+      status: Notifications.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: false,
+      expires: "never",
+    } as Notifications.NotificationPermissionsStatus);
+
+    const firstRender = renderScreen();
+
+    fireEvent.press(firstRender.getByText("+5m"));
+    fireEvent.press(firstRender.getByTestId("start-button"));
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
+    const buttons = alertSpy.mock.calls[0]?.[2] as Array<{ onPress?: () => void }>;
+    await act(async () => {
+      buttons[2]?.onPress?.();
+    });
+
+    await waitFor(() => expect(firstRender.queryByTestId("start-button")).toBeNull());
+    expect(await AsyncStorage.getItem("task_timer_notification_prompt_hidden")).toBe("1");
+
+    firstRender.unmount();
+
+    const secondRender = renderScreen();
+    fireEvent.press(secondRender.getByText("+5m"));
+    fireEvent.press(secondRender.getByTestId("start-button"));
+
+    await waitFor(() => expect(secondRender.queryByTestId("start-button")).toBeNull());
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(mockScheduleNotificationAsync).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
+  test("plays foreground alarm sound and vibration when timer finishes and alarm is enabled", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "true");
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    await waitFor(() => expect(getAlarmPlayer()).toBeTruthy());
+
+    act(() => {
+      jest.advanceTimersByTime(300_000);
+    });
+
+    await waitFor(() => expect(mockAnyAudioPlay).toHaveBeenCalled());
+    expect(mockVibrationVibrate).toHaveBeenCalled();
+  });
+
+  test("does not play foreground alarm when alarm preference is disabled", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "false");
+    const { getByText, getByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    act(() => {
+      jest.advanceTimersByTime(300_000);
+    });
+
+    expect(mockAnyAudioPlay).not.toHaveBeenCalled();
+    expect(mockVibrationVibrate).not.toHaveBeenCalled();
+  });
+
+  test("cancels foreground alarm when timer is paused", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "true");
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    fireEvent.press(getByText("Pause"));
+
+    act(() => {
+      jest.advanceTimersByTime(300_000);
+    });
+
+    expect(mockAnyAudioPlay).not.toHaveBeenCalled();
+    expect(mockVibrationCancel).toHaveBeenCalled();
+  });
+
+  test("re-schedules foreground alarm after returning from background while timer is still running", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "true");
+    let now = 0;
+    let appStateListener: ((state: AppStateStatus) => void) | null = null;
+    const dateNowSpy = jest.spyOn(Date, "now").mockImplementation(() => now);
+    const appStateSpy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_type, listener) => {
+        appStateListener = listener;
+        return { remove: jest.fn() } as any;
       });
 
-      fireEvent.press(getByText("Open settings"));
+    try {
+      const { getByText, getByTestId, queryByTestId } = renderScreen();
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+      await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
 
-      await waitFor(() => expect(mockOpenSettings).toHaveBeenCalled());
-      expect(queryByText("Allow notifications so we can alert you when the timer ends.")).toBeNull();
+      now = 60_000;
+      act(() => {
+        appStateListener?.("background");
+      });
+
+      expect(mockAnyAudioPlay).not.toHaveBeenCalled();
+
+      now = 120_000;
+      act(() => {
+        appStateListener?.("active");
+      });
+      await waitFor(() =>
+        expect(getByTestId("timer-duration")).toHaveTextContent("3:00 / 5:00"),
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(180_000);
+      });
+
+      await waitFor(() => expect(mockAnyAudioPlay).toHaveBeenCalled());
+      expect(mockVibrationVibrate).toHaveBeenCalled();
     } finally {
-      jest.useFakeTimers();
+      dateNowSpy.mockRestore();
+      appStateSpy.mockRestore();
     }
   });
 
@@ -326,11 +694,15 @@ describe("TaskTimerScreen", () => {
 
     const { getByText } = render(
       <I18nextProvider i18n={i18n}>
-        <TaskTimerScreen />
+        <TimerAlarmPreferenceProvider>
+          <FocusMusicProvider>
+            <TaskTimerScreen />
+          </FocusMusicProvider>
+        </TimerAlarmPreferenceProvider>
       </I18nextProvider>,
     );
 
-    fireEvent.press(getByText("Play music"));
+    fireEvent.press(getByText("Play"));
     fireEvent.press(getByText("+5m"));
     fireEvent.press(getByText("Mark done"));
 
@@ -365,15 +737,19 @@ describe("TaskTimerScreen", () => {
         }),
       );
 
-    const { getByText, getByTestId } = render(
+    const { getByText, getByTestId, queryByTestId } = render(
       <I18nextProvider i18n={i18n}>
-        <TaskTimerScreen />
+        <TimerAlarmPreferenceProvider>
+          <TaskTimerScreen />
+        </TimerAlarmPreferenceProvider>
       </I18nextProvider>,
     );
 
-    fireEvent.press(getByText("Play music"));
+    fireEvent.press(getByText("Play"));
     fireEvent.press(getByText("+5m"));
     fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
 
     act(() => {
       jest.advanceTimersByTime(300_000);
@@ -412,14 +788,98 @@ describe("TaskTimerScreen", () => {
 
     const { getByText, unmount } = render(
       <I18nextProvider i18n={i18n}>
-        <TaskTimerScreen />
+        <TimerAlarmPreferenceProvider>
+          <TaskTimerScreen />
+        </TimerAlarmPreferenceProvider>
       </I18nextProvider>,
     );
 
-    fireEvent.press(getByText("Play music"));
+    fireEvent.press(getByText("Play"));
     unmount();
 
     await waitFor(() => expect(stop).toHaveBeenCalled());
     spy.mockRestore();
+  });
+
+  test("cancels scheduled notification when leaving the task timer screen during countdown", async () => {
+    const { getByText, getByTestId, unmount } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(mockScheduleNotificationAsync).toHaveBeenCalled());
+
+    unmount();
+
+    await waitFor(() =>
+      expect(mockCancelScheduledNotificationAsync).toHaveBeenCalledWith(
+        "timer-notification-id",
+      ),
+    );
+  });
+
+  test("shows offline alert and goes back when saving completion while offline", async () => {
+    const alertSpy = jest.spyOn(require("react-native").Alert, "alert");
+    const router = require("expo-router").router;
+    const backSpy = jest.spyOn(router, "back");
+    mockNetInfoFetch.mockResolvedValueOnce({
+      type: "none",
+      isConnected: false,
+      isInternetReachable: false,
+      details: null,
+    } as any);
+
+    const { getByText } = render(
+      <I18nextProvider i18n={i18n}>
+        <TimerAlarmPreferenceProvider>
+          <FocusMusicProvider>
+            <TaskTimerScreen />
+          </FocusMusicProvider>
+        </TimerAlarmPreferenceProvider>
+      </I18nextProvider>,
+    );
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByText("Mark done"));
+    fireEvent.press(getByText("Save"));
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith(
+        "Finish this session?",
+        "You are offline. Reconnect to the internet, or record your time manually from the manual log button.",
+        [{ text: "Back", onPress: expect.any(Function) }],
+      ),
+    );
+
+    const buttons = alertSpy.mock.calls[alertSpy.mock.calls.length - 1][2] as Array<{
+      text: string;
+      onPress?: () => void;
+    }>;
+    buttons[0]?.onPress?.();
+    expect(backSpy).toHaveBeenCalled();
+  });
+
+  test("renders keyboard avoiding wrapper in completion modal", () => {
+    const { getByText, getByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByText("Mark done"));
+
+    expect(getByTestId("completion-modal-keyboard-avoiding")).toBeTruthy();
+  });
+
+  test("uses surface color for task timer background", () => {
+    const { getByTestId } = renderScreen();
+
+    expect(getByTestId("task-timer-screen")).toHaveStyle({ backgroundColor: colors.surface });
+  });
+
+  test("renders scroll container in completion modal", () => {
+    const { getByText, getByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByText("Mark done"));
+
+    expect(getByTestId("completion-modal-scroll")).toBeTruthy();
   });
 });

@@ -1,0 +1,50 @@
+import { Database } from "../types/database";
+
+describe("Database types", () => {
+  test("includes users current_point field", () => {
+    const row: Database["public"]["Tables"]["users"]["Row"] = {
+      id: "user-1",
+      email: "hiroki@example.com",
+      name: "Hiroki",
+      current_point: "25歳",
+      language: "ja",
+      had_account_before: false,
+      is_canceled: false,
+      created_at: null,
+      updated_at: null,
+    };
+
+    expect(row.current_point).toBe("25歳");
+  });
+
+  test("includes long_term_goals table types", () => {
+    const row: Database["public"]["Tables"]["long_term_goals"]["Row"] = {
+      id: "long-1",
+      user_id: "user-1",
+      until_when: "32歳までに",
+      description: "IELTS 8.0以上",
+      is_done: false,
+      order: 0,
+      created_at: null,
+      updated_at: null,
+    };
+
+    expect(row.until_when).toBe("32歳までに");
+  });
+
+  test("includes weekly_tasks table types", () => {
+    const row: Database["public"]["Tables"]["weekly_tasks"]["Row"] = {
+      id: "weekly-1",
+      user_id: "user-1",
+      yearly_goal_id: "yearly-1",
+      description: "Ship UX fixes",
+      next_start_point: "Resume from checklist",
+      accumulated_time_week: 90,
+      order: 0,
+      created_at: null,
+      updated_at: null,
+    };
+
+    expect(row.description).toBe("Ship UX fixes");
+  });
+});

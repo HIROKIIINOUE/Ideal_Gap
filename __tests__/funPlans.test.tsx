@@ -1,5 +1,6 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import React from "react";
+import { Keyboard } from "react-native";
 import { I18nextProvider } from "react-i18next";
 import Dashboard from "../app/dashboard";
 import FunPlanScreen from "../components/feature/FunPlanScreen";
@@ -7,6 +8,9 @@ import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
+import { TimerAlarmPreferenceProvider } from "../providers/TimerAlarmPreferenceProvider";
+
+const mockGetSubscriptionForUser = jest.fn();
 
 jest.mock("@expo/vector-icons", () => {
   const MockIcon = () => null;
@@ -39,12 +43,20 @@ jest.mock("react-native-draggable-flatlist", () => {
     data,
     renderItem,
     onDragEnd,
+    ListHeaderComponent,
+    ListEmptyComponent,
   }: {
     data: unknown[];
     renderItem: (params: { item: unknown; index: number; drag: () => void; isActive: boolean; getIndex: () => number }) => React.ReactNode;
     onDragEnd: (params: { data: unknown[] }) => void;
+    ListHeaderComponent?: React.ReactNode | (() => React.ReactNode);
+    ListEmptyComponent?: React.ReactNode | (() => React.ReactNode);
   }) => {
     const firedRef = React.useRef(false);
+    const renderSlot = (slot?: React.ReactNode | (() => React.ReactNode)) => {
+      if (!slot) return null;
+      return typeof slot === "function" ? slot() : slot;
+    };
     React.useEffect(() => {
       if (!firedRef.current && data.length > 0) {
         firedRef.current = true;
@@ -54,6 +66,8 @@ jest.mock("react-native-draggable-flatlist", () => {
 
     return (
       <>
+        {renderSlot(ListHeaderComponent)}
+        {data.length === 0 && renderSlot(ListEmptyComponent)}
         {data.map((item, index) =>
           renderItem({
             item,
@@ -80,6 +94,12 @@ jest.mock("../lib/supabaseClient", () => ({
   },
 }));
 
+jest.mock("../lib/subscription", () => ({
+  getSubscriptionForUser: (...args: unknown[]) => mockGetSubscriptionForUser(...args),
+  canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
+    status === "active" || status === "trial",
+}));
+
 describe("FunPlanScreen interactions", () => {
   const mockSelect = jest.fn();
   const mockEq = jest.fn();
@@ -99,8 +119,10 @@ describe("FunPlanScreen interactions", () => {
       </I18nextProvider>,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await i18n.changeLanguage("en");
+    mockGetSubscriptionForUser.mockResolvedValue({ status: "active" });
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
     });
@@ -188,6 +210,64 @@ describe("FunPlanScreen interactions", () => {
 
     await waitFor(() => expect(mockInsert).toHaveBeenCalled());
   });
+
+  test("uses smaller header typography for French title and buttons", async () => {
+    await i18n.changeLanguage("fr");
+
+    const { findByText, findByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const title = await findByText("Plans sympas à venir");
+    const addButtonLabel = await findByText("Ajouter");
+    const deleteButton = await findByRole("button", { name: "Supprimer" });
+    const deleteButtonLabel = within(deleteButton).getByText("Supprimer");
+
+    expect(title).toHaveStyle({ fontSize: 24 });
+    expect(addButtonLabel).toHaveStyle({ fontSize: 14 });
+    expect(deleteButtonLabel).toHaveStyle({ fontSize: 14 });
+  });
+
+  test("renders edit and reorder buttons together in the card footer", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const actionRow = await findByTestId("fun-plan-card-actions-plan-1");
+
+    expect(within(actionRow).getByTestId("fun-plan-card-edit-plan-1")).toBeTruthy();
+    expect(within(actionRow).getByTestId("fun-plan-card-reorder-plan-1")).toBeTruthy();
+  });
+
+  test("dismisses keyboard when tapping modal overlay", async () => {
+    const dismissSpy = jest.spyOn(Keyboard, "dismiss");
+    const { getByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    fireEvent.press(getByTestId("fun-plan-modal-overlay"));
+
+    expect(dismissSpy).toHaveBeenCalled();
+  });
+
+  test("renders keyboard avoiding view and scroll area in modal", async () => {
+    const { getByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+
+    expect(getByTestId("fun-plan-modal-kav")).toBeTruthy();
+    expect(getByTestId("fun-plan-modal-scroll")).toBeTruthy();
+  });
+
+  test("hides keyboard icon when keyboard is not visible", async () => {
+    const { getByRole, queryByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+
+    expect(queryByTestId("fun-plan-modal-keyboard-button")).toBeNull();
+  });
 });
 
 describe("Dashboard next fun plan hero", () => {
@@ -200,9 +280,11 @@ describe("Dashboard next fun plan hero", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <LanguageProvider>
-          <FunPlanProvider>
-            <Dashboard />
-          </FunPlanProvider>
+          <TimerAlarmPreferenceProvider>
+            <FunPlanProvider>
+              <Dashboard />
+            </FunPlanProvider>
+          </TimerAlarmPreferenceProvider>
         </LanguageProvider>
       </I18nextProvider>,
     );

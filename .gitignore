@@ -47,3 +47,6 @@ todo.txt
 
 #environment
 .env
+
+#Supabase CLI temp files
+supabase/.temp/

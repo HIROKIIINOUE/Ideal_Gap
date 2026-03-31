@@ -1,15 +1,27 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import {
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { colors, radius, spacing, typography } from "../constants/theme";
+import { isCompactScreen, isNarrowScreen } from "../lib/ui/responsive";
+import { useTimerAlarmPreference } from "../providers/TimerAlarmPreferenceProvider";
 
 export type MoreActionKey =
   | "logout"
   | "toggleFunPlan"
+  | "toggleTimerAlarm"
   | "payment"
-  | "timezone"
   | "profile"
   | "contact";
 
@@ -29,16 +41,21 @@ type ActionConfig = {
 const actions: ActionConfig[] = [
   { key: "logout", icon: "logout" },
   { key: "toggleFunPlan", icon: "calendar-heart" },
+  { key: "toggleTimerAlarm", icon: "alarm-check" },
   { key: "payment", icon: "credit-card-outline" },
-  { key: "timezone", icon: "clock-outline" },
   { key: "profile", icon: "account-circle-outline" },
   { key: "contact", icon: "message-text-outline" },
 ];
 
 const MoreSheet = memo(({ visible, onClose, onSelect, funPlanVisible = true, onToggleFunPlan }: MoreSheetProps) => {
+  // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
+  const { width, fontScale } = useWindowDimensions();
+  const compact = isCompactScreen(width, fontScale);
+  const narrow = isNarrowScreen(width);
   const progress = useRef(new Animated.Value(0)).current;
   const [rendered, setRendered] = useState(visible);
   const { t } = useTranslation("common", { keyPrefix: "moreSheet" });
+  const { timerAlarmEnabled, setTimerAlarmEnabled } = useTimerAlarmPreference();
 
   useEffect(() => {
     if (visible) {
@@ -65,22 +82,12 @@ const MoreSheet = memo(({ visible, onClose, onSelect, funPlanVisible = true, onT
   }, [progress, visible]);
 
   const optionList = useMemo(() => {
-    return actions.map((action) => {
-      if (action.key === "toggleFunPlan") {
-        const variantPrefix = funPlanVisible ? "items.toggleFunPlan.hide" : "items.toggleFunPlan.show";
-        return {
-          ...action,
-          title: t(`${variantPrefix}.title`),
-          subtitle: t(`${variantPrefix}.subtitle`),
-        };
-      }
-      return {
-        ...action,
-        title: t(`items.${action.key}.title`),
-        subtitle: t(`items.${action.key}.subtitle`),
-      };
-    });
-  }, [funPlanVisible, t]);
+    return actions.map((action) => ({
+      ...action,
+      title: t(`items.${action.key}.title`),
+      subtitle: t(`items.${action.key}.subtitle`),
+    }));
+  }, [t]);
 
   if (!rendered) return null;
 
@@ -121,15 +128,14 @@ const MoreSheet = memo(({ visible, onClose, onSelect, funPlanVisible = true, onT
           <Animated.View style={[styles.backdropOverlay, backdropStyle]} />
         </Pressable>
 
-        <Animated.View style={[styles.sheet, sheetStyle]}>
+        <Animated.View style={[styles.sheet, compact && styles.sheetCompact, sheetStyle]}>
           <LinearGradient
             colors={["rgba(12,18,32,0.96)", "rgba(12,18,32,0.9)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.handle} />
-          <Text style={styles.sheetTitle}>{t("title")}</Text>
+          <Text style={[styles.sheetTitle, compact && styles.sheetTitleCompact]}>{t("title")}</Text>
 
           <View style={styles.optionList}>
             {optionList.map((option) => (
@@ -140,27 +146,69 @@ const MoreSheet = memo(({ visible, onClose, onSelect, funPlanVisible = true, onT
                 onPress={() => {
                   if (option.key === "toggleFunPlan") {
                     onToggleFunPlan?.();
+                  } else if (option.key === "toggleTimerAlarm") {
+                    setTimerAlarmEnabled(!timerAlarmEnabled);
                   } else {
                     onSelect?.(option.key);
+                    onClose();
                   }
-                  onClose();
                 }}
-                style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
+                style={({ pressed }) => [styles.option, compact && styles.optionCompact, pressed && styles.optionPressed]}
               >
                 <View style={styles.optionLeft}>
-                  <View style={styles.iconBadge}>
+                  <View style={[styles.iconBadge, compact && styles.iconBadgeCompact]}>
                     <MaterialCommunityIcons
                       name={option.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-                      size={20}
+                      size={compact ? 18 : 20}
                       color={colors.textPrimary}
                     />
                   </View>
                   <View style={styles.optionTextCol}>
-                    <Text style={styles.optionLabel}>{option.title}</Text>
-                    <Text style={styles.optionHelper}>{option.subtitle}</Text>
+                    <Text
+                      style={[styles.optionLabel, compact && styles.optionLabelCompact]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {option.title}
+                    </Text>
+                    <Text
+                      style={[styles.optionHelper, compact && styles.optionHelperCompact]}
+                      numberOfLines={narrow ? 1 : 2}
+                      ellipsizeMode="tail"
+                    >
+                      {option.subtitle}
+                    </Text>
                   </View>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+                {option.key === "toggleFunPlan" ? (
+                  <Switch
+                    testID="fun-plan-visibility-switch"
+                    style={styles.compactSwitch}
+                    value={funPlanVisible}
+                    onValueChange={onToggleFunPlan}
+                    trackColor={{
+                      false: "rgba(255,255,255,0.12)",
+                      true: "rgba(30,94,255,0.36)",
+                    }}
+                    thumbColor={funPlanVisible ? colors.accentPrimary : "#f4f4f5"}
+                    ios_backgroundColor="rgba(255,255,255,0.12)"
+                  />
+                ) : option.key === "toggleTimerAlarm" ? (
+                  <Switch
+                    testID="timer-alarm-switch"
+                    style={styles.compactSwitch}
+                    value={timerAlarmEnabled}
+                    onValueChange={setTimerAlarmEnabled}
+                    trackColor={{
+                      false: "rgba(255,255,255,0.12)",
+                      true: "rgba(30,94,255,0.36)",
+                    }}
+                    thumbColor={timerAlarmEnabled ? colors.accentPrimary : "#f4f4f5"}
+                    ios_backgroundColor="rgba(255,255,255,0.12)"
+                  />
+                ) : (
+                  <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+                )}
               </Pressable>
             ))}
           </View>
@@ -171,7 +219,7 @@ const MoreSheet = memo(({ visible, onClose, onSelect, funPlanVisible = true, onT
             style={({ pressed }) => [styles.dismissButton, pressed && styles.dismissPressed]}
             onPress={onClose}
           >
-            <Text style={styles.dismissLabel}>{t("close")}</Text>
+            <Text style={[styles.dismissLabel, compact && styles.dismissLabelCompact]}>{t("close")}</Text>
           </Pressable>
         </Animated.View>
       </View>
@@ -207,19 +255,19 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     backgroundColor: colors.surface,
   },
-  handle: {
-    alignSelf: "center",
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.divider,
-    marginBottom: spacing.md,
+  sheetCompact: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
   },
   sheetTitle: {
     color: colors.textPrimary,
     fontSize: typography.lg,
     fontWeight: "700",
     marginBottom: spacing.md,
+  },
+  sheetTitleCompact: {
+    fontSize: typography.md,
   },
   optionList: {
     gap: spacing.sm,
@@ -235,6 +283,10 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     backgroundColor: "rgba(255,255,255,0.03)",
   },
+  optionCompact: {
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm + 2,
+  },
   optionPressed: {
     opacity: 0.9,
     transform: [{ translateY: 1 }],
@@ -244,6 +296,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     flex: 1,
+    minWidth: 0,
   },
   iconBadge: {
     width: 36,
@@ -255,20 +308,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
   },
+  iconBadgeCompact: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+  },
   optionTextCol: {
     flexDirection: "column",
     gap: spacing.xs / 2,
     flex: 1,
+    minWidth: 0,
   },
   optionLabel: {
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "700",
   },
+  optionLabelCompact: {
+    fontSize: typography.sm,
+  },
   optionHelper: {
     color: colors.textSecondary,
     fontSize: typography.sm,
     letterSpacing: 0.2,
+  },
+  optionHelperCompact: {
+    fontSize: typography.sm * 0.92,
+  },
+  compactSwitch: {
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
   },
   dismissButton: {
     marginTop: spacing.lg,
@@ -283,6 +351,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "600",
+  },
+  dismissLabelCompact: {
+    fontSize: typography.sm,
   },
   dismissPressed: {
     opacity: 0.9,

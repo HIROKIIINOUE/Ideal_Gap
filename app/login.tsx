@@ -16,12 +16,18 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 import Footer from "../components/Footer";
+import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { useLoginLockout } from "../hooks/useLoginLockout";
 import { signInWithEmailPassword } from "../lib/auth";
-import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
+import {
+  canAccessDashboardWithSubscriptionStatus,
+  ensureSignupAwaitSubscription,
+  getSubscriptionForUser,
+} from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 
 const loginSchema = z.object({
@@ -38,6 +44,7 @@ export default function Login() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { t } = useTranslation("login");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
+  const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const { isLocked, remainingText, checkLockout, recordFailure, clearLockout } = useLoginLockout({
     email,
     t,
@@ -98,7 +105,7 @@ export default function Login() {
       const userId = data.session?.user?.id;
       if (userId) {
         const subscription = await getSubscriptionForUser(userId);
-        if (!subscription || subscription.status === "signupAwait") {
+        if (!canAccessDashboardWithSubscriptionStatus(subscription?.status)) {
           try {
             await ensureSignupAwaitSubscription(userId);
           } catch (error) {
@@ -119,8 +126,8 @@ export default function Login() {
   const errorLabel = useMemo(() => errorMessage, [errorMessage]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Stack.Screen options={{ title: t("pageLabel"), headerBackTitle: tCommon("back") }} />
+    <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
+      <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommon("back") }} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Text style={styles.label}>{t("pageLabel")}</Text>
@@ -245,6 +252,9 @@ export default function Login() {
         visible={languageSheetVisible}
         onClose={() => setLanguageSheetVisible(false)}
       />
+      {keyboardVisible ? (
+        <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -255,7 +265,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   content: {
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 0,
     gap: spacing.lg,
     paddingBottom: spacing.xl * 2,
   },
