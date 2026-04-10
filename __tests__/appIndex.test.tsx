@@ -135,11 +135,15 @@ describe("Index screen", () => {
     const title = await screen.findByText("理想の自分への第一歩");
     const overviewBullet = await screen.findByTestId("landing-overview-bullet-0");
     const membershipBullet = await screen.findByTestId("landing-membership-bullet-0");
+    const overviewBulletMarker = await screen.findByTestId("landing-overview-bullet-marker-0");
+    const membershipBulletMarker = await screen.findByTestId("landing-membership-bullet-marker-0");
     const shimmerMasks = await screen.findAllByTestId("landing-cta-shimmer-mask");
 
     expect(title).toHaveStyle({ fontSize: 25.76 });
     expect(overviewBullet).toHaveStyle({ backgroundColor: "#6EA8FF" });
     expect(membershipBullet).toHaveStyle({ backgroundColor: "#6EA8FF" });
+    expect(overviewBulletMarker).toHaveStyle({ width: 12, alignItems: "center" });
+    expect(membershipBulletMarker).toHaveStyle({ width: 12, alignItems: "center" });
     expect(shimmerMasks).toHaveLength(4);
   });
 });

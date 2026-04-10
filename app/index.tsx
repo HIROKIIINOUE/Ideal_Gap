@@ -616,7 +616,9 @@ export default function Index() {
             <View style={styles.bulletList}>
               {translations.overview.highlights.map((item, index) => (
                 <View key={item} style={styles.bulletRow}>
-                  <View style={styles.bulletDot} testID={`landing-overview-bullet-${index}`} />
+                  <View style={styles.bulletMarker} testID={`landing-overview-bullet-marker-${index}`}>
+                    <View style={styles.bulletDot} testID={`landing-overview-bullet-${index}`} />
+                  </View>
                   <Text
                     style={[
                       styles.bulletText,
@@ -694,7 +696,9 @@ export default function Index() {
               <View style={styles.bulletList}>
                 {translations.membership.bulletPoints.map((item, index) => (
                   <View key={item} style={styles.bulletRow}>
-                    <View style={styles.bulletDot} testID={`landing-membership-bullet-${index}`} />
+                    <View style={styles.bulletMarker} testID={`landing-membership-bullet-marker-${index}`}>
+                      <View style={styles.bulletDot} testID={`landing-membership-bullet-${index}`} />
+                    </View>
                     <Text
                       style={[
                         styles.bulletText,
@@ -1072,15 +1076,18 @@ const styles = StyleSheet.create({
   },
   bulletRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.sm,
+  },
+  bulletMarker: {
+    width: 12,
+    alignItems: "center",
   },
   bulletDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.accentSubtle,
-    marginTop: spacing.xs / 2,
   },
   bulletText: {
     color: colors.textPrimary,
