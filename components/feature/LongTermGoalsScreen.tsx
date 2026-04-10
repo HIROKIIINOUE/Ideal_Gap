@@ -9,7 +9,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,6 +37,7 @@ import {
 } from "../../lib/api/supabase/longTermGoals";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
@@ -119,6 +119,7 @@ export default function LongTermGoalsScreen() {
   const updatedLabel = t("updatedSuffix");
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
   const {
     control,
     handleSubmit,
@@ -579,7 +580,7 @@ export default function LongTermGoalsScreen() {
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
-            <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
+            <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
             {currentPoint ? (
               <Text style={styles.currentPoint}>{t("currentPointLabel")}: {currentPoint}</Text>
             ) : null}
@@ -642,7 +643,7 @@ export default function LongTermGoalsScreen() {
           testID="long-term-goals-modal-overlay"
         >
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="long-term-goals-modal-kav"
           >
@@ -798,6 +799,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   headingFrench: {
+    fontSize: 24,
+  },
+  headingAndroidJa: {
     fontSize: 24,
   },
   subtitle: {

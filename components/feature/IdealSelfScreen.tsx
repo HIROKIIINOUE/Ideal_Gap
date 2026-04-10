@@ -8,7 +8,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +28,7 @@ import { getUserId } from "../../lib/api/supabase/common";
 import { deleteIdeal, fetchIdealSelf, insertIdeal, updateIdeal, upsertIdeals } from "../../lib/api/supabase/idealSelf";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
@@ -100,6 +100,7 @@ export default function IdealSelfScreen() {
   const updatedLabel = t("updatedSuffix");
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
   const {
     control, // Controller が使う“フォーム管理本体”
     handleSubmit,
@@ -393,7 +394,7 @@ export default function IdealSelfScreen() {
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
-            <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
+            <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
 
             <View style={styles.actionRow}>
               <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading || offlineBlocked}>
@@ -453,7 +454,7 @@ export default function IdealSelfScreen() {
           testID="ideal-self-modal-overlay"
         >
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="ideal-self-modal-kav"
           >
@@ -548,6 +549,10 @@ const styles = StyleSheet.create({
     lineHeight: typography.xl * 1.3,
   },
   headingFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
+  headingAndroidJa: {
     fontSize: 24,
     lineHeight: 31,
   },

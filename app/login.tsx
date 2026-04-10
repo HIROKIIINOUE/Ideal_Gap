@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -23,6 +24,7 @@ import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessor
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { useLoginLockout } from "../hooks/useLoginLockout";
 import { signInWithEmailPassword } from "../lib/auth";
+import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import {
   canAccessDashboardWithSubscriptionStatus,
   ensureSignupAwaitSubscription,
@@ -128,15 +130,16 @@ export default function Login() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommon("back") }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <Text style={styles.label}>{t("pageLabel")}</Text>
-          <Link href="/" style={styles.link}>
-            {t("backToHome")}
-          </Link>
-        </View>
+      <KeyboardAvoidingView style={styles.formContainer} behavior={getKeyboardAvoidingBehavior()} testID="login-form-kav">
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.headerRow}>
+            <Text style={styles.label}>{t("pageLabel")}</Text>
+            <Link href="/" style={styles.link}>
+              {t("backToHome")}
+            </Link>
+          </View>
 
-        <View style={[styles.card, shadows.card]}>
+          <View style={[styles.card, shadows.card]}>
           <LinearGradient
             colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
             start={{ x: 0, y: 0 }}
@@ -182,6 +185,7 @@ export default function Login() {
               styles.ctaButton,
               styles.primaryButton,
               styles.buttonShadow,
+              Platform.OS === "android" && styles.buttonShadowAndroidFix,
               pressed && styles.buttonPressed,
               disabled && styles.buttonDisabled,
             ]}
@@ -211,9 +215,9 @@ export default function Login() {
               <Text style={styles.subtleLabel}>{t("forgotPassword")}</Text>
             </Pressable>
           </Link>
-        </View>
+          </View>
 
-        <View style={[styles.card, shadows.card]}>
+          <View style={[styles.card, shadows.card]}>
           <LinearGradient
             colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
             start={{ x: 0, y: 0 }}
@@ -234,15 +238,17 @@ export default function Login() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.buttonGlass, styles.ctaButton,
-                styles.secondaryButton,
-                styles.buttonShadow]}
+                  styles.secondaryButton,
+                  styles.buttonShadow,
+                  Platform.OS === "android" && styles.buttonShadowAndroidFix]}
               >
                 <Text style={styles.secondaryLabel}>{t("signupCta")}</Text>
               </LinearGradient>
             </Pressable>
           </Link>
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
       <Footer
         isAuthenticated={false}
         onLanguagePress={() => setLanguageSheetVisible(true)}
@@ -269,6 +275,9 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     gap: spacing.lg,
     paddingBottom: spacing.xl * 2,
+  },
+  formContainer: {
+    flex: 1,
   },
   headerRow: {
     flexDirection: "row",
@@ -336,6 +345,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
     position: "relative",
+    overflow: "hidden",
   },
   primaryButton: {
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -360,6 +370,10 @@ const styles = StyleSheet.create({
   },
   buttonShadow: {
     ...shadows.button,
+  },
+  buttonShadowAndroidFix: {
+    elevation: 0,
+    shadowOpacity: 0,
   },
   buttonPressed: {
     transform: [{ translateY: 1 }],

@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import * as Linking from "expo-linking";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
+import { Platform } from "react-native";
 import ResetPassword from "../app/reset-password";
 import i18n from "../i18n";
 
@@ -46,10 +47,19 @@ jest.mock("../lib/auth", () => ({
 }));
 
 describe("ResetPassword screen", () => {
+  const originalPlatform = Platform.OS;
+
   beforeEach(() => {
     jest.clearAllMocks();
     (Linking.getInitialURL as jest.Mock).mockResolvedValue(null);
     (Linking.addEventListener as jest.Mock).mockReturnValue({ remove: jest.fn() });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
+    });
   });
 
   const renderScreen = () =>
@@ -69,6 +79,16 @@ describe("ResetPassword screen", () => {
     fireEvent.press(getByRole("button", { name: "Send reset email" }));
 
     await waitFor(() => expect(mockRequestPasswordResetEmail).toHaveBeenCalledWith("user@example.com"));
+  });
+
+  test("renders keyboard avoiding form container on Android", () => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    const { getByTestId } = renderScreen();
+    expect(getByTestId("reset-password-form-kav")).toBeTruthy();
   });
 
   test("shows error message when email is not found", async () => {

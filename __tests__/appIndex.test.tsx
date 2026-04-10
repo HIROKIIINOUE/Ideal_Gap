@@ -18,6 +18,8 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 describe("Index screen", () => {
+  const originalPlatform = ReactNative.Platform.OS;
+
   beforeEach(async () => {
     await AsyncStorage.clear();
     await i18n.changeLanguage("ja");
@@ -37,6 +39,10 @@ describe("Index screen", () => {
   });
 
   afterEach(() => {
+    Object.defineProperty(ReactNative.Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
+    });
     jest.restoreAllMocks();
   });
 
@@ -110,5 +116,30 @@ describe("Index screen", () => {
     expect(title).toHaveStyle({ fontSize: 22.08 });
     expect(membership).toHaveStyle({ fontSize: 16 });
     expect(ctaLabels[0]).toHaveStyle({ fontSize: 13 });
+  });
+
+  it("shrinks Japanese landing typography on Android and aligns list bullets", async () => {
+    Object.defineProperty(ReactNative.Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <LanguageProvider>
+          <Index />
+        </LanguageProvider>
+      </I18nextProvider>,
+    );
+
+    const title = await screen.findByText("理想の自分への第一歩");
+    const overviewBullet = await screen.findByTestId("landing-overview-bullet-0");
+    const membershipBullet = await screen.findByTestId("landing-membership-bullet-0");
+    const shimmerMasks = await screen.findAllByTestId("landing-cta-shimmer-mask");
+
+    expect(title).toHaveStyle({ fontSize: 25.76 });
+    expect(overviewBullet).toHaveStyle({ backgroundColor: "#6EA8FF" });
+    expect(membershipBullet).toHaveStyle({ backgroundColor: "#6EA8FF" });
+    expect(shimmerMasks).toHaveLength(4);
   });
 });

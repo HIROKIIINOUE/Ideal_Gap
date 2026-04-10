@@ -7,7 +7,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +28,7 @@ import { getUserId } from "../../lib/api/supabase/common";
 import { deleteYearlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
@@ -144,6 +144,7 @@ export default function AnnualGoalsScreen() {
   const updatedLabel = t("updatedSuffix");
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
   const {
     control, // Controller が使う“フォーム管理本体”
     handleSubmit,
@@ -626,7 +627,7 @@ export default function AnnualGoalsScreen() {
               style={StyleSheet.absoluteFill}
             />
             <View style={styles.headingArea}>
-              <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
+              <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
             </View>
             {hasGoals && (
               <View style={styles.chartContainer}>
@@ -730,7 +731,7 @@ export default function AnnualGoalsScreen() {
           testID="annual-goals-modal-overlay"
         >
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="annual-goals-modal-kav"
           >
@@ -864,6 +865,10 @@ const styles = StyleSheet.create({
     lineHeight: typography.xl * 1.3,
   },
   headingFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
+  headingAndroidJa: {
     fontSize: 24,
     lineHeight: 31,
   },

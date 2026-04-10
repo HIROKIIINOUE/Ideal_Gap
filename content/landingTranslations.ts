@@ -119,7 +119,7 @@ export const landingTranslations: LandingTranslations = {
       description:
         "14 days free trial. Auto-renews every month after the trial end. Cancel anytime.",
       bulletPoints: [
-        "14 days free trial, then 3.99 CAD/month",
+        "14-day free trial, then 3.99 CAD/month",
         "Cancel anytime",
         "No free plan when re-signing up",
       ],

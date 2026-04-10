@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { router } from "expo-router";
 import Login from "../app/login";
 import i18n from "../i18n";
@@ -48,6 +48,8 @@ jest.mock("../lib/auth", () => ({
 }));
 
 describe("Login screen", () => {
+  const originalPlatform = Platform.OS;
+
   beforeEach(() => {
     jest.clearAllMocks();
     (supabase.auth.getSession as jest.Mock)
@@ -66,6 +68,13 @@ describe("Login screen", () => {
     mockEnsureSignupAwaitSubscription.mockResolvedValue({
       user_id: "user-123",
       status: "signupAwait",
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
     });
   });
 
@@ -88,6 +97,17 @@ describe("Login screen", () => {
 
     fireEvent.changeText(getByPlaceholderText("Password"), "password123");
     expect(getLoginButton().props.accessibilityState?.disabled).toBe(false);
+  });
+
+  test("renders keyboard avoiding form container on Android", () => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    const { getByTestId } = renderScreen();
+
+    expect(getByTestId("login-form-kav")).toBeTruthy();
   });
 
   test("shows sign up prompt when email does not exist", async () => {

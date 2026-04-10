@@ -33,6 +33,7 @@ import {
 } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getKeyboardAvoidingBehavior } from "../../lib/ui/platform";
 import {
   colors,
   radius,
@@ -1175,7 +1176,7 @@ export default function TaskTimerScreen() {
       >
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="completion-modal-keyboard-avoiding"
           >

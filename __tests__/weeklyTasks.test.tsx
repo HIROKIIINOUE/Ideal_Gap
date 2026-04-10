@@ -2,7 +2,7 @@ import { fireEvent, render, waitFor, within } from "@testing-library/react-nativ
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
-import { Alert, Keyboard } from "react-native";
+import { Alert, Keyboard, Platform } from "react-native";
 import WeeklyTasksScreen from "../components/feature/WeeklyTasksScreen";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
@@ -48,6 +48,7 @@ const renderScreen = () =>
   );
 
 describe("WeeklyTasksScreen", () => {
+  const originalPlatform = Platform.OS;
   const mockSelectWeekly = jest.fn();
   const mockEqWeekly = jest.fn();
   const mockOrderWeekly = jest.fn();
@@ -106,6 +107,13 @@ describe("WeeklyTasksScreen", () => {
     });
   });
 
+  afterEach(() => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
+    });
+  });
+
   test("shows empty state when no weekly tasks", async () => {
     mockOrderWeekly.mockResolvedValue({ data: [], error: null });
     mockOrderYearly.mockResolvedValue({
@@ -141,6 +149,24 @@ describe("WeeklyTasksScreen", () => {
     expect(title).toHaveStyle({ fontSize: 24 });
     expect(addButtonLabel).toHaveStyle({ fontSize: 14 });
     expect(deleteButtonLabel).toHaveStyle({ fontSize: 14 });
+  });
+
+  test("uses smaller header typography for Japanese title on Android", async () => {
+    await i18n.changeLanguage("ja");
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+    mockOrderWeekly.mockResolvedValue({ data: [], error: null });
+    mockOrderYearly.mockResolvedValue({
+      data: [{ id: "y1", description: "キャリア成長", year_goal_color: "#1E5EFF" }],
+      error: null,
+    });
+
+    const { findByText } = renderScreen();
+    const title = await findByText("週間タスク");
+
+    expect(title).toHaveStyle({ fontSize: 24 });
   });
 
   test("renders weekly tasks with a simplified two-row card", async () => {

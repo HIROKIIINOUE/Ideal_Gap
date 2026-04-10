@@ -20,6 +20,7 @@ import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { canAccessDashboardWithSubscriptionStatus, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
+import { shouldUseAndroidJapaneseTypography } from "../lib/ui/platform";
 import { isCompactScreen } from "../lib/ui/responsive";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
@@ -52,6 +53,7 @@ export default function Dashboard() {
   // i18n より現在の設定言語を取得
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
   const { emailUpdated } = useLocalSearchParams<{ emailUpdated?: string }>();
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
@@ -206,6 +208,7 @@ export default function Dashboard() {
               styles.tileTitle,
               isFrench ? styles.tileTitleFr : styles.tileTitleJaEn,
               compact && (isFrench ? styles.tileTitleCompactFr : styles.tileTitleCompactJaEn),
+              isAndroidJapanese && styles.tileTitleAndroidJa,
             ]}
             numberOfLines={2}
             ellipsizeMode="tail"
@@ -323,7 +326,9 @@ const styles = StyleSheet.create({
   title: {
     color: colors.textPrimary,
     fontSize: typography.xl * 1.1,
-    fontWeight: "800",
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    lineHeight: typography.xl * 1.18,
   },
   subtitle: {
     color: colors.textSecondary,
@@ -421,6 +426,10 @@ const styles = StyleSheet.create({
   // 6カードタイトル 日本語英語スタイル
   tileTitleJaEn: {
     fontSize: typography.lg,
+  },
+  tileTitleAndroidJa: {
+    fontSize: typography.lg * 0.9,
+    lineHeight: typography.lg * 1.15,
   },
   // 6カードタイトル フランス語スタイル
   tileTitleFr: {

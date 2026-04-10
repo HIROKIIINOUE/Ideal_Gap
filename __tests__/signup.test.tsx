@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
+import { Platform } from "react-native";
 import Signup from "../app/signup";
 import { typography } from "../constants/theme";
 import i18n from "../i18n";
@@ -56,6 +57,8 @@ jest.mock("../providers/LanguageProvider", () => ({
 }));
 
 describe("Signup screen", () => {
+  const originalPlatform = Platform.OS;
+
   beforeEach(async () => {
     jest.clearAllMocks();
     mockLanguage = "en";
@@ -91,6 +94,13 @@ describe("Signup screen", () => {
     });
   });
 
+  afterEach(() => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
+    });
+  });
+
   const renderScreen = () =>
     render(
       <I18nextProvider i18n={i18n}>
@@ -113,6 +123,16 @@ describe("Signup screen", () => {
 
     expect(queryByText("An account with this email already exists. Please log in instead.")).toBeNull();
     expect(getByText("Check your inbox")).toBeTruthy();
+  });
+
+  test("renders keyboard avoiding form container on Android", () => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    const { getByTestId } = renderScreen();
+    expect(getByTestId("signup-form-kav")).toBeTruthy();
   });
 
   test("shows email exists error when Supabase reports duplicate", async () => {

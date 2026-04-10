@@ -29,6 +29,7 @@ import {
   LANDING_SECTION_REVEAL_OFFSET,
   shouldRevealLandingSection,
 } from "../lib/ui/landingReveal";
+import { shouldUseAndroidJapaneseTypography } from "../lib/ui/platform";
 import { isCompactScreen } from "../lib/ui/responsive";
 
 type GradientPair = readonly [string, string];
@@ -39,6 +40,8 @@ const LANDING_SECTIONS: LandingSectionKey[] = ["overview", "membership", "getSta
 const SECTION_REVEAL_DURATION = 2400;
 // フェードインの開始地点(数値が上がれば、より下から競り上がる)
 const SECTION_REVEAL_TRANSLATE_Y = 80;
+// 光沢が通過する秒数の長さ
+const CTA_SHIMMER_DURATION = Platform.OS === "android" ? 1650 : 1200;
 
 const getRevealStyle = (animation: Animated.Value) => ({
   opacity: animation,
@@ -57,6 +60,13 @@ const getRevealStyle = (animation: Animated.Value) => ({
 // 光沢が左から右に流れる始点(-220)と終点(220)を設定
 const CTA_SHIMMER_TRANSLATE_X_RANGE = [-220, 220] as const;
 const getShimmerStyle = (animation: Animated.Value): Animated.WithAnimatedValue<StyleProp<ViewStyle>> => ({
+  opacity:
+    Platform.OS === "android"
+      ? animation.interpolate({
+        inputRange: [0, 0.15, 0.85, 1],
+        outputRange: [0, 0.85, 0.85, 0],
+      })
+      : 0.85,
   transform: [
     {
       // inputRangeで「animationが0→1(開始から完了)に変化する時」を指定し、
@@ -102,6 +112,7 @@ type CTAButtonProps = {
   shimmerStyle: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   compact?: boolean;
   isFrench?: boolean;
+  isAndroidJapanese?: boolean;
   onPress?: () => void | Promise<void>;
 };
 
@@ -112,8 +123,32 @@ const CTAButton = ({
   shimmerStyle,
   compact = false,
   isFrench = false,
+  isAndroidJapanese = false,
   onPress,
 }: CTAButtonProps) => {
+  const shimmerNode =
+    Platform.OS === "android" ? (
+      <View style={styles.shimmerMaskAndroid} pointerEvents="none" testID="landing-cta-shimmer-mask">
+        <Animated.View style={[styles.shimmerOverlayAndroid, shimmerStyle]}>
+          <LinearGradient
+            colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.4)", "rgba(255,255,255,0)"]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.shimmerFill}
+          />
+        </Animated.View>
+      </View>
+    ) : (
+      <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
+        <LinearGradient
+          colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.shimmerFill}
+        />
+      </Animated.View>
+    );
+
   const content = (
     <Pressable
       accessibilityRole="button"
@@ -121,19 +156,13 @@ const CTAButton = ({
       style={({ pressed }) => [styles.buttonShell, pressed && styles.buttonPressed]}
     >
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.buttonInner}>
-        <Animated.View style={[styles.shimmerOverlay, shimmerStyle]} pointerEvents="none">
-          <LinearGradient
-            colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.45)", "rgba(255,255,255,0)"]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.shimmerFill}
-          />
-        </Animated.View>
+        {shimmerNode}
         <Text
           style={[
             styles.primaryLabel,
             isFrench ? styles.primaryLabelFr : styles.primaryLabelJaEn,
             compact && (isFrench ? styles.primaryLabelCompactFr : styles.primaryLabelCompactJaEn),
+            isAndroidJapanese && styles.primaryLabelAndroidJa,
           ]}
           numberOfLines={1}
           ellipsizeMode="tail"
@@ -154,6 +183,7 @@ type CTAButtonsRowProps = {
   secondary: { href: Href; label: string; gradient?: GradientPair };
   compact?: boolean;
   isFrench?: boolean;
+  isAndroidJapanese?: boolean;
   onPrimaryPress?: () => void | Promise<void>;
 };
 
@@ -163,6 +193,7 @@ const CTAButtonsRow = ({
   secondary,
   compact = false,
   isFrench = false,
+  isAndroidJapanese = false,
   onPrimaryPress,
 }: CTAButtonsRowProps) => (
   <View style={styles.actions}>
@@ -174,6 +205,7 @@ const CTAButtonsRow = ({
         shimmerStyle={shimmerStyle}
         compact={compact}
         isFrench={isFrench}
+        isAndroidJapanese={isAndroidJapanese}
         onPress={onPrimaryPress}
       />
     </View>
@@ -185,6 +217,7 @@ const CTAButtonsRow = ({
         shimmerStyle={shimmerStyle}
         compact={compact}
         isFrench={isFrench}
+        isAndroidJapanese={isAndroidJapanese}
       />
     </View>
   </View>
@@ -200,6 +233,7 @@ export default function Index() {
   // i18n より現在の設定言語を取得
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
   // iPad用UI構築のための定数群
   const isIpad = Platform.OS === "ios" && Platform.isPad === true;
   const sectionRevealOffset = isIpad
@@ -273,7 +307,7 @@ export default function Index() {
       Animated.delay(1000),  // フェードイン後光沢までの時間差
       Animated.timing(bottomShimmerAnim, {
         toValue: 1,
-        duration: 1200,
+        duration: CTA_SHIMMER_DURATION,
         easing: Easing.inOut(Easing.quad),
         useNativeDriver: true,
       }),
@@ -430,7 +464,7 @@ export default function Index() {
           Animated.delay(500),
           Animated.timing(shimmerAnim, {
             toValue: 1,
-            duration: 1200,  // 光沢(光が左から右へ)が流れるduration
+            duration: CTA_SHIMMER_DURATION,  // 光沢(光が左から右へ)が流れるduration
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: true,
           }),
@@ -491,6 +525,7 @@ export default function Index() {
                 styles.title,
                 isFrench ? styles.titleFr : styles.titleJaEn,
                 compact && (isFrench ? styles.titleCompactFr : styles.titleCompactJaEn),
+                isAndroidJapanese && styles.titleAndroidJa,
               ]}
             >
               {translations.hero.title}
@@ -508,6 +543,7 @@ export default function Index() {
               shimmerStyle={shimmerStyle}
               compact={compact}
               isFrench={isFrench}
+              isAndroidJapanese={isAndroidJapanese}
               primary={{
                 href: "/signup",
                 label: translations.hero.ctaPrimary,
@@ -537,8 +573,7 @@ export default function Index() {
           style={[styles.section, getRevealStyle(overviewAnim)]}
           onLayout={handleSectionLayout("overview")}
         >
-
-          outputRangeで「Y軸を」    <Text
+          <Text
             style={[
               styles.sectionLabel,
               compact && styles.sectionLabelCompact,
@@ -552,6 +587,7 @@ export default function Index() {
               styles.sectionTitle,
               isFrench ? styles.sectionTitleFr : styles.sectionTitleJaEn,
               compact && (isFrench ? styles.sectionTitleCompactFr : styles.sectionTitleCompactJaEn),
+              isAndroidJapanese && styles.sectionTitleAndroidJa,
             ]}
           >
             {translations.overview.title}
@@ -562,6 +598,7 @@ export default function Index() {
                 styles.cardHeading,
                 isFrench ? styles.cardHeadingFr : styles.cardHeadingJaEn,
                 compact && (isFrench ? styles.cardHeadingCompactFr : styles.cardHeadingCompactJaEn),
+                isAndroidJapanese && styles.cardHeadingAndroidJa,
               ]}
             >
               {translations.overview.overviewCardTitle}
@@ -571,19 +608,21 @@ export default function Index() {
                 styles.cardBody,
                 isFrench ? styles.cardBodyFr : styles.cardBodyJaEn,
                 compact && (isFrench ? styles.cardBodyCompactFr : styles.cardBodyCompactJaEn),
+                isAndroidJapanese && styles.cardBodyAndroidJa,
               ]}
             >
               {translations.overview.description}
             </Text>
             <View style={styles.bulletList}>
-              {translations.overview.highlights.map((item) => (
+              {translations.overview.highlights.map((item, index) => (
                 <View key={item} style={styles.bulletRow}>
-                  <View style={styles.bulletDot} />
+                  <View style={styles.bulletDot} testID={`landing-overview-bullet-${index}`} />
                   <Text
                     style={[
                       styles.bulletText,
                       isFrench ? styles.bulletTextFr : styles.bulletTextJaEn,
                       compact && (isFrench ? styles.bulletTextCompactFr : styles.bulletTextCompactJaEn),
+                      isAndroidJapanese && styles.bulletTextAndroidJa,
                     ]}
                   >
                     {item}
@@ -598,8 +637,7 @@ export default function Index() {
           style={[styles.section, getRevealStyle(membershipAnim)]}
           onLayout={handleSectionLayout("membership")}
         >
-
-          outputRangeで「Y軸を」    <Text
+          <Text
             style={[
               styles.sectionLabel,
               compact && styles.sectionLabelCompact,
@@ -613,6 +651,7 @@ export default function Index() {
               styles.sectionTitle,
               isFrench ? styles.sectionTitleFr : styles.sectionTitleJaEn,
               compact && (isFrench ? styles.sectionTitleCompactFr : styles.sectionTitleCompactJaEn),
+              isAndroidJapanese && styles.sectionTitleAndroidJa,
             ]}
           >
             {translations.membership.title}
@@ -625,6 +664,7 @@ export default function Index() {
                     styles.planPrice,
                     isFrench ? styles.planPriceFr : styles.planPriceJaEn,
                     compact && (isFrench ? styles.planPriceCompactFr : styles.planPriceCompactJaEn),
+                    isAndroidJapanese && styles.planPriceAndroidJa,
                   ]}
                 >
                   {translations.membership.price}
@@ -636,6 +676,7 @@ export default function Index() {
                   styles.planTrialBadge,
                   isFrench ? styles.planTrialBadgeFr : styles.planTrialBadgeJaEn,
                   compact && (isFrench ? styles.planTrialBadgeCompactFr : styles.planTrialBadgeCompactJaEn),
+                  isAndroidJapanese && styles.planTrialBadgeAndroidJa,
                 ]}
               >
                 {translations.membership.trialBadge}
@@ -645,19 +686,21 @@ export default function Index() {
                   styles.cardBody,
                   isFrench ? styles.cardBodyFr : styles.cardBodyJaEn,
                   compact && (isFrench ? styles.cardBodyCompactFr : styles.cardBodyCompactJaEn),
+                  isAndroidJapanese && styles.cardBodyAndroidJa,
                 ]}
               >
                 {translations.membership.description}
               </Text>
               <View style={styles.bulletList}>
-                {translations.membership.bulletPoints.map((item) => (
+                {translations.membership.bulletPoints.map((item, index) => (
                   <View key={item} style={styles.bulletRow}>
-                    <View style={styles.bulletDotAccent} />
+                    <View style={styles.bulletDot} testID={`landing-membership-bullet-${index}`} />
                     <Text
                       style={[
                         styles.bulletText,
                         isFrench ? styles.bulletTextFr : styles.bulletTextJaEn,
                         compact && (isFrench ? styles.bulletTextCompactFr : styles.bulletTextCompactJaEn),
+                        isAndroidJapanese && styles.bulletTextAndroidJa,
                       ]}
                     >
                       {item}
@@ -673,8 +716,7 @@ export default function Index() {
           style={[styles.section, getRevealStyle(getStartedAnim)]}
           onLayout={handleSectionLayout("getStarted")}
         >
-
-          outputRangeで「Y軸を」    <Text
+          <Text
             style={[
               styles.sectionLabel,
               compact && styles.sectionLabelCompact,
@@ -688,6 +730,7 @@ export default function Index() {
               styles.sectionTitle,
               isFrench ? styles.sectionTitleFr : styles.sectionTitleJaEn,
               compact && (isFrench ? styles.sectionTitleCompactFr : styles.sectionTitleCompactJaEn),
+              isAndroidJapanese && styles.sectionTitleAndroidJa,
             ]}
           >
             {translations.getStarted.title}
@@ -698,6 +741,7 @@ export default function Index() {
                 styles.cardBody,
                 isFrench ? styles.cardBodyFr : styles.cardBodyJaEn,
                 compact && (isFrench ? styles.cardBodyCompactFr : styles.cardBodyCompactJaEn),
+                isAndroidJapanese && styles.cardBodyAndroidJa,
               ]}
             >
               {translations.getStarted.description}
@@ -706,6 +750,7 @@ export default function Index() {
               shimmerStyle={bottomShimmerStyle}
               compact={compact}
               isFrench={isFrench}
+              isAndroidJapanese={isAndroidJapanese}
               primary={{
                 href: "/signup",
                 label: translations.getStarted.ctaPrimary,
@@ -788,6 +833,10 @@ const styles = StyleSheet.create({
     fontSize: typography.xl,
     lineHeight: typography.xl * 1.2,
   },
+  titleAndroidJa: {
+    fontSize: typography.xl * 0.92,
+    lineHeight: typography.xl * 1.12,
+  },
   titleFr: {
     fontSize: typography.lg * 1.16,
     lineHeight: typography.lg * 1.38,
@@ -860,6 +909,9 @@ const styles = StyleSheet.create({
   primaryLabelJaEn: {
     fontSize: typography.md,
   },
+  primaryLabelAndroidJa: {
+    fontSize: typography.md * 0.92,
+  },
   primaryLabelFr: {
     fontSize: typography.sm * 1.08,
     lineHeight: typography.sm * 1.35,
@@ -883,6 +935,18 @@ const styles = StyleSheet.create({
     left: -80,
     right: -80,
     opacity: 0.85,
+  },
+  shimmerMaskAndroid: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+  },
+  shimmerOverlayAndroid: {
+    position: "absolute",
+    top: -12,
+    bottom: -12,
+    width: 120,
+    opacity: 0.78,
   },
   shimmerFill: {
     flex: 1,
@@ -917,6 +981,10 @@ const styles = StyleSheet.create({
   },
   sectionTitleJaEn: {
     fontSize: typography.lg,
+  },
+  sectionTitleAndroidJa: {
+    fontSize: typography.lg * 0.92,
+    lineHeight: typography.lg * 1.18,
   },
   sectionTitleFr: {
     fontSize: typography.md * 1.15,
@@ -957,6 +1025,10 @@ const styles = StyleSheet.create({
   cardHeadingJaEn: {
     fontSize: typography.md,
   },
+  cardHeadingAndroidJa: {
+    fontSize: typography.md * 0.92,
+    lineHeight: typography.md * 1.35,
+  },
   cardHeadingFr: {
     fontSize: typography.sm * 1.08,
     lineHeight: typography.sm * 1.4,
@@ -974,6 +1046,10 @@ const styles = StyleSheet.create({
   cardBodyJaEn: {
     fontSize: typography.md,
     lineHeight: typography.md * 1.5,
+  },
+  cardBodyAndroidJa: {
+    fontSize: typography.md * 0.94,
+    lineHeight: typography.md * 1.42,
   },
   cardBodyFr: {
     fontSize: typography.sm * 1.04,
@@ -1003,14 +1079,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.divider,
-    marginTop: spacing.xs / 2,
-  },
-  bulletDotAccent: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentSubtle,
     marginTop: spacing.xs / 2,
   },
   bulletText: {
@@ -1020,6 +1089,10 @@ const styles = StyleSheet.create({
   bulletTextJaEn: {
     fontSize: typography.md,
     lineHeight: typography.md * 1.4,
+  },
+  bulletTextAndroidJa: {
+    fontSize: typography.md * 0.94,
+    lineHeight: typography.md * 1.34,
   },
   bulletTextFr: {
     fontSize: typography.sm * 1.02,
@@ -1048,6 +1121,9 @@ const styles = StyleSheet.create({
   planPriceJaEn: {
     fontSize: typography.xl,
   },
+  planPriceAndroidJa: {
+    fontSize: typography.xl * 0.92,
+  },
   planPriceFr: {
     fontSize: typography.lg * 1.08,
     lineHeight: typography.lg * 1.28,
@@ -1066,6 +1142,9 @@ const styles = StyleSheet.create({
   },
   planTrialBadgeJaEn: {
     fontSize: typography.lg,
+  },
+  planTrialBadgeAndroidJa: {
+    fontSize: typography.lg * 0.92,
   },
   planTrialBadgeFr: {
     fontSize: typography.md * 1.05,

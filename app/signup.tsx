@@ -2,7 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Link, Stack, router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 import Footer from "../components/Footer";
@@ -12,6 +12,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { signUpWithEmailConfirmation } from "../lib/auth";
+import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { useLanguage } from "../providers/LanguageProvider";
@@ -136,15 +137,16 @@ export default function Signup() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommon("back") }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <Text style={styles.label}>{t("pageLabel")}</Text>
-          <Link href="/" style={styles.link}>
-            {t("backToHome")}
-          </Link>
-        </View>
+      <KeyboardAvoidingView style={styles.formContainer} behavior={getKeyboardAvoidingBehavior()} testID="signup-form-kav">
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.headerRow}>
+            <Text style={styles.label}>{t("pageLabel")}</Text>
+            <Link href="/" style={styles.link}>
+              {t("backToHome")}
+            </Link>
+          </View>
 
-        <View style={[styles.card, shadows.card]}>
+          <View style={[styles.card, shadows.card]}>
           <LinearGradient
             colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
             start={{ x: 0, y: 0 }}
@@ -214,6 +216,7 @@ export default function Signup() {
               styles.ctaButton,
               styles.primaryButton,
               styles.buttonShadow,
+              Platform.OS === "android" && styles.buttonShadowAndroidFix,
               (!isFormValid || isSubmitting) && styles.buttonDisabled,
               pressed && isFormValid && !isSubmitting && styles.buttonPressed,
             ]}
@@ -241,8 +244,8 @@ export default function Signup() {
               <Text style={styles.alertBody}>{submissionError}</Text>
             </View>
           )}
-        </View>
-        <View style={[styles.card, shadows.card]}>
+          </View>
+          <View style={[styles.card, shadows.card]}>
           <LinearGradient
             colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
             start={{ x: 0, y: 0 }}
@@ -262,8 +265,9 @@ export default function Signup() {
               </LinearGradient>
             </Pressable>
           </Link>
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
       <Footer
         isAuthenticated={false}
         onLanguagePress={() => setLanguageSheetVisible(true)}
@@ -290,6 +294,9 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     gap: spacing.lg,
     paddingBottom: spacing.xl * 2,
+  },
+  formContainer: {
+    flex: 1,
   },
   headerRow: {
     flexDirection: "row",
@@ -455,6 +462,10 @@ const styles = StyleSheet.create({
   },
   buttonShadow: {
     ...shadows.button,
+  },
+  buttonShadowAndroidFix: {
+    elevation: 0,
+    shadowOpacity: 0,
   },
   buttonPressed: {
     transform: [{ translateY: 1 }],

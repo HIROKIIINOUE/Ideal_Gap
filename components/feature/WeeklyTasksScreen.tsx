@@ -9,7 +9,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,6 +26,7 @@ import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { supabase } from "../../lib/supabaseClient";
+import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
 import KeyboardDismissButton from "../KeyboardDismissButton";
@@ -159,6 +159,7 @@ export default function WeeklyTasksScreen() {
   const guardOfflineAction = useOfflineActionGuard();
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
 
   const initializedDefaultGoal = useRef(false);
   const hasLoadedRef = useRef(false);
@@ -811,7 +812,7 @@ export default function WeeklyTasksScreen() {
               />
 
               <View style={styles.headerTop}>
-                <Text style={[styles.pageTitle, isFrench && styles.pageTitleFrench]}>{t("pageTitle")}</Text>
+                <Text style={[styles.pageTitle, isFrench && styles.pageTitleFrench, isAndroidJapanese && styles.pageTitleAndroidJa]}>{t("pageTitle")}</Text>
 
                 <View style={styles.actionsRow}>
                   {!deleteMode && (
@@ -891,7 +892,7 @@ export default function WeeklyTasksScreen() {
           testID="weekly-tasks-modal-overlay"
         >
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="weekly-tasks-modal-kav"
           >
@@ -1055,7 +1056,7 @@ export default function WeeklyTasksScreen() {
       <Modal visible={manualLog.visible} transparent animationType="fade" onRequestClose={closeManualLog}>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="manual-log-modal-kav"
           >
@@ -1174,6 +1175,10 @@ const styles = StyleSheet.create({
     lineHeight: typography.xl * 1.3,
   },
   pageTitleFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
+  pageTitleAndroidJa: {
     fontSize: 24,
     lineHeight: 31,
   },

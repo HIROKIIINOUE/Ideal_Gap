@@ -6,7 +6,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +22,7 @@ import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAcces
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { supabase } from "../../lib/supabaseClient";
+import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
 import Loading from "../Loading";
@@ -92,6 +92,7 @@ export default function FunPlanScreen() {
   const updatedLabel = t("updatedSuffix");
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
   const limitReached = plans.length >= MAX_PLANS;
 
   const getUserId = useMemo(
@@ -419,7 +420,7 @@ export default function FunPlanScreen() {
             />
             <View style={styles.headerRow}>
               <View style={styles.headerText}>
-                <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
+                <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
                 <Text style={styles.body}>{t("pageSubtitle")}</Text>
               </View>
             </View>
@@ -481,7 +482,7 @@ export default function FunPlanScreen() {
           testID="fun-plan-modal-overlay"
         >
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="fun-plan-modal-kav"
           >
@@ -570,6 +571,10 @@ const styles = StyleSheet.create({
     lineHeight: typography.xl * 1.3,
   },
   headingFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
+  headingAndroidJa: {
     fontSize: 24,
     lineHeight: 31,
   },

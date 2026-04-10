@@ -24,6 +24,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { buildRedirectUrl } from "../lib/auth";
 import { supabase } from "../lib/supabaseClient";
+import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
 const profileSchema = z.object({
@@ -255,7 +256,7 @@ export default function ProfileUpdate() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommonNav("back") }} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: "padding", android: undefined })}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={getKeyboardAvoidingBehavior()}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={[styles.card, shadows.card]}>
             <LinearGradient

@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
+import { Platform } from "react-native";
 import Dashboard from "../app/dashboard";
 import i18n from "../i18n";
 
@@ -53,6 +54,7 @@ jest.mock("../lib/subscription", () => ({
 
 describe("Dashboard sentry test button", () => {
   const originalAppEnv = process.env.APP_ENV;
+  const originalPlatform = Platform.OS;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -62,6 +64,10 @@ describe("Dashboard sentry test button", () => {
 
   afterEach(() => {
     process.env.APP_ENV = originalAppEnv;
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
+    });
   });
 
   test("does not render the sentry test button when APP_ENV is not prod", () => {
@@ -85,5 +91,23 @@ describe("Dashboard sentry test button", () => {
       </I18nextProvider>,
     );
     expect(queryByTestId("sentry-test-button")).toBeNull();
+  });
+
+  test("uses smaller Android Japanese typography for dashboard tiles", async () => {
+    process.env.APP_ENV = "dev";
+    await i18n.changeLanguage("ja");
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    const { findByText } = render(
+      <I18nextProvider i18n={i18n}>
+        <Dashboard />
+      </I18nextProvider>,
+    );
+
+    const tileTitle = await findByText("理想の自分");
+    expect(tileTitle).toHaveStyle({ fontSize: 18 });
   });
 });
