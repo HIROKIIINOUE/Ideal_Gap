@@ -421,10 +421,14 @@ export default function Index() {
           }),
         },
       ],
-      opacity: scrollHintAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.7, 1],
-      }),
+      ...(Platform.OS === "android"
+        ? null
+        : {
+            opacity: scrollHintAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.7, 1],
+            }),
+          }),
     }),
     [scrollHintAnim],
   );
@@ -499,6 +503,7 @@ export default function Index() {
         <Animated.View
           style={[
             styles.heroShell,
+            Platform.OS === "android" && styles.heroShellAndroid,
             {
               opacity: heroAnim,
               transform: [
@@ -554,7 +559,13 @@ export default function Index() {
             />
           </View>
           <View style={styles.scrollHint} pointerEvents="none">
-            <Animated.View style={[styles.scrollHintIcon, scrollHintStyle]}>
+            <Animated.View
+              style={[
+                styles.scrollHintIcon,
+                Platform.OS === "android" && styles.scrollHintIconAndroid,
+                scrollHintStyle,
+              ]}
+            >
               <MaterialCommunityIcons name="chevron-down" size={22} color="rgba(255,255,255,0.8)" />
             </Animated.View>
             <Text
@@ -791,6 +802,11 @@ const styles = StyleSheet.create({
   heroShell: {
     borderRadius: radius.xl,
     ...shadows.card,
+  },
+  heroShellAndroid: {
+    elevation: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
   },
   container: {
     flex: 1,
@@ -1176,6 +1192,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  scrollHintIconAndroid: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
   },
   scrollHintText: {
     color: colors.textSecondary,
