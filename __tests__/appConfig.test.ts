@@ -66,4 +66,15 @@ describe("app config bundle identifiers", () => {
     expect(config.ios?.infoPlist?.ITSAppUsesNonExemptEncryption).toBe(false);
     expect(config.ios?.infoPlist?.UIBackgroundModes).toEqual(["audio"]);
   });
+
+  test("requests exact alarm permission on Android", () => {
+    process.env.APP_ENV = "dev";
+    const configFactory = loadConfig();
+
+    const config = configFactory();
+
+    expect(config.android?.permissions).toContain(
+      "android.permission.SCHEDULE_EXACT_ALARM"
+    );
+  });
 });

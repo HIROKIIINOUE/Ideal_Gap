@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -30,6 +30,27 @@ const formatDateTime = (timestamp: number, locale: string) => {
   return date.toLocaleString(locale, options);
 };
 
+// Androidで表示する休憩終了設定時刻表示UI用の時刻を整形する
+const formatTime = (timestamp: number, locale: string) => {
+  const date = new Date(timestamp);
+  const options: Intl.DateTimeFormatOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  return date.toLocaleTimeString(locale, options);
+};
+
+// Androidで表示する休憩終了設定時刻表示UI用の日付を整形する
+const formatDate = (timestamp: number, locale: string) => {
+  const date = new Date(timestamp);
+  const options: Intl.DateTimeFormatOptions = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  };
+  return date.toLocaleDateString(locale, options);
+};
+
 const localeFromLanguage = (language: string) => {
   switch (language) {
     case "ja":
@@ -55,13 +76,70 @@ export default function BreakReminderScreen() {
   const scheduledRef = useRef<StoredReminder | null>(null);
   scheduledRef.current = scheduled;
 
-  // onChangeで通知スケジュールの設定
-  const handleDateChange = (_event: any, date?: Date) => {
-    if (!date) return;
+  const isAndroid = Platform.OS === "android";
+
+
+  // 【Android】日付と時刻それぞれのpickerから選択された通知時間情報をもとにselectedDataを更新する
+  const updateSelectedDate = useCallback(
+    (nextDate: Date, preserveTime: boolean) => {
+      const normalized = new Date(selectedDate);
+      if (preserveTime) {
+        normalized.setFullYear(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
+      } else {
+        normalized.setHours(nextDate.getHours(), nextDate.getMinutes(), 0, 0);
+      }
+      normalized.setSeconds(0, 0);
+      setSelectedDate(normalized);
+    },
+    [selectedDate],
+  );
+
+  // AndroidのDatePickerで通知の日付が設定された時に発火
+  const handleDateChange = useCallback(
+    (event: any, date?: Date) => {
+      if (event?.type === "dismissed" || !date) return;
+      updateSelectedDate(date, true);
+    },
+    [updateSelectedDate],
+  );
+
+  // AndroidのTimePickerで通知の時刻が設定された時に発火
+  const handleTimeChange = useCallback(
+    (event: any, date?: Date) => {
+      if (event?.type === "dismissed" || !date) return;
+      updateSelectedDate(date, false);
+    },
+    [updateSelectedDate],
+  );
+
+  // iOSのDateTimePickerで通知日付＋時刻が設定された時に発火
+  const handleDateTimeChange = useCallback((event: any, date?: Date) => {
+    if (event?.type === "dismissed" || !date) return;
     const normalized = new Date(date);
-    normalized.setSeconds(0, 0);  // 引数でs、ms共に0にし指定の分単位で通知セットができる
+    normalized.setSeconds(0, 0);// 引数でs、ms共に0にし指定の分単位で通知セットができる
     setSelectedDate(normalized);
-  };
+  }, []);
+
+  // AndroidのTimePickerモーダル表示
+  const handleOpenAndroidTimePicker = useCallback(() => {
+    DateTimePickerAndroid.open({
+      value: selectedDate,
+      mode: "time",
+      display: "clock",
+      is24Hour: false,
+      onChange: handleTimeChange,
+    });
+  }, [handleTimeChange, selectedDate]);
+
+  // AndroidのDatePickerモーダル表示
+  const handleOpenAndroidDatePicker = useCallback(() => {
+    DateTimePickerAndroid.open({
+      value: selectedDate,
+      mode: "date",
+      display: "calendar",
+      onChange: handleDateChange,
+    });
+  }, [handleDateChange, selectedDate]);
 
   // ユーザを端末の通知設定画面へ遷移
   const handleOpenSettings = useCallback(async () => {
@@ -149,12 +227,12 @@ export default function BreakReminderScreen() {
     const diff = current.fireDate - Date.now();
     // diffの単位はmsなので分に変換するために60000倍する
     if (diff <= 0) {
-      clearSchedule();
+      setRemainingMinutes(0);
       return;
     }
     const minutes = Math.max(0, Math.ceil(diff / 60000));
     setRemainingMinutes(minutes);
-  }, [clearSchedule]);
+  }, []);
 
 
   // ページがマウントされた時にデータを正しく復元し、通知機能発火のタイミングの監視をスタートする処理
@@ -169,6 +247,19 @@ export default function BreakReminderScreen() {
       responseSubscription?.remove();
     };
   }, [handleNotificationReceived, handleNotificationResponse, restoreSchedule]);
+
+
+  // マウント時に「通知を受け取った時、このアプリ内でどう表示するか」を設定
+  useEffect(() => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true, // iOS などで通知バナーを画面上に表示する
+        shouldShowList: true,   // 通知センターの一覧にも残す
+        shouldPlaySound: true,  // 通知音を鳴らす
+        shouldSetBadge: false,  // アプリアイコンのバッジ数は変えない
+      }),
+    });
+  }, []);
 
   // Androidの場合の通知音設定。チャンネルの詳細設定
   useEffect(() => {
@@ -250,14 +341,23 @@ export default function BreakReminderScreen() {
       setPermissionError(true);
     }
   }, [ensurePermission, selectedDate, t]);
-
-
-  // 
   const pickerLocale = useMemo(() => localeFromLanguage(language), [language]);
 
   const scheduleLabel = useMemo(
     () => (scheduled ? formatDateTime(scheduled.fireDate, pickerLocale) : ""),
     [pickerLocale, scheduled],
+  );
+
+  // AndroidのUI用
+  const selectedTimeLabel = useMemo(
+    () => formatTime(selectedDate.getTime(), pickerLocale),
+    [pickerLocale, selectedDate],
+  );
+
+  // AndroidのUI用
+  const selectedDateLabel = useMemo(
+    () => formatDate(selectedDate.getTime(), pickerLocale),
+    [pickerLocale, selectedDate],
   );
 
   return (
@@ -304,16 +404,45 @@ export default function BreakReminderScreen() {
           <>
             <Text style={styles.label}>{t("inputLabel")}</Text>
             <View style={styles.pickerWrapper}>
-              <DateTimePicker
-                testID="break-reminder-datetime"
-                value={selectedDate}
-                mode="datetime"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                locale={pickerLocale}
-                textColor={colors.textPrimary}
-                style={styles.picker}
-                onChange={handleDateChange}
-              />
+              {isAndroid ? (
+                <View style={styles.androidPickerGroup}>
+                  <View style={styles.androidPickerBlock}>
+                    <Text style={styles.androidPickerLabel}>{t("inputDateLabel")}</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handleOpenAndroidDatePicker}
+                      style={({ pressed }) => [styles.androidPickerButton, pressed && styles.pressed]}
+                      testID="break-reminder-android-date-button"
+                    >
+                      <Text style={styles.androidPickerValue}>{selectedDateLabel}</Text>
+                      <Text style={styles.androidPickerAction}>{t("pickDate")}</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.androidPickerBlock}>
+                    <Text style={styles.androidPickerLabel}>{t("inputTimeLabel")}</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handleOpenAndroidTimePicker}
+                      style={({ pressed }) => [styles.androidPickerButton, pressed && styles.pressed]}
+                      testID="break-reminder-android-time-button"
+                    >
+                      <Text style={styles.androidPickerValue}>{selectedTimeLabel}</Text>
+                      <Text style={styles.androidPickerAction}>{t("pickTime")}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <DateTimePicker
+                  testID="break-reminder-datetime"
+                  value={selectedDate}
+                  mode="datetime"
+                  display="spinner"
+                  locale={pickerLocale}
+                  textColor={colors.textPrimary}
+                  style={styles.picker}
+                  onChange={handleDateTimeChange}
+                />
+              )}
             </View>
 
             <Pressable
@@ -376,7 +505,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
     minHeight: 220,
-    paddingHorizontal: 0,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     justifyContent: "center",
     overflow: "hidden",
     alignSelf: "stretch",
@@ -387,6 +517,41 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "stretch",
     transform: [{ scaleX: 0.8 }, { scaleY: 0.94 }, { translateX: -spacing.xl * 1.4 }],
+  },
+  androidPickerGroup: {
+    width: "100%",
+    gap: spacing.md,
+  },
+  androidPickerBlock: {
+    gap: spacing.sm,
+    width: "100%",
+  },
+  androidPickerLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    fontWeight: "700",
+  },
+  androidPickerButton: {
+    minHeight: 64,
+    width: "100%",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(15,28,47,0.72)",
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    gap: spacing.xs / 2,
+  },
+  androidPickerValue: {
+    color: colors.textPrimary,
+    fontSize: typography.lg,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  androidPickerAction: {
+    color: colors.accentSubtle,
+    fontSize: typography.sm,
+    fontWeight: "600",
   },
   primaryButton: {
     marginTop: spacing.sm,
