@@ -30,6 +30,7 @@ import { closedModalState, createAddModalState, createEditModalState, ModalState
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
@@ -387,7 +388,7 @@ export default function IdealSelfScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.idealGrid}
         ListHeaderComponent={(
-          <View style={[styles.card, shadows.card]}>
+          <View style={[styles.card, styles.titleCardCompact, shadows.card]}>
             <LinearGradient
               colors={HEADER_CARD_GRADIENT}
               start={{ x: 0, y: 0 }}
@@ -542,6 +543,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(110,168,255,0.25)",
     overflow: "hidden",
   },
+  titleCardCompact: {
+    padding: compactFeatureSpacing.titleCardPadding,
+  },
   heading: {
     color: colors.textPrimary,
     fontSize: typography.xl,
@@ -621,8 +625,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
-    padding: spacing.lg,
-    gap: spacing.sm,
+    padding: compactFeatureSpacing.itemCardPadding,
+    gap: compactFeatureSpacing.itemContentGap,
     overflow: "hidden",
   },
   idealCardDragging: {
@@ -649,16 +653,16 @@ const styles = StyleSheet.create({
   },
   idealTitle: {
     color: colors.textPrimary,
-    fontSize: typography.lg,
+    fontSize: typography.md + compactFeatureSpacing.descriptionFontSizeOffset,
     fontWeight: "800",
-    lineHeight: typography.lg * 1.5,
+    lineHeight: (typography.md + compactFeatureSpacing.descriptionFontSizeOffset) * compactFeatureSpacing.descriptionLineHeightMultiplier,
     textAlign: "left",
   },
   idealActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: spacing.sm,
+    marginTop: 0,
     gap: spacing.sm,
   },
   editButton: {

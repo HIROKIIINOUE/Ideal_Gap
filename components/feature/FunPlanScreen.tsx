@@ -25,6 +25,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
 
@@ -411,7 +412,7 @@ export default function FunPlanScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.planGrid}
         ListHeaderComponent={(
-          <View style={[styles.card, shadows.card]}>
+          <View style={[styles.card, styles.titleCardCompact, shadows.card]}>
             <LinearGradient
               colors={HEADER_CARD_GRADIENT}
               start={{ x: 0, y: 0 }}
@@ -555,6 +556,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(110,168,255,0.3)",
     overflow: "hidden",
   },
+  titleCardCompact: {
+    padding: compactFeatureSpacing.titleCardPadding,
+  },
   headerRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -657,8 +661,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.35)",
-    padding: spacing.lg,
-    gap: spacing.sm,
+    padding: compactFeatureSpacing.itemCardPadding,
+    gap: compactFeatureSpacing.itemContentGap,
     overflow: "hidden",
   },
   planCardDragging: {
@@ -670,16 +674,16 @@ const styles = StyleSheet.create({
   },
   planTitle: {
     color: colors.textPrimary,
-    fontSize: typography.lg,
+    fontSize: typography.md + compactFeatureSpacing.descriptionFontSizeOffset,
     fontWeight: "800",
-    lineHeight: typography.lg * 1.4,
+    lineHeight: (typography.md + compactFeatureSpacing.descriptionFontSizeOffset) * compactFeatureSpacing.descriptionLineHeightMultiplier,
     textAlign: "left",
   },
   planActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: spacing.sm,
+    marginTop: 0,
     gap: spacing.sm,
   },
   editButton: {

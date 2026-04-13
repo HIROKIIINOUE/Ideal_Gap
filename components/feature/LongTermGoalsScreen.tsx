@@ -39,6 +39,7 @@ import { closedModalState, createAddModalState, createEditModalState, ModalState
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
@@ -573,7 +574,7 @@ export default function LongTermGoalsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.goalGrid}
         ListHeaderComponent={(
-          <View style={[styles.card, shadows.card]}>
+          <View style={[styles.card, styles.titleCardCompact, shadows.card]}>
             <LinearGradient
               colors={HEADER_CARD_GRADIENT}
               start={{ x: 0, y: 0 }}
@@ -793,6 +794,9 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     backgroundColor: colors.surface,
   },
+  titleCardCompact: {
+    padding: compactFeatureSpacing.titleCardPadding,
+  },
   heading: {
     color: colors.textPrimary,
     fontSize: typography.xl,
@@ -866,10 +870,10 @@ const styles = StyleSheet.create({
   goalCard: {
     overflow: "hidden",
     borderRadius: radius.xl,
-    padding: spacing.lg,
-    gap: spacing.sm,
+    padding: compactFeatureSpacing.itemCardPadding,
+    gap: compactFeatureSpacing.itemContentGap,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: colors.surface,
   },
   goalCardCompleted: {
@@ -899,8 +903,8 @@ const styles = StyleSheet.create({
   },
   goalDescription: {
     color: colors.textPrimary,
-    fontSize: typography.lg,
-    lineHeight: typography.lg * 1.45,
+    fontSize: typography.md + compactFeatureSpacing.descriptionFontSizeOffset,
+    lineHeight: (typography.md + compactFeatureSpacing.descriptionFontSizeOffset) * compactFeatureSpacing.descriptionLineHeightMultiplier,
     fontWeight: "700",
   },
   goalTextCompleted: {

@@ -20,6 +20,7 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
@@ -1185,7 +1186,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1c3358",
     borderRadius: radius.lg,
     overflow: "hidden",
-    padding: spacing.xl,
+    padding: compactFeatureSpacing.titleCardPadding,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     gap: spacing.md,
@@ -1302,12 +1303,12 @@ const styles = StyleSheet.create({
     lineHeight: typography.md * 1.5,
   },
   taskCard: {
-    padding: spacing.lg,
+    padding: compactFeatureSpacing.itemCardPadding,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: "#1c3358",
-    gap: spacing.md,
+    gap: compactFeatureSpacing.itemContentGap,
     overflow: "hidden",
     marginBottom: spacing.sm,
   },
@@ -1325,9 +1326,9 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     color: colors.textPrimary,
-    fontSize: typography.md + 1,
+    fontSize: typography.md + compactFeatureSpacing.descriptionFontSizeOffset,
     fontWeight: "800",
-    lineHeight: (typography.md + 1) * 1.45,
+    lineHeight: (typography.md + compactFeatureSpacing.descriptionFontSizeOffset) * compactFeatureSpacing.descriptionLineHeightMultiplier,
   },
   categoryDot: {
     width: 10,
