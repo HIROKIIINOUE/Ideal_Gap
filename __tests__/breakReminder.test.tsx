@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import * as Notifications from "expo-notifications";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
+import { AppState, type AppStateStatus } from "react-native";
 import BreakReminderScreen from "../components/feature/BreakReminderScreen";
 import i18n from "../i18n";
 
@@ -244,5 +245,57 @@ describe("BreakReminderScreen", () => {
     await waitFor(() => expect(queryByText(/Reminder set for/)).toBeNull());
     expect(getByTestId("break-reminder-datetime")).toBeTruthy();
     expect(() => getByText(/Break reminder active/)).toThrow();
+  });
+
+  test("on Android, returning to the app clears an already-fired reminder", async () => {
+    const ReactNative = require("react-native");
+    const originalOs = ReactNative.Platform.OS;
+    const baseTime = new Date("2026-04-18T17:00:00.000Z");
+    let appStateListener: ((state: AppStateStatus) => void) | null | undefined | any;
+    const appStateSpy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_type, listener) => {
+        appStateListener = listener;
+        return { remove: jest.fn() } as any;
+      });
+    Object.defineProperty(ReactNative.Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    jest.setSystemTime(baseTime);
+    await AsyncStorage.setItem(
+      "break_reminder_schedule",
+      JSON.stringify({
+        fireDate: baseTime.getTime() + 60 * 1000,
+        notificationId: "notif-active",
+      }),
+    );
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock)
+      .mockResolvedValueOnce([{ identifier: "notif-active" }])
+      .mockResolvedValueOnce([]);
+
+    try {
+      const { getByText, getByTestId, queryByText } = renderScreen();
+
+      await waitFor(() => expect(getByText(/Break reminder active/)).toBeTruthy());
+
+      jest.setSystemTime(new Date(baseTime.getTime() + 2 * 60 * 1000));
+      if (appStateListener) {
+        appStateListener("active");
+      }
+
+      await waitFor(() =>
+        expect(Notifications.getAllScheduledNotificationsAsync).toHaveBeenCalledTimes(2),
+      );
+      await waitFor(() => expect(getByTestId("break-reminder-android-date-button")).toBeTruthy());
+      expect(queryByText(/Break reminder active/)).toBeNull();
+    } finally {
+      appStateSpy.mockRestore();
+      Object.defineProperty(ReactNative.Platform, "OS", {
+        configurable: true,
+        value: originalOs,
+      });
+    }
   });
 });

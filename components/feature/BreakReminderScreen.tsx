@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useLanguage } from "../../providers/LanguageProvider";
 
@@ -64,6 +64,16 @@ const localeFromLanguage = (language: string) => {
 };
 
 const INITIAL_OFFSET_MINUTES = 15;
+
+// Android端末での通知予約
+const ensureAndroidBreakReminderChannel = async () => {
+  if (Platform.OS !== "android") return;
+  await Notifications.setNotificationChannelAsync(BREAK_REMINDER_CHANNEL, {
+    name: "Break Reminder",
+    importance: Notifications.AndroidImportance.MAX,
+    sound: "default",
+  });
+};
 
 export default function BreakReminderScreen() {
   const { t } = useTranslation("breakReminder");
@@ -172,10 +182,16 @@ export default function BreakReminderScreen() {
   const restoreSchedule = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (!stored) return;
+      if (!stored) {
+        setScheduled(null);
+        setRemainingMinutes(null);
+        return;
+      }
       const parsed = JSON.parse(stored) as StoredReminder;
       if (!parsed?.notificationId || !parsed?.fireDate) {
         await AsyncStorage.removeItem(STORAGE_KEY);
+        setScheduled(null);
+        setRemainingMinutes(null);
         return;
       }
       const list = await Notifications.getAllScheduledNotificationsAsync();
@@ -183,12 +199,16 @@ export default function BreakReminderScreen() {
       if (exists) {
         if (parsed.fireDate <= Date.now()) {
           await AsyncStorage.removeItem(STORAGE_KEY);
+          setScheduled(null);
+          setRemainingMinutes(null);
           return;
         }
         setScheduled(parsed);
         setSelectedDate(new Date(parsed.fireDate));
       } else {
         await AsyncStorage.removeItem(STORAGE_KEY);
+        setScheduled(null);
+        setRemainingMinutes(null);
       }
     } catch { }
   }, []);
@@ -264,12 +284,19 @@ export default function BreakReminderScreen() {
   // Androidの場合の通知音設定。チャンネルの詳細設定
   useEffect(() => {
     if (Platform.OS !== "android") return;
-    Notifications.setNotificationChannelAsync(BREAK_REMINDER_CHANNEL, {
-      name: "Break Reminder",
-      importance: Notifications.AndroidImportance.MAX,
-      sound: "default",
-    }).catch(() => { });
+    ensureAndroidBreakReminderChannel().catch(() => { });
   }, []);
+
+  // Androidの時だけアプリがactiveに戻ったときにもrestoreSchedule()を再実行
+  // ※Androidで休憩通知時間が過ぎてもUIが設定画面(picker)に戻らないエラー解消のため
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") return;
+      restoreSchedule().catch(() => { });
+    });
+    return () => subscription.remove();
+  }, [restoreSchedule]);
 
   // 残り時間の表示を30秒ごとに更新し、不要なタイマーは残さない
   useEffect(() => {
@@ -315,6 +342,7 @@ export default function BreakReminderScreen() {
     }
 
     try {
+      await ensureAndroidBreakReminderChannel();
       const trigger: Notifications.DateTriggerInput =
         Platform.OS === "android"
           ? {
