@@ -103,6 +103,7 @@
     user_id uuid [not null, ref: > users.id]
     description varchar [not null]
     year_goal_color varchar [not null]
+    yearly_goal_detail varchar
     is_done boolean
     "order" int // ソート用
     accumulated_time_year int // 円グラフ計算用
