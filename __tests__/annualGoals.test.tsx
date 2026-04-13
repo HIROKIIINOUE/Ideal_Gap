@@ -76,15 +76,17 @@ jest.mock("react-native-draggable-flatlist", () => {
       <>
         {renderSlot(ListHeaderComponent)}
         {data.length === 0 && renderSlot(ListEmptyComponent)}
-        {data.map((item, index) =>
-          renderItem({
-            item,
-            index,
-            drag: () => {},
-            isActive: false,
-            getIndex: () => index,
-          }),
-        )}
+        {data.map((item, index) => (
+          <React.Fragment key={String((item as { id?: string }).id ?? index)}>
+            {renderItem({
+              item,
+              index,
+              drag: () => {},
+              isActive: false,
+              getIndex: () => index,
+            })}
+          </React.Fragment>
+        ))}
       </>
     );
   };
@@ -147,6 +149,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Deep health routine with consistent sleep and workouts",
           year_goal_color: "#1E5EFF",
+          yearly_goal_detail: "April rebuild morning routine",
           is_done: false,
           accumulated_time_year: 1820,
           order: 0,
@@ -156,6 +159,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Career leap with shipped projects and portfolio refresh",
           year_goal_color: "#6EA8FF",
+          yearly_goal_detail: null,
           is_done: false,
           accumulated_time_year: 2450,
           order: 1,
@@ -171,6 +175,7 @@ describe("AnnualGoalsScreen", () => {
         id: "goal-3",
         description: "Launch a side product",
         year_goal_color: "#1E5EFF",
+        yearly_goal_detail: null,
         is_done: false,
         accumulated_time_year: 0,
         order: 0,
@@ -194,6 +199,10 @@ describe("AnnualGoalsScreen", () => {
                 description: typeof payload.description === "string" ? payload.description : "Updated goal",
                 year_goal_color:
                   typeof payload.year_goal_color === "string" ? payload.year_goal_color : "#1E5EFF",
+                yearly_goal_detail:
+                  payload.yearly_goal_detail === undefined
+                    ? "April rebuild morning routine"
+                    : payload.yearly_goal_detail,
                 is_done: typeof payload.is_done === "boolean" ? payload.is_done : false,
                 accumulated_time_year: 1820,
                 order: 0,
@@ -227,6 +236,7 @@ describe("AnnualGoalsScreen", () => {
         accumulated_time_year: 2450,
         order: 0,
         user_id: "user-123",
+        yearly_goal_detail: null,
       },
       {
         id: "goal-1",
@@ -236,6 +246,7 @@ describe("AnnualGoalsScreen", () => {
         accumulated_time_year: 1820,
         order: 1,
         user_id: "user-123",
+        yearly_goal_detail: "April rebuild morning routine",
       },
     ]);
     expect(options).toEqual({ onConflict: "id" });
@@ -266,6 +277,7 @@ describe("AnnualGoalsScreen", () => {
         accumulated_time_year: 2450,
         order: 1,
         user_id: "user-123",
+        yearly_goal_detail: null,
       },
       {
         id: "goal-1",
@@ -275,6 +287,7 @@ describe("AnnualGoalsScreen", () => {
         accumulated_time_year: 1820,
         order: 2,
         user_id: "user-123",
+        yearly_goal_detail: "April rebuild morning routine",
       },
       {
         id: "goal-3",
@@ -284,6 +297,7 @@ describe("AnnualGoalsScreen", () => {
         accumulated_time_year: 0,
         order: 0,
         user_id: "user-123",
+        yearly_goal_detail: null,
       },
     ]);
   });
@@ -305,13 +319,14 @@ describe("AnnualGoalsScreen", () => {
     expect(deleteButtonLabel).toHaveStyle({ fontSize: 14 });
   });
 
-  test("renders edit, complete, and reorder icon buttons together in the card footer", async () => {
+  test("renders detail, edit, complete, and reorder icon buttons together in the card footer", async () => {
     const { findByTestId, queryByText } = renderScreen();
 
     await waitFor(() => expect(mockOrder).toHaveBeenCalled());
 
     const actionRow = await findByTestId("annual-goal-card-actions-goal-1");
 
+    expect(within(actionRow).getByTestId("annual-goal-card-detail-goal-1")).toBeTruthy();
     expect(within(actionRow).getByTestId("annual-goal-card-edit-goal-1")).toBeTruthy();
     expect(within(actionRow).getByTestId("annual-goal-card-complete-goal-1")).toBeTruthy();
     expect(within(actionRow).getByTestId("annual-goal-card-reorder-goal-1")).toBeTruthy();
@@ -324,6 +339,7 @@ describe("AnnualGoalsScreen", () => {
     await waitFor(() => expect(mockOrder).toHaveBeenCalled());
 
     const card = await findByTestId("annual-goal-card-goal-1");
+    const title = await findByTestId("annual-goal-card-title-goal-1");
     const completeButton = await findByTestId("annual-goal-card-complete-goal-1");
 
     expect(queryByTestId("annual-goal-card-completed-badge-goal-1")).toBeNull();
@@ -337,6 +353,9 @@ describe("AnnualGoalsScreen", () => {
     expect(await findByTestId("annual-goal-card-completed-badge-goal-1")).toBeTruthy();
     expect(card).toHaveStyle({ borderColor: "rgba(56,217,150,0.55)" });
     expect(queryByTestId("annual-goal-card-edit-goal-1")).toBeNull();
+    expect(queryByTestId("annual-goal-card-detail-goal-1")).toBeNull();
+    expect(title).toHaveStyle({ color: "rgba(233,237,247,0.78)" });
+    expect(title).not.toHaveStyle({ textDecorationLine: "line-through" });
 
     fireEvent.press(completeButton);
 
@@ -348,6 +367,30 @@ describe("AnnualGoalsScreen", () => {
       expect(queryByTestId("annual-goal-card-completed-badge-goal-1")).toBeNull();
     });
     expect(await findByTestId("annual-goal-card-edit-goal-1")).toBeTruthy();
+    expect(await findByTestId("annual-goal-card-detail-goal-1")).toBeTruthy();
+  });
+
+  test("opens detail modal with saved detail and updates Supabase on save", async () => {
+    const { findByTestId, findByDisplayValue, getByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    fireEvent.press(await findByTestId("annual-goal-card-detail-goal-1"));
+
+    expect(await findByDisplayValue("April rebuild morning routine")).toBeTruthy();
+    expect(await findByTestId("annual-goals-detail-title")).toHaveTextContent(
+      "Deep health routine with consistent sleep and workouts",
+    );
+
+    const memoInput = await findByDisplayValue("April rebuild morning routine");
+    fireEvent.changeText(memoInput, "April rebuild morning routine\nMay lock the weekly review cadence");
+    fireEvent.press(getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith({
+        yearly_goal_detail: "April rebuild morning routine\nMay lock the weekly review cadence",
+      });
+    });
   });
 
   test("truncates long accumulated time text after 9 characters", async () => {
@@ -357,6 +400,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Deep health routine with consistent sleep and workouts",
           year_goal_color: "#1E5EFF",
+          yearly_goal_detail: null,
           is_done: false,
           accumulated_time_year: 740740746,
           order: 0,
@@ -380,6 +424,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Deep health routine with consistent sleep and workouts",
           year_goal_color: "#1E5EFF",
+          yearly_goal_detail: null,
           is_done: false,
           accumulated_time_year: 370370380,
           order: 0,
@@ -389,6 +434,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Career leap with shipped projects and portfolio refresh",
           year_goal_color: "#6EA8FF",
+          yearly_goal_detail: null,
           is_done: false,
           accumulated_time_year: 370370380,
           order: 1,
@@ -436,6 +482,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-1",
           description: "Reset routine",
           year_goal_color: "#1E5EFF",
+          yearly_goal_detail: null,
           is_done: false,
           accumulated_time_year: 0,
           order: 0,
@@ -445,6 +492,7 @@ describe("AnnualGoalsScreen", () => {
           id: "goal-2",
           description: "Build core habits",
           year_goal_color: "#6EA8FF",
+          yearly_goal_detail: null,
           is_done: false,
           accumulated_time_year: 0,
           order: 1,

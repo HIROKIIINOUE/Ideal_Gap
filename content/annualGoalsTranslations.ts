@@ -20,6 +20,14 @@ export type AnnualGoalsTranslations = {
     title: string;
     totalLabel: string;
   };
+  detail: {
+    open: string;
+    title: string;
+    label: string;
+    placeholder: string;
+    save: string;
+    cancel: string;
+  };
   modal: {
     addTitle: string;
     editTitle: string;
@@ -83,6 +91,15 @@ export const annualGoalsTranslations: Record<
       title: "タスクの内訳",
       totalLabel: "総作業時間",
     },
+    detail: {
+      open: "詳細メモ",
+      title: "詳細メモ",
+      label: "詳細メモ(任意)",
+      placeholder:
+        "例) Ielts8達成の道のり\n \n4月 参考書終わらせる\n5月 過去問スタート\n8月 模擬試験受験\n10月 1回目の試験\n12月 未達成なら2回目の試験",
+      save: "保存",
+      cancel: "キャンセル",
+    },
     modal: {
       addTitle: "年間目標を追加",
       editTitle: "編集",
@@ -110,8 +127,7 @@ export const annualGoalsTranslations: Record<
     bulkDelete: {
       button: "全削除",
       title: "年間目標を全て削除しますか？",
-      message:
-        "この操作は元に戻せません。\n紐づく週間タスクも削除されます。",
+      message: "この操作は元に戻せません。\n紐づく週間タスクも削除されます。",
       all: "すべて削除",
       cancel: "キャンセル",
     },
@@ -142,6 +158,15 @@ export const annualGoalsTranslations: Record<
     chart: {
       title: "Task Breakdown",
       totalLabel: "Total Focus Time",
+    },
+    detail: {
+      open: "Detail memo",
+      title: "Detail memo",
+      label: "Detail memo (optional)",
+      placeholder:
+        "Example) Path to IELTS 8\n \nApr: Finish the textbook\nMay: Start past exam practice\nAug: Take a mock exam\nOct: First official exam\nDec: Second exam if needed",
+      save: "Save",
+      cancel: "Cancel",
     },
     modal: {
       addTitle: "Add annual goal",
@@ -203,6 +228,15 @@ export const annualGoalsTranslations: Record<
     chart: {
       title: "Répartition des tâches",
       totalLabel: "Temps total",
+    },
+    detail: {
+      open: "Mémo détaillé",
+      title: "Mémo détaillé",
+      label: "Mémo détaillé (optionnel)",
+      placeholder:
+        "Exemple) Parcours vers l'IELTS 8\n \nAvr: Terminer le manuel\nMai Commencer les annales\nAoût: Passer un examen blanc\nOct: Premier examen officiel\nDéc: Deuxième examen si nécessaire",
+      save: "Enregistrer",
+      cancel: "Annuler",
     },
     modal: {
       addTitle: "Ajouter un objectif annuel",

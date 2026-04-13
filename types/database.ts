@@ -270,6 +270,7 @@ export type Database = {
           order: number | null;
           updated_at: string | null;
           user_id: string;
+          yearly_goal_detail: string | null;
         };
         Insert: {
           accumulated_time_year?: number | null;
@@ -281,6 +282,7 @@ export type Database = {
           order?: number | null;
           updated_at?: string | null;
           user_id: string;
+          yearly_goal_detail?: string | null;
         };
         Update: {
           accumulated_time_year?: number | null;
@@ -292,6 +294,7 @@ export type Database = {
           order?: number | null;
           updated_at?: string | null;
           user_id?: string;
+          yearly_goal_detail?: string | null;
         };
         Relationships: [
           {
