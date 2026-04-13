@@ -115,4 +115,21 @@ describe("ProfileUpdate", () => {
 
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
   });
+
+  test("toggles password visibility", async () => {
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    const passwordInput = await screen.findByPlaceholderText("New password (optional)");
+    expect(passwordInput.props.secureTextEntry).toBe(true);
+
+    fireEvent.press(screen.getByRole("button", { name: "Show password" }));
+    expect((await screen.findByPlaceholderText("New password (optional)")).props.secureTextEntry).toBe(false);
+
+    fireEvent.press(screen.getByRole("button", { name: "Hide password" }));
+    expect((await screen.findByPlaceholderText("New password (optional)")).props.secureTextEntry).toBe(true);
+  });
 });

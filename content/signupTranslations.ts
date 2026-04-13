@@ -23,6 +23,8 @@ export type SignupTranslations = {
   emailInvalid: string;
   passwordLabel: string;
   passwordPlaceholder: string;
+  showPassword: string;
+  hidePassword: string;
   passwordInvalid: string;
   primaryCta: string;
   primaryCtaLoading: string;
@@ -40,9 +42,9 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     backToHome: "ホームへ戻る",
     heroTitle: "無料で始める",
     heroBody:
-      "プラン: 14日間無料。無料期間終了日から毎月390円(自動更新)。再サインアップ時は無料プランが適用されず、再登録日から自動更新スタート",
+      "支払い情報はApple Store/Google Playを使用するため安全に管理されます。トライアル中にキャンセルすれば一切料金はかかりません。",
     planTitle: "スタンダードプラン",
-    planDescription: "アプリストアに登録済み支払い方法を利用します",
+    planDescription: "お支払いは毎月自動で更新されます。",
     planPriceWithTrial: "14日間無料\nその後 390円/月",
     planPriceNoTrial: "{{price}}/月",
     planUnavailable: "プラン情報を取得できませんでした",
@@ -60,6 +62,8 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     emailInvalid: "メールアドレスの形式が正しくありません",
     passwordLabel: "パスワード",
     passwordPlaceholder: "6文字以上",
+    showPassword: "パスワードを表示",
+    hidePassword: "パスワードを非表示",
     passwordInvalid: "パスワードは6文字以上で入力してください",
     primaryCta: "サインアップを続ける",
     primaryCtaLoading: "送信中...",
@@ -78,9 +82,9 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     backToHome: "Back to Home",
     heroTitle: "Start free",
     heroBody:
-      "Plan: Free for 14 days. 3.99 CAD from the date your trial ends(Auto-renews). Re-signup starts on the paid plan.",
+      "Payments are securely processed through the App Store / Google Play. You can cancel anytime during the free trial and you won’t be charged.",
     planTitle: "Standard plan",
-    planDescription: "We’ll use your App Store billing method.",
+    planDescription: "Payments renew automatically each month.",
     planPriceWithTrial: "Free for 14 days\nthen 3.99CAD/month",
     planPriceNoTrial: "{{price}}/month",
     planUnavailable: "Plan info unavailable",
@@ -97,6 +101,8 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     emailInvalid: "Invalid email format",
     passwordLabel: "Password",
     passwordPlaceholder: "6+ characters",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     passwordInvalid: "Password must be at least 6 characters",
     primaryCta: "Continue to sign up",
     primaryCtaLoading: "Sending...",
@@ -114,9 +120,9 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     backToHome: "Retour à l’accueil",
     heroTitle: "Commencer gratuitement",
     heroBody:
-      "Offre : 14 jours gratuits. 3.99 CAD à partir de la fin de votre période d'essai (Renouvellement automatique). Chaque nouvelle période débute à la date de facturation.",
+      "Paiements sécurisés via l’App Store / Google Play. Annulez à tout moment pendant l’essai gratuit, sans frais.",
     planTitle: "Forfait standard",
-    planDescription: "Nous utilisons votre moyen de paiement App Store.",
+    planDescription: "Renouvellement automatique tous les mois.",
     planPriceWithTrial: "14 jours gratuits\npuis 3.99CAD/mois",
     planPriceNoTrial: "{{price}}/mois",
     planUnavailable: "Tarification indisponible",
@@ -133,6 +139,8 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     emailInvalid: "Format d’e-mail invalide",
     passwordLabel: "Mot de passe",
     passwordPlaceholder: "6 caractères ou plus",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
     passwordInvalid: "Le mot de passe doit comporter au moins 6 caractères",
     primaryCta: "Continuer l’inscription",
     primaryCtaLoading: "Envoi...",

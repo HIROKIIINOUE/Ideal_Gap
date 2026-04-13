@@ -9,6 +9,8 @@ export type ProfileUpdateTranslations = {
   usernamePlaceholder: string;
   emailPlaceholder: string;
   passwordPlaceholder: string;
+  showPassword: string;
+  hidePassword: string;
   save: string;
   saving: string;
   emailPendingTitle: string;
@@ -38,6 +40,8 @@ export const profileUpdateTranslations: Record<
     usernamePlaceholder: "ユーザ名を入力",
     emailPlaceholder: "メールアドレスを入力",
     passwordPlaceholder: "新しいパスワード（任意）",
+    showPassword: "パスワードを表示",
+    hidePassword: "パスワードを非表示",
     save: "変更を保存",
     saving: "保存中…",
     emailPendingTitle: "新しいアドレスに確認メールを送信しました",
@@ -64,6 +68,8 @@ export const profileUpdateTranslations: Record<
     usernamePlaceholder: "Enter your username",
     emailPlaceholder: "Enter your email",
     passwordPlaceholder: "New password (optional)",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     save: "Save changes",
     saving: "Saving…",
     emailPendingTitle: "Verification email sent to new address",
@@ -90,6 +96,8 @@ export const profileUpdateTranslations: Record<
     usernamePlaceholder: "Saisissez votre nom d’utilisateur",
     emailPlaceholder: "Saisissez votre adresse e-mail",
     passwordPlaceholder: "Nouveau mot de passe (facultatif)",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
     save: "Enregistrer les modifications",
     saving: "Enregistrement…",
     emailPendingTitle: "E-mail de vérification envoyé",

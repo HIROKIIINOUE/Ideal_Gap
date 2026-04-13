@@ -9,6 +9,8 @@ export type LoginTranslations = {
   emailPlaceholder: string;
   passwordLabel: string;
   passwordPlaceholder: string;
+  showPassword: string;
+  hidePassword: string;
   loginCta: string;
   forgotPassword: string;
   firstTimeHeading: string;
@@ -32,6 +34,8 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     emailPlaceholder: "you@example.com",
     passwordLabel: "パスワード",
     passwordPlaceholder: "Password",
+    showPassword: "パスワードを表示",
+    hidePassword: "パスワードを非表示",
     loginCta: "ログイン",
     forgotPassword: "パスワードをお忘れの方はこちら",
     firstTimeHeading: "はじめての方はこちら",
@@ -54,6 +58,8 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     emailPlaceholder: "you@example.com",
     passwordLabel: "Password",
     passwordPlaceholder: "Password",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     loginCta: "Log In",
     forgotPassword: "Forgot password?",
     firstTimeHeading: "New here?",
@@ -77,6 +83,8 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     emailPlaceholder: "vous@exemple.com",
     passwordLabel: "Mot de passe",
     passwordPlaceholder: "Mot de passe",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
     loginCta: "Se connecter",
     forgotPassword: "Mot de passe oublié ?",
     firstTimeHeading: "Première visite ?",

@@ -13,6 +13,8 @@ export type ResetPasswordTranslations = {
   newPasswordTitle: string;
   newPasswordLabel: string;
   newPasswordPlaceholder: string;
+  showPassword: string;
+  hidePassword: string;
   updateCta: string;
   updating: string;
   sessionReady: string;
@@ -41,6 +43,8 @@ export const resetPasswordTranslations: Record<
     newPasswordTitle: "新しいパスワードを設定",
     newPasswordLabel: "新しいパスワード",
     newPasswordPlaceholder: "New password",
+    showPassword: "パスワードを表示",
+    hidePassword: "パスワードを非表示",
     updateCta: "パスワードを更新してログインへ",
     updating: "更新中...",
     sessionReady: "認証リンクを確認しました。新しいパスワードを設定できます。",
@@ -66,6 +70,8 @@ export const resetPasswordTranslations: Record<
     newPasswordTitle: "Set a new password",
     newPasswordLabel: "New password",
     newPasswordPlaceholder: "New password",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     updateCta: "Update password and log in",
     updating: "Updating...",
     sessionReady: "Recovery link confirmed. You can set a new password now.",
@@ -91,6 +97,8 @@ export const resetPasswordTranslations: Record<
     newPasswordTitle: "Définir un nouveau mot de passe",
     newPasswordLabel: "Nouveau mot de passe",
     newPasswordPlaceholder: "Nouveau mot de passe",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
     updateCta: "Mettre à jour et revenir à la connexion",
     updating: "Mise à jour...",
     sessionReady:

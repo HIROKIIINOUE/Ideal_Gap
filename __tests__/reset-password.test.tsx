@@ -120,4 +120,22 @@ describe("ResetPassword screen", () => {
     await waitFor(() => expect(mockCompletePasswordReset).toHaveBeenCalledWith("new-password"));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));
   });
+
+  test("toggles new password visibility after recovery is ready", async () => {
+    mockSetSessionFromRecoveryLink.mockResolvedValue(true);
+    (Linking.getInitialURL as jest.Mock).mockResolvedValue(
+      "idealgap://reset-password#access_token=access&refresh_token=refresh&type=recovery",
+    );
+
+    const { findByPlaceholderText, getByRole } = renderScreen();
+
+    const passwordInput = await findByPlaceholderText("New password");
+    expect(passwordInput.props.secureTextEntry).toBe(true);
+
+    fireEvent.press(getByRole("button", { name: "Show password" }));
+    expect((await findByPlaceholderText("New password")).props.secureTextEntry).toBe(false);
+
+    fireEvent.press(getByRole("button", { name: "Hide password" }));
+    expect((await findByPlaceholderText("New password")).props.secureTextEntry).toBe(true);
+  });
 });

@@ -8,6 +8,7 @@ import { z } from "zod";
 import Footer from "../components/Footer";
 import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
+import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
@@ -195,15 +196,16 @@ export default function Signup() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
-            <TextInput
+            <PasswordField
               placeholder={t("passwordPlaceholder")}
               placeholderTextColor={colors.textSecondary}
               style={styles.input}
-              secureTextEntry
               keyboardAppearance="dark"
               value={password}
               onChangeText={setPassword}
               onBlur={() => setPasswordTouched(true)}
+              showPasswordLabel={t("showPassword")}
+              hidePasswordLabel={t("hidePassword")}
             />
             {!isPasswordValid && passwordTouched && (
               <Text style={styles.errorText}>{t("passwordInvalid")}</Text>

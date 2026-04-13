@@ -20,6 +20,7 @@ import Footer from "../components/Footer";
 import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
+import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { buildRedirectUrl } from "../lib/auth";
@@ -301,16 +302,17 @@ export default function ProfileUpdate() {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
-              <TextInput
+              <PasswordField
                 placeholder={t("passwordPlaceholder")}
                 placeholderTextColor={colors.textSecondary}
                 style={styles.input}
                 value={password}
                 onChangeText={setPassword}
                 onBlur={() => setPasswordTouched(true)}
-                secureTextEntry
                 keyboardAppearance="dark"
                 editable={!loading}
+                showPasswordLabel={t("showPassword")}
+                hidePasswordLabel={t("hidePassword")}
               />
             </View>
 

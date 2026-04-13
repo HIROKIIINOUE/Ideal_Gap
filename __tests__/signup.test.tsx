@@ -135,6 +135,19 @@ describe("Signup screen", () => {
     expect(getByTestId("signup-form-kav")).toBeTruthy();
   });
 
+  test("toggles password visibility", () => {
+    const { getByPlaceholderText, getByRole } = renderScreen();
+
+    const passwordInput = getByPlaceholderText("6+ characters");
+    expect(passwordInput.props.secureTextEntry).toBe(true);
+
+    fireEvent.press(getByRole("button", { name: "Show password" }));
+    expect(getByPlaceholderText("6+ characters").props.secureTextEntry).toBe(false);
+
+    fireEvent.press(getByRole("button", { name: "Hide password" }));
+    expect(getByPlaceholderText("6+ characters").props.secureTextEntry).toBe(true);
+  });
+
   test("shows email exists error when Supabase reports duplicate", async () => {
     mockSignUpWithEmailConfirmation.mockResolvedValue({
       ok: false,
