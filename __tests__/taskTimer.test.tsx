@@ -323,6 +323,7 @@ describe("TaskTimerScreen", () => {
         expect(queryByTestId("start-button")).toBeNull(),
       );
 
+      now = 2 * 60 * 1000;
       act(() => {
         jest.advanceTimersByTime(2 * 60 * 1000);
       });
@@ -385,6 +386,31 @@ describe("TaskTimerScreen", () => {
     await waitFor(() =>
       expect(getByTestId("timer-duration")).toHaveTextContent("4:00 / 10:00"),
     );
+  });
+
+  test("keeps countdown display aligned with endAt even when JS timer ticks lag behind wall clock", async () => {
+    let now = 0;
+    const dateNowSpy = jest.spyOn(Date, "now").mockImplementation(() => now);
+
+    try {
+      const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+
+      await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+      now = 11_000;
+      act(() => {
+        jest.advanceTimersByTime(1_000);
+      });
+
+      await waitFor(() =>
+        expect(getByTestId("timer-duration")).toHaveTextContent("4:49 / 5:00"),
+      );
+    } finally {
+      dateNowSpy.mockRestore();
+    }
   });
 
   test("schedules timer notification with default sound", async () => {
@@ -617,6 +643,23 @@ describe("TaskTimerScreen", () => {
     });
 
     expect(mockAnyAudioPlay).not.toHaveBeenCalled();
+    expect(mockVibrationCancel).toHaveBeenCalled();
+  });
+
+  test("keeps working when alarm seek reset rejects during pause cleanup", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "true");
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    const alarmPlayer = getAlarmPlayer();
+    alarmPlayer.seekTo.mockRejectedValueOnce(new Error("released shared object"));
+
+    fireEvent.press(getByText("Pause"));
+
+    await waitFor(() => expect(getByText("Resume")).toBeTruthy());
     expect(mockVibrationCancel).toHaveBeenCalled();
   });
 

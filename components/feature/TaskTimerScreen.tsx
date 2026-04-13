@@ -33,7 +33,6 @@ import {
 } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getKeyboardAvoidingBehavior } from "../../lib/ui/platform";
 import {
   colors,
   radius,
@@ -48,6 +47,7 @@ import {
   getTaskTimerIpadLayout,
   scaleFontSizeForIpad,
 } from "../../lib/ui/ipadLayout";
+import { getKeyboardAvoidingBehavior } from "../../lib/ui/platform";
 import { isCompactScreen } from "../../lib/ui/responsive";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { useTimerAlarmPreference } from "../../providers/TimerAlarmPreferenceProvider";
@@ -106,6 +106,10 @@ const formatEndTimeLabel = (timestamp: number | null) => {
 //　アプリがフォアグランドかどうかの判定
 const isForegroundAppState = (state: AppStateStatus) =>
   state !== "background" && state !== "inactive";
+
+// タイマー終了予定時刻と現在時刻から残りの秒数を計算する
+const getRemainingSecondsFromEndAt = (endAt: number) =>
+  Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
 
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
@@ -275,11 +279,10 @@ export default function TaskTimerScreen() {
     } catch {
       // ignore player pause failures
     }
-    try {
-      alarmPlayer.seekTo(0) // アラーム再生地点を開始地点へ巻戻し
-    } catch {
-      // ignore player pause failures
-    }
+    // アラーム再生地点を開始地点へ巻戻し
+    void alarmPlayer.seekTo(0).catch(() => {
+      // ignore player seek failures
+    });
   }, [alarmPlayer]);
 
   // アラームとバイブレーションの予約をキャンセルする
@@ -579,6 +582,13 @@ export default function TaskTimerScreen() {
     [clearScheduledNotification, hasNotificationPermission, t],
   );
 
+  // タイマー終了予定時刻と現在時刻から正しい残り時間を算出する関数
+  const syncRemainingSecondsFromEndAt = useCallback((endAt: number) => {
+    const nextRemaining = getRemainingSecondsFromEndAt(endAt);
+    setRemainingSeconds(nextRemaining);
+    return nextRemaining;
+  }, []);
+
   // カウントダウンが「idle」「paused」の各条件下でプリセットボタンで設定作業時間を追加するロジック
   const handlePreset = (minutes: number) => {
     if (status === "running") return;
@@ -720,7 +730,7 @@ export default function TaskTimerScreen() {
   );
 
   // カウントダウン状態statusがrunningになった時に発火(厳密には違うが実質はそう)
-  // カウントダウン終了時刻をsetIntervalで予約しカウントダウンをスタートする￥
+  // カウントダウン終了時刻をsetIntervalで予約しカウントダウンをスタートする
   useEffect(() => {
     if (status !== "running") {
       clearTick();
@@ -731,19 +741,30 @@ export default function TaskTimerScreen() {
       }
       return;
     }
+    if (!expectedEndAt) {
+      return;
+    }
+    // 「running 状態に入った時点で、終了予定時刻 expectedEndAt を基準に残り時間を再計算し、もう終了時刻を過ぎていたら即座に完了処理へ進む」
+    // → タスクタイマーとアラームの誤差をなくす意図
+    const initialRemaining = syncRemainingSecondsFromEndAt(expectedEndAt);
+    if (initialRemaining <= 0) {
+      if (!completionFiredRef.current) {
+        openCompletionModal(Math.max(0, inputSecondsRef.current));
+      }
+      return;
+    }
 
-    // 1秒ごとに残りの時間数を更新する。バックグランドでは動かないが、UI更新用なので動かなくても良い。
+    // 1秒ごとに終了予定時刻との差分から残り時間を再計算する。
     tickRef.current = setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          clearTick();
-          if (!completionFiredRef.current) {
-            openCompletionModal(Math.max(0, inputSeconds));
-          }
-          return 0;
+      const currentEndAt = expectedEndAtRef.current;
+      if (!currentEndAt) return;
+      const nextRemaining = syncRemainingSecondsFromEndAt(currentEndAt);
+      if (nextRemaining <= 0) {
+        clearTick();
+        if (!completionFiredRef.current) {
+          openCompletionModal(Math.max(0, inputSecondsRef.current));
         }
-        return prev - 1;
-      });
+      }
     }, 1000);
 
     return clearTick;
@@ -751,10 +772,11 @@ export default function TaskTimerScreen() {
     clearForegroundAlarmSchedule,
     clearScheduledNotification,
     clearTick,
-    inputSeconds,
     openCompletionModal,
+    expectedEndAt,
     status,
     stopForegroundAlarmOutput,
+    syncRemainingSecondsFromEndAt,
   ]);
 
 
@@ -811,21 +833,22 @@ export default function TaskTimerScreen() {
         return;
       }
       if (statusRef.current !== "running" || !expectedEndAtRef.current) return;
-      const remaining = Math.max(
-        0,
-        Math.round((expectedEndAtRef.current - Date.now()) / 1000),
-      );
+      const remaining = syncRemainingSecondsFromEndAt(expectedEndAtRef.current);
       if (remaining <= 0) {
         if (!completionFiredRef.current) {
           openCompletionModal(Math.max(0, inputSecondsRef.current));
         }
         return;
       }
-      setRemainingSeconds(remaining);
       scheduleForegroundAlarm(expectedEndAtRef.current);
     });
     return () => subscription?.remove?.();
-  }, [clearForegroundAlarm, openCompletionModal, scheduleForegroundAlarm]);
+  }, [
+    clearForegroundAlarm,
+    openCompletionModal,
+    scheduleForegroundAlarm,
+    syncRemainingSecondsFromEndAt,
+  ]);
 
   // 作業完了ボタン押下時の処理
   const handleComplete = () => {
