@@ -1,8 +1,8 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   Alert,
   Platform,
@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { clearPersistedAuthSession } from "../lib/authStorage";
 import { getPlanPriceCopy, getTrialLabel } from "../lib/planCopy";
 import {
   fetchTestStorePackage,
@@ -22,12 +23,12 @@ import {
   purchaseSelectedPackage,
   TestStorePlan,
 } from "../lib/revenuecatOfferings";
+import { captureRevenueCatPurchaseError } from "../lib/sentry";
 import {
   canAccessDashboardWithSubscriptionStatus,
   ensureSignupAwaitSubscription,
   waitForActiveSubscription,
 } from "../lib/subscription";
-import { captureRevenueCatPurchaseError } from "../lib/sentry";
 import { supabase } from "../lib/supabaseClient";
 
 export default function Purchases() {
@@ -120,7 +121,12 @@ export default function Purchases() {
   }, [loadPlan, t]);
 
   const planPriceCopy = useMemo(() => getPlanPriceCopy(plan, t), [plan, t]);
-  const trialLabel = useMemo(() => getTrialLabel(plan, t), [plan, t]);
+  // trialPriceLineとpaidPriceLineでRevenue Catから取得したトライアルと料金プランをUI用に整形している
+  const trialPriceLine = useMemo(() => getTrialLabel(plan, t), [plan, t]);
+  const paidPriceLine = useMemo(() => {
+    if (!plan) return null;
+    return t("planPriceNoTrial", { price: plan.priceString });
+  }, [plan, t]);
 
   //　ボタン押下時の購入処理
   const handlePurchase = useCallback(async () => {
@@ -155,14 +161,30 @@ export default function Purchases() {
     if (isReturningHome) return;
     setIsReturningHome(true);
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      // サインアウトエラー時でもホームへ戻るボタンを押下したらホームへ強制遷移させる処理(同時に端末ローカルに保存されたユーザAuth情報もクリーンアップする)
       if (error) {
+        console.warn("Failed to sign out from purchases", error.message);
+        try {
+          await clearPersistedAuthSession();
+        } catch (storageError) {
+          const storageMessage =
+            storageError instanceof Error ? storageError.message : String(storageError);
+          console.warn("Failed to clear persisted auth session", storageMessage);
+        }
+
+        if (error.message === "Auth session missing!") {
+          router.replace("/");
+          return;
+        }
+
         showToast(t("returnHomeError"));
         return;
       }
       router.replace("/");
     } catch (error) {
-      console.warn("Failed to return home from purchases", error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("Failed to return home from purchases", message);
       showToast(t("returnHomeError"));
     } finally {
       setIsReturningHome(false);
@@ -204,17 +226,25 @@ export default function Purchases() {
           <Text style={styles.title}>{t("headerTitle")}</Text>
           <Text style={styles.body}>{t("signupCompleteBody")}</Text>
 
-          <View style={[styles.planCard, shadows.card]}>
-            <View style={styles.planHeader}>
-              <Text style={styles.planTitle}>{t("planTitle")}</Text>
-              {!isLoadingPlan && plan && (
-                <Text style={styles.planPrice}>{planPriceCopy}</Text>
-              )}
-            </View>
-            {isLoadingPlan && <Text style={styles.body}>{t("planDescription")}</Text>}
-            {trialLabel && <Text style={styles.trialText}>{trialLabel}</Text>}
+          <View
+            style={[
+              styles.planCard,
+              Platform.OS === "ios" ? shadows.card : styles.planCardAndroid,
+            ]}
+          >
+            {!isLoadingPlan && plan && (
+              <>
+                {trialPriceLine ? (
+                  <>
+                    <Text style={styles.trialPrice}>{trialPriceLine}</Text>
+                    <Text style={styles.planPrice}>{paidPriceLine}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.planPrice}>{planPriceCopy}</Text>
+                )}
+              </>
+            )}
             <Text style={styles.trialNotice}>{t("trialCancelNotice")}</Text>
-            <Text style={styles.helperText}>{t("planDescription")}</Text>
             {!isLoadingPlan && !plan && !planError && (
               <Text style={styles.errorText}>{t("planUnavailable")}</Text>
             )}
@@ -250,6 +280,7 @@ export default function Purchases() {
               styles.ctaButton,
               styles.primaryButton,
               styles.buttonShadow,
+              Platform.OS === "android" && styles.buttonShadowAndroidFix,
               (isProcessing || !plan || isLoadingPlan) && styles.buttonDisabled,
               pressed && !(isProcessing || isLoadingPlan) && styles.buttonPressed,
             ]}
@@ -340,27 +371,22 @@ const styles = StyleSheet.create({
     borderColor: "rgba(192,222,255,0.4)",
     gap: spacing.sm,
   },
-  planHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  planTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
+  planCardAndroid: {
+    elevation: 0,
   },
   planPrice: {
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "700",
     flexShrink: 1,
-    textAlign: "right",
+    lineHeight: typography.md * 1.5,
   },
-  trialText: {
-    color: colors.accentPrimary,
-    fontSize: typography.sm,
+  trialPrice: {
+    color: colors.textPrimary,
+    fontSize: typography.md * 1.5,
+    fontWeight: "800",
+    flexShrink: 1,
+    lineHeight: typography.md * 1.8,
   },
   trialNotice: {
     color: "#FFD56A",
@@ -373,24 +399,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-  },
-  fieldGroup: {
-    gap: spacing.xs,
-  },
-  fieldLabel: {
-    color: colors.textPrimary,
-    fontSize: typography.sm,
-    fontWeight: "600",
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    color: colors.textPrimary,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    fontSize: typography.md,
   },
   noticeCard: {
     borderRadius: radius.md,
@@ -405,11 +413,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
-  },
-  helperText: {
-    color: colors.textSecondary,
-    fontSize: typography.sm,
-    marginTop: spacing.xs / 2,
   },
   errorText: {
     color: "#FFB0B0",
@@ -431,8 +434,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   primaryButton: {
-    backgroundColor: "rgba(56,116,255,0.35)",
-    borderColor: "rgba(190,216,255,0.95)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(155,193,255,0.9)",
   },
   secondaryButton: {
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -446,6 +449,10 @@ const styles = StyleSheet.create({
   },
   buttonShadow: {
     ...shadows.button,
+  },
+  buttonShadowAndroidFix: {
+    elevation: 0,
+    shadowOpacity: 0,
   },
   primaryLabel: {
     color: colors.textPrimary,
@@ -464,7 +471,6 @@ const styles = StyleSheet.create({
   buttonGlass: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: radius.lg,
-    opacity: 0.7,
   },
   retryButton: {
     borderRadius: radius.md,

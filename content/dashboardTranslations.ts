@@ -58,7 +58,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         longTermGoals: {
           title: "長期目標",
           subtitle:
-            "理想の自分への道標を設定する。理想の自分へ正しく近づくための長期目標",
+            "理想の自分への道標を設定する。理想の自分へ正しく近づくための長期目標。",
         },
         annualGoals: {
           title: "年間目標",
@@ -108,17 +108,17 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         idealSelf: {
           title: "Ideal Self",
           subtitle:
-            "Visualize and define your ideal self. Your long-term goal and final destination.",
+            "Visualize and define your ideal self. Your final destination.",
         },
         longTermGoals: {
           title: "Life Goals",
           subtitle:
-            "Define the multi-year milestones between your ideal self and your annual goals.",
+            "Set long-term goals as milestones between your ideal self and your annual goals.",
         },
         annualGoals: {
           title: "Annual Goals",
           subtitle:
-            "List this year's goals based on your ideal self. Your mid-term goal toward the ideal.",
+            "List this year's goals based on your long-term goals. Your mid-term goal toward the ideal.",
         },
         weeklyGoals: {
           title: "Weekly Tasks",
@@ -132,7 +132,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         },
         breakReminders: {
           title: "Break Alarm",
-          subtitle: "Growth requires balance. Schedule breaks and reset",
+          subtitle: "Growth requires a good balance. Schedule breaks and reset",
         },
         nextFunPlan: {
           title: "Next Exciting Plans",
@@ -166,14 +166,14 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
             "Visualisez et définissez la personne que vous voulez devenir, ainsi que vos objectifs à long terme et votre but final.",
         },
         longTermGoals: {
-          title: "Objectifs long terme",
+          title: "Objectifs de vie",
           subtitle:
-            "Définissez les jalons sur plusieurs années entre votre idéal et vos objectifs annuels.",
+            "Fixer des objectifs à long terme comme étapes clés entre votre moi idéal et vos objectifs annuels.",
         },
         annualGoals: {
           title: "Objectif annuel",
           subtitle:
-            "Énumérez vos objectifs annuels en fonction de votre moi idéal, et ceux à moyen terme vers cet idéal.",
+            "Fixez vos objectifs annuels sur base des objectifs à long terme, et ceux-ci vers cet idéal.",
         },
         weeklyGoals: {
           title: "Tâche hebdomadaire",
@@ -183,7 +183,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         focusMusic: {
           title: "Musique de concentration",
           subtitle:
-            "Téléchargez votre musique favorite et optimisez la concentration durant le minuteur.",
+            "Téléchargez votre musique favorite et optimisez votre concentration durant vos sessions d'études.",
         },
         breakReminders: {
           title: "Rappel de pause",

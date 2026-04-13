@@ -51,10 +51,10 @@ export const landingTranslations: LandingTranslations = {
       label: "What is Ideal Gap",
       title: "理想と日常を結ぶ、6 つの柱",
       description:
-        "理想の自分を言語化し、長期目標と年間目標で道標を描く。週間タスクまで落とし込んだらあとは行動するだけ。カウントダウンタイマーで自分の努力の軌跡を可視化。タスクへの集中を手助けするタスク集中音楽、休憩通知。直近の楽しみな予定も表示することで「今」を楽しみながらバランスよく理想の「未来」へ進んでいく。",
+        "理想の自分を言語化し、長期目標と年間目標で道標を描く。週間タスクまで落とし込んだらあとは行動するのみ。カウントダウンタイマーで自分の努力の軌跡を可視化し、タスク集中音楽と休憩通知で集中力を最大化。直近の楽しみな予定も表示することで「今」を楽しみながらバランスよく理想の「未来」へ進んでいく。",
       highlights: [
         "理想の自分リストアップ機能",
-        "長期目標/年間目標リスト・進捗管理機能",
+        "長期/年間目標リスト・進捗管理機能",
         "週間タスクリスト・進捗管理機能",
         "タスクタイマー・作業集中音楽機能",
         "休憩通知機能",
@@ -69,7 +69,7 @@ export const landingTranslations: LandingTranslations = {
       period: "/月",
       trialBadge: "14日間無料トライアル付き",
       description:
-        "14日間無料。無料期間終了日を起点に毎月自動更新。いつでもキャンセル予約が可能。",
+        "支払い情報はApple Store/Google Playを使用するため安全に管理されます。トライアル中にキャンセルすれば一切料金はかかりません。",
       bulletPoints: [
         "14日間無料、無料期間以降390円/月",
         "いつでもキャンセル予約可能",
@@ -115,9 +115,9 @@ export const landingTranslations: LandingTranslations = {
       title: "Subscription(Free Trial Available)",
       price: "3.99 CAD",
       period: "/month",
-      trialBadge: "Includes 14-days free trial",
+      trialBadge: "Includes 14-day free trial",
       description:
-        "14 days free trial. Auto-renews every month after the trial end. Cancel anytime.",
+        "Payments are securely processed through the App Store / Google Play. You can cancel anytime during the free trial and you won’t be charged.",
       bulletPoints: [
         "14-day free trial, then 3.99 CAD/month",
         "Cancel anytime",
@@ -165,7 +165,7 @@ export const landingTranslations: LandingTranslations = {
       period: "/mois",
       trialBadge: "Essai gratuit de 14 jours inclus",
       description:
-        "Essai gratuit de 14 jours. Renouvellement automatique tous les mois dès la fin de l’essai. Annulation possible à tout moment.",
+        "Paiements sécurisés via l’App Store / Google Play. Annulez à tout moment pendant l’essai gratuit, sans frais.",
       bulletPoints: [
         "Essai gratuit de 14 jours, puis 3.99 CAD/mois",
         "Annulation possible à tout moment",

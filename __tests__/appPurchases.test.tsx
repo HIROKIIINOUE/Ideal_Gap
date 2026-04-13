@@ -86,13 +86,16 @@ describe("Purchases screen", () => {
       expect(mockFetchTestStorePackage).toHaveBeenCalled(),
     );
 
-    await screen.findByText(/then/i);
+    await screen.findByText("Free for 1 month");
+    await screen.findByText("After the trial, $9.99/month");
     await screen.findByText("If you cancel during the free trial, you will not be charged at all.");
     await screen.findByText(
       "Payment details are managed securely by App Store or Google Play. We never store your credit card number in this app."
     );
+    expect(screen.queryByText("Standard plan")).toBeNull();
+    expect(screen.queryByText("Uses your App Store/Google Play billing.")).toBeNull();
 
-    const button = await screen.findByRole("button", { name: "Complete sign-up" });
+    const button = await screen.findByRole("button", { name: "Continue to payment" });
     fireEvent.press(button);
 
     await waitFor(() => {
@@ -114,6 +117,7 @@ describe("Purchases screen", () => {
     const screen = renderWithProviders();
 
     const retryButton = await screen.findByRole("button", { name: "Retry pricing" });
+    await screen.findByText("Could not load pricing. Please try again.");
     fireEvent.press(retryButton);
 
     await waitFor(() => {
@@ -122,6 +126,7 @@ describe("Purchases screen", () => {
   });
 
   it("signs out and returns to home when return-home button is pressed", async () => {
+    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove");
     const screen = renderWithProviders();
 
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
@@ -130,7 +135,28 @@ describe("Purchases screen", () => {
     fireEvent.press(returnButton);
 
     await waitFor(() => {
-      expect(mockSignOut).toHaveBeenCalled();
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
+      expect(router.replace).toHaveBeenCalledWith("/");
+    });
+    expect(multiRemoveSpy).not.toHaveBeenCalled();
+  });
+
+  it("clears persisted auth data and returns home when local session is already missing", async () => {
+    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
+    mockSignOut.mockResolvedValueOnce({
+      error: { message: "Auth session missing!" },
+    });
+
+    const screen = renderWithProviders();
+
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+
+    const returnButton = await screen.findByRole("button", { name: "Return to home" });
+    fireEvent.press(returnButton);
+
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
+      expect(multiRemoveSpy).toHaveBeenCalled();
       expect(router.replace).toHaveBeenCalledWith("/");
     });
   });

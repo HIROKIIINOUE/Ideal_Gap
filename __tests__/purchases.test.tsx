@@ -1,4 +1,5 @@
 import React from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import { Alert } from "react-native";
@@ -96,6 +97,15 @@ beforeEach(() => {
 });
 
 describe("Purchases screen", () => {
+  test("shows revenuecat price copy without redundant plan labels", async () => {
+    const { findByText, queryByText } = renderScreen();
+
+    expect(await findByText("Free for 1 month")).toBeTruthy();
+    expect(await findByText("After the trial, $8.50/month")).toBeTruthy();
+    expect(queryByText("Standard plan")).toBeNull();
+    expect(queryByText("Uses your App Store/Google Play billing.")).toBeNull();
+  });
+
   test("shows signup success message when opened from email link", async () => {
     mockParams = { signup: "1" };
     const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
@@ -112,7 +122,7 @@ describe("Purchases screen", () => {
 
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
 
-    fireEvent.press(getByText("Complete sign-up"));
+    fireEvent.press(getByText("Continue to payment"));
 
     await waitFor(() => expect(mockPurchaseSelectedPackage).toHaveBeenCalled());
     expect(mockWaitForActiveSubscription).toHaveBeenCalledWith("user-123");
@@ -127,32 +137,69 @@ describe("Purchases screen", () => {
     const { getByText } = renderScreen();
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
 
-    fireEvent.press(getByText("Complete sign-up"));
+    fireEvent.press(getByText("Continue to payment"));
 
     await waitFor(() => expect(mockPurchaseSelectedPackage).toHaveBeenCalled());
     expect(mockWaitForActiveSubscription).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
   });
 
-  test("keeps load error message wrapped inside the plan card", async () => {
-    mockFetchTestStorePackage.mockRejectedValueOnce(new Error("load failed"));
+  test("shows load error and retries when RevenueCat pricing cannot be loaded", async () => {
+    mockFetchTestStorePackage
+      .mockRejectedValueOnce(new Error("load failed"))
+      .mockResolvedValueOnce({
+        package: {
+          identifier: "monthly",
+          product: {
+            priceString: "$8.50",
+            introPrice: {
+              price: 0,
+              period: "P1M",
+              periodUnit: "MONTH",
+              periodNumberOfUnits: 1,
+            },
+          },
+        },
+        priceString: "$8.50",
+        trialLabel: "Free for 1 month",
+        hasTrial: true,
+      });
     const { findByText, getByRole } = renderScreen();
 
-    const errorText = await findByText("Could not load pricing. Please try again.");
-    expect(errorText).toHaveStyle({ flexShrink: 1 });
-
+    expect(await findByText("Could not load pricing. Please try again.")).toBeTruthy();
     fireEvent.press(getByRole("button", { name: "Retry pricing" }));
+
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalledTimes(2));
   });
 
   test("returns to home after sign out when return-home button is pressed", async () => {
+    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove");
     const { getByRole } = renderScreen();
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
 
     fireEvent.press(getByRole("button", { name: "Return to home" }));
 
     await waitFor(() => {
-      expect(supabase.auth.signOut).toHaveBeenCalled();
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+      expect(router.replace).toHaveBeenCalledWith("/");
+    });
+    expect(multiRemoveSpy).not.toHaveBeenCalled();
+  });
+
+  test("returns home after clearing persisted auth data when session is already missing", async () => {
+    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
+    (supabase.auth.signOut as jest.Mock).mockResolvedValueOnce({
+      error: { message: "Auth session missing!" },
+    });
+
+    const { getByRole } = renderScreen();
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Return to home" }));
+
+    await waitFor(() => {
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+      expect(multiRemoveSpy).toHaveBeenCalled();
       expect(router.replace).toHaveBeenCalledWith("/");
     });
   });
