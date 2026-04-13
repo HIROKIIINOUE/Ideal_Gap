@@ -458,29 +458,29 @@ export default function LongTermGoalsScreen() {
         deleteMode && styles.goalCardDeleteMode,
       ]}
       testID={`long-term-goal-card-${item.id}`}
-    >
-      <LinearGradient
-        colors={item.completed ? COMPLETED_CARD_GRADIENT : LIST_CARD_GRADIENT}
+      >
+        <LinearGradient
+          colors={item.completed ? COMPLETED_CARD_GRADIENT : LIST_CARD_GRADIENT}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.goalRow}>
-        <View style={styles.untilWhenWrap}>
-          <Text
-            style={styles.untilWhenText}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {item.untilWhen}
-          </Text>
-          <View style={[styles.untilWhenUnderline, item.completed && styles.untilWhenUnderlineCompleted]} />
-        </View>
-      </View>
       <Text style={[styles.goalDescription, item.completed && styles.goalTextCompleted]}>{item.description}</Text>
 
-      <View style={styles.goalFooter}>
-        <View>
+      <View style={styles.goalFooter} testID={`long-term-goal-card-footer-${item.id}`}>
+        <View style={styles.goalFooterStatus}>
+          {!item.completed ? (
+            <View style={styles.untilWhenWrap} testID={`long-term-goal-card-until-when-${item.id}`}>
+              <Text
+                style={styles.untilWhenText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {item.untilWhen}
+              </Text>
+              <View style={styles.untilWhenUnderline} />
+            </View>
+          ) : null}
           {item.completed ? (
             <View style={styles.completedBadge} testID={`long-term-goal-card-completed-badge-${item.id}`}>
               <Text style={styles.completedBadgeText}>{t("completion.badge")}</Text>
@@ -881,12 +881,6 @@ const styles = StyleSheet.create({
   goalCardDeleteMode: {
     borderColor: "rgba(239,83,80,0.4)",
   },
-  goalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
   untilWhenWrap: {
     alignSelf: "flex-start",
     gap: spacing.xs / 1.5,
@@ -903,9 +897,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(110,168,255,0.65)",
     width: "100%",
   },
-  untilWhenUnderlineCompleted: {
-    backgroundColor: "rgba(110,168,255,0.35)",
-  },
   goalDescription: {
     color: colors.textPrimary,
     fontSize: typography.lg,
@@ -921,6 +912,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     marginTop: 0,
+  },
+  goalFooterStatus: {
+    flex: 1,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    minHeight: 40,
+    paddingRight: spacing.sm,
   },
   goalActions: {
     flexDirection: "row",

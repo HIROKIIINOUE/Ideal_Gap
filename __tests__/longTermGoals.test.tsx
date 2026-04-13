@@ -211,6 +211,40 @@ describe("LongTermGoalsScreen", () => {
     expect(within(actions).getByTestId("long-term-goal-edit-goal-1")).toBeTruthy();
   });
 
+  test("shows until-when text in footer for incomplete goals and completed badge in the same area for completed goals", async () => {
+    (fetchLongTermGoals as jest.Mock).mockResolvedValueOnce({
+      data: [
+        {
+          id: "goal-1",
+          until_when: "By 32",
+          description: "Reach IELTS 8",
+          is_done: false,
+          order: 0,
+          updated_at: "2025-01-01T00:00:00Z",
+        },
+        {
+          id: "goal-2",
+          until_when: "By 33",
+          description: "Get permanent residency",
+          is_done: true,
+          order: 1,
+          updated_at: "2025-01-02T00:00:00Z",
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId } = renderScreen();
+
+    const incompleteFooter = await findByTestId("long-term-goal-card-footer-goal-1");
+    expect(within(incompleteFooter).getByTestId("long-term-goal-card-until-when-goal-1")).toBeTruthy();
+    expect(within(incompleteFooter).queryByTestId("long-term-goal-card-completed-badge-goal-1")).toBeNull();
+
+    const completedFooter = await findByTestId("long-term-goal-card-footer-goal-2");
+    expect(within(completedFooter).getByTestId("long-term-goal-card-completed-badge-goal-2")).toBeTruthy();
+    expect(within(completedFooter).queryByTestId("long-term-goal-card-until-when-goal-2")).toBeNull();
+  });
+
   test("toggles completed state", async () => {
     const { findByTestId } = renderScreen();
 
