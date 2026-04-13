@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   },
   // 6カードタイトル フランス語スタイル
   tileTitleFr: {
-    fontSize: typography.md * 1.14,
+    fontSize: typography.md * 1.05,
   },
   // 6カードタイトル(compact screen) 日本語英語スタイル
   tileTitleCompactJaEn: {
