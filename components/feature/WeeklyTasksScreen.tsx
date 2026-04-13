@@ -161,7 +161,6 @@ export default function WeeklyTasksScreen() {
   const isFrench = currentLanguage.startsWith("fr");
   const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
 
-  const initializedDefaultGoal = useRef(false);
   const hasLoadedRef = useRef(false);
   const hasYearlyGoals = yearlyGoalOptions.length > 0;
 
@@ -171,6 +170,9 @@ export default function WeeklyTasksScreen() {
     const savedId = await AsyncStorage.getItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY);
     if (savedId && yearlyGoalOptions.some((opt) => opt.id === savedId)) {
       return savedId;
+    }
+    if (savedId) {
+      await AsyncStorage.removeItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY);
     }
     return yearlyGoalOptions[0]?.id ?? null;
   }, [yearlyGoalOptions]);
@@ -363,12 +365,8 @@ export default function WeeklyTasksScreen() {
       writeOfflineCache(taskCacheKey, offlineWeeklyTasksSchema, weekly),
       writeOfflineCache(goalCacheKey, offlineYearlyGoalOptionsSchema, yearlyOptions),
     ]);
-    if (yearlyOptions[0] && !initializedDefaultGoal.current) {
-      initializedDefaultGoal.current = true;
-      setDraft((prev) => ({ ...prev, yearlyGoalId: yearlyOptions[0].id }));
-    }
     setLoading(false);
-  }, [fetchUserId, initializedDefaultGoal, offlineBlocked, reorderTasks, t, toWeeklyTask]);
+  }, [fetchUserId, offlineBlocked, reorderTasks, t, toWeeklyTask]);
 
   // 初回マウント時にもデータを1回だけ取得し、以降はフォーカス時に再取得する
   useEffect(() => {
@@ -386,20 +384,47 @@ export default function WeeklyTasksScreen() {
       loadData();
     }, [loadData]),
   );
+
   // draftは追加・編集モーダルで「まだ確定していない入力中の値」
-  // draft.yearlyGoalId が常に現在のyearlyGoalOptions と矛盾しないように補正する
+  // yearlyGoalOptionsはDBをもとにした正確なデータ
+  // draft.yearlyGoalIdが常に現在のyearlyGoalOptionsと矛盾しないように補正する
   useEffect(() => {
-    if (
-      draft.yearlyGoalId &&
-      yearlyGoalOptions.length > 0 &&
-      !yearlyGoalOptions.some((opt) => opt.id === draft.yearlyGoalId)
-    ) {
-      setDraft((prev) => ({ ...prev, yearlyGoalId: yearlyGoalOptions[0].id }));
-    }
-    if (yearlyGoalOptions.length === 0 && draft.yearlyGoalId) {
-      setDraft((prev) => ({ ...prev, yearlyGoalId: null }));
-    }
-  }, [draft.yearlyGoalId, yearlyGoalOptions]);
+    let cancelled = false;
+
+    const syncDraftYearlyGoal = async () => {
+      // DB上に年間目標データがないのに下書きdraftに以前の年間データが残ってしまっている場合は紐づく年間目標をnullにする
+      if (yearlyGoalOptions.length === 0) {
+        if (draft.yearlyGoalId) {
+          setDraft((prev) => ({ ...prev, yearlyGoalId: null }));
+        }
+        return;
+      }
+
+      if (draft.yearlyGoalId === null) {
+        return;
+      }
+
+      // 下書きdraftにすでに紐づく年間情報(DBの正しい情報)が存在する場合はその情報をそのまま使用
+      if (yearlyGoalOptions.some((opt) => opt.id === draft.yearlyGoalId)) {
+        return;
+      }
+
+      // 下書きdraftに紐づく年間情報が存在しない場合は直近のデータ(preferredYearlyGoalId)をデフォルトとする
+      const preferredYearlyGoalId = await getPreferredYearlyGoalId();
+      if (cancelled) return;
+
+      setDraft((prev) => ({
+        ...prev,
+        yearlyGoalId: preferredYearlyGoalId,
+      }));
+    };
+
+    syncDraftYearlyGoal();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.yearlyGoalId, getPreferredYearlyGoalId, yearlyGoalOptions]);
 
   // 「追加ボタン」からモーダルを開いた時のロジック
   const handleOpenAdd = async () => {

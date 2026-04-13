@@ -503,6 +503,68 @@ describe("WeeklyTasksScreen", () => {
     await waitFor(() => expect(queryByText("Build a portfolio")).toBeTruthy());
   });
 
+  test("uses the last selected yearly goal from storage as the default in the add modal", async () => {
+    await AsyncStorage.setItem("weekly_tasks_last_selected_yearly_goal_id", "y2");
+
+    mockOrderYearly.mockResolvedValue({
+      data: [
+        {
+          id: "y1",
+          description: "Focus this year",
+          year_goal_color: "#1E5EFF",
+        },
+        {
+          id: "y2",
+          description: "Build a portfolio",
+          year_goal_color: "#F59E0B",
+        },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({ data: [], error: null });
+
+    const { findByText, queryByText } = renderScreen();
+
+    await waitFor(() => expect(mockOrderYearly).toHaveBeenCalled());
+
+    fireEvent.press(await findByText("Add"));
+
+    await waitFor(() => expect(queryByText("Build a portfolio")).toBeTruthy());
+  });
+
+  test("falls back to the first yearly goal when the stored last selection no longer exists", async () => {
+    await AsyncStorage.setItem("weekly_tasks_last_selected_yearly_goal_id", "deleted-goal");
+
+    mockOrderYearly.mockResolvedValue({
+      data: [
+        {
+          id: "y1",
+          description: "Focus this year",
+          year_goal_color: "#1E5EFF",
+        },
+        {
+          id: "y2",
+          description: "Build a portfolio",
+          year_goal_color: "#F59E0B",
+        },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({ data: [], error: null });
+
+    const { findByText, queryByText } = renderScreen();
+
+    await waitFor(() => expect(mockOrderYearly).toHaveBeenCalled());
+
+    fireEvent.press(await findByText("Add"));
+
+    await waitFor(() => expect(queryByText("Focus this year")).toBeTruthy());
+    expect(queryByText("Build a portfolio")).toBeFalsy();
+    expect(
+      await AsyncStorage.getItem("weekly_tasks_last_selected_yearly_goal_id"),
+    ).toBeNull();
+  });
+
   test("does not show a success alert after deleting a weekly task", async () => {
     mockOrderYearly.mockResolvedValue({
       data: [
