@@ -310,19 +310,25 @@ export default function BreakReminderScreen() {
   // ユーザが通知機能をONにしているかどうかジャッジ
   const ensurePermission = useCallback(async () => {
     setPermissionError(false);
-    const current = await Notifications.getPermissionsAsync();
-    if (current.granted) return true;
-    const request = await Notifications.requestPermissionsAsync();
-    const granted = request.granted || request.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-    if (!granted) {
+    try {
+      const current = await Notifications.getPermissionsAsync();
+      if (current.granted) return true;
+      const request = await Notifications.requestPermissionsAsync();
+      const granted = request.granted || request.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+      if (!granted) {
+        setPermissionError(true);
+        Alert.alert(t("permissionDenied"), undefined, [
+          { text: t("permissionAction"), onPress: handleOpenSettings },
+          { text: t("cancel"), style: "cancel" },
+        ]);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.warn("Failed to resolve break reminder notification permission", error);
       setPermissionError(true);
-      Alert.alert(t("permissionDenied"), undefined, [
-        { text: t("permissionAction"), onPress: handleOpenSettings },
-        { text: t("cancel"), style: "cancel" },
-      ]);
       return false;
     }
-    return true;
   }, [handleOpenSettings, t]);
 
 

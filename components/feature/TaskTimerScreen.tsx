@@ -499,7 +499,11 @@ export default function TaskTimerScreen() {
 
   // ユーザが通知誘導ポップアップを「２度と表示しない」を選択した場合はローカルでその情報を保持
   const handleHideNotificationPrompt = useCallback(async () => {
-    await AsyncStorage.setItem(TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY, "1");
+    try {
+      await AsyncStorage.setItem(TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY, "1");
+    } catch (error) {
+      console.warn("Failed to persist hidden notification prompt preference", error);
+    }
     startTimerCountdown();
   }, [startTimerCountdown]);
 
@@ -636,9 +640,14 @@ export default function TaskTimerScreen() {
       showToast(t("feedback.startError"));
       return;
     }
-    const hiddenPreference = await AsyncStorage.getItem(
-      TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY,
-    );
+    let hiddenPreference: string | null = null;
+    try {
+      hiddenPreference = await AsyncStorage.getItem(
+        TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY,
+      );
+    } catch (error) {
+      console.warn("Failed to read hidden notification prompt preference", error);
+    }
     // 通知ポップアップを「２度と表示しない」としてる場合は無条件でタイマースタート
     if (hiddenPreference === "1") {
       startTimerCountdown();

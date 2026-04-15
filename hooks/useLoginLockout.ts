@@ -37,6 +37,8 @@ export const useLoginLockout = ({ email, t }: UseLoginLockoutParams) => {
         locked: status.locked,
         lockedUntil: status.lockedUntil,
       });
+    }).catch((error) => {
+      console.warn("Failed to load lockout status", error);
     });
     return () => {
       active = false;

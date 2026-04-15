@@ -26,7 +26,9 @@ export const useRedirectAuthenticated = () => {
       await redirectForSession(userId);
     };
 
-    checkSession();
+    checkSession().catch((error) => {
+      console.warn("Failed to check authenticated session", error);
+    });
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const userId = session?.user?.id;

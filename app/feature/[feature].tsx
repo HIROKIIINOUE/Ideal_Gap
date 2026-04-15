@@ -71,7 +71,12 @@ export default function FeatureScreen() {
             text: tCommon("confirmYes"),
             style: "destructive",
             onPress: async () => {
-              await supabase.auth.signOut();
+              try {
+                await supabase.auth.signOut();
+              } catch (error) {
+                console.warn("Failed to sign out from feature screen", error);
+                return;
+              }
               showLogoutToast();
               router.replace("/");
             },
