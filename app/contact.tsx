@@ -25,6 +25,7 @@ import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
+import { signOutCurrentSession } from "../lib/logout";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
@@ -179,7 +180,7 @@ export default function Contact() {
           style: "destructive",
           onPress: async () => {
             try {
-              await supabase.auth.signOut();
+              await signOutCurrentSession();
             } catch (error) {
               console.warn("Failed to sign out from contact", error);
               return;

@@ -18,7 +18,7 @@ import Footer from "../../components/Footer";
 import LanguageSheet from "../../components/LanguageSheet";
 import MoreSheet from "../../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
-import { supabase } from "../../lib/supabaseClient";
+import { signOutCurrentSession } from "../../lib/logout";
 import { useFunPlan } from "../../providers/FunPlanProvider";
 
 type FeatureId =
@@ -72,7 +72,7 @@ export default function FeatureScreen() {
             style: "destructive",
             onPress: async () => {
               try {
-                await supabase.auth.signOut();
+                await signOutCurrentSession();
               } catch (error) {
                 console.warn("Failed to sign out from feature screen", error);
                 return;

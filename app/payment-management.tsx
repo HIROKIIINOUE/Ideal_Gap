@@ -8,6 +8,7 @@ import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { signOutCurrentSession } from "../lib/logout";
 import { getSubscriptionForUser } from "../lib/subscription";
 import { openSubscriptionManagementPortal } from "../lib/subscriptionManagement";
 import { supabase } from "../lib/supabaseClient";
@@ -113,7 +114,7 @@ export default function PaymentManagement() {
           style: "destructive",
           onPress: async () => {
             try {
-              await supabase.auth.signOut();
+              await signOutCurrentSession();
             } catch (error) {
               console.warn("Failed to sign out from payment management", error);
               return;

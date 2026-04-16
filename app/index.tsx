@@ -24,7 +24,7 @@ import LanguageSheet from "../components/LanguageSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { LandingSections } from "../content/landingTranslations";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
-import { supabase } from "../lib/supabaseClient";
+import { signOutCurrentSession } from "../lib/logout";
 import {
   LANDING_SECTION_REVEAL_OFFSET,
   shouldRevealLandingSection,
@@ -288,7 +288,7 @@ export default function Index() {
   // サインアップボタン押下時の処理
   const handleStartSignup = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
+      await signOutCurrentSession();
     } catch (error) {
       console.warn("failed to sign out before signup", error);
     }

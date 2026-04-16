@@ -173,7 +173,7 @@ describe("Purchases screen", () => {
   });
 
   test("returns to home after sign out when return-home button is pressed", async () => {
-    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove");
+    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
     const { getByRole } = renderScreen();
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
 
@@ -181,9 +181,9 @@ describe("Purchases screen", () => {
 
     await waitFor(() => {
       expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+      expect(multiRemoveSpy).toHaveBeenCalled();
       expect(router.replace).toHaveBeenCalledWith("/");
     });
-    expect(multiRemoveSpy).not.toHaveBeenCalled();
   });
 
   test("returns home after clearing persisted auth data when session is already missing", async () => {

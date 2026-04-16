@@ -18,6 +18,7 @@ import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
+import { signOutCurrentSession } from "../lib/logout";
 import { canAccessDashboardWithSubscriptionStatus, getSubscriptionForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { shouldUseAndroidJapaneseTypography } from "../lib/ui/platform";
@@ -90,7 +91,7 @@ export default function Dashboard() {
             style: "destructive",
             onPress: async () => {
               try {
-                await supabase.auth.signOut();
+                await signOutCurrentSession();
               } catch (error) {
                 console.warn("Failed to sign out from dashboard", error);
                 return;

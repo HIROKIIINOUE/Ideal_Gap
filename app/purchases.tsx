@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
-import { clearPersistedAuthSession } from "../lib/authStorage";
+import { signOutCurrentSession } from "../lib/logout";
 import { getPlanPriceCopy, getTrialLabel } from "../lib/planCopy";
 import {
   fetchTestStorePackage,
@@ -161,26 +161,7 @@ export default function Purchases() {
     if (isReturningHome) return;
     setIsReturningHome(true);
     try {
-      const { error } = await supabase.auth.signOut({ scope: "local" });
-      // サインアウトエラー時でもホームへ戻るボタンを押下したらホームへ強制遷移させる処理(同時に端末ローカルに保存されたユーザAuth情報もクリーンアップする)
-      if (error) {
-        console.warn("Failed to sign out from purchases", error.message);
-        try {
-          await clearPersistedAuthSession();
-        } catch (storageError) {
-          const storageMessage =
-            storageError instanceof Error ? storageError.message : String(storageError);
-          console.warn("Failed to clear persisted auth session", storageMessage);
-        }
-
-        if (error.message === "Auth session missing!") {
-          router.replace("/");
-          return;
-        }
-
-        showToast(t("returnHomeError"));
-        return;
-      }
+      await signOutCurrentSession();
       router.replace("/");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

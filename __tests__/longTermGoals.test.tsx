@@ -186,9 +186,9 @@ describe("LongTermGoalsScreen", () => {
 
     fireEvent.press(getByRole("button", { name: "Add" }));
     fireEvent.changeText(getByPlaceholderText("e.g. Age 25 / 2026"), "Age 30");
-    fireEvent.changeText(getByPlaceholderText("e.g. By age 32 / By 2035"), "By 35");
+    fireEvent.changeText(getByPlaceholderText("e.g. By age 29 / By 2030"), "By 35");
     fireEvent.changeText(
-      getByPlaceholderText("e.g. Get permanent residency by age 33"),
+      getByPlaceholderText("e.g. Get a master’s degree abroad"),
       "Build stable remote income",
     );
     fireEvent.press(getByRole("button", { name: "Save" }));

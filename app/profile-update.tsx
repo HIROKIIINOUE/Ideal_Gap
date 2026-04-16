@@ -24,6 +24,7 @@ import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { buildRedirectUrl } from "../lib/auth";
+import { signOutCurrentSession } from "../lib/logout";
 import { supabase } from "../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { useFunPlan } from "../providers/FunPlanProvider";
@@ -234,7 +235,7 @@ export default function ProfileUpdate() {
           style: "destructive",
           onPress: async () => {
             try {
-              await supabase.auth.signOut();
+              await signOutCurrentSession();
             } catch (error) {
               console.warn("Failed to sign out from profile update", error);
               return;

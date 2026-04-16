@@ -126,7 +126,7 @@ describe("Purchases screen", () => {
   });
 
   it("signs out and returns to home when return-home button is pressed", async () => {
-    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove");
+    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
     const screen = renderWithProviders();
 
     await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
@@ -136,9 +136,9 @@ describe("Purchases screen", () => {
 
     await waitFor(() => {
       expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
+      expect(multiRemoveSpy).toHaveBeenCalled();
       expect(router.replace).toHaveBeenCalledWith("/");
     });
-    expect(multiRemoveSpy).not.toHaveBeenCalled();
   });
 
   it("clears persisted auth data and returns home when local session is already missing", async () => {
