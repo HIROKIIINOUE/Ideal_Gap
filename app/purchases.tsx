@@ -195,7 +195,11 @@ export default function Purchases() {
               ]}
             >
               <View style={styles.headerBackContent}>
-                <MaterialCommunityIcons name="chevron-left" size={22} color="#111111" />
+                <MaterialCommunityIcons
+                  name="chevron-left"
+                  size={22}
+                  color={colors.textPrimary}
+                />
                 <Text style={styles.headerBackLabel}>{tCommonNav("back")}</Text>
               </View>
             </Pressable>
@@ -322,7 +326,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   headerBackLabel: {
-    color: "#111111",
+    color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "600",
   },
@@ -415,8 +419,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   primaryButton: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(155,193,255,0.9)",
+    backgroundColor: colors.accentPrimary,
+    borderColor: colors.accentSubtle,
   },
   secondaryButton: {
     backgroundColor: "rgba(255,255,255,0.08)",

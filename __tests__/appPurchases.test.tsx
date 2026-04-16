@@ -1,9 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { router } from "expo-router";
 import Purchases from "../app/purchases";
 import i18n from "../i18n";
+import { colors } from "../constants/theme";
 import { LanguageProvider } from "../providers/LanguageProvider";
 import {
   fetchTestStorePackage,
@@ -14,6 +16,23 @@ import {
   waitForActiveSubscription,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
+
+const mockStackScreen = jest.fn();
+
+jest.mock("expo-router", () => ({
+  router: {
+    replace: jest.fn(),
+    push: jest.fn(),
+    back: jest.fn(),
+  },
+  Stack: {
+    Screen: (props: unknown) => {
+      mockStackScreen(props);
+      return null;
+    },
+  },
+  useLocalSearchParams: () => ({}),
+}));
 
 jest.mock("../lib/revenuecatOfferings", () => ({
   fetchTestStorePackage: jest.fn(),
@@ -96,6 +115,21 @@ describe("Purchases screen", () => {
     expect(screen.queryByText("Uses your App Store/Google Play billing.")).toBeNull();
 
     const button = await screen.findByRole("button", { name: "Continue to payment" });
+    const screenOptions = mockStackScreen.mock.calls[0]?.[0] as {
+      options?: { headerLeft?: () => React.ReactElement };
+    };
+    const headerLeft = screenOptions.options?.headerLeft;
+    const headerElement = headerLeft?.() as React.ReactElement<{ children: React.ReactNode }> | undefined;
+    const headerContent = headerElement?.props.children as React.ReactElement<{ children: React.ReactNode }>;
+    const [, headerLabel] = React.Children.toArray(headerContent.props.children) as Array<
+      React.ReactElement<{ style?: object }>
+    >;
+
+    expect(button).toHaveStyle({ backgroundColor: colors.accentPrimary });
+    expect(headerLeft).toBeDefined();
+    expect(headerLabel.props.style).toEqual(
+      expect.objectContaining({ color: colors.textPrimary }),
+    );
     fireEvent.press(button);
 
     await waitFor(() => {
