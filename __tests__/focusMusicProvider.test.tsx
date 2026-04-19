@@ -81,6 +81,7 @@ const createMockPlayer = () => ({
 });
 
 const mockPlayer = createMockPlayer();
+const mockSetAudioModeAsync = jest.fn().mockResolvedValue(undefined);
 
 jest.mock("../lib/focus-music/catalog", () => ({
   fetchFocusMusicCatalog: () => mockFetchCatalog(),
@@ -126,6 +127,7 @@ jest.mock("expo-audio", () => ({
     currentTime: 0,
     duration: 10,
   }),
+  setAudioModeAsync: (...args: unknown[]) => mockSetAudioModeAsync(...args),
 }));
 
 describe("FocusMusicProvider", () => {
@@ -151,6 +153,7 @@ describe("FocusMusicProvider", () => {
     mockPlayer.pause.mockClear();
     mockPlayer.replace.mockClear();
     mockPlayer.seekTo.mockClear();
+    mockSetAudioModeAsync.mockClear();
   });
 
   test("installs a track on wifi and persists metadata", async () => {
@@ -273,12 +276,27 @@ describe("FocusMusicProvider", () => {
     expect(mockPlayer.replace).toHaveBeenCalledWith(
       "file://test/focus-music/track-1.mp3",
     );
+    expect(mockSetAudioModeAsync).toHaveBeenCalledWith({
+      shouldPlayInBackground: true,
+      playsInSilentMode: true,
+      interruptionMode: "mixWithOthers",
+      allowsRecording: false,
+      shouldRouteThroughEarpiece: false,
+    });
     expect(mockPlayer.play).toHaveBeenCalled();
     expect(mockPlayer.loop).toBe(true);
     expect(mockPlayer.volume).toBe(1);
 
-    act(() => {
+    await act(async () => {
       result.current.pause();
+    });
+
+    expect(mockSetAudioModeAsync).toHaveBeenLastCalledWith({
+      shouldPlayInBackground: false,
+      playsInSilentMode: true,
+      interruptionMode: "mixWithOthers",
+      allowsRecording: false,
+      shouldRouteThroughEarpiece: false,
     });
   });
 

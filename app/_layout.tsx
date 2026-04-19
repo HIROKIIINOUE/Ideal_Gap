@@ -64,7 +64,7 @@ export default function RootLayout() {
   useEffect(() => {
     setAudioModeAsync({
       playsInSilentMode: true,
-      shouldPlayInBackground: true,
+      shouldPlayInBackground: false, // 音楽再生時のみ再生処理の関数内でtrueに置き換えている
       interruptionMode: "mixWithOthers",
       allowsRecording: false,
       shouldRouteThroughEarpiece: false,

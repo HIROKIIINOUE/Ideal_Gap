@@ -1,7 +1,7 @@
 //　タスク集中音楽プロバイダー(曲をグローバルで管理)
 
 import NetInfo from "@react-native-community/netinfo";
-import { useAudioPlayer } from "expo-audio";
+import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import React, {
   createContext,
   useCallback,
@@ -20,15 +20,15 @@ import {
 import { deleteTrackFile, downloadTrackFile } from "../lib/focus-music/file";
 import { createFocusMusicSignedUrl } from "../lib/focus-music/signedUrl";
 import {
-  captureExpoAudioError,
-  captureMusicDownloadError,
-} from "../lib/sentry";
-import {
   incrementMonthlyDownloadQuota,
   loadInstalledTracks,
   loadMonthlyDownloadQuota,
   saveInstalledTracks,
 } from "../lib/focus-music/storage";
+import {
+  captureExpoAudioError,
+  captureMusicDownloadError,
+} from "../lib/sentry";
 import {
   FocusMusicTrack,
   InstalledFocusTrack,
@@ -93,6 +93,21 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
 
   const isDownloadingRef = useRef(false);
+
+
+  // 音楽が再生されている時のみbackground: true設定をONにする(充電消費節約対策)
+  const setFocusPlaybackAudioMode = useCallback(
+    async (shouldPlayInBackground: boolean) => {
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground,
+        interruptionMode: "mixWithOthers",
+        allowsRecording: false,
+        shouldRouteThroughEarpiece: false,
+      });
+    },
+    [],
+  );
 
 
   // download quota (今月の曲のDL数と制限リセット日)を取得し、状態関数を更新
@@ -424,6 +439,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   const playSelected = useCallback(async () => {
     if (!selectedInstalledTrack) return false;
     try {
+      await setFocusPlaybackAudioMode(true);
       player.pause();
       await player.seekTo(0);
       player.loop = true;
@@ -432,19 +448,22 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       player.play();
       return true;
     } catch (error) {
+      await setFocusPlaybackAudioMode(false).catch(() => { });
       captureExpoAudioError(error, "focus_music_play_selected");
       return false;
     }
-  }, [player, selectedInstalledTrack]);
+  }, [player, selectedInstalledTrack, setFocusPlaybackAudioMode]);
 
   const pause = useCallback(() => {
     player.pause();
-  }, [player]);
+    void setFocusPlaybackAudioMode(false).catch(() => { });
+  }, [player, setFocusPlaybackAudioMode]);
 
   const stop = useCallback(async () => {
     player.pause();
     await player.seekTo(0);
-  }, [player]);
+    await setFocusPlaybackAudioMode(false);
+  }, [player, setFocusPlaybackAudioMode]);
 
   // useFocusMusicフックスとして返す値(グローバルに使用できる)
   const value = useMemo<FocusMusicContextValue>(

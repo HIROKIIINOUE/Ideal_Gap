@@ -84,6 +84,7 @@ const mockAudioPlayers: Array<{
   remove: jest.Mock;
 }> = [];
 const mockAnyAudioPlay = jest.fn();
+const mockSetAudioModeAsync = jest.fn().mockResolvedValue(undefined);
 
 jest.mock("expo-audio", () => ({
   useAudioPlayer: () => {
@@ -114,6 +115,7 @@ jest.mock("expo-audio", () => ({
     currentTime: 0,
     duration: 0,
   }),
+  setAudioModeAsync: (...args: unknown[]) => mockSetAudioModeAsync(...args),
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
@@ -229,6 +231,7 @@ describe("TaskTimerScreen", () => {
     jest.clearAllMocks();
     mockAudioPlayers.length = 0;
     mockAnyAudioPlay.mockClear();
+    mockSetAudioModeAsync.mockClear();
     mockNetInfoFetch.mockResolvedValue({
       type: "wifi",
       isConnected: true,
@@ -702,6 +705,49 @@ describe("TaskTimerScreen", () => {
 
       await waitFor(() => expect(mockAnyAudioPlay).toHaveBeenCalled());
       expect(mockVibrationVibrate).toHaveBeenCalled();
+    } finally {
+      dateNowSpy.mockRestore();
+      appStateSpy.mockRestore();
+    }
+  });
+
+  test("stops per-second countdown updates while app is in background and catches up on return", async () => {
+    let now = 0;
+    let appStateListener: ((state: AppStateStatus) => void) | null = null;
+    const dateNowSpy = jest.spyOn(Date, "now").mockImplementation(() => now);
+    const appStateSpy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_type, listener) => {
+        appStateListener = listener;
+        return { remove: jest.fn() } as any;
+      });
+
+    try {
+      const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+      await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+      now = 60_000;
+      act(() => {
+        appStateListener?.("background");
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(120_000);
+      });
+
+      expect(getByTestId("timer-duration")).toHaveTextContent("5:00 / 5:00");
+
+      now = 180_000;
+      act(() => {
+        appStateListener?.("active");
+      });
+
+      await waitFor(() =>
+        expect(getByTestId("timer-duration")).toHaveTextContent("2:00 / 5:00"),
+      );
     } finally {
       dateNowSpy.mockRestore();
       appStateSpy.mockRestore();

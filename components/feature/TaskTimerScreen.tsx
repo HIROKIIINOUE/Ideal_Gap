@@ -593,6 +593,21 @@ export default function TaskTimerScreen() {
     return nextRemaining;
   }, []);
 
+  const startTicking = useCallback(() => {
+    clearTick();
+    tickRef.current = setInterval(() => {
+      const currentEndAt = expectedEndAtRef.current;
+      if (!currentEndAt) return;
+      const nextRemaining = syncRemainingSecondsFromEndAt(currentEndAt);
+      if (nextRemaining <= 0) {
+        clearTick();
+        if (!completionFiredRef.current) {
+          openCompletionModal(Math.max(0, inputSecondsRef.current));
+        }
+      }
+    }, 1000);
+  }, [clearTick, openCompletionModal, syncRemainingSecondsFromEndAt]);
+
   // カウントダウンが「idle」「paused」の各条件下でプリセットボタンで設定作業時間を追加するロジック
   const handlePreset = (minutes: number) => {
     if (status === "running") return;
@@ -753,6 +768,10 @@ export default function TaskTimerScreen() {
     if (!expectedEndAt) {
       return;
     }
+    if (!isForegroundAppState(appStateRef.current)) {
+      clearTick();
+      return;
+    }
     // 「running 状態に入った時点で、終了予定時刻 expectedEndAt を基準に残り時間を再計算し、もう終了時刻を過ぎていたら即座に完了処理へ進む」
     // → タスクタイマーとアラームの誤差をなくす意図
     const initialRemaining = syncRemainingSecondsFromEndAt(expectedEndAt);
@@ -763,27 +782,18 @@ export default function TaskTimerScreen() {
       return;
     }
 
-    // 1秒ごとに終了予定時刻との差分から残り時間を再計算する。
-    tickRef.current = setInterval(() => {
-      const currentEndAt = expectedEndAtRef.current;
-      if (!currentEndAt) return;
-      const nextRemaining = syncRemainingSecondsFromEndAt(currentEndAt);
-      if (nextRemaining <= 0) {
-        clearTick();
-        if (!completionFiredRef.current) {
-          openCompletionModal(Math.max(0, inputSecondsRef.current));
-        }
-      }
-    }, 1000);
+    // foreground 中だけ 1 秒刻みの UI 更新を続ける
+    startTicking();
 
     return clearTick;
   }, [
     clearForegroundAlarmSchedule,
     clearScheduledNotification,
     clearTick,
-    openCompletionModal,
     expectedEndAt,
+    openCompletionModal,
     status,
+    startTicking,
     stopForegroundAlarmOutput,
     syncRemainingSecondsFromEndAt,
   ]);
@@ -838,6 +848,7 @@ export default function TaskTimerScreen() {
     const subscription = AppState.addEventListener("change", (nextState) => {
       appStateRef.current = nextState;
       if (!isForegroundAppState(nextState)) {
+        clearTick();
         clearForegroundAlarm();
         return;
       }
@@ -849,13 +860,16 @@ export default function TaskTimerScreen() {
         }
         return;
       }
+      startTicking();
       scheduleForegroundAlarm(expectedEndAtRef.current);
     });
     return () => subscription?.remove?.();
   }, [
+    clearTick,
     clearForegroundAlarm,
     openCompletionModal,
     scheduleForegroundAlarm,
+    startTicking,
     syncRemainingSecondsFromEndAt,
   ]);
 

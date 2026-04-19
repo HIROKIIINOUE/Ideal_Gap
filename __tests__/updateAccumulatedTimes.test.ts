@@ -167,4 +167,54 @@ describe("updateAccumulatedTimes", () => {
       yearlyStored: 600,
     });
   });
+
+  it("rejects instead of hanging when weekly task update never resolves", async () => {
+    jest.useFakeTimers();
+    const hangingClient: TimeTrackingClient = {
+      updateWeeklyLogged: jest.fn(() => new Promise<void>(() => {})),
+      getYearlyGoal: jest.fn(async () => ({ accumulated: 600 })),
+      updateYearlyLogged: jest.fn(async () => {}),
+    };
+
+    const promise = updateAccumulatedTimes(
+      {
+        userId: "user-1",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        newLoggedMinutes: 90,
+        previousLoggedMinutes: 30,
+      },
+      hangingClient,
+    );
+
+    jest.advanceTimersByTime(15_000);
+
+    await expect(promise).rejects.toThrow("Time tracking request timed out");
+    jest.useRealTimers();
+  });
+
+  it("rejects instead of hanging when yearly goal fetch never resolves", async () => {
+    jest.useFakeTimers();
+    const hangingClient: TimeTrackingClient = {
+      updateWeeklyLogged: jest.fn(async () => {}),
+      getYearlyGoal: jest.fn(() => new Promise(() => {})),
+      updateYearlyLogged: jest.fn(async () => {}),
+    };
+
+    const promise = updateAccumulatedTimes(
+      {
+        userId: "user-1",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        newLoggedMinutes: 90,
+        previousLoggedMinutes: 30,
+      },
+      hangingClient,
+    );
+
+    jest.advanceTimersByTime(15_000);
+
+    await expect(promise).rejects.toThrow("Time tracking request timed out");
+    jest.useRealTimers();
+  });
 });
