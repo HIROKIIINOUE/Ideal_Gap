@@ -78,7 +78,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         breakReminders: {
           title: "休憩通知",
           subtitle:
-            "継続に大事なのはONとOFFの切り替え。休憩時間を設定しメリハリをつける。",
+            "継続に大事なのはONとOFFの切り替え。休憩終了時間を設定しメリハリをつける。",
         },
         nextFunPlan: {
           title: "次回の楽しい予定",
@@ -108,7 +108,7 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         idealSelf: {
           title: "Ideal Self",
           subtitle:
-            "Visualize and define your ideal self. Your final destination.",
+            "Visualize and define your ideal self.\nYour final destination.",
         },
         longTermGoals: {
           title: "Life Goals",
@@ -132,7 +132,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         },
         breakReminders: {
           title: "Break Alarm",
-          subtitle: "Growth requires a good balance. Schedule breaks and reset",
+          subtitle:
+            "Consistency comes from balance. Schedule your break end time and stay focused.",
         },
         nextFunPlan: {
           title: "Next Exciting Plans",

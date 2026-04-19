@@ -42,7 +42,7 @@ export const landingTranslations: LandingTranslations = {
       logo: "Ideal Gap",
       title: "理想の自分への第一歩",
       subtitle:
-        "理想の自分を定義し、そこに向かう正しい道標を明確にする。あとは集中力を最大化し進んでいくだけ。",
+        "理想の自分を定義し、そこに向かうための道標を明確にする。あとは集中力を最大化し進んでいくだけ。",
       ctaPrimary: "無料で始める",
       ctaSecondary: "ログイン",
       scrollHint: "スクロール",
@@ -57,7 +57,7 @@ export const landingTranslations: LandingTranslations = {
         "長期/年間目標リスト・進捗管理機能",
         "週間タスクリスト・進捗管理機能",
         "タスクタイマー・作業集中音楽機能",
-        "休憩通知機能",
+        "休憩終了通知機能",
         "次回の楽しい予定リスト機能",
       ],
       overviewCardTitle: "アプリの概要",
@@ -80,7 +80,7 @@ export const landingTranslations: LandingTranslations = {
       label: "Get Started",
       title: "まずはサインアップから",
       description:
-        "無料期間中も全ての機能使用可能です。無料期間中にキャンセルすれば支払いは発生しません。",
+        "無料期間中も全ての機能使用可能です。無料期間中にキャンセルすれば支払いは一切発生しません。",
       ctaPrimary: "無料で始める",
       ctaSecondary: "ログイン",
     },
@@ -99,10 +99,10 @@ export const landingTranslations: LandingTranslations = {
       label: "What is Ideal Gap",
       title: "Six Pillars to Your Ideal Self",
       description:
-        "Clarify your ideal self and map your path with long-term and yearly goals. Break them into weekly tasks and just go forward. Track your effort with a countdown timer, stay focused with task music and break reminders. And also enjoy upcoming plans while moving steadily toward your ideal future.",
+        "Define your ideal self and map your path with long-term / annual goals. Break them into weekly tasks and just go forward. Track your effort with a countdown timer, stay focused with task music and break reminders. And also enjoy upcoming plans while moving steadily toward your ideal future.",
       highlights: [
         "Ideal Self Vision Board",
-        "Long-Term & Annual Goal Tracking",
+        "Long-Term / Annual Goal & Tracking",
         "Weekly Task Planning & Tracking",
         "Task Timer with Focus Music",
         "Smart Break Reminders",

@@ -1,3 +1,4 @@
+// ⭐️ マリーフランス語チェック(月間detail目標の例文のみ)
 import { LanguageKey } from "../types/i18n";
 
 export type AnnualGoalsTranslations = {
@@ -96,7 +97,7 @@ export const annualGoalsTranslations: Record<
       title: "詳細メモ",
       label: "詳細メモ(任意)",
       placeholder:
-        "例) Ielts8達成の道のり\n \n4月 参考書終わらせる\n5月 過去問スタート\n8月 模擬試験受験\n10月 1回目の試験\n12月 未達成なら2回目の試験",
+        "例) Ielts8達成の道のり\n \n4月: 参考書終わらせる\n5月: 過去問スタート\n8月: 模擬試験受験\n10月:  1回目の試験\n12月:  未達成なら2回目の試験",
       save: "保存",
       cancel: "キャンセル",
     },
@@ -164,7 +165,7 @@ export const annualGoalsTranslations: Record<
       title: "Detail memo",
       label: "Detail memo (optional)",
       placeholder:
-        "Example) Path to IELTS 8\n \nApr: Finish the textbook\nMay: Start past exam practice\nAug: Take a mock exam\nOct: First official exam\nDec: Second exam if needed",
+        "e.g.) Path to IELTS 8\n \nApr:  Finish the textbook\nMay:  Start past exam practice\nAug:  Take a mock exam\nOct:  First official exam\nDec:  Second exam if needed",
       save: "Save",
       cancel: "Cancel",
     },
@@ -234,7 +235,7 @@ export const annualGoalsTranslations: Record<
       title: "Mémo détaillé",
       label: "Mémo détaillé (optionnel)",
       placeholder:
-        "Exemple) Parcours vers l'IELTS 8\n \nAvr: Terminer le manuel\nMai Commencer les annales\nAoût: Passer un examen blanc\nOct: Premier examen officiel\nDéc: Deuxième examen si nécessaire",
+        "ex) Parcours vers l'IELTS 8\n \nAvr: Terminer le manuel\nMai Commencer les annales\nAoût: Passer un examen blanc\nOct: Premier examen officiel\nDéc: Deuxième examen si nécessaire",
       save: "Enregistrer",
       cancel: "Annuler",
     },
