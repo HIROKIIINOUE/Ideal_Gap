@@ -90,8 +90,9 @@ const TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY =
   "task_timer_notification_prompt_hidden";
 const FOREGROUND_ALARM_SOUND = require("../../assets/sounds/timer-alarm.wav");  // アラーム音
 const FOREGROUND_VIBRATION_PATTERN = [0, 250, 150, 250];  // バイブレーションの定義
-// iPad用UIのための定数群
-const isIpadDevice = Platform.OS === "ios" && Platform.isPad === true;
+const COMPLETION_SAVE_TIMEOUT_MS = 7_000; // 作業時間をDBへ送信する際にタイムアウトエラーを返す待ち時間(7秒)
+
+const isIpadDevice = Platform.OS === "ios" && Platform.isPad === true; // iPad用UIのための定数群
 const taskTimerLayout = getTaskTimerIpadLayout(isIpadDevice);
 
 // カウントダウン終了時刻を算出するロジック
@@ -110,6 +111,31 @@ const isForegroundAppState = (state: AppStateStatus) =>
 // タイマー終了予定時刻と現在時刻から残りの秒数を計算する
 const getRemainingSecondsFromEndAt = (endAt: number) =>
   Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+
+// 引数の非同期処理(現在は作業時間のDB保存)が指定の秒数(現在は7秒)で終わらなかった時にタイムアウトエラーを返す。
+const withTimeout = async <T,>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage: string,
+) => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    // Promise.race([])で2つの非同期処理(今回は「作業時間のDB保存」と「7秒後にエラーを返す処理」)を走らせ、先に完了した処理の結果のみを返す
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(errorMessage));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
 
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
@@ -593,6 +619,7 @@ export default function TaskTimerScreen() {
     return nextRemaining;
   }, []);
 
+  // 「1秒ごとに終了予定時刻との差分から残り時間を再計算する」処理をスタートさせる。foregroundでのみドーナツ進捗ゲージ表示に使う(UI用)
   const startTicking = useCallback(() => {
     clearTick();
     tickRef.current = setInterval(() => {
@@ -842,7 +869,8 @@ export default function TaskTimerScreen() {
     }).catch(() => { });
   }, []);
 
-  // ユーザがアプリに戻ってきた時に発火し、残り秒数を計算、残り時間が0秒なら完了モーダルを表示し、それ以外なら残り時間をセットしてカウントダウンUI復帰
+  // "change"でアプリのforeground、backgroundを監視し「ユーザがアプリに戻ってきた時に発火、残り秒数を計算、残り時間が0秒なら完了モーダルを表示し、それ以外なら残り時間をセットしてカウントダウンUI復帰する処理」
+  // 同様に"change"でアプリのforeground、backgroundを監視し、「ユーザがアプリから離れた時に発火、UI進捗バー表示用のsetInterval関数の停止とカウントダウン終了タイマーの停止する処理」
   // AppStateには「active」「background」の二つがある。(細かい他の状態もあるがほとんど使わない)
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -902,10 +930,23 @@ export default function TaskTimerScreen() {
     const trimmedNextStart = nextStartNote.trim();
     const nextStartPayload =
       trimmedNextStart.length > 0 ? trimmedNextStart : null;
-    const success = await persistElapsedAndExit(
-      completionElapsedSeconds,
-      nextStartPayload,
-    );
+    // 作業時間をDBへ送る際に7秒以内に完了しなければタイムアウトとなり、「'feedback.saveTimeout'」をエラーメッセージとしてcatchに入る
+    let success = false;
+    try {
+      success = await withTimeout(
+        persistElapsedAndExit(
+          completionElapsedSeconds,
+          nextStartPayload,
+        ), // 経過時間のDB保存関数
+        COMPLETION_SAVE_TIMEOUT_MS,
+        t("feedback.saveTimeout"),
+      );
+    } catch (error) {
+      Alert.alert(
+        t("controls.completeConfirmTitle"),
+        error instanceof Error ? error.message : String(error),
+      );
+    }
     if (success) {
       setCompletionModalVisible(false);
       setNextStartNote("");
@@ -1276,10 +1317,12 @@ export default function TaskTimerScreen() {
                   <Pressable
                     accessibilityRole="button"
                     onPress={handleDismissCompletion}
+                    disabled={isSavingCompletion}
                     style={({ pressed }) => [
                       styles.secondaryButton,
                       styles.controlButton,
                       pressed && styles.secondaryPressed,
+                      isSavingCompletion && styles.buttonDisabled,
                     ]}
                   >
                     <Text style={styles.secondaryButtonText}>
@@ -1299,7 +1342,9 @@ export default function TaskTimerScreen() {
                     ]}
                   >
                     <Text style={styles.primaryButtonText}>
-                      {t("completionModal.confirm")}
+                      {isSavingCompletion
+                        ? t("completionModal.saving")
+                        : t("completionModal.confirm")}
                     </Text>
                   </Pressable>
                 </View>

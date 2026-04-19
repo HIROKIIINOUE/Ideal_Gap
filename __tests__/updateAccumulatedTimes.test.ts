@@ -187,10 +187,15 @@ describe("updateAccumulatedTimes", () => {
       hangingClient,
     );
 
-    jest.advanceTimersByTime(15_000);
-
-    await expect(promise).rejects.toThrow("Time tracking request timed out");
-    jest.useRealTimers();
+    try {
+      const assertion = expect(promise).rejects.toThrow(
+        "Time tracking request timed out",
+      );
+      await jest.advanceTimersByTimeAsync(15_000);
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("rejects instead of hanging when yearly goal fetch never resolves", async () => {
@@ -212,9 +217,14 @@ describe("updateAccumulatedTimes", () => {
       hangingClient,
     );
 
-    jest.advanceTimersByTime(15_000);
-
-    await expect(promise).rejects.toThrow("Time tracking request timed out");
-    jest.useRealTimers();
+    try {
+      const assertion = expect(promise).rejects.toThrow(
+        "Time tracking request timed out",
+      );
+      await jest.advanceTimersByTimeAsync(15_000);
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

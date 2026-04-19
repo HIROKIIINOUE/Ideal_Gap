@@ -69,6 +69,7 @@ export type TaskTimerTranslations = {
     nextStartPlaceholder: string;
     nextStartHelper: string;
     confirm: string;
+    saving: string;
   };
   feedback: {
     startError: string;
@@ -78,6 +79,7 @@ export type TaskTimerTranslations = {
     permissionHide: string;
     offlineSaveBlocked: string;
     offlineSaveBlockedAction: string;
+    saveTimeout: string;
   };
 };
 
@@ -154,6 +156,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         nextStartPlaceholder: "例: 第2章から / 単語帳セクション3から",
         nextStartHelper: "メモを残すと次のセッション開始時に表示されます",
         confirm: "完了",
+        saving: "保存中...",
       },
       feedback: {
         startError: "時間を設定してから開始してください",
@@ -165,6 +168,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         offlineSaveBlocked:
           "オフラインです。通信を再接続するか、手動記録ボタンから手動で時間を記録してください。",
         offlineSaveBlockedAction: "戻る",
+        saveTimeout:
+          "保存に時間がかかりすぎました。通信状況を確認して、もう一度お試しください。",
       },
     },
     en: {
@@ -240,6 +245,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         nextStartHelper:
           "Leave a short note so you can resume from the proper point in next time.",
         confirm: "Save",
+        saving: "Saving...",
       },
       feedback: {
         startError: "Set a duration before starting",
@@ -251,6 +257,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         offlineSaveBlocked:
           "You are offline. Reconnect to the internet, or record your time manually from the manual log button.",
         offlineSaveBlockedAction: "Back",
+        saveTimeout:
+          "Saving took too long. Check your connection and try again.",
       },
     },
     fr: {
@@ -329,6 +337,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         nextStartHelper:
           "Ajoutez une note pour reprendre plus vite la prochaine fois.",
         confirm: "Enregistrer",
+        saving: "Enregistrement...",
       },
       feedback: {
         startError: "Définissez une durée avant de démarrer",
@@ -340,6 +349,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         offlineSaveBlocked:
           "Vous êtes hors ligne. Reconnectez-vous à Internet, ou enregistrez le temps manuellement avec le bouton de saisie manuelle.",
         offlineSaveBlockedAction: "Retour",
+        saveTimeout:
+          "L'enregistrement a pris trop de temps. Vérifiez la connexion puis réessayez.",
       },
     },
   };
