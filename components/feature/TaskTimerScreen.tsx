@@ -62,6 +62,12 @@ type WeeklyTaskTimeTrackingRow = Pick<
   "accumulated_time_week" | "yearly_goal_id" | "next_start_point"
 >;
 
+type WeeklyTaskTimeTrackingSnapshot = {
+  accumulated: number;
+  yearlyGoalId: string | null;
+  nextStartPoint: string | null;
+};
+
 const PRESETS = [
   // { label: "add10s", minutes: 10 / 60 }, // これはテスト用
   // { label: "add1m", minutes: 1 }, // これはテスト用
@@ -246,15 +252,21 @@ export default function TaskTimerScreen() {
 
   // 初回レンダリング時に紐づく週間タスクの最新データをDBから取得
   const fetchLatestLogged = useCallback(
-    async (uid: string, weeklyTaskId: string) => {
+    async (
+      uid: string,
+      weeklyTaskId: string,
+    ): Promise<WeeklyTaskTimeTrackingSnapshot | null> => {
       const { data, error } = await supabase
         .from("weekly_tasks")
         .select("accumulated_time_week, yearly_goal_id, next_start_point")
         .eq("id", weeklyTaskId)
         .eq("user_id", uid)
-        .single();
+        .maybeSingle();
       if (error) {
         throw new Error(error.message);
+      }
+      if (!data) {
+        return null;
       }
       const row: WeeklyTaskTimeTrackingRow | null = data;
       return {
@@ -452,6 +464,7 @@ export default function TaskTimerScreen() {
       try {
         const latest = await fetchLatestLogged(uid, taskId);
         if (!mounted) return;
+        if (!latest) return;
         setLoggedBaseline(latest.accumulated);
         setNextStartPoint(latest.nextStartPoint ?? null);
       } catch {
@@ -732,6 +745,14 @@ export default function TaskTimerScreen() {
 
       const elapsedMinutes = Math.max(0, Math.round(elapsedSeconds / 60));
       const latest = await fetchLatestLogged(uid, taskId);
+      if (!latest) {
+        Alert.alert(
+          t("controls.completeConfirmTitle"),
+          t("feedback.missingTaskOnSave"),
+          [{ text: t("feedback.offlineSaveBlockedAction"), onPress: () => router.back() }],
+        );
+        return false;
+      }
       const baseLogged = latest.accumulated ?? loggedBaseline;
       const newLoggedMinutes = baseLogged + elapsedMinutes;
 

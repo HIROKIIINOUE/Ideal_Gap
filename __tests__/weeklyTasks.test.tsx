@@ -129,6 +129,17 @@ describe("WeeklyTasksScreen", () => {
     expect(await findByText("No tasks yet")).toBeTruthy();
   });
 
+  test("shows a load error instead of the form validation message when the user session is missing", async () => {
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: null },
+    });
+
+    const { findByText, queryByText } = renderScreen();
+
+    expect(await findByText("Unable to load weekly tasks.")).toBeTruthy();
+    expect(queryByText("Please fill all fields")).toBeNull();
+  });
+
   test("uses smaller header typography for French title and buttons", async () => {
     await i18n.changeLanguage("fr");
     mockOrderWeekly.mockResolvedValue({ data: [], error: null });

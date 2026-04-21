@@ -78,6 +78,7 @@ export type TaskTimerTranslations = {
     permissionAction: string;
     permissionHide: string;
     offlineSaveBlocked: string;
+    missingTaskOnSave: string;
     offlineSaveBlockedAction: string;
     saveTimeout: string;
   };
@@ -167,6 +168,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         permissionHide: "今後表示しない",
         offlineSaveBlocked:
           "オフラインです。通信を再接続するか、手動記録ボタンから手動で時間を記録してください。",
+        missingTaskOnSave:
+          "この週間タスクは削除されたため、今回の作業時間は保存されませんでした。週間タスクページに戻ります。",
         offlineSaveBlockedAction: "戻る",
         saveTimeout:
           "保存に時間がかかりすぎました。通信状況を確認して、もう一度お試しください。",
@@ -256,6 +259,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         permissionHide: "Don't show again",
         offlineSaveBlocked:
           "You are offline. Reconnect to the internet, or record your time manually from the manual log button.",
+        missingTaskOnSave:
+          "This weekly task no longer exists, so this session was not saved. You will be returned to weekly tasks.",
         offlineSaveBlockedAction: "Back",
         saveTimeout:
           "Saving took too long. Check your connection and try again.",
@@ -348,6 +353,8 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         permissionHide: "Ne plus afficher",
         offlineSaveBlocked:
           "Vous êtes hors ligne. Reconnectez-vous à Internet, ou enregistrez le temps manuellement avec le bouton de saisie manuelle.",
+        missingTaskOnSave:
+          "Cette tâche hebdomadaire n'existe plus, donc cette session n'a pas été enregistrée. Vous allez revenir aux tâches hebdomadaires.",
         offlineSaveBlockedAction: "Retour",
         saveTimeout:
           "L'enregistrement a pris trop de temps. Vérifiez la connexion puis réessayez.",

@@ -70,7 +70,7 @@ const supabaseTimeTrackingClient: TimeTrackingClient = {
       .from("yearly_goals")
       .select("accumulated_time_year")
       .match({ id: yearlyGoalId, user_id: userId })
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw new Error(error.message);

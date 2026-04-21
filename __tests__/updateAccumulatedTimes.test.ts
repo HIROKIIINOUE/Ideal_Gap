@@ -168,6 +168,31 @@ describe("updateAccumulatedTimes", () => {
     });
   });
 
+  it("updates only weekly task when the linked yearly goal no longer exists", async () => {
+    const { client, getState } = createMockClient();
+    (client.getYearlyGoal as jest.Mock).mockResolvedValueOnce(null);
+
+    const result = await updateAccumulatedTimes(
+      {
+        userId: "user-1",
+        taskId: "task-1",
+        yearlyGoalId: "missing-year",
+        newLoggedMinutes: 75,
+        previousLoggedMinutes: 15,
+      },
+      client,
+    );
+
+    expect(result).toEqual({ delta: 60, newLoggedMinutes: 75 });
+    expect(client.updateWeeklyLogged).toHaveBeenCalledTimes(1);
+    expect(client.getYearlyGoal).toHaveBeenCalledTimes(1);
+    expect(client.updateYearlyLogged).not.toHaveBeenCalled();
+    expect(getState()).toEqual({
+      weeklyLogged: 75,
+      yearlyStored: 600,
+    });
+  });
+
   it("rejects instead of hanging when weekly task update never resolves", async () => {
     jest.useFakeTimers();
     const hangingClient: TimeTrackingClient = {

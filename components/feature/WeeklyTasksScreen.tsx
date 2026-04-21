@@ -293,7 +293,7 @@ export default function WeeklyTasksScreen() {
     setErrorMessage(null);
     const uid = await fetchUserId();
     if (!uid) {
-      setErrorMessage(t("modal.errorRequired"));
+      setErrorMessage(t("list.loadError"));
       setLoading(false);
       return;
     }

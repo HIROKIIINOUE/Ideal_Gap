@@ -14,6 +14,7 @@ import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
 import { FocusMusicTrack, InstalledFocusTrack } from "../types/focus-music";
 import { colors } from "../constants/theme";
 import { TIMER_ALARM_ENABLED_STORAGE_KEY } from "../providers/TimerAlarmPreferenceProvider";
+import { supabase } from "../lib/supabaseClient";
 
 jest.useFakeTimers();
 
@@ -121,6 +122,7 @@ jest.mock("expo-audio", () => ({
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: { getSession: jest.fn().mockResolvedValue({ data: { session: null } }) },
+    from: jest.fn(),
   },
 }));
 
@@ -221,6 +223,10 @@ const mockCancelScheduledNotificationAsync =
     typeof Notifications.cancelScheduledNotificationAsync
   >;
 const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fetch>;
+const mockSupabaseFrom = supabase.from as jest.MockedFunction<typeof supabase.from>;
+const mockGetSession = supabase.auth.getSession as jest.MockedFunction<
+  typeof supabase.auth.getSession
+>;
 const mockOpenSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
 const mockVibrationVibrate = jest.spyOn(Vibration, "vibrate").mockImplementation(() => {});
 const mockVibrationCancel = jest.spyOn(Vibration, "cancel").mockImplementation(() => {});
@@ -232,6 +238,7 @@ describe("TaskTimerScreen", () => {
     mockAudioPlayers.length = 0;
     mockAnyAudioPlay.mockClear();
     mockSetAudioModeAsync.mockClear();
+    mockGetSession.mockResolvedValue({ data: { session: null } } as any);
     mockNetInfoFetch.mockResolvedValue({
       type: "wifi",
       isConnected: true,
@@ -252,6 +259,28 @@ describe("TaskTimerScreen", () => {
     } as Notifications.NotificationPermissionsStatus);
     mockScheduleNotificationAsync.mockResolvedValue("timer-notification-id");
     mockCancelScheduledNotificationAsync.mockResolvedValue(undefined);
+    mockSupabaseFrom.mockReset();
+    mockSupabaseFrom.mockImplementation((table: string) => {
+      if (table === "weekly_tasks") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: {
+                    accumulated_time_week: 25,
+                    yearly_goal_id: "year-1",
+                    next_start_point: "Resume here",
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        } as any;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
   });
 
   const getAlarmPlayer = () => mockAudioPlayers[mockAudioPlayers.length - 1];
@@ -946,6 +975,76 @@ describe("TaskTimerScreen", () => {
     }>;
     buttons[0]?.onPress?.();
     expect(backSpy).toHaveBeenCalled();
+  });
+
+  test("shows a task-missing alert and goes back without saving when the weekly task no longer exists", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert");
+    const router = require("expo-router").router;
+    const backSpy = jest.spyOn(router, "back");
+    const updateAccumulatedTimes = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes")
+      .updateAccumulatedTimes as jest.Mock;
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+
+    mockSupabaseFrom.mockImplementation((table: string) => {
+      if (table === "weekly_tasks") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        } as any;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: "user-1",
+          },
+        },
+      },
+    } as any);
+
+    try {
+      const { getByText } = renderScreen();
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByText("Mark done"));
+      await waitFor(() => expect(getByText("Review before saving")).toBeTruthy());
+      fireEvent.press(getByText("Save"));
+
+      await waitFor(() =>
+        expect(alertSpy).toHaveBeenCalledWith(
+          "Finish this session?",
+          "This weekly task no longer exists, so this session was not saved. You will be returned to weekly tasks.",
+          [{ text: "Back", onPress: expect.any(Function) }],
+        ),
+      );
+
+      expect(updateAccumulatedTimes).not.toHaveBeenCalled();
+      const buttons = alertSpy.mock.calls[alertSpy.mock.calls.length - 1][2] as Array<{
+        text: string;
+        onPress?: () => void;
+      }>;
+      buttons[0]?.onPress?.();
+      expect(backSpy).toHaveBeenCalled();
+    } finally {
+      paramsSpy.mockRestore();
+    }
   });
 
   test("renders keyboard avoiding wrapper in completion modal", () => {
