@@ -14,7 +14,7 @@ import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessor
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { signUpWithEmailConfirmation } from "../lib/auth";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
-import { ensureSignupAwaitSubscription, getSubscriptionForUser } from "../lib/subscription";
+import { ensureSignupAwaitSubscription, getAccessStateForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { useLanguage } from "../providers/LanguageProvider";
 
@@ -78,8 +78,12 @@ export default function Signup() {
       if (error) return;
       const userId = data.session?.user?.id;
       if (!userId) return;
-      const subscription = await getSubscriptionForUser(userId);
-      if (!subscription || subscription.status === "signupAwait") {
+      const accessState = await getAccessStateForUser(userId);
+      if (accessState.canAccessApp) {
+        router.replace("/dashboard");
+        return;
+      }
+      if (!accessState.subscription || accessState.subscription.status === "signupAwait") {
         try {
           await ensureSignupAwaitSubscription(userId);
         } catch (error) {
@@ -88,9 +92,7 @@ export default function Signup() {
         router.replace("/purchases?from=signup");
         return;
       }
-      if (subscription.status === "active" || subscription.status === "trial") {
-        router.replace("/dashboard");
-      }
+      router.replace("/purchases?from=signup");
     };
 
     checkExistingSession().catch((error) => console.warn("signup guard failed", error));

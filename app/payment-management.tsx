@@ -9,7 +9,7 @@ import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signOutCurrentSession } from "../lib/logout";
-import { getSubscriptionForUser } from "../lib/subscription";
+import { getAccessStateForUser } from "../lib/subscription";
 import { openSubscriptionManagementPortal } from "../lib/subscriptionManagement";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
@@ -21,7 +21,7 @@ export default function PaymentManagement() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
   const [statusKey, setStatusKey] = useState<
-    "signupAwait" | "trial" | "active" | "canceled" | "expired" | "unknown"
+    "signupAwait" | "trial" | "active" | "friendFree" | "canceled" | "expired" | "unknown"
   >("unknown");
   const [isOpening, setIsOpening] = useState(false);
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
@@ -53,10 +53,15 @@ export default function PaymentManagement() {
         return;
       }
 
-      const subscription = await getSubscriptionForUser(userId);
+      const accessState = await getAccessStateForUser(userId);
       if (!active) return;
 
-      const status = subscription?.status;
+      if (accessState.accessMode === "friend_free") {
+        setStatusKey("friendFree");
+        return;
+      }
+
+      const status = accessState.subscription?.status;
       if (
         status === "signupAwait" ||
         status === "trial" ||

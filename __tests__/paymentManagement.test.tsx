@@ -6,7 +6,7 @@ import PaymentManagement from "../app/payment-management";
 import i18n from "../i18n";
 
 const mockOpenPortal = jest.fn();
-const mockGetSubscription = jest.fn();
+const mockGetAccessState = jest.fn();
 
 jest.mock("expo-router", () => ({
   Stack: { Screen: () => null },
@@ -36,7 +36,7 @@ jest.mock("../lib/subscriptionManagement", () => ({
 }));
 
 jest.mock("../lib/subscription", () => ({
-  getSubscriptionForUser: (...args: unknown[]) => mockGetSubscription(...args),
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessState(...args),
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
@@ -55,7 +55,12 @@ describe("PaymentManagement", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockOpenPortal.mockResolvedValue("customer_center");
-    mockGetSubscription.mockResolvedValue({ status: "active" });
+    mockGetAccessState.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active" },
+      accessOverride: null,
+    });
     await i18n.changeLanguage("ja");
   });
 
@@ -67,7 +72,7 @@ describe("PaymentManagement", () => {
     );
 
     await waitFor(() => {
-      expect(mockGetSubscription).toHaveBeenCalledWith("user-123");
+      expect(mockGetAccessState).toHaveBeenCalledWith("user-123");
     });
 
     expect(await screen.findByText("現在の契約ステータス")).toBeTruthy();
@@ -107,5 +112,22 @@ describe("PaymentManagement", () => {
     });
 
     alertSpy.mockRestore();
+  });
+
+  it("shows friend free status when override access is active", async () => {
+    mockGetAccessState.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "friend_free",
+      subscription: { status: "signupAwait" },
+      accessOverride: { access_type: "friend_free", is_active: true },
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <PaymentManagement />
+      </I18nextProvider>,
+    );
+
+    expect(await screen.findByText("友人向け無料アクセス")).toBeTruthy();
   });
 });

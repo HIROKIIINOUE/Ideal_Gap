@@ -47,4 +47,20 @@ describe("Database types", () => {
 
     expect(row.description).toBe("Ship UX fixes");
   });
+
+  test("includes access_overrides table types", () => {
+    const row: Database["public"]["Tables"]["access_overrides"]["Row"] = {
+      id: "override-1",
+      user_id: "user-1",
+      access_type: "friend_free",
+      starts_at: "2026-04-24T00:00:00.000Z",
+      ends_at: null,
+      is_active: true,
+      note: "friend beta access",
+      created_at: null,
+      updated_at: null,
+    };
+
+    expect(row.access_type).toBe("friend_free");
+  });
 });

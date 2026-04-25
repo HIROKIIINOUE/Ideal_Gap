@@ -1,28 +1,38 @@
 // Supabaseのsubscriptions/usersテーブルを操作し、ユーザーのサブスク状態を取得・初期化・更新するヘルパー集。
-// RevenueCatの「購読状態」をSupabase DBに反映する役目。
+// RevenueCatの「購読状態」をSupabase DBに反映する役目やユーザのアプリアクセス権情報をDBから取得し共有する役目。
+
+//=== アプリアクセス権のチェックは以下の順に行われる===
+// １、DB上のsubscription.statusがactive / trialである (通常課金ユーザ)
+// ２、DB上のaccess_override.access_typeが"friend_free" かつ is_active=trueである(友人用の無料ユーザ)
+// ３、アクセス権なし
 
 import { Database } from "../types/database";
 import { supabase } from "./supabaseClient";
 
-// 【ここチェック】自分で修正した、多分問題ないとは思う
 export type SubscriptionStatus = Database["public"]["Enums"]["status"];
 
 export type SubscriptionRow =
   Database["public"]["Tables"]["subscriptions"]["Row"] & {
     status: SubscriptionStatus | null;
   };
+export type AccessOverrideRow =
+  Database["public"]["Tables"]["access_overrides"]["Row"];
+export type AccessMode = "paid" | "friend_free" | "none";
+export type AccessState = {
+  canAccessApp: boolean;
+  accessMode: AccessMode;
+  subscription: SubscriptionRow | null;
+  accessOverride: AccessOverrideRow | null;
+};
 
-export const DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
-  "trial",
-  "active",
-];
+export const DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] =
+  ["trial", "active"];
 
 export const canAccessDashboardWithSubscriptionStatus = (
   status: SubscriptionStatus | null | undefined,
 ): boolean =>
   Boolean(
-    status &&
-      DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES.includes(status),
+    status && DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES.includes(status),
   );
 
 type UserRow = Pick<
@@ -65,6 +75,94 @@ const sleep = (ms: number) =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
   });
+
+// DB上で該当ユーザ(友人無料アカウント)のaccess_overrideデータが「access_type=friend_free / is_active = true」 であり、
+// 今日がstarts_atデータ(開始日)とends_at(終了日)の間にある場合は課金ユーザと同等のアクセス権を与える(trueを返す)
+const isAccessOverrideActiveAt = (
+  accessOverride: AccessOverrideRow,
+  now = new Date(),
+) => {
+  if (
+    accessOverride.access_type !== "friend_free" ||
+    !accessOverride.is_active
+  ) {
+    return false;
+  }
+
+  const startsAt = new Date(accessOverride.starts_at);
+  if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() > now.getTime()) {
+    return false;
+  }
+
+  // accessOverride.ends_atデータがDB上でnullの場合はアクセス権を付与
+  if (!accessOverride.ends_at) {
+    return true;
+  }
+
+  const endsAt = new Date(accessOverride.ends_at);
+  if (Number.isNaN(endsAt.getTime())) {
+    return false;
+  }
+
+  return endsAt.getTime() > now.getTime();
+};
+
+// ユーザに紐づくaccess_overrideデータを取得する。
+// access_overrideデータが取得できない場合(友人無料枠じゃない場合)はnullを返す(ほとんどの場合はnull)
+export const getActiveAccessOverrideForUser = async (
+  userId: string,
+): Promise<AccessOverrideRow | null> => {
+  const { data, error } = await supabase
+    .from("access_overrides")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Failed to fetch access override", error.message);
+    return null;
+  }
+
+  const accessOverride = data as AccessOverrideRow | null;
+  return accessOverride && isAccessOverrideActiveAt(accessOverride)
+    ? accessOverride
+    : null;
+};
+
+export const canAccessDashboardWithAccessOverride = (
+  accessOverride: AccessOverrideRow | null | undefined,
+) => Boolean(accessOverride && isAccessOverrideActiveAt(accessOverride));
+
+// 通常ユーザのアクセス権限情報を取得。
+// 各ページでimport実行され、以下の流れでアクセス権限情報を取得する。
+// １、subscription.statusがactive / trial ならsubscriptionデータを返す
+// ２、subscription.statusがactive / trial 以外ならaccess_overrideデータを取得しにいく
+// ３、正常なaccess_overrideデータを保持していればそのデータを返す
+export const getAccessStateForUser = async (
+  userId: string,
+): Promise<AccessState> => {
+  const subscription = await getSubscriptionForUser(userId);
+
+  if (canAccessDashboardWithSubscriptionStatus(subscription?.status)) {
+    return {
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription,
+      accessOverride: null,
+    };
+  }
+
+  const accessOverride = await getActiveAccessOverrideForUser(userId);
+  const canAccessWithOverride =
+    canAccessDashboardWithAccessOverride(accessOverride);
+
+  return {
+    canAccessApp: canAccessWithOverride,
+    accessMode: canAccessWithOverride ? "friend_free" : "none",
+    subscription,
+    accessOverride,
+  };
+};
 
 // RevenueCat WebhookがDB反映するまで待機し、trial/activeになったら返す
 export const waitForActiveSubscription = async (

@@ -12,6 +12,7 @@ import {
   purchaseSelectedPackage,
 } from "../lib/revenuecatOfferings";
 import {
+  getAccessStateForUser,
   ensureSignupAwaitSubscription,
   waitForActiveSubscription,
 } from "../lib/subscription";
@@ -41,6 +42,7 @@ jest.mock("../lib/revenuecatOfferings", () => ({
     Boolean(customerInfo?.entitlements?.active?.[entitlementId]),
 }));
 jest.mock("../lib/subscription", () => ({
+  getAccessStateForUser: jest.fn(),
   ensureSignupAwaitSubscription: jest.fn(),
   waitForActiveSubscription: jest.fn(),
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
@@ -57,6 +59,7 @@ jest.mock("../lib/supabaseClient", () => ({
 
 const mockFetchTestStorePackage = fetchTestStorePackage as jest.Mock;
 const mockPurchaseSelectedPackage = purchaseSelectedPackage as jest.Mock;
+const mockGetAccessStateForUser = getAccessStateForUser as jest.Mock;
 const mockEnsureSignupAwaitSubscription = ensureSignupAwaitSubscription as jest.Mock;
 const mockWaitForActiveSubscription = waitForActiveSubscription as jest.Mock;
 const mockGetSession = supabase.auth.getSession as jest.Mock;
@@ -85,6 +88,12 @@ describe("Purchases screen", () => {
     mockEnsureSignupAwaitSubscription.mockResolvedValue({
       user_id: "user-123",
       status: "signupAwait",
+    });
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: false,
+      accessMode: "none",
+      subscription: { status: "signupAwait" },
+      accessOverride: null,
     });
     mockFetchTestStorePackage.mockResolvedValue({
       package: { identifier: "monthly" },
@@ -196,9 +205,11 @@ describe("Purchases screen", () => {
   });
 
   it("redirects to dashboard when subscription is already active", async () => {
-    mockEnsureSignupAwaitSubscription.mockResolvedValue({
-      user_id: "user-123",
-      status: "active",
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active" },
+      accessOverride: null,
     });
 
     renderWithProviders();
@@ -211,9 +222,11 @@ describe("Purchases screen", () => {
   });
 
   it("stays on purchases when subscription is canceled", async () => {
-    mockEnsureSignupAwaitSubscription.mockResolvedValue({
-      user_id: "user-123",
-      status: "canceled",
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: false,
+      accessMode: "none",
+      subscription: { status: "canceled" },
+      accessOverride: null,
     });
 
     renderWithProviders();
@@ -223,6 +236,23 @@ describe("Purchases screen", () => {
     });
 
     expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("redirects to dashboard when friend free override is active", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "friend_free",
+      subscription: { status: "signupAwait" },
+      accessOverride: { access_type: "friend_free", is_active: true },
+    });
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/dashboard");
+    });
+
+    expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
   });
 
   it("localizes page label and trial notice in Japanese", async () => {

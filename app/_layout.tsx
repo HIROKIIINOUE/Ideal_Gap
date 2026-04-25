@@ -21,9 +21,8 @@ import {
   SentryErrorBoundary,
 } from "../lib/sentry";
 import {
-  canAccessDashboardWithSubscriptionStatus,
   ensureSignupAwaitSubscription,
-  getSubscriptionForUser,
+  getAccessStateForUser,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
@@ -85,10 +84,8 @@ export default function RootLayout() {
       const userId = data.session?.user?.id;
       if (error || !userId) return;
 
-      const subscription = await getSubscriptionForUser(userId);
-      const destination = canAccessDashboardWithSubscriptionStatus(subscription?.status)
-        ? "/dashboard"
-        : "/purchases";
+      const accessState = await getAccessStateForUser(userId);
+      const destination = accessState.canAccessApp ? "/dashboard" : "/purchases";
       router.replace(destination);
       // router.replaceの反映を1フレーム待ってからスプラッシュを隠す
       await waitForNextFrame();

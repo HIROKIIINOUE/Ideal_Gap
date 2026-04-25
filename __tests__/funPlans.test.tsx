@@ -10,7 +10,7 @@ import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
 import { TimerAlarmPreferenceProvider } from "../providers/TimerAlarmPreferenceProvider";
 
-const mockGetSubscriptionForUser = jest.fn();
+const mockGetAccessStateForUser = jest.fn();
 
 jest.mock("@expo/vector-icons", () => {
   const MockIcon = () => null;
@@ -95,9 +95,7 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 jest.mock("../lib/subscription", () => ({
-  getSubscriptionForUser: (...args: unknown[]) => mockGetSubscriptionForUser(...args),
-  canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
-    status === "active" || status === "trial",
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
 }));
 
 describe("FunPlanScreen interactions", () => {
@@ -122,7 +120,12 @@ describe("FunPlanScreen interactions", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     await i18n.changeLanguage("en");
-    mockGetSubscriptionForUser.mockResolvedValue({ status: "active" });
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active" },
+      accessOverride: null,
+    });
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
     });

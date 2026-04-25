@@ -7,7 +7,7 @@ import i18n from "../i18n";
 
 const mockReplace = jest.fn();
 const mockUseLocalSearchParams = jest.fn(() => ({}));
-const mockGetSubscriptionForUser = jest.fn();
+const mockGetAccessStateForUser = jest.fn();
 
 jest.mock("expo-router", () => {
   const React = require("react");
@@ -46,15 +46,18 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 jest.mock("../lib/subscription", () => ({
-  getSubscriptionForUser: (...args: unknown[]) => mockGetSubscriptionForUser(...args),
-  canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
-    status === "active" || status === "trial",
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
 }));
 
 describe("Dashboard email change completion notice", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockGetSubscriptionForUser.mockResolvedValue({ status: "active" });
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active" },
+      accessOverride: null,
+    });
     await i18n.changeLanguage("ja");
   });
 

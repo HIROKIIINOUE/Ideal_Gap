@@ -10,7 +10,7 @@ import { supabase } from "../lib/supabaseClient";
 let mockLanguage: "ja" | "en" | "fr" = "en";
 
 const mockFetchTestStorePackage = jest.fn();
-const mockGetSubscriptionForUser = jest.fn();
+const mockGetAccessStateForUser = jest.fn();
 const mockEnsureSignupAwaitSubscription = jest.fn();
 
 jest.mock("expo-router", () => {
@@ -31,7 +31,7 @@ jest.mock("../lib/revenuecatOfferings", () => ({
 }));
 
 jest.mock("../lib/subscription", () => ({
-  getSubscriptionForUser: (...args: unknown[]) => mockGetSubscriptionForUser(...args),
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
   ensureSignupAwaitSubscription: (...args: unknown[]) =>
     mockEnsureSignupAwaitSubscription(...args),
 }));
@@ -70,7 +70,12 @@ describe("Signup screen", () => {
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
       data: { subscription: { unsubscribe: jest.fn() } },
     });
-    mockGetSubscriptionForUser.mockResolvedValue(null);
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: false,
+      accessMode: "none",
+      subscription: null,
+      accessOverride: null,
+    });
     mockEnsureSignupAwaitSubscription.mockResolvedValue({
       user_id: "user-123",
       status: "signupAwait",

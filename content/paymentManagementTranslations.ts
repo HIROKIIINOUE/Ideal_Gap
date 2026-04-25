@@ -11,6 +11,7 @@ export type PaymentManagementTranslations = {
     signupAwait: string;
     trial: string;
     active: string;
+    friendFree: string;
     canceled: string;
     expired: string;
     unknown: string;
@@ -35,6 +36,7 @@ export const paymentManagementTranslations: Record<
       signupAwait: "支払い待ち",
       trial: "無料トライアル中",
       active: "サブスクリプション中(月額390円)",
+      friendFree: "友人向け無料アクセス",
       canceled: "キャンセル済み",
       expired: "期限切れ",
       unknown: "未確認",
@@ -54,6 +56,7 @@ export const paymentManagementTranslations: Record<
       signupAwait: "Awaiting payment",
       trial: "Free Trial",
       active: "Active",
+      friendFree: "Friend free access",
       canceled: "Canceled",
       expired: "Expired",
       unknown: "Unknown",
@@ -74,6 +77,7 @@ export const paymentManagementTranslations: Record<
       signupAwait: "En attente de paiement",
       trial: "Période d'essai",
       active: "Actif",
+      friendFree: "Acces gratuit invite",
       canceled: "Annulé",
       expired: "Expiré",
       unknown: "Inconnu",

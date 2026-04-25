@@ -11,7 +11,7 @@ import { supabase } from "../lib/supabaseClient";
 const mockFetchTestStorePackage = jest.fn();
 const mockPurchaseSelectedPackage = jest.fn();
 const mockEnsureSignupAwaitSubscription = jest.fn();
-const mockGetUserProfile = jest.fn();
+const mockGetAccessStateForUser = jest.fn();
 const mockWaitForActiveSubscription = jest.fn();
 
 let mockParams: Record<string, string> = {};
@@ -40,7 +40,7 @@ jest.mock("../lib/revenuecatOfferings", () => ({
 jest.mock("../lib/subscription", () => ({
   ensureSignupAwaitSubscription: (...args: unknown[]) =>
     mockEnsureSignupAwaitSubscription(...args),
-  getUserProfile: (...args: unknown[]) => mockGetUserProfile(...args),
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
   waitForActiveSubscription: (...args: unknown[]) =>
     mockWaitForActiveSubscription(...args),
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
@@ -89,7 +89,12 @@ beforeEach(() => {
     hasTrial: true,
   });
   mockEnsureSignupAwaitSubscription.mockResolvedValue({ status: "signupAwait" });
-  mockGetUserProfile.mockResolvedValue({ id: "user-123", had_account_before: false });
+  mockGetAccessStateForUser.mockResolvedValue({
+    canAccessApp: false,
+    accessMode: "none",
+    subscription: { status: "signupAwait" },
+    accessOverride: null,
+  });
   mockPurchaseSelectedPackage.mockResolvedValue({
     customerInfo: { entitlements: { active: { premium: { identifier: "premium" } } } },
   });
@@ -202,5 +207,23 @@ describe("Purchases screen", () => {
       expect(multiRemoveSpy).toHaveBeenCalled();
       expect(router.replace).toHaveBeenCalledWith("/");
     });
+  });
+
+  test("redirects friend free users to dashboard without loading pricing", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "friend_free",
+      subscription: { status: "signupAwait" },
+      accessOverride: { access_type: "friend_free", is_active: true },
+    });
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/dashboard");
+    });
+
+    expect(mockEnsureSignupAwaitSubscription).not.toHaveBeenCalled();
+    expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
   });
 });

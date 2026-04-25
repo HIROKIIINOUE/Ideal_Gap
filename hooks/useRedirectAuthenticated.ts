@@ -2,7 +2,7 @@
 //  → ログインユーザは「LP画面・サインアップ画面・ログイン画面・パス変更画面」にはアクセスできない
 import { router } from "expo-router";
 import { useEffect } from "react";
-import { canAccessDashboardWithSubscriptionStatus, getSubscriptionForUser } from "../lib/subscription";
+import { getAccessStateForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 
 export const useRedirectAuthenticated = () => {
@@ -10,10 +10,8 @@ export const useRedirectAuthenticated = () => {
     let active = true;
 
     const redirectForSession = async (userId: string) => {
-      const subscription = await getSubscriptionForUser(userId);
-      const destination = canAccessDashboardWithSubscriptionStatus(subscription?.status)
-        ? "/dashboard"
-        : "/purchases";
+      const accessState = await getAccessStateForUser(userId);
+      const destination = accessState.canAccessApp ? "/dashboard" : "/purchases";
       if (active) {
         router.replace(destination);
       }

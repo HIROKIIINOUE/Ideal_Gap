@@ -27,9 +27,8 @@ import { useLoginLockout } from "../hooks/useLoginLockout";
 import { signInWithEmailPassword } from "../lib/auth";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import {
-  canAccessDashboardWithSubscriptionStatus,
   ensureSignupAwaitSubscription,
-  getSubscriptionForUser,
+  getAccessStateForUser,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 
@@ -107,8 +106,8 @@ export default function Login() {
       const { data } = await supabase.auth.getSession();
       const userId = data.session?.user?.id;
       if (userId) {
-        const subscription = await getSubscriptionForUser(userId);
-        if (!canAccessDashboardWithSubscriptionStatus(subscription?.status)) {
+        const accessState = await getAccessStateForUser(userId);
+        if (!accessState.canAccessApp) {
           try {
             await ensureSignupAwaitSubscription(userId);
           } catch (error) {

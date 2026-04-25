@@ -25,8 +25,8 @@ import {
 } from "../lib/revenuecatOfferings";
 import { captureRevenueCatPurchaseError } from "../lib/sentry";
 import {
-  canAccessDashboardWithSubscriptionStatus,
   ensureSignupAwaitSubscription,
+  getAccessStateForUser,
   waitForActiveSubscription,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
@@ -99,8 +99,15 @@ export default function Purchases() {
       if (!mounted) return;
       setUserId(uid);
       try {
+        const accessState = await getAccessStateForUser(uid);
+        if (accessState.canAccessApp) {
+          if (mounted) setIsLoadingPlan(false);
+          router.replace("/dashboard");
+          return;
+        }
+
         const subscription = await ensureSignupAwaitSubscription(uid);
-        if (canAccessDashboardWithSubscriptionStatus(subscription.status)) {
+        if (subscription.status === "active" || subscription.status === "trial") {
           if (mounted) setIsLoadingPlan(false);
           router.replace("/dashboard");
           return;

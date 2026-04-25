@@ -19,7 +19,7 @@ import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signOutCurrentSession } from "../lib/logout";
-import { canAccessDashboardWithSubscriptionStatus, getSubscriptionForUser } from "../lib/subscription";
+import { getAccessStateForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
 import { shouldUseAndroidJapaneseTypography } from "../lib/ui/platform";
 import { isCompactScreen } from "../lib/ui/responsive";
@@ -170,8 +170,8 @@ export default function Dashboard() {
           if (active) router.replace("/login");
           return;
         }
-        const subscription = await getSubscriptionForUser(userId);
-        if (!canAccessDashboardWithSubscriptionStatus(subscription?.status) && active) {
+        const accessState = await getAccessStateForUser(userId);
+        if (!accessState.canAccessApp && active) {
           router.replace("/purchases");
         }
       };

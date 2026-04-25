@@ -9,6 +9,49 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      access_overrides: {
+        Row: {
+          access_type: string;
+          created_at: string | null;
+          ends_at: string | null;
+          id: string;
+          is_active: boolean;
+          note: string | null;
+          starts_at: string;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          access_type: string;
+          created_at?: string | null;
+          ends_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          note?: string | null;
+          starts_at?: string;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          access_type?: string;
+          created_at?: string | null;
+          ends_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          note?: string | null;
+          starts_at?: string;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "access_overrides_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       users: {
         Row: {
           created_at: string | null;
