@@ -221,6 +221,39 @@ describe("WeeklyTasksScreen", () => {
     expect(getByTestId("weekly-task-reorder-w1")).toBeTruthy();
   });
 
+  test("renders long weekly task titles without truncation props", async () => {
+    const longTitle =
+      "Ship the weekly task card update with enough detail to wrap across multiple lines instead of being truncated";
+
+    mockOrderYearly.mockResolvedValue({
+      data: [
+        { id: "y1", description: "Career growth", year_goal_color: "#1E5EFF" },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: longTitle,
+          yearly_goal_id: "y1",
+          accumulated_time_week: 180,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { getByText } = renderScreen();
+
+    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+
+    const title = getByText(longTitle);
+
+    expect(title.props.numberOfLines).toBeUndefined();
+    expect(title.props.ellipsizeMode).toBeUndefined();
+  });
+
   test("uses the same accent border styling for the task timer button as the header add button", async () => {
     mockOrderYearly.mockResolvedValue({
       data: [

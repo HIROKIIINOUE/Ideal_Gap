@@ -702,7 +702,7 @@ export default function WeeklyTasksScreen() {
         />
         <View pointerEvents="none" style={styles.cardBorderOverlay} />
         <View style={styles.taskHeader}>
-          <Text style={styles.taskTitle} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={styles.taskTitle}>
             {item.title}
           </Text>
         </View>
