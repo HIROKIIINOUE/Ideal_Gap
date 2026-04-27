@@ -69,6 +69,7 @@ const renderScreen = () =>
 describe("BreakReminderScreen", () => {
   beforeEach(async () => {
     const mockModule = jest.requireMock("expo-notifications") as { __listeners: Array<(notification: Notifications.Notification) => void> };
+    jest.setSystemTime(new Date("2026-04-18T17:00:00.000Z"));
     await AsyncStorage.clear();
     jest.clearAllMocks();
     mockModule.__listeners.splice(0, mockModule.__listeners.length);
