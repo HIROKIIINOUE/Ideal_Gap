@@ -497,7 +497,7 @@ export default function TaskTimerScreen() {
     Alert.alert(message);
   }, []);
 
-  // 【ここチェック】iOS設定画面へ遷移する処理、Androidは要検討
+  // 通知設定画面へ遷移する処理
   const handleOpenSettings = useCallback(async () => {
     try {
       await Linking.openSettings();
