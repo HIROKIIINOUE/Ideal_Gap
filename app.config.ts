@@ -106,6 +106,7 @@ export default (): ExpoConfig => ({
     [
       "expo-audio",
       {
+        enableBackgroundPlayback: true,
         recordAudioAndroid: false,
         microphonePermission: false,
       },

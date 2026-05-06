@@ -15,6 +15,9 @@ import { FocusMusicTrack, InstalledFocusTrack } from "../types/focus-music";
 import { colors } from "../constants/theme";
 import { TIMER_ALARM_ENABLED_STORAGE_KEY } from "../providers/TimerAlarmPreferenceProvider";
 import { supabase } from "../lib/supabaseClient";
+import {
+  TASK_TIMER_SESSION_STORAGE_KEY,
+} from "../lib/taskTimerSession";
 
 jest.useFakeTimers();
 
@@ -780,6 +783,122 @@ describe("TaskTimerScreen", () => {
     } finally {
       dateNowSpy.mockRestore();
       appStateSpy.mockRestore();
+    }
+  });
+
+  test("restores a persisted running timer session after remount", async () => {
+    let now = 120_000;
+    const dateNowSpy = jest.spyOn(Date, "now").mockImplementation(() => now);
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({});
+
+    await AsyncStorage.setItem(
+      TASK_TIMER_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        taskId: "task-1",
+        title: "Write report",
+        yearlyGoalId: "year-1",
+        loggedBaseline: 25,
+        inputSeconds: 300,
+        remainingSeconds: 300,
+        expectedEndAt: 300_000,
+        completionElapsedSeconds: null,
+        status: "running",
+        savedAt: 0,
+      }),
+    );
+
+    try {
+      const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+      await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+      expect(getByText("Write report")).toBeTruthy();
+      expect(getByTestId("timer-duration")).toHaveTextContent("3:00 / 5:00");
+      expect(getByText("Pause")).toBeTruthy();
+    } finally {
+      paramsSpy.mockRestore();
+      dateNowSpy.mockRestore();
+    }
+  });
+
+  test("keeps the persisted timer session when the screen unmounts during a running countdown", async () => {
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+
+    try {
+      const { getByText, getByTestId, unmount } = renderScreen();
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+
+      await waitFor(() => expect(mockScheduleNotificationAsync).toHaveBeenCalled());
+
+      unmount();
+
+      await waitFor(async () => {
+        const rawSession = await AsyncStorage.getItem(
+          TASK_TIMER_SESSION_STORAGE_KEY,
+        );
+        expect(rawSession).toBeTruthy();
+        expect(JSON.parse(rawSession ?? "{}")).toMatchObject({
+          taskId: "task-1",
+          title: "Write report",
+          status: "running",
+        });
+      });
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
+  test("clears persisted timer session after successful completion save", async () => {
+    const updateAccumulatedTimes = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes")
+      .updateAccumulatedTimes as jest.Mock;
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: "user-1",
+          },
+        },
+      },
+    } as any);
+
+    try {
+      const { getByText, getByTestId } = renderScreen();
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+
+      await waitFor(() => expect(mockScheduleNotificationAsync).toHaveBeenCalled());
+      expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeTruthy();
+
+      fireEvent.press(getByText("Mark done"));
+      await waitFor(() => expect(getByText("Review before saving")).toBeTruthy());
+      fireEvent.press(getByText("Save"));
+
+      await waitFor(() => expect(updateAccumulatedTimes).toHaveBeenCalled());
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeNull(),
+      );
+    } finally {
+      paramsSpy.mockRestore();
     }
   });
 

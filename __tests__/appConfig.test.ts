@@ -77,4 +77,16 @@ describe("app config bundle identifiers", () => {
       "android.permission.SCHEDULE_EXACT_ALARM"
     );
   });
+
+  test("enables expo-audio background playback in the plugin config", () => {
+    process.env.APP_ENV = "dev";
+    const configFactory = loadConfig();
+
+    const config = configFactory();
+    const audioPlugin = (config.plugins ?? []).find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === "expo-audio"
+    ) as [string, { enableBackgroundPlayback?: boolean }] | undefined;
+
+    expect(audioPlugin?.[1]?.enableBackgroundPlayback).toBe(true);
+  });
 });

@@ -15,6 +15,7 @@ import i18n from "../i18n";
 import { restoreSession } from "../lib/authBootstrap";
 import { getNormalizedLinkPath, resolveAuthCallbackTarget } from "../lib/authCallbackRouting";
 import { parseAuthTokensFromUrl } from "../lib/deepLink";
+import { loadPersistedTaskTimerSession } from "../lib/taskTimerSession";
 import {
   captureExpoAudioError,
   initSentry,
@@ -85,7 +86,15 @@ export default function RootLayout() {
       if (error || !userId) return;
 
       const accessState = await getAccessStateForUser(userId);
-      const destination = accessState.canAccessApp ? "/dashboard" : "/purchases";
+      const persistedTaskTimer = accessState.canAccessApp
+        ? await loadPersistedTaskTimerSession()
+        : null;
+      const destination =
+        !accessState.canAccessApp
+          ? "/purchases"
+          : persistedTaskTimer
+            ? "/task-timer"
+            : "/dashboard";
       router.replace(destination);
       // router.replaceの反映を1フレーム待ってからスプラッシュを隠す
       await waitForNextFrame();

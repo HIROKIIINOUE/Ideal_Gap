@@ -42,6 +42,12 @@ import {
 } from "../../constants/theme";
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
+import {
+  clearPersistedTaskTimerSession,
+  loadPersistedTaskTimerSession,
+  PersistedTaskTimerSession,
+  savePersistedTaskTimerSession,
+} from "../../lib/taskTimerSession";
 import { supabase } from "../../lib/supabaseClient";
 import {
   getTaskTimerIpadLayout,
@@ -163,6 +169,8 @@ export default function TaskTimerScreen() {
     taskId?: string;
     yearlyGoalId?: string;
   }>();
+  const [restoredTimerSession, setRestoredTimerSession] =
+    useState<PersistedTaskTimerSession | null>(null);
 
   // タイマーの初期値は常に0から開始する
   const initialSeconds = 0;
@@ -192,10 +200,17 @@ export default function TaskTimerScreen() {
   const expectedEndAtRef = useRef<number | null>(null);  // 終了予定時刻、アプリ復帰時の時間再計算。foregroundアラーム再予約、完了判定用。
   const inputSecondsRef = useRef(initialSeconds);  // 設定時間(duration)
   const appStateRef = useRef(AppState.currentState); // アプリ状態(active, background, inactive)
+  const remainingSecondsRef = useRef(initialSeconds);
+  const loggedBaselineRef = useRef(0);
+  const completionElapsedSecondsRef = useRef(0);
+  const completionModalVisibleRef = useRef(false);
+  const taskIdRef = useRef<string | null>(null);
+  const taskTitleRef = useRef("");
+  const yearlyGoalIdRef = useRef<string | null>(null);
 
-  const taskTitle = params.title || t("pageTitle");
-  const taskId = params.taskId ?? null;
-  const yearlyGoalId = params.yearlyGoalId ?? null;
+  const taskTitle = params.title || restoredTimerSession?.title || t("pageTitle");
+  const taskId = params.taskId ?? restoredTimerSession?.taskId ?? null;
+  const yearlyGoalId = params.yearlyGoalId ?? restoredTimerSession?.yearlyGoalId ?? null;
   const yearlyGoalIdSafe = yearlyGoalId || null;
   const previousLoggedMinutes = useMemo(
     () => Math.max(0, Math.round(Number(params.logged ?? 0))),
@@ -218,6 +233,28 @@ export default function TaskTimerScreen() {
   useEffect(() => {
     inputSecondsRef.current = inputSeconds;
   }, [inputSeconds]);
+
+  useEffect(() => {
+    remainingSecondsRef.current = remainingSeconds;
+  }, [remainingSeconds]);
+
+  useEffect(() => {
+    loggedBaselineRef.current = loggedBaseline;
+  }, [loggedBaseline]);
+
+  useEffect(() => {
+    completionElapsedSecondsRef.current = completionElapsedSeconds;
+  }, [completionElapsedSeconds]);
+
+  useEffect(() => {
+    completionModalVisibleRef.current = completionModalVisible;
+  }, [completionModalVisible]);
+
+  useEffect(() => {
+    taskIdRef.current = taskId;
+    taskTitleRef.current = taskTitle;
+    yearlyGoalIdRef.current = yearlyGoalIdSafe;
+  }, [taskId, taskTitle, yearlyGoalIdSafe]);
 
   // 「経過した時間 / 設定作業時間」からどの割合進んだかを算出してリターンする
   const progress = useMemo(() => {
@@ -249,6 +286,199 @@ export default function TaskTimerScreen() {
     setUserId(uid);
     return uid;
   }, [userId]);
+
+  const persistTimerSession = useCallback(
+    async (
+      session: Omit<PersistedTaskTimerSession, "version" | "savedAt">,
+    ) => {
+      await savePersistedTaskTimerSession({
+        version: 1,
+        savedAt: Date.now(),
+        ...session,
+      });
+    },
+    [],
+  );
+
+  const clearTimerSession = useCallback(async () => {
+    await clearPersistedTaskTimerSession();
+  }, []);
+
+  const persistCurrentTimerSessionOnUnmount = useCallback(async () => {
+    const currentTaskId = taskIdRef.current;
+    if (!currentTaskId) {
+      await clearTimerSession();
+      return;
+    }
+
+    const currentInputSeconds = inputSecondsRef.current;
+    const currentRemainingSeconds = remainingSecondsRef.current;
+    const currentLoggedBaseline = loggedBaselineRef.current;
+    const currentStatus = statusRef.current;
+
+    if (currentStatus === "idle" || currentInputSeconds <= 0) {
+      await clearTimerSession();
+      return;
+    }
+
+    if (currentStatus === "running") {
+      const currentExpectedEndAt = expectedEndAtRef.current;
+      if (!currentExpectedEndAt) {
+        await clearTimerSession();
+        return;
+      }
+
+      const nextRemainingSeconds =
+        getRemainingSecondsFromEndAt(currentExpectedEndAt);
+      if (nextRemainingSeconds <= 0) {
+        await persistTimerSession({
+          taskId: currentTaskId,
+          title: taskTitleRef.current,
+          yearlyGoalId: yearlyGoalIdRef.current,
+          loggedBaseline: currentLoggedBaseline,
+          inputSeconds: currentInputSeconds,
+          remainingSeconds: 0,
+          expectedEndAt: null,
+          completionElapsedSeconds: currentInputSeconds,
+          status: "awaiting_completion",
+        });
+        return;
+      }
+
+      await persistTimerSession({
+        taskId: currentTaskId,
+        title: taskTitleRef.current,
+        yearlyGoalId: yearlyGoalIdRef.current,
+        loggedBaseline: currentLoggedBaseline,
+        inputSeconds: currentInputSeconds,
+        remainingSeconds: nextRemainingSeconds,
+        expectedEndAt: currentExpectedEndAt,
+        completionElapsedSeconds: null,
+        status: "running",
+      });
+      return;
+    }
+
+    if (currentStatus === "paused") {
+      await persistTimerSession({
+        taskId: currentTaskId,
+        title: taskTitleRef.current,
+        yearlyGoalId: yearlyGoalIdRef.current,
+        loggedBaseline: currentLoggedBaseline,
+        inputSeconds: currentInputSeconds,
+        remainingSeconds: currentRemainingSeconds,
+        expectedEndAt: null,
+        completionElapsedSeconds: null,
+        status: "paused",
+      });
+      return;
+    }
+
+    const currentCompletionElapsedSeconds = Math.max(
+      0,
+      Math.round(
+        completionModalVisibleRef.current
+          ? completionElapsedSecondsRef.current
+          : currentInputSeconds - currentRemainingSeconds,
+      ),
+    );
+
+    if (currentCompletionElapsedSeconds <= 0) {
+      await clearTimerSession();
+      return;
+    }
+
+    await persistTimerSession({
+      taskId: currentTaskId,
+      title: taskTitleRef.current,
+      yearlyGoalId: yearlyGoalIdRef.current,
+      loggedBaseline: currentLoggedBaseline,
+      inputSeconds: currentInputSeconds,
+      remainingSeconds: Math.max(
+        0,
+        currentInputSeconds - currentCompletionElapsedSeconds,
+      ),
+      expectedEndAt: null,
+      completionElapsedSeconds: currentCompletionElapsedSeconds,
+      status: "awaiting_completion",
+    });
+  }, [clearTimerSession, persistTimerSession]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const restorePersistedSession = async () => {
+      const persisted = await loadPersistedTaskTimerSession();
+      if (!mounted || !persisted) {
+        return;
+      }
+      if (params.taskId && params.taskId !== persisted.taskId) {
+        return;
+      }
+
+      setRestoredTimerSession(persisted);
+      setInputSeconds(persisted.inputSeconds);
+      setLoggedBaseline(persisted.loggedBaseline);
+
+      if (persisted.status === "paused") {
+        setRemainingSeconds(persisted.remainingSeconds);
+        setStatus("paused");
+        setExpectedEndAt(null);
+        return;
+      }
+
+      if (persisted.status === "awaiting_completion") {
+        const restoredElapsed =
+          persisted.completionElapsedSeconds ??
+          Math.max(0, persisted.inputSeconds - persisted.remainingSeconds);
+        setRemainingSeconds(
+          Math.max(0, persisted.inputSeconds - restoredElapsed),
+        );
+        setCompletionElapsedSeconds(restoredElapsed);
+        setStatus(
+          restoredElapsed >= persisted.inputSeconds ? "finished" : "paused",
+        );
+        setExpectedEndAt(null);
+        setCompletionModalVisible(true);
+        return;
+      }
+
+      if (
+        persisted.expectedEndAt !== null &&
+        persisted.expectedEndAt > Date.now()
+      ) {
+        setRemainingSeconds(
+          getRemainingSecondsFromEndAt(persisted.expectedEndAt),
+        );
+        setStatus("running");
+        setExpectedEndAt(persisted.expectedEndAt);
+        return;
+      }
+
+      setRemainingSeconds(0);
+      setCompletionElapsedSeconds(persisted.inputSeconds);
+      setStatus("finished");
+      setExpectedEndAt(null);
+      setCompletionModalVisible(true);
+      await persistTimerSession({
+        taskId: persisted.taskId,
+        title: persisted.title,
+        yearlyGoalId: persisted.yearlyGoalId,
+        loggedBaseline: persisted.loggedBaseline,
+        inputSeconds: persisted.inputSeconds,
+        remainingSeconds: 0,
+        expectedEndAt: null,
+        completionElapsedSeconds: persisted.inputSeconds,
+        status: "awaiting_completion",
+      });
+    };
+
+    void restorePersistedSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, [params.taskId, persistTimerSession]);
 
   // 初回レンダリング時に紐づく週間タスクの最新データをDBから取得
   const fetchLatestLogged = useCallback(
@@ -421,15 +651,35 @@ export default function TaskTimerScreen() {
         setStatus("paused");
       }
       setExpectedEndAt(null);
+      if (taskId) {
+        void persistTimerSession({
+          taskId,
+          title: taskTitle,
+          yearlyGoalId: yearlyGoalIdSafe,
+          loggedBaseline,
+          inputSeconds: inputSecondsRef.current,
+          remainingSeconds: completed
+            ? 0
+            : Math.max(0, inputSecondsRef.current - safeElapsed),
+          expectedEndAt: null,
+          completionElapsedSeconds: safeElapsed,
+          status: "awaiting_completion",
+        });
+      }
     },
     [
       clearForegroundAlarmSchedule,
       clearScheduledNotification,
       clearTick,
       inputSeconds,
+      loggedBaseline,
+      persistTimerSession,
       stopFocusMusic,
       stopForegroundAlarmOutput,
+      taskId,
+      taskTitle,
       triggerForegroundAlarm,
+      yearlyGoalIdSafe,
     ],
   );
 
@@ -442,10 +692,46 @@ export default function TaskTimerScreen() {
     if (completionElapsedSeconds >= inputSeconds) {
       setRemainingSeconds(0);
       setStatus("finished");
+      if (taskId) {
+        void persistTimerSession({
+          taskId,
+          title: taskTitle,
+          yearlyGoalId: yearlyGoalIdSafe,
+          loggedBaseline,
+          inputSeconds,
+          remainingSeconds: 0,
+          expectedEndAt: null,
+          completionElapsedSeconds,
+          status: "awaiting_completion",
+        });
+      }
       return;
     }
     setStatus("paused");
-  }, [completionElapsedSeconds, inputSeconds, stopForegroundAlarmOutput]);
+    if (taskId) {
+      void persistTimerSession({
+        taskId,
+        title: taskTitle,
+        yearlyGoalId: yearlyGoalIdSafe,
+        loggedBaseline,
+        inputSeconds,
+        remainingSeconds,
+        expectedEndAt: null,
+        completionElapsedSeconds: null,
+        status: "paused",
+      });
+    }
+  }, [
+    completionElapsedSeconds,
+    inputSeconds,
+    loggedBaseline,
+    persistTimerSession,
+    remainingSeconds,
+    stopForegroundAlarmOutput,
+    taskId,
+    taskTitle,
+    yearlyGoalIdSafe,
+  ]);
 
   // 状態がidle,finishedの時のみ残り時間とユーザの設定作業時間を一致させる
   // paused時は残り時間とユーザ設定時間が異なるのでここの処理は走らせない
@@ -485,8 +771,15 @@ export default function TaskTimerScreen() {
       void clearScheduledNotification();
       clearForegroundAlarm();
       stopFocusMusic();
+      void persistCurrentTimerSessionOnUnmount();
     };
-  }, [clearForegroundAlarm, clearScheduledNotification, clearTick, stopFocusMusic]);
+  }, [
+    clearForegroundAlarm,
+    clearScheduledNotification,
+    clearTick,
+    persistCurrentTimerSessionOnUnmount,
+    stopFocusMusic,
+  ]);
 
   // 共通のトースト表示(ポップアップメッセージ)処理
   const showToast = useCallback((message: string) => {
@@ -526,10 +819,33 @@ export default function TaskTimerScreen() {
       statusRef.current === "finished" && remainingSeconds > 0
         ? remainingSeconds
         : inputSeconds;
+    const nextEndAt = Date.now() + countdownSeconds * 1000;
     setRemainingSeconds(countdownSeconds);
     setStatus("running");
-    setExpectedEndAt(Date.now() + countdownSeconds * 1000);
-  }, [inputSeconds, remainingSeconds, stopForegroundAlarmOutput]);
+    setExpectedEndAt(nextEndAt);
+      if (taskId) {
+      void persistTimerSession({
+        taskId,
+        title: taskTitle,
+        yearlyGoalId: yearlyGoalIdSafe,
+        loggedBaseline,
+        inputSeconds: countdownSeconds,
+        remainingSeconds: countdownSeconds,
+        expectedEndAt: nextEndAt,
+        completionElapsedSeconds: null,
+        status: "running",
+      });
+    }
+  }, [
+    inputSeconds,
+    loggedBaseline,
+    persistTimerSession,
+    remainingSeconds,
+    stopForegroundAlarmOutput,
+    taskId,
+    taskTitle,
+    yearlyGoalIdSafe,
+  ]);
 
   //　通知OFFの場合はシンプルにstartTimerCountdown()のみを発火する
   const handleContinueWithoutNotification = useCallback(() => {
@@ -658,12 +974,26 @@ export default function TaskTimerScreen() {
       const nextInput = Math.max(nextRemaining, inputSeconds + delta);
       setInputSeconds(nextInput);
       setRemainingSeconds(nextRemaining);
+      if (taskId) {
+        void persistTimerSession({
+          taskId,
+          title: taskTitle,
+          yearlyGoalId: yearlyGoalIdSafe,
+          loggedBaseline,
+          inputSeconds: nextInput,
+          remainingSeconds: nextRemaining,
+          expectedEndAt: null,
+          completionElapsedSeconds: null,
+          status: "paused",
+        });
+      }
       return;
     }
     // タイマー完了時の作業時間追加ロジック
     if (status === "finished") {
       setInputSeconds((prev) => Math.max(0, prev + delta));
       setRemainingSeconds((prev) => Math.max(0, prev + delta));
+      void clearTimerSession();
       return;
     }
     // カウント開始前の時
@@ -679,6 +1009,7 @@ export default function TaskTimerScreen() {
     clearTick();
     void clearScheduledNotification();
     clearForegroundAlarm();
+    void clearTimerSession();
     setInputSeconds(0);
     setRemainingSeconds(0);
     setStatus("idle");
@@ -722,12 +1053,39 @@ export default function TaskTimerScreen() {
       setStatus("paused");
       setExpectedEndAt(null);
       clearForegroundAlarm();
+    if (taskId) {
+        void persistTimerSession({
+          taskId,
+          title: taskTitle,
+          yearlyGoalId: yearlyGoalIdSafe,
+          loggedBaseline,
+          inputSeconds,
+          remainingSeconds,
+          expectedEndAt: null,
+          completionElapsedSeconds: null,
+          status: "paused",
+        });
+      }
       completionFiredRef.current = false;
       return;
     }
     if (status === "paused") {
+      const nextEndAt = Date.now() + remainingSeconds * 1000;
       setStatus("running");
-      setExpectedEndAt(Date.now() + remainingSeconds * 1000);
+      setExpectedEndAt(nextEndAt);
+      if (taskId) {
+        void persistTimerSession({
+          taskId,
+          title: taskTitle,
+          yearlyGoalId: yearlyGoalIdSafe,
+          loggedBaseline,
+          inputSeconds,
+          remainingSeconds,
+          expectedEndAt: nextEndAt,
+          completionElapsedSeconds: null,
+          status: "running",
+        });
+      }
     }
   };
 
@@ -774,6 +1132,7 @@ export default function TaskTimerScreen() {
         } else {
           setNextStartPoint(latest.nextStartPoint ?? null);
         }
+        await clearTimerSession();
         // 完了時は状態とタイマーをリセットし、画面を閉じる
         setStatus("finished");
         setExpectedEndAt(null);
@@ -794,6 +1153,7 @@ export default function TaskTimerScreen() {
       fetchLatestLogged,
       fetchUserId,
       loggedBaseline,
+      clearTimerSession,
       yearlyGoalIdSafe,
       showToast,
       t,
