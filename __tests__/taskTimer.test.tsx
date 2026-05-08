@@ -122,6 +122,13 @@ jest.mock("expo-audio", () => ({
   setAudioModeAsync: (...args: unknown[]) => mockSetAudioModeAsync(...args),
 }));
 
+jest.mock("../lib/sentry", () => ({
+  addSentryBreadcrumb: jest.fn(),
+  captureTaskTimerAnomaly: jest.fn(),
+  captureExpoAudioError: jest.fn(),
+  captureMusicDownloadError: jest.fn(),
+}));
+
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: { getSession: jest.fn().mockResolvedValue({ data: { session: null } }) },
@@ -854,6 +861,44 @@ describe("TaskTimerScreen", () => {
           status: "running",
         });
       });
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
+  test("reports an anomaly when the screen unmounts while a timer is still running in foreground", async () => {
+    const { captureTaskTimerAnomaly } = require("../lib/sentry") as {
+      captureTaskTimerAnomaly: jest.Mock;
+    };
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+
+    try {
+      const { getByText, getByTestId, unmount } = renderScreen();
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+
+      await waitFor(() => expect(mockScheduleNotificationAsync).toHaveBeenCalled());
+
+      unmount();
+
+      await waitFor(() =>
+        expect(captureTaskTimerAnomaly).toHaveBeenCalledWith(
+          "unexpected_active_timer_unmount",
+          expect.objectContaining({
+            appState: expect.anything(),
+            status: "running",
+            taskId: "task-1",
+          }),
+        ),
+      );
     } finally {
       paramsSpy.mockRestore();
     }

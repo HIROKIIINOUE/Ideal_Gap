@@ -17,6 +17,7 @@ import { getNormalizedLinkPath, resolveAuthCallbackTarget } from "../lib/authCal
 import { parseAuthTokensFromUrl } from "../lib/deepLink";
 import { loadPersistedTaskTimerSession } from "../lib/taskTimerSession";
 import {
+  addSentryBreadcrumb,
   captureExpoAudioError,
   initSentry,
   SentryErrorBoundary,
@@ -95,6 +96,12 @@ export default function RootLayout() {
           : persistedTaskTimer
             ? "/task-timer"
             : "/dashboard";
+      addSentryBreadcrumb("navigation.bootstrap", "initial_route_resolved", {
+        canAccessApp: accessState.canAccessApp,
+        destination,
+        hasPersistedTaskTimer: Boolean(persistedTaskTimer),
+        userId,
+      });
       router.replace(destination);
       // router.replaceの反映を1フレーム待ってからスプラッシュを隠す
       await waitForNextFrame();

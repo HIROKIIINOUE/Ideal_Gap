@@ -48,6 +48,10 @@ import {
   PersistedTaskTimerSession,
   savePersistedTaskTimerSession,
 } from "../../lib/taskTimerSession";
+import {
+  addSentryBreadcrumb,
+  captureTaskTimerAnomaly,
+} from "../../lib/sentry";
 import { supabase } from "../../lib/supabaseClient";
 import {
   getTaskTimerIpadLayout,
@@ -207,6 +211,7 @@ export default function TaskTimerScreen() {
   const taskIdRef = useRef<string | null>(null);
   const taskTitleRef = useRef("");
   const yearlyGoalIdRef = useRef<string | null>(null);
+  const selectedTrackIdRef = useRef<string | null>(null);
 
   const taskTitle = params.title || restoredTimerSession?.title || t("pageTitle");
   const taskId = params.taskId ?? restoredTimerSession?.taskId ?? null;
@@ -256,6 +261,10 @@ export default function TaskTimerScreen() {
     yearlyGoalIdRef.current = yearlyGoalIdSafe;
   }, [taskId, taskTitle, yearlyGoalIdSafe]);
 
+  useEffect(() => {
+    selectedTrackIdRef.current = activeTrack?.id ?? null;
+  }, [activeTrack?.id]);
+
   // 「経過した時間 / 設定作業時間」からどの割合進んだかを算出してリターンする
   const progress = useMemo(() => {
     if (!hasDuration) return 0;
@@ -303,6 +312,13 @@ export default function TaskTimerScreen() {
   const clearTimerSession = useCallback(async () => {
     await clearPersistedTaskTimerSession();
   }, []);
+
+  useEffect(() => {
+    addSentryBreadcrumb("task_timer.lifecycle", "task_timer_mounted", {
+      taskId,
+      title: taskTitle,
+    });
+  }, [taskId, taskTitle]);
 
   const persistCurrentTimerSessionOnUnmount = useCallback(async () => {
     const currentTaskId = taskIdRef.current;
@@ -419,6 +435,10 @@ export default function TaskTimerScreen() {
       setRestoredTimerSession(persisted);
       setInputSeconds(persisted.inputSeconds);
       setLoggedBaseline(persisted.loggedBaseline);
+      addSentryBreadcrumb("task_timer.restore", "persisted_session_restored", {
+        status: persisted.status,
+        taskId: persisted.taskId,
+      });
 
       if (persisted.status === "paused") {
         setRemainingSeconds(persisted.remainingSeconds);
@@ -767,6 +787,29 @@ export default function TaskTimerScreen() {
   // アプリ離脱→アプリ再開をした時はシンプルにアンマウント→再マウントの流れで処理が走る
   useEffect(() => {
     return () => {
+      const currentStatus = statusRef.current;
+      const currentAppState = appStateRef.current;
+      addSentryBreadcrumb("task_timer.lifecycle", "task_timer_unmounted", {
+        appState: currentAppState,
+        hasExpectedEndAt: expectedEndAtRef.current !== null,
+        remainingSeconds: remainingSecondsRef.current,
+        status: currentStatus,
+        taskId: taskIdRef.current,
+      });
+      if (
+        currentStatus === "running" &&
+        isForegroundAppState(currentAppState)
+      ) {
+        captureTaskTimerAnomaly("unexpected_active_timer_unmount", {
+          appState: currentAppState,
+          expectedEndAt: expectedEndAtRef.current,
+          inputSeconds: inputSecondsRef.current,
+          remainingSeconds: remainingSecondsRef.current,
+          selectedTrackId: selectedTrackIdRef.current,
+          status: currentStatus,
+          taskId: taskIdRef.current,
+        });
+      }
       clearTick();
       void clearScheduledNotification();
       clearForegroundAlarm();
@@ -823,6 +866,11 @@ export default function TaskTimerScreen() {
     setRemainingSeconds(countdownSeconds);
     setStatus("running");
     setExpectedEndAt(nextEndAt);
+    addSentryBreadcrumb("task_timer.control", "timer_started", {
+      durationSeconds: countdownSeconds,
+      expectedEndAt: nextEndAt,
+      taskId,
+    });
       if (taskId) {
       void persistTimerSession({
         taskId,
@@ -1050,6 +1098,10 @@ export default function TaskTimerScreen() {
   // リスタート時はリスタート時点の時刻と残り時間で終了時刻を計算する
   const handlePauseResume = () => {
     if (status === "running") {
+      addSentryBreadcrumb("task_timer.control", "timer_paused", {
+        remainingSeconds,
+        taskId,
+      });
       setStatus("paused");
       setExpectedEndAt(null);
       clearForegroundAlarm();
@@ -1071,6 +1123,11 @@ export default function TaskTimerScreen() {
     }
     if (status === "paused") {
       const nextEndAt = Date.now() + remainingSeconds * 1000;
+      addSentryBreadcrumb("task_timer.control", "timer_resumed", {
+        expectedEndAt: nextEndAt,
+        remainingSeconds,
+        taskId,
+      });
       setStatus("running");
       setExpectedEndAt(nextEndAt);
       if (taskId) {
@@ -1256,12 +1313,26 @@ export default function TaskTimerScreen() {
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       appStateRef.current = nextState;
+      addSentryBreadcrumb("task_timer.app_state", "app_state_changed", {
+        nextState,
+        status: statusRef.current,
+        taskId: taskIdRef.current,
+      });
       if (!isForegroundAppState(nextState)) {
         clearTick();
         clearForegroundAlarm();
         return;
       }
-      if (statusRef.current !== "running" || !expectedEndAtRef.current) return;
+      if (statusRef.current !== "running") return;
+      if (!expectedEndAtRef.current) {
+        captureTaskTimerAnomaly("running_timer_missing_expected_end_at", {
+          appState: nextState,
+          remainingSeconds: remainingSecondsRef.current,
+          status: statusRef.current,
+          taskId: taskIdRef.current,
+        });
+        return;
+      }
       const remaining = syncRemainingSecondsFromEndAt(expectedEndAtRef.current);
       if (remaining <= 0) {
         if (!completionFiredRef.current) {

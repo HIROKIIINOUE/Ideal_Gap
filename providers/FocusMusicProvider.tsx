@@ -26,6 +26,7 @@ import {
   saveInstalledTracks,
 } from "../lib/focus-music/storage";
 import {
+  addSentryBreadcrumb,
   captureExpoAudioError,
   captureMusicDownloadError,
 } from "../lib/sentry";
@@ -446,6 +447,10 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       player.volume = 1;
       player.replace(selectedInstalledTrack.localPath);
       player.play();
+      addSentryBreadcrumb("focus_music", "focus_music_play_started", {
+        trackId: selectedInstalledTrack.id,
+        trackTitle: selectedInstalledTrack.title,
+      });
       return true;
     } catch (error) {
       await setFocusPlaybackAudioMode(false).catch(() => { });
@@ -455,15 +460,31 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   }, [player, selectedInstalledTrack, setFocusPlaybackAudioMode]);
 
   const pause = useCallback(() => {
-    player.pause();
-    void setFocusPlaybackAudioMode(false).catch(() => { });
-  }, [player, setFocusPlaybackAudioMode]);
+    try {
+      player.pause();
+      addSentryBreadcrumb("focus_music", "focus_music_paused", {
+        trackId: selectedInstalledTrack?.id ?? null,
+      });
+    } catch (error) {
+      captureExpoAudioError(error, "focus_music_pause");
+    }
+    void setFocusPlaybackAudioMode(false).catch((error) => {
+      captureExpoAudioError(error, "focus_music_pause_audio_mode");
+    });
+  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode]);
 
   const stop = useCallback(async () => {
-    player.pause();
-    await player.seekTo(0);
-    await setFocusPlaybackAudioMode(false);
-  }, [player, setFocusPlaybackAudioMode]);
+    try {
+      player.pause();
+      await player.seekTo(0);
+      await setFocusPlaybackAudioMode(false);
+      addSentryBreadcrumb("focus_music", "focus_music_stopped", {
+        trackId: selectedInstalledTrack?.id ?? null,
+      });
+    } catch (error) {
+      captureExpoAudioError(error, "focus_music_stop");
+    }
+  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode]);
 
   // useFocusMusicフックスとして返す値(グローバルに使用できる)
   const value = useMemo<FocusMusicContextValue>(

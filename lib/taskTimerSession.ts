@@ -1,5 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { z } from "zod";
+import {
+  addSentryBreadcrumb,
+  captureTaskTimerAnomaly,
+} from "./sentry";
 
 export const TASK_TIMER_SESSION_STORAGE_KEY = "task_timer_active_session";
 
@@ -41,6 +45,10 @@ const isStalePersistedTaskTimerSession = (
 export const savePersistedTaskTimerSession = async (
   session: PersistedTaskTimerSession,
 ) => {
+  addSentryBreadcrumb("task_timer.session", "persisted_session_saved", {
+    status: session.status,
+    taskId: session.taskId,
+  });
   await AsyncStorage.setItem(
     TASK_TIMER_SESSION_STORAGE_KEY,
     JSON.stringify(session),
@@ -48,6 +56,9 @@ export const savePersistedTaskTimerSession = async (
 };
 
 export const clearPersistedTaskTimerSession = async () => {
+  addSentryBreadcrumb("task_timer.session", "persisted_session_cleared", {
+    storageKey: TASK_TIMER_SESSION_STORAGE_KEY,
+  });
   await AsyncStorage.removeItem(TASK_TIMER_SESSION_STORAGE_KEY);
 };
 
@@ -59,11 +70,22 @@ export const loadPersistedTaskTimerSession =
     try {
       const parsed = persistedTaskTimerSessionSchema.parse(JSON.parse(raw));
       if (isStalePersistedTaskTimerSession(parsed)) {
+        addSentryBreadcrumb("task_timer.session", "persisted_session_stale", {
+          status: parsed.status,
+          taskId: parsed.taskId,
+        });
         await clearPersistedTaskTimerSession();
         return null;
       }
+      addSentryBreadcrumb("task_timer.session", "persisted_session_loaded", {
+        status: parsed.status,
+        taskId: parsed.taskId,
+      });
       return parsed;
     } catch {
+      captureTaskTimerAnomaly("persisted_session_parse_failed", {
+        storageKey: TASK_TIMER_SESSION_STORAGE_KEY,
+      });
       await clearPersistedTaskTimerSession();
       return null;
     }

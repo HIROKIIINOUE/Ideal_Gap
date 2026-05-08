@@ -63,7 +63,9 @@ jest.mock("../lib/subscription", () => ({
 }));
 
 jest.mock("../lib/sentry", () => ({
+  addSentryBreadcrumb: jest.fn(),
   captureExpoAudioError: jest.fn(),
+  captureTaskTimerAnomaly: jest.fn(),
   initSentry: jest.fn(),
   SentryErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
 }));
