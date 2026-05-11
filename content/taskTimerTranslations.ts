@@ -59,6 +59,14 @@ export type TaskTimerTranslations = {
     musicEmptyBody: string;
     musicEmptyCta: string;
   };
+  exitActions: {
+    title: string;
+    description: string;
+    weeklyTasks: string;
+    dashboard: string;
+    confirmTitle: string;
+    confirmBody: string;
+  };
   completionModal: {
     title: string;
     description: string;
@@ -145,6 +153,15 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         musicEmptyTitle: "集中音楽がありません",
         musicEmptyBody: "タスク集中音楽ページからインストールしてください。",
         musicEmptyCta: "タスク集中音楽へ",
+      },
+      exitActions: {
+        title: "ページ移動",
+        description:
+          "移動すると現在のタイマーは強制終了され、タイマーデータはリセットされます。",
+        weeklyTasks: "週間タスク",
+        dashboard: "ダッシュボード",
+        confirmTitle: "タイマーを強制終了しますか？",
+        confirmBody: "現在のタイマーデータはリセットされます。",
       },
       completionModal: {
         title: "実績を保存",
@@ -235,6 +252,15 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         musicEmptyTitle: "No focus music installed",
         musicEmptyBody: "Install a track from the focus music page.",
         musicEmptyCta: "Go to focus music",
+      },
+      exitActions: {
+        title: "Leave timer",
+        description:
+          "Leaving will force stop the current timer and reset the timer data.",
+        weeklyTasks: "Weekly tasks",
+        dashboard: "Dashboard",
+        confirmTitle: "Force stop the timer?",
+        confirmBody: "The current timer data will be reset.",
       },
       completionModal: {
         title: "Review before saving",
@@ -328,6 +354,15 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         musicEmptyBody:
           "Installez un morceau depuis la page musique de concentration.",
         musicEmptyCta: "Aller à la musique",
+      },
+      exitActions: {
+        title: "Quitter le minuteur",
+        description:
+          "Quitter arrêtera le minuteur en cours et réinitialisera ses données.",
+        weeklyTasks: "Tâches hebdo",
+        dashboard: "Tableau de bord",
+        confirmTitle: "Arrêter le minuteur de force ?",
+        confirmBody: "Les données du minuteur en cours seront réinitialisées.",
       },
       completionModal: {
         title: "Revoir avant d'enregistrer",

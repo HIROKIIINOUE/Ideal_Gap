@@ -26,9 +26,9 @@ import {
   Text,
   TextInput,
   ToastAndroid,
+  useWindowDimensions,
   Vibration,
   View,
-  useWindowDimensions,
   type AppStateStatus,
 } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
@@ -43,16 +43,16 @@ import {
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import {
+  addSentryBreadcrumb,
+  captureTaskTimerAnomaly,
+} from "../../lib/sentry";
+import { supabase } from "../../lib/supabaseClient";
+import {
   clearPersistedTaskTimerSession,
   loadPersistedTaskTimerSession,
   PersistedTaskTimerSession,
   savePersistedTaskTimerSession,
 } from "../../lib/taskTimerSession";
-import {
-  addSentryBreadcrumb,
-  captureTaskTimerAnomaly,
-} from "../../lib/sentry";
-import { supabase } from "../../lib/supabaseClient";
 import {
   getTaskTimerIpadLayout,
   scaleFontSizeForIpad,
@@ -66,6 +66,7 @@ import { InstalledFocusTrack } from "../../types/focus-music";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
+type ForceExitDestination = "weekly_tasks" | "dashboard";
 
 type WeeklyTaskTimeTrackingRow = Pick<
   Database["public"]["Tables"]["weekly_tasks"]["Row"],
@@ -212,6 +213,8 @@ export default function TaskTimerScreen() {
   const taskTitleRef = useRef("");
   const yearlyGoalIdRef = useRef<string | null>(null);
   const selectedTrackIdRef = useRef<string | null>(null);
+  const discardTimerSessionOnUnmountRef = useRef(false);
+  // 画面がアンマウントされる瞬間に実行したい最新の後片付け関数セットを保持する ref
   const unmountCleanupRef = useRef<{
     clearTick: () => void;
     clearScheduledNotification: () => Promise<void>;
@@ -808,11 +811,14 @@ export default function TaskTimerScreen() {
 
   // クリーンアップ関数でアンマウント時(ページから離れた場合)はタイマーをリセット
   // アプリ離脱→アプリ再開をした時はシンプルにアンマウント→再マウントの流れで処理が走る
+  // ここの依存配列を空にしunmountCleanupRefを使用する運用にすることで、長時間のタスクタイマー実行時に不要なアンマウントが走りダッシュボードへ遷移されてしまうエラーを防ぐ
   useEffect(() => {
     return () => {
       const currentStatus = statusRef.current;
       const currentAppState = appStateRef.current;
       const cleanup = unmountCleanupRef.current;
+      const shouldDiscardTimerSession =
+        discardTimerSessionOnUnmountRef.current;
       addSentryBreadcrumb("task_timer.lifecycle", "task_timer_unmounted", {
         appState: currentAppState,
         hasExpectedEndAt: expectedEndAtRef.current !== null,
@@ -821,6 +827,7 @@ export default function TaskTimerScreen() {
         taskId: taskIdRef.current,
       });
       if (
+        !shouldDiscardTimerSession &&
         currentStatus === "running" &&
         isForegroundAppState(currentAppState)
       ) {
@@ -838,7 +845,9 @@ export default function TaskTimerScreen() {
       void cleanup?.clearScheduledNotification();
       cleanup?.clearForegroundAlarm();
       cleanup?.stopFocusMusic();
-      void cleanup?.persistCurrentTimerSessionOnUnmount();
+      if (!shouldDiscardTimerSession) {
+        void cleanup?.persistCurrentTimerSessionOnUnmount();
+      }
     };
   }, []);
 
@@ -889,7 +898,7 @@ export default function TaskTimerScreen() {
       expectedEndAt: nextEndAt,
       taskId,
     });
-      if (taskId) {
+    if (taskId) {
       void persistTimerSession({
         taskId,
         title: taskTitle,
@@ -1123,7 +1132,7 @@ export default function TaskTimerScreen() {
       setStatus("paused");
       setExpectedEndAt(null);
       clearForegroundAlarm();
-    if (taskId) {
+      if (taskId) {
         void persistTimerSession({
           taskId,
           title: taskTitle,
@@ -1430,6 +1439,69 @@ export default function TaskTimerScreen() {
     t,
   ]);
 
+  // タスクタイマーページ離脱ボタンの処理
+  const resetTimerForForcedExit = useCallback(async () => {
+    discardTimerSessionOnUnmountRef.current = true;
+    clearTick();
+    await clearScheduledNotification();
+    clearForegroundAlarm();
+    stopFocusMusic();
+    await clearTimerSession();
+    setRestoredTimerSession(null);
+    setInputSeconds(0);
+    setRemainingSeconds(0);
+    setStatus("idle");
+    setExpectedEndAt(null);
+    setCompletionModalVisible(false);
+    setIsSavingCompletion(false);
+    setNextStartNote("");
+    setCompletionElapsedSeconds(0);
+    completionFiredRef.current = false;
+  }, [
+    clearForegroundAlarm,
+    clearScheduledNotification,
+    clearTick,
+    clearTimerSession,
+    stopFocusMusic,
+  ]);
+  // タスクタイマーページ離脱ボタンの処理
+  const navigateAfterForcedExit = useCallback(
+    (destination: ForceExitDestination) => {
+      if (destination === "weekly_tasks") {
+        router.replace({
+          pathname: "/feature/[feature]",
+          params: { feature: "weekly-goals" },
+        });
+        return;
+      }
+      router.replace("/dashboard");
+    },
+    [],
+  );
+  // タスクタイマーページ離脱ボタンの処理
+  const handleForcedExit = useCallback(
+    (destination: ForceExitDestination) => {
+      Alert.alert(
+        t("exitActions.confirmTitle"),
+        t("exitActions.confirmBody"),
+        [
+          { text: t("controls.cancel"), style: "cancel" },
+          {
+            text: "OK",
+            style: "destructive",
+            onPress: () => {
+              void resetTimerForForcedExit().then(() => {
+                navigateAfterForcedExit(destination);
+              });
+            },
+          },
+        ],
+        { cancelable: true },
+      );
+    },
+    [navigateAfterForcedExit, resetTimerForForcedExit, t],
+  );
+
   const handleSelectMusic = (option: InstalledFocusTrack) => {
     selectTrack(option.id);
     setMusicPlaying(true);
@@ -1721,6 +1793,47 @@ export default function TaskTimerScreen() {
                 ? t("controls.musicSelected", { title: activeTrack.title })
                 : t("controls.musicNone")}
             </Text>
+          </View>
+        </View>
+
+        <View
+          style={[styles.card, styles.exitCard, shadows.card]}
+          testID="task-timer-exit-card"
+        >
+          <Text style={styles.cardTitle}>{t("exitActions.title")}</Text>
+          <Text style={styles.exitDescription}>
+            {t("exitActions.description")}
+          </Text>
+          <View style={styles.exitActions} testID="task-timer-exit-actions">
+            <Pressable
+              testID="task-timer-exit-weekly"
+              accessibilityRole="button"
+              onPress={() => handleForcedExit("weekly_tasks")}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                styles.exitButton,
+                pressed && styles.secondaryPressed,
+              ]}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {t("exitActions.weeklyTasks")}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              testID="task-timer-exit-dashboard"
+              accessibilityRole="button"
+              onPress={() => handleForcedExit("dashboard")}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                styles.exitButton,
+                pressed && styles.secondaryPressed,
+              ]}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {t("exitActions.dashboard")}
+              </Text>
+            </Pressable>
           </View>
         </View>
       </ScrollView>
@@ -2226,6 +2339,23 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.sm,
     fontWeight: "700",
+  },
+  exitCard: {
+    gap: spacing.md,
+  },
+  exitDescription: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  exitActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  exitButton: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: "center",
   },
   modalOverlay: {
     flex: 1,
