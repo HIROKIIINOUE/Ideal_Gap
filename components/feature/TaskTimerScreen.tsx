@@ -68,6 +68,11 @@ import KeyboardDismissButton from "../KeyboardDismissButton";
 type TimerStatus = "idle" | "running" | "paused" | "finished";
 type ForceExitDestination = "weekly_tasks" | "dashboard";
 
+const WEEKLY_TASKS_ROUTE = {
+  pathname: "/feature/[feature]",
+  params: { feature: "weekly-goals" },
+} as const;
+
 type WeeklyTaskTimeTrackingRow = Pick<
   Database["public"]["Tables"]["weekly_tasks"]["Row"],
   "accumulated_time_week" | "yearly_goal_id" | "next_start_point"
@@ -1223,7 +1228,7 @@ export default function TaskTimerScreen() {
         setRemainingSeconds(0);
         setInputSeconds(0);
         showToast(t("controls.completeToast"));
-        router.back();
+        router.replace(WEEKLY_TASKS_ROUTE);
         return true;
       } catch (error) {
         Alert.alert(
@@ -1468,10 +1473,7 @@ export default function TaskTimerScreen() {
   const navigateAfterForcedExit = useCallback(
     (destination: ForceExitDestination) => {
       if (destination === "weekly_tasks") {
-        router.replace({
-          pathname: "/feature/[feature]",
-          params: { feature: "weekly-goals" },
-        });
+        router.replace(WEEKLY_TASKS_ROUTE);
         return;
       }
       router.replace("/dashboard");

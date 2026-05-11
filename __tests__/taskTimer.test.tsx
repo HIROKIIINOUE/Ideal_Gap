@@ -986,6 +986,8 @@ describe("TaskTimerScreen", () => {
   });
 
   test("clears persisted timer session after successful completion save", async () => {
+    const router = require("expo-router").router;
+    const replaceSpy = jest.spyOn(router, "replace");
     const updateAccumulatedTimes = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes")
       .updateAccumulatedTimes as jest.Mock;
     const paramsSpy = jest
@@ -1023,6 +1025,10 @@ describe("TaskTimerScreen", () => {
       await waitFor(async () =>
         expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeNull(),
       );
+      expect(replaceSpy).toHaveBeenCalledWith({
+        pathname: "/feature/[feature]",
+        params: { feature: "weekly-goals" },
+      });
     } finally {
       paramsSpy.mockRestore();
     }
