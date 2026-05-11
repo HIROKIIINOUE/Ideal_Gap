@@ -212,6 +212,13 @@ export default function TaskTimerScreen() {
   const taskTitleRef = useRef("");
   const yearlyGoalIdRef = useRef<string | null>(null);
   const selectedTrackIdRef = useRef<string | null>(null);
+  const unmountCleanupRef = useRef<{
+    clearTick: () => void;
+    clearScheduledNotification: () => Promise<void>;
+    clearForegroundAlarm: () => void;
+    stopFocusMusic: () => void;
+    persistCurrentTimerSessionOnUnmount: () => Promise<void>;
+  } | null>(null);
 
   const taskTitle = params.title || restoredTimerSession?.title || t("pageTitle");
   const taskId = params.taskId ?? restoredTimerSession?.taskId ?? null;
@@ -588,6 +595,22 @@ export default function TaskTimerScreen() {
     stopForegroundAlarmOutput();
   }, [clearForegroundAlarmSchedule, stopForegroundAlarmOutput]);
 
+  useEffect(() => {
+    unmountCleanupRef.current = {
+      clearTick,
+      clearScheduledNotification,
+      clearForegroundAlarm,
+      stopFocusMusic,
+      persistCurrentTimerSessionOnUnmount,
+    };
+  }, [
+    clearForegroundAlarm,
+    clearScheduledNotification,
+    clearTick,
+    persistCurrentTimerSessionOnUnmount,
+    stopFocusMusic,
+  ]);
+
 
   // アラームとバイブをforegroundで引き起こす処理
   // setIntervalで「終了予定時刻にアラームの条件を満たしていれば発火」の予約がされる
@@ -789,6 +812,7 @@ export default function TaskTimerScreen() {
     return () => {
       const currentStatus = statusRef.current;
       const currentAppState = appStateRef.current;
+      const cleanup = unmountCleanupRef.current;
       addSentryBreadcrumb("task_timer.lifecycle", "task_timer_unmounted", {
         appState: currentAppState,
         hasExpectedEndAt: expectedEndAtRef.current !== null,
@@ -810,19 +834,13 @@ export default function TaskTimerScreen() {
           taskId: taskIdRef.current,
         });
       }
-      clearTick();
-      void clearScheduledNotification();
-      clearForegroundAlarm();
-      stopFocusMusic();
-      void persistCurrentTimerSessionOnUnmount();
+      cleanup?.clearTick();
+      void cleanup?.clearScheduledNotification();
+      cleanup?.clearForegroundAlarm();
+      cleanup?.stopFocusMusic();
+      void cleanup?.persistCurrentTimerSessionOnUnmount();
     };
-  }, [
-    clearForegroundAlarm,
-    clearScheduledNotification,
-    clearTick,
-    persistCurrentTimerSessionOnUnmount,
-    stopFocusMusic,
-  ]);
+  }, []);
 
   // 共通のトースト表示(ポップアップメッセージ)処理
   const showToast = useCallback((message: string) => {

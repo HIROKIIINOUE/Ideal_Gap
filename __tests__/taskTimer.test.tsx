@@ -904,6 +904,87 @@ describe("TaskTimerScreen", () => {
     }
   });
 
+  test("does not run active timer unmount cleanup when focus music hook values change", async () => {
+    const { captureTaskTimerAnomaly } = require("../lib/sentry") as {
+      captureTaskTimerAnomaly: jest.Mock;
+    };
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+
+    const installedTrack: InstalledFocusTrack = {
+      id: "track-1",
+      trackId: "track-1",
+      title: "Deep Focus",
+      bucket: "focus-music",
+      storagePath: "tracks/deep-focus.mp3",
+      durationSeconds: 150,
+      musicCategories: ["study"],
+      localPath: "file://test/focus-music/track-1.mp3",
+      downloadedAt: new Date().toISOString(),
+    };
+    const replacementStop = jest.fn().mockResolvedValue(undefined);
+    let currentFocusMusicStub = buildFocusMusicStub({
+      installedTracks: [installedTrack],
+      selectedTrackId: installedTrack.id,
+      selectedTrack: installedTrack,
+      stop: jest.fn().mockResolvedValue(undefined),
+    });
+
+    const spy = jest
+      .spyOn(FocusMusicProviderModule, "useFocusMusic")
+      .mockImplementation(() => currentFocusMusicStub);
+    let cleanup = () => {};
+
+    try {
+      const screen = render(
+        <I18nextProvider i18n={i18n}>
+          <TimerAlarmPreferenceProvider>
+            <TaskTimerScreen />
+          </TimerAlarmPreferenceProvider>
+        </I18nextProvider>,
+      );
+      cleanup = screen.unmount;
+
+      fireEvent.press(screen.getByText("+5m"));
+      fireEvent.press(screen.getByTestId("start-button"));
+
+      await waitFor(() => expect(mockScheduleNotificationAsync).toHaveBeenCalled());
+
+      currentFocusMusicStub = buildFocusMusicStub({
+        installedTracks: [installedTrack],
+        selectedTrackId: installedTrack.id,
+        selectedTrack: installedTrack,
+        stop: replacementStop,
+      });
+
+      screen.rerender(
+        <I18nextProvider i18n={i18n}>
+          <TimerAlarmPreferenceProvider>
+            <TaskTimerScreen />
+          </TimerAlarmPreferenceProvider>
+        </I18nextProvider>,
+      );
+
+      expect(captureTaskTimerAnomaly).not.toHaveBeenCalledWith(
+        "unexpected_active_timer_unmount",
+        expect.anything(),
+      );
+      expect(replacementStop).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("start-button")).toBeNull();
+      expect(screen.getByText("Pause")).toBeTruthy();
+    } finally {
+      cleanup();
+      spy.mockRestore();
+      paramsSpy.mockRestore();
+    }
+  });
+
   test("clears persisted timer session after successful completion save", async () => {
     const updateAccumulatedTimes = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes")
       .updateAccumulatedTimes as jest.Mock;
@@ -1098,6 +1179,130 @@ describe("TaskTimerScreen", () => {
         "timer-notification-id",
       ),
     );
+  });
+
+  test("confirms before returning to weekly tasks and clears timer data on OK", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert");
+    const router = require("expo-router").router;
+    const replaceSpy = jest.spyOn(router, "replace");
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+
+    try {
+      const screen = renderScreen();
+
+      fireEvent.press(screen.getByText("+5m"));
+      fireEvent.press(screen.getByTestId("start-button"));
+
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeTruthy(),
+      );
+      expect(screen.getByTestId("task-timer-exit-actions")).toHaveStyle({
+        flexDirection: "row",
+      });
+      expect(screen.getByText("Weekly tasks")).toBeTruthy();
+      expect(screen.getByText("Dashboard")).toBeTruthy();
+      expect(screen.queryByText("Back to weekly tasks")).toBeNull();
+      expect(screen.queryByText("calendar-week-outline")).toBeNull();
+      expect(screen.queryByText("view-dashboard-outline")).toBeNull();
+
+      fireEvent.press(screen.getByTestId("task-timer-exit-weekly"));
+
+      await waitFor(() =>
+        expect(alertSpy).toHaveBeenCalledWith(
+          "Force stop the timer?",
+          "The current timer data will be reset.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "OK", style: "destructive", onPress: expect.any(Function) },
+          ],
+          { cancelable: true },
+        ),
+      );
+      expect(replaceSpy).not.toHaveBeenCalled();
+      expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeTruthy();
+
+      const buttons = alertSpy.mock.calls[alertSpy.mock.calls.length - 1][2] as Array<{
+        onPress?: () => void | Promise<void>;
+      }>;
+      await act(async () => {
+        await buttons[1]?.onPress?.();
+      });
+
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeNull(),
+      );
+      expect(replaceSpy).toHaveBeenCalledWith({
+        pathname: "/feature/[feature]",
+        params: { feature: "weekly-goals" },
+      });
+
+      screen.unmount();
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeNull(),
+      );
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
+  test("confirms before returning to dashboard and clears timer data on OK", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert");
+    const router = require("expo-router").router;
+    const replaceSpy = jest.spyOn(router, "replace");
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+
+    try {
+      const screen = renderScreen();
+
+      fireEvent.press(screen.getByText("+5m"));
+      fireEvent.press(screen.getByTestId("start-button"));
+
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeTruthy(),
+      );
+
+      fireEvent.press(screen.getByTestId("task-timer-exit-dashboard"));
+
+      await waitFor(() =>
+        expect(alertSpy).toHaveBeenCalledWith(
+          "Force stop the timer?",
+          "The current timer data will be reset.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "OK", style: "destructive", onPress: expect.any(Function) },
+          ],
+          { cancelable: true },
+        ),
+      );
+
+      const buttons = alertSpy.mock.calls[alertSpy.mock.calls.length - 1][2] as Array<{
+        onPress?: () => void | Promise<void>;
+      }>;
+      await act(async () => {
+        await buttons[1]?.onPress?.();
+      });
+
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeNull(),
+      );
+      expect(replaceSpy).toHaveBeenCalledWith("/dashboard");
+    } finally {
+      paramsSpy.mockRestore();
+    }
   });
 
   test("shows offline alert and goes back when saving completion while offline", async () => {

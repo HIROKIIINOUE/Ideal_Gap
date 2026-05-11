@@ -10,6 +10,7 @@ jest.mock('expo-router', () => {
     Stack: { Screen: () => null },
     router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
     useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+    useFocusEffect: (callback) => React.useEffect(() => callback(), [callback]),
     useLocalSearchParams: () => ({}),
   };
 });
@@ -36,7 +37,9 @@ jest.mock('expo-localization', () => ({
 
 jest.mock('@sentry/react-native', () => ({
   init: jest.fn(),
+  addBreadcrumb: jest.fn(),
   captureException: jest.fn(),
+  captureMessage: jest.fn(),
   flush: jest.fn().mockResolvedValue(true),
   ErrorBoundary: ({ children }) => children,
 }));

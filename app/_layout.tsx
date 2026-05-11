@@ -15,7 +15,6 @@ import i18n from "../i18n";
 import { restoreSession } from "../lib/authBootstrap";
 import { getNormalizedLinkPath, resolveAuthCallbackTarget } from "../lib/authCallbackRouting";
 import { parseAuthTokensFromUrl } from "../lib/deepLink";
-import { loadPersistedTaskTimerSession } from "../lib/taskTimerSession";
 import {
   addSentryBreadcrumb,
   captureExpoAudioError,
@@ -27,6 +26,7 @@ import {
   getAccessStateForUser,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
+import { loadPersistedTaskTimerSession } from "../lib/taskTimerSession";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
@@ -37,10 +37,9 @@ import { TimerAlarmPreferenceProvider } from "../providers/TimerAlarmPreferenceP
 SplashScreen.preventAutoHideAsync();
 initSentry();
 
-//　URLの＃以降からトークン(access_tokenとrefresh_token)を抽出するロジック。両方とも揃ってなければnullを返す。
-// access_token: 認証済みユーザであることを示すJWT(APIアクセス時に使う)
-// refresh_token: access_token が切れたときに 新しいセッション/トークンを再取得するためのトークン
-// どちらのトークンもサイン後のマジックリンク(メール内のURL)クリック時に生成される。
+//【JWT】メールリンク/ディープリンク経由でアプリに帰ってきた時、
+// URLの＃以降からトークン(access_tokenとrefresh_token)を抽出するロジック。両方とも揃ってなければnullを返す。
+// どちらのトークンもメール内リンククリック時に生成される。
 const parseTokensFromUrl = (url: string) =>
   parseAuthTokensFromUrl(url, { disallowTypes: ["recovery"] });
 
@@ -58,6 +57,29 @@ const getSignupQuery = (url: string) => {
 };
 
 const MIN_SPLASH_DURATION_MS = 600;  // スプラッシュ画面の最短表示時間を調整
+
+
+// ====↓初回起動時の画面遷移が処理済みかどうかを記録する↓====
+//  handled: true の場合は初回遷移済みの状態
+type InitialNavigationState =
+  | {
+    handled: false;
+  }
+  | {
+    handled: true;
+    source: "initial_url" | "session_route" | "no_route";
+    destination: string | null;
+  };
+
+// 「初回遷移を処理済みなら、あとから別ルートへ router.replace() しない」ための記録
+let initialNavigationState: InitialNavigationState = { handled: false };
+
+export const resetRootLayoutInitialNavigationStateForTests = () => {
+  initialNavigationState = { handled: false };
+};
+// ====↑ここまで記録↑====
+
+
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
@@ -81,12 +103,46 @@ export default function RootLayout() {
       new Promise<void>((resolve) => {
         requestAnimationFrame(() => resolve());
       });
+    //　スプラッシュ画面表示時間の操作
+    const finishBootstrap = (remaining: number) => {
+      setTimeout(() => {
+        if (!active) return;
+        setShowSplash(false);
+        SplashScreen.hideAsync().catch(() => { });
+      }, remaining);
+    };
+
+    // 既にユーザ端末にあるセッションとSupabase情報を見て起動直後の遷移先を決める処理
     const resolveInitialRouteForSession = async () => {
+      // ・サインアップ時はSupabase client がsessionをAsyncStorage(ローカル端末)に保存 → 同ファイルの supabase.auth.setSession()
+      // ・ログイン時はlib/auth.ts内のsignInWithEmailPassword()によってSupabase client がsessionをAsyncStorage(端末)に保存
+      // ・そしてここでSupabase client がAsyncStorage(ローカル端末)から保存済み session を復元する、sessionが切れていればリフレッシュする → await supabase.auth.getSession()
       const { data, error } = await supabase.auth.getSession();
       const userId = data.session?.user?.id;
-      if (error || !userId) return;
+      if (error) {
+        addSentryBreadcrumb("navigation.bootstrap", "initial_route_skipped", {
+          hasError: true,
+          reason: "session_error",
+        });
+        return;
+      }
+      if (!userId) {
+        initialNavigationState = {
+          handled: true,
+          source: "no_route",
+          destination: null,
+        };
+        addSentryBreadcrumb("navigation.bootstrap", "initial_route_skipped", {
+          hasError: false,
+          reason: "missing_user",
+        });
+        return;
+      }
 
+
+      // Supabase DB に反映済みのアクセス権情報を取得(RevenueCat経由ではないので注意)
       const accessState = await getAccessStateForUser(userId);
+      // アプリ復帰時にタスクタイマーが正常に起動中ならタスクタイマーへ遷移させる
       const persistedTaskTimer = accessState.canAccessApp
         ? await loadPersistedTaskTimerSession()
         : null;
@@ -102,13 +158,21 @@ export default function RootLayout() {
         hasPersistedTaskTimer: Boolean(persistedTaskTimer),
         userId,
       });
+      initialNavigationState = {
+        handled: true,
+        source: "session_route",
+        destination,
+      };
       router.replace(destination);
       // router.replaceの反映を1フレーム待ってからスプラッシュを隠す
       await waitForNextFrame();
     };
 
-    // Supabaseによって発行されたトークンをユーザ端末のAsyncStorageにローカル保存する処理
-    // また同時にsubscription行も確実に作成する
+    // 「ディープリンクでアプリが開かれたときの初期処理全体」
+    // サインアップリンク：Supabaseによって発行されたトークンをユーザ端末のAsyncStorageにローカル保存する処理
+    // 　　　　　　　　　　またサインアップ時のsubscriptionデータも確実に作成する
+    // 購入リンク　　　　：購入画面へ遷移させる
+    // アドレス変更リンク：該当の画面へ遷移
     const handleUrl = async (url: string): Promise<boolean> => {
       const tokens = parseTokensFromUrl(url);
       if (tokens) {
@@ -135,6 +199,11 @@ export default function RootLayout() {
       // URLを解析し必要に応じて’購入画面(purchases.tsx)へ遷移させる
       if (isPurchasePath(url)) {
         const signupQuery = getSignupQuery(url);
+        initialNavigationState = {
+          handled: true,
+          source: "initial_url",
+          destination: `/purchases${signupQuery}`,
+        };
         router.replace(`/purchases${signupQuery}`);
         return true;
       }
@@ -142,6 +211,11 @@ export default function RootLayout() {
       // メールアドレス変更ページかどうかを確認
       const authCallbackTarget = resolveAuthCallbackTarget(url);
       if (authCallbackTarget) {
+        initialNavigationState = {
+          handled: true,
+          source: "initial_url",
+          destination: authCallbackTarget,
+        };
         router.replace(authCallbackTarget);
         return true;
       }
@@ -150,22 +224,30 @@ export default function RootLayout() {
 
     const bootstrap = async () => {
       const start = Date.now();
+      // アプリ起動時にディープリンクが渡されているかどうかを確認するためのinitialUrl
       const initialUrl = await Linking.getInitialURL();
       let isRoutedByInitialUrl = false;
       if (initialUrl) {
+        // ここでディープリンク解析
         isRoutedByInitialUrl = await handleUrl(initialUrl);
       }
+      // 「端末に保存済み session があれば読んで使える状態にしておく」
       await restoreSession();
-      if (!isRoutedByInitialUrl) {
+      // URLで遷移先が決まっていなければ、session ベースで初期画面を決める
+      // 遷移先の例 「課金アクセス不可→/purchases」「タイマー作動中→/task-timer」「通常ログイン済み→/dashboard」
+      if (!isRoutedByInitialUrl && !initialNavigationState.handled) {
         await resolveInitialRouteForSession();
+      } else if (initialNavigationState.handled) {
+        // 既に別ルートで初回遷移が決まっている場合はrouter.replace()をさせない、ログだけ残す形
+        // → そうすることで非同期処理が起因の「 /purchases に飛ばしたのに、その直後に /dashboard へ上書き遷移する」のような事故を防ぐ
+        addSentryBreadcrumb("navigation.bootstrap", "initial_route_replace_skipped", {
+          destination: initialNavigationState.destination,
+          source: initialNavigationState.source,
+        });
       }
       const elapsed = Date.now() - start;
       const remaining = Math.max(0, MIN_SPLASH_DURATION_MS - elapsed);
-      setTimeout(() => {
-        if (!active) return;
-        setShowSplash(false);
-        SplashScreen.hideAsync().catch(() => { });
-      }, remaining);
+      finishBootstrap(remaining);
     };
 
     bootstrap().catch((error) => {

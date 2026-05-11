@@ -1,7 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { render, waitFor } from "@testing-library/react-native";
 import React from "react";
-import RootLayout from "../app/_layout";
+import RootLayout, {
+  resetRootLayoutInitialNavigationStateForTests,
+} from "../app/_layout";
 import { TASK_TIMER_SESSION_STORAGE_KEY } from "../lib/taskTimerSession";
 import { supabase } from "../lib/supabaseClient";
 import { getAccessStateForUser } from "../lib/subscription";
@@ -83,6 +85,7 @@ describe("RootLayout", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     jest.clearAllMocks();
+    resetRootLayoutInitialNavigationStateForTests();
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-1" } } },
       error: null,
@@ -118,5 +121,20 @@ describe("RootLayout", () => {
     render(<RootLayout />);
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/task-timer"));
+  });
+
+  test("does not replace the initial route again after root layout remounts in the same session", async () => {
+    const router = require("expo-router").router;
+
+    const firstRender = render(<RootLayout />);
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard"));
+    expect(router.replace).toHaveBeenCalledTimes(1);
+
+    firstRender.unmount();
+    render(<RootLayout />);
+
+    await waitFor(() => expect(restoreSession).toHaveBeenCalledTimes(2));
+    expect(router.replace).toHaveBeenCalledTimes(1);
   });
 });
