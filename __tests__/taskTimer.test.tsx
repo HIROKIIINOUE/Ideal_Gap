@@ -474,6 +474,8 @@ describe("TaskTimerScreen", () => {
   });
 
   test("opens music modal and selects a track", async () => {
+    const router = require("expo-router").router;
+    const pushSpy = jest.spyOn(router, "push");
     await AsyncStorage.setItem(
       FOCUS_MUSIC_INSTALLED_KEY,
       JSON.stringify([
@@ -492,10 +494,19 @@ describe("TaskTimerScreen", () => {
     fireEvent.press(getByTestId("music-select-button"));
 
     expect(getByText("Pick focus music")).toBeTruthy();
+    expect(getByText("Go to focus music")).toBeTruthy();
 
     fireEvent.press(getByText("Deep Focus"));
 
     expect(getByText("Deep Focus selected")).toBeTruthy();
+
+    fireEvent.press(getByTestId("music-select-button"));
+    fireEvent.press(getByText("Go to focus music"));
+
+    expect(pushSpy).toHaveBeenCalledWith({
+      pathname: "/feature/[feature]",
+      params: { feature: "focus-music" },
+    });
   });
 
   test("shows notification popup when notifications stay denied", async () => {

@@ -1510,6 +1510,14 @@ export default function TaskTimerScreen() {
     setMusicModalVisible(false);
   };
 
+  const handleOpenFocusMusicCatalog = useCallback(() => {
+    setMusicModalVisible(false);
+    router.push({
+      pathname: "/feature/[feature]",
+      params: { feature: "focus-music" },
+    });
+  }, []);
+
   const pauseResumeLabel =
     status === "running" ? t("controls.pause") : t("controls.resume");
   const pauseResumeIcon =
@@ -2004,13 +2012,7 @@ export default function TaskTimerScreen() {
                   </Text>
                   <Pressable
                     accessibilityRole="button"
-                    onPress={() => {
-                      setMusicModalVisible(false);
-                      router.push({
-                        pathname: "/feature/[feature]",
-                        params: { feature: "focus-music" },
-                      });
-                    }}
+                    onPress={handleOpenFocusMusicCatalog}
                     style={({ pressed }) => [
                       styles.musicEmptyButton,
                       pressed && styles.pressed,
@@ -2046,18 +2048,34 @@ export default function TaskTimerScreen() {
               )}
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setMusicModalVisible(false)}
-              style={({ pressed }) => [
-                styles.modalClose,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.modalCloseText}>
-                {t("header.notificationDismiss")}
-              </Text>
-            </Pressable>
+            <View style={styles.musicModalActions}>
+              {installedTracks.length > 0 && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleOpenFocusMusicCatalog}
+                  style={({ pressed }) => [
+                    styles.modalSecondaryAction,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.modalSecondaryActionText}>
+                    {t("controls.musicEmptyCta")}
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setMusicModalVisible(false)}
+                style={({ pressed }) => [
+                  styles.modalClose,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={styles.modalCloseText}>
+                  {t("header.notificationDismiss")}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -2537,14 +2555,33 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     marginTop: spacing.xs,
   },
-  modalClose: {
+  musicModalActions: {
     marginTop: spacing.sm,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+    flexWrap: "wrap",
+  },
+  modalSecondaryAction: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
-    alignSelf: "flex-end",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  modalSecondaryActionText: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  modalClose: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
   },
   modalCloseText: {
     color: colors.textPrimary,
