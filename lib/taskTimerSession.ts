@@ -8,7 +8,7 @@ import {
 export const TASK_TIMER_SESSION_STORAGE_KEY = "task_timer_active_session";
 
 const TASK_TIMER_SESSION_VERSION = 1 as const;
-const TASK_TIMER_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const TASK_TIMER_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 const persistedTaskTimerSessionSchema = z.object({
   version: z.literal(TASK_TIMER_SESSION_VERSION),
