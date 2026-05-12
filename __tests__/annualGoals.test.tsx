@@ -333,6 +333,18 @@ describe("AnnualGoalsScreen", () => {
     expect(queryByText("Edit")).toBeNull();
   });
 
+  test("uses an icon-only delete button in delete mode while keeping accessibility text", async () => {
+    const { getByRole, findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+
+    const actionRow = await findByTestId("annual-goal-card-actions-goal-1");
+    expect(within(actionRow).queryByText("Delete")).toBeNull();
+    expect(within(actionRow).getByRole("button", { name: "Delete" })).toBeTruthy();
+  });
+
   test("toggles completed state styling on and off", async () => {
     const { findByTestId, queryByTestId } = renderScreen();
 
@@ -512,22 +524,24 @@ describe("AnnualGoalsScreen", () => {
     expect(colors).toEqual(["#1E5EFF", "#6EA8FF"].sort());
   });
 
-  test("shows a success alert after deleting an annual goal", async () => {
+  test("does not show a success alert after deleting an annual goal", async () => {
     const alertSpy = jest.spyOn(Alert, "alert").mockImplementation((_, __, buttons) => {
       const destructive = buttons?.find((button) => button.style === "destructive");
       destructive?.onPress?.();
     });
 
-    const { getAllByRole, getByRole } = renderScreen();
+    const { getByRole, findByTestId } = renderScreen();
 
     await waitFor(() => expect(mockOrder).toHaveBeenCalled());
 
     fireEvent.press(getByRole("button", { name: "Delete" }));
-    fireEvent.press(getAllByRole("button", { name: "Delete" })[0]);
+    const actionRow = await findByTestId("annual-goal-card-actions-goal-1");
+    fireEvent.press(within(actionRow).getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenLastCalledWith("Deleted", "Deletion completed.");
+      expect(mockDelete).toHaveBeenCalled();
     });
+    expect(alertSpy).toHaveBeenCalledTimes(1);
 
     alertSpy.mockRestore();
   });

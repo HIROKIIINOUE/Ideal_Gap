@@ -382,7 +382,6 @@ export default function AnnualGoalsScreen() {
             }));
           setGoals(nextGoals);
 
-          let reorderError = false;
           if (nextGoals.length > 0) {
             // 定数updatesに正しい順番の年間目標をセットし、データベース更新に使用
             const updates = nextGoals.map((item, idx) => ({
@@ -399,12 +398,7 @@ export default function AnnualGoalsScreen() {
             const { error: upsertError } = await upsertYearlyGoals(updates);
             if (upsertError) {
               Alert.alert(t("errors.reorderSaveFailed"), upsertError.message);
-              reorderError = true;
             }
-          }
-
-          if (!reorderError) {
-            Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
           }
         },
       },
@@ -610,11 +604,11 @@ export default function AnnualGoalsScreen() {
           {deleteMode ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={t("delete")}
               onPress={() => handleDelete(item)}
-              style={[styles.dangerButton, styles.iconButtonRow]}
+              style={[styles.goalActionIconButton, styles.dangerButton]}
             >
               <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-              <Text style={styles.dangerButtonText}>{t("delete")}</Text>
             </Pressable>
           ) : (
             <>
