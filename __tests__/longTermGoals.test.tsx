@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor, within } from "@testing-library/react-nativ
 import { I18nextProvider } from "react-i18next";
 import { Keyboard } from "react-native";
 import LongTermGoalsScreen from "../components/feature/LongTermGoalsScreen";
+import { typography } from "../constants/theme";
 import i18n from "../i18n";
 import {
   fetchCurrentPoint,
@@ -58,15 +59,17 @@ jest.mock("react-native-draggable-flatlist", () => {
       <>
         {renderSlot(ListHeaderComponent)}
         {data.length === 0 && renderSlot(ListEmptyComponent)}
-        {data.map((item, index) =>
-          renderItem({
-            item,
-            index,
-            drag: () => {},
-            isActive: false,
-            getIndex: () => index,
-          }),
-        )}
+        {data.map((item, index) => (
+          <React.Fragment key={String((item as { id?: string }).id ?? index)}>
+            {renderItem({
+              item,
+              index,
+              drag: () => {},
+              isActive: false,
+              getIndex: () => index,
+            })}
+          </React.Fragment>
+        ))}
       </>
     );
   };
@@ -177,6 +180,28 @@ describe("LongTermGoalsScreen", () => {
         order: 1,
       },
     ]);
+  });
+
+  test("matches the empty state typography used by the ideal and annual goal cards", async () => {
+    (fetchLongTermGoals as jest.Mock).mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+
+    const { findByText } = renderScreen();
+
+    expect(await findByText("No long-term goals yet")).toHaveStyle({
+      fontSize: typography.lg,
+    });
+    expect(
+      await findByText("Set long-term goals for the next few years and visualize your path to your ideal self."),
+    ).toHaveStyle({
+      fontSize: typography.md,
+      lineHeight: typography.md * 1.5,
+    });
+    expect(await findByText("Add your first long-term goal")).toHaveStyle({
+      fontSize: typography.md,
+    });
   });
 
   test("adds a new long-term goal and updates current point", async () => {

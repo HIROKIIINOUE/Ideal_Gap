@@ -989,10 +989,11 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     alignItems: "flex-start",
+    gap: spacing.sm,
   },
   emptyTitle: {
     color: colors.textPrimary,
-    fontSize: typography.xl,
+    fontSize: typography.lg,
     fontWeight: "800",
   },
   emptyBody: {
