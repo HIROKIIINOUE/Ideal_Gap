@@ -89,7 +89,8 @@ describe("BreakReminderScreen", () => {
     const { getByTestId } = renderScreen();
 
     expect(getByTestId("break-reminder-datetime")).toHaveStyle({
-      transform: [{ scaleX: 0.8 }, { scaleY: 0.94 }, { translateX: -39.199999999999996 }],
+      width: 320,
+      transform: [{ scaleX: 0.8 }, { scaleY: 0.94 }],
     });
   });
 

@@ -466,16 +466,20 @@ export default function BreakReminderScreen() {
                   </View>
                 </View>
               ) : (
-                <DateTimePicker
-                  testID="break-reminder-datetime"
-                  value={selectedDate}
-                  mode="datetime"
-                  display="spinner"
-                  locale={pickerLocale}
-                  textColor={colors.textPrimary}
-                  style={styles.picker}
-                  onChange={handleDateTimeChange}
-                />
+                <View style={styles.pickerViewport}>
+                  <View style={styles.pickerCenter}>
+                    <DateTimePicker
+                      testID="break-reminder-datetime"
+                      value={selectedDate}
+                      mode="datetime"
+                      display="spinner"
+                      locale={pickerLocale}
+                      textColor={colors.textPrimary}
+                      style={styles.picker}
+                      onChange={handleDateTimeChange}
+                    />
+                  </View>
+                </View>
               )}
             </View>
 
@@ -547,10 +551,19 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
   },
-  picker: {
+  pickerViewport: {
     width: "100%",
-    alignSelf: "stretch",
-    transform: [{ scaleX: 0.8 }, { scaleY: 0.94 }, { translateX: -spacing.xl * 1.4 }],
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  pickerCenter: {
+    width: 320,
+    alignItems: "center",
+  },
+  picker: {
+    width: 320,
+    // iPhoneのPickerは中央基準で縮小して、端末幅依存のtranslateを避ける
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.94 }],
   },
   androidPickerGroup: {
     width: "100%",
