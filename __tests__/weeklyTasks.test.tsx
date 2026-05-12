@@ -450,6 +450,59 @@ describe("WeeklyTasksScreen", () => {
     );
   });
 
+  test("disables the modal save button during a pending save to prevent duplicate submissions", async () => {
+    mockOrderYearly.mockResolvedValue({ data: [], error: null });
+    mockOrderWeekly.mockResolvedValue({ data: [], error: null });
+
+    type InsertResult = {
+      data: {
+        id: string;
+        description: string;
+        yearly_goal_id: string | null;
+        accumulated_time_week: number;
+        order: number;
+      };
+      error: null;
+    };
+    let resolveInsert: undefined | ((value: InsertResult) => void);
+    const pendingInsert = new Promise<InsertResult>((resolve) => {
+      resolveInsert = resolve;
+    });
+    mockSingleInsertedWeekly.mockReturnValue(pendingInsert);
+
+    const { findByText, findByPlaceholderText, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderYearly).toHaveBeenCalled());
+
+    fireEvent.press(await findByText("Add"));
+    fireEvent.changeText(
+      await findByPlaceholderText("e.g. Finish 7 pages in section4 on the textbook"),
+      "Read 20 pages",
+    );
+
+    const saveButton = getByTestId("weekly-tasks-modal-save");
+    fireEvent.press(saveButton);
+
+    await waitFor(() => {
+      expect(getByTestId("weekly-tasks-modal-save").props.accessibilityState?.disabled).toBe(true);
+    });
+
+    expect(mockInsertWeekly).toHaveBeenCalledTimes(1);
+
+    resolveInsert?.({
+      data: {
+        id: "w-new",
+        description: "Read 20 pages",
+        yearly_goal_id: null,
+        accumulated_time_week: 0,
+        order: 0,
+      },
+      error: null,
+    });
+
+    await waitFor(() => expect(mockUpsertWeekly).toHaveBeenCalled());
+  });
+
   test("allows saving a weekly task with no yearly goal selected even when yearly goals exist", async () => {
     mockOrderYearly.mockResolvedValue({
       data: [

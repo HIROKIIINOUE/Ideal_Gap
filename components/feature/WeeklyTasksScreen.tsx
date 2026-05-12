@@ -145,6 +145,7 @@ export default function WeeklyTasksScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isGoalDropdownOpen, setGoalDropdownOpen] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const weeklyTaskSchema = z.object({
     title: z.string().trim().min(1),
@@ -575,6 +576,7 @@ export default function WeeklyTasksScreen() {
 
   const handleSave = async () => {
     if (guardOfflineAction()) return;
+    if (saving) return;
 
     const parse = weeklyTaskSchema.safeParse(draft);
     if (!parse.success) {
@@ -589,42 +591,63 @@ export default function WeeklyTasksScreen() {
       return;
     }
 
-    // 編集保存処理
-    if (editingId) {
-      const existing = tasks.find((task) => task.id === editingId);
-      const payload: WeeklyTaskUpdate = {
-        description: parse.data.title,
-        yearly_goal_id: parse.data.yearlyGoalId ?? null,
-        accumulated_time_week: existing?.loggedMinutes ?? 0,
-      };
-      const { error } = await supabase
-        .from("weekly_tasks")
-        .update(payload)
-        .eq("id", editingId);
-      if (error) {
-        Alert.alert("更新に失敗しました", error.message);
-        return;
-      }
-    } else {
-      // 追加保存処理
-      // 新規タスクを一番上に持ってくるために既存のタスクのorderを+1する
-      const orderedExisting = reorderTasks(tasks).map((task, idx) => ({ ...task, order: idx + 1 }));
-      const { data: inserted, error } = await supabase
-        .from("weekly_tasks")
-        .insert({
+    setSaving(true);
+    try {
+      // 編集保存処理
+      if (editingId) {
+        const existing = tasks.find((task) => task.id === editingId);
+        const payload: WeeklyTaskUpdate = {
           description: parse.data.title,
           yearly_goal_id: parse.data.yearlyGoalId ?? null,
-          accumulated_time_week: 0,
-          user_id: uid,
-          order: 0,
-        })
-        .select("id, description, yearly_goal_id, accumulated_time_week, order")
-        .single();
-      if (error || !inserted) {
-        Alert.alert("追加に失敗しました", error?.message ?? "Failed to add");
-        return;
+          accumulated_time_week: existing?.loggedMinutes ?? 0,
+        };
+        const { error } = await supabase
+          .from("weekly_tasks")
+          .update(payload)
+          .eq("id", editingId);
+        if (error) {
+          Alert.alert("更新に失敗しました", error.message);
+          return;
+        }
+      } else {
+        // 追加保存処理
+        // 新規タスクを一番上に持ってくるために既存のタスクのorderを+1する
+        const orderedExisting = reorderTasks(tasks).map((task, idx) => ({ ...task, order: idx + 1 }));
+        const { data: inserted, error } = await supabase
+          .from("weekly_tasks")
+          .insert({
+            description: parse.data.title,
+            yearly_goal_id: parse.data.yearlyGoalId ?? null,
+            accumulated_time_week: 0,
+            user_id: uid,
+            order: 0,
+          })
+          .select("id, description, yearly_goal_id, accumulated_time_week, order")
+          .single();
+        if (error || !inserted) {
+          Alert.alert("追加に失敗しました", error?.message ?? "Failed to add");
+          return;
+        }
+
+        const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>(
+          (acc, item) => {
+            acc[item.id] = { label: item.label, color: item.color };
+            return acc;
+          },
+          {},
+        );
+        const newTask = toWeeklyTask(inserted, goalLookup);
+        const reordered = reorderTasks([...orderedExisting, newTask]);
+        const updates = reordered.map((task) => toWeeklyRow(task, uid));
+        const { error: reorderError } = await supabase.from("weekly_tasks").upsert(updates, { onConflict: "id" });
+        if (reorderError) {
+          Alert.alert("追加に失敗しました", reorderError.message ?? "Failed to reorder");
+          return;
+        }
+        setTasks(reordered);
       }
 
+      setModalVisible(false);
       const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>(
         (acc, item) => {
           acc[item.id] = { label: item.label, color: item.color };
@@ -632,36 +655,21 @@ export default function WeeklyTasksScreen() {
         },
         {},
       );
-      const newTask = toWeeklyTask(inserted, goalLookup);
-      const reordered = reorderTasks([...orderedExisting, newTask]);
-      const updates = reordered.map((task) => toWeeklyRow(task, uid));
-      const { error: reorderError } = await supabase.from("weekly_tasks").upsert(updates, { onConflict: "id" });
-      if (reorderError) {
-        Alert.alert("追加に失敗しました", reorderError.message ?? "Failed to reorder");
-        return;
+      // ↓ 追加・更新後に再度Supabase DBから週間タスクを取得する
+      const { data: weeklyData, error: weeklyError } = await supabase
+        .from("weekly_tasks")
+        .select("id, description, yearly_goal_id, accumulated_time_week, order")
+        .eq("user_id", uid)
+        .order("order", { ascending: true });
+      if (!weeklyError && weeklyData) {
+        setTasks(
+          reorderTasks(((weeklyData as WeeklyTaskListRow[] | null) ?? []).map((row) => toWeeklyTask(row, goalLookup))),
+        );
       }
-      setTasks(reordered);
+      setLoading(false);
+    } finally {
+      setSaving(false);
     }
-
-    setModalVisible(false);
-    // 年間目標リスト配列から{ [id]: { label, color} }　の辞書のようなものを作る
-    // コードがシンプルになり、パフォーマンスが安定する
-    const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>((acc, item) => {
-      acc[item.id] = { label: item.label, color: item.color };
-      return acc;
-    }, {});
-    // ↓ 追加・更新後に再度Supabase DBから週間タスクを取得する
-    const { data: weeklyData, error: weeklyError } = await supabase
-      .from("weekly_tasks")
-      .select("id, description, yearly_goal_id, accumulated_time_week, order")
-      .eq("user_id", uid)
-      .order("order", { ascending: true });
-    if (!weeklyError && weeklyData) {
-      setTasks(
-        reorderTasks(((weeklyData as WeeklyTaskListRow[] | null) ?? []).map((row) => toWeeklyTask(row, goalLookup))),
-      );
-    }
-    setLoading(false);
   };
 
   // ドラッグの順番並び替えが終わった時に発火
@@ -1063,8 +1071,10 @@ export default function WeeklyTasksScreen() {
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
-                      style={styles.primaryButton}
+                      testID="weekly-tasks-modal-save"
+                      style={[styles.primaryButton, saving && styles.buttonDisabled]}
                       onPress={handleSave}
+                      disabled={saving}
                     >
                       <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
                     </Pressable>
