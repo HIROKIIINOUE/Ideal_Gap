@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
+import { useIsFocused } from "@react-navigation/native";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
@@ -177,6 +178,7 @@ const withTimeout = async <T,>(
 
 export default function TaskTimerScreen() {
   const { t } = useTranslation("taskTimer");
+  const isFocused = useIsFocused();
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
   const { width, fontScale } = useWindowDimensions();
@@ -1696,6 +1698,7 @@ export default function TaskTimerScreen() {
   //「音楽再生フラグが ON のときに、選択中の曲を再生し続ける」ための同期処理 
   // 選択が無い／再生失敗なら自動停止
   useEffect(() => {
+    if (!isFocused) return;
     if (!musicPlaying) return;
     if (!selectedTrack) {
       setMusicPlaying(false);
@@ -1704,7 +1707,15 @@ export default function TaskTimerScreen() {
     playSelected().catch(() => {
       setMusicPlaying(false);
     });
-  }, [musicPlaying, playSelected, selectedTrack]);
+  }, [isFocused, musicPlaying, playSelected, selectedTrack]);
+
+  // isFocusでユーザがタスクタイマーページにいるかどうかを判定し、タスクタイマーページにいない場合は音楽を停止する
+  //   → 不定期に別ページでも音楽が再生されてしまうバグの解消
+  useEffect(() => {
+    if (isFocused) return;
+    if (!musicPlaying) return;
+    stopFocusMusic();
+  }, [isFocused, musicPlaying, stopFocusMusic]);
 
   return (
     <SafeAreaView

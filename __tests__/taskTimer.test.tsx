@@ -21,6 +21,12 @@ import {
 
 jest.useFakeTimers();
 
+let mockIsFocused = true;
+
+jest.mock("@react-navigation/native", () => ({
+  useIsFocused: jest.fn(() => mockIsFocused),
+}));
+
 jest.mock("@expo/vector-icons", () => {
   const React = require("react");
   const { Text } = require("react-native");
@@ -245,6 +251,7 @@ describe("TaskTimerScreen", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     jest.clearAllMocks();
+    mockIsFocused = true;
     mockAudioPlayers.length = 0;
     mockAnyAudioPlay.mockClear();
     mockSetAudioModeAsync.mockClear();
@@ -1266,6 +1273,58 @@ describe("TaskTimerScreen", () => {
     unmount();
 
     await waitFor(() => expect(stop).toHaveBeenCalled());
+    spy.mockRestore();
+  });
+
+  test("stops focus music when the task timer screen loses focus", async () => {
+    const stop = jest.fn().mockResolvedValue(undefined);
+    const playSelected = jest.fn().mockResolvedValue(true);
+    const installedTrack: InstalledFocusTrack = {
+      id: "track-1",
+      trackId: "track-1",
+      title: "Deep Focus",
+      bucket: "focus-music",
+      storagePath: "tracks/deep-focus.mp3",
+      durationSeconds: 150,
+      musicCategories: ["study"],
+      localPath: "file://test/focus-music/track-1.mp3",
+      downloadedAt: new Date().toISOString(),
+    };
+
+    const spy = jest
+      .spyOn(FocusMusicProviderModule, "useFocusMusic")
+      .mockReturnValue(
+        buildFocusMusicStub({
+          installedTracks: [installedTrack],
+          selectedTrackId: installedTrack.id,
+          selectedTrack: installedTrack,
+          playSelected,
+          stop,
+        }),
+      );
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <TimerAlarmPreferenceProvider>
+          <TaskTimerScreen />
+        </TimerAlarmPreferenceProvider>
+      </I18nextProvider>,
+    );
+
+    fireEvent.press(screen.getByText("Play"));
+
+    await waitFor(() => expect(playSelected).toHaveBeenCalled());
+
+    mockIsFocused = false;
+    screen.rerender(
+      <I18nextProvider i18n={i18n}>
+        <TimerAlarmPreferenceProvider>
+          <TaskTimerScreen />
+        </TimerAlarmPreferenceProvider>
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(stop).toHaveBeenCalledTimes(1));
     spy.mockRestore();
   });
 
