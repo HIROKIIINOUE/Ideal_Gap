@@ -67,6 +67,13 @@ import KeyboardDismissButton from "../KeyboardDismissButton";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
 type ForceExitDestination = "weekly_tasks" | "dashboard";
+type ManualLogState = {
+  visible: boolean;
+  hours: string;
+  minutes: string;
+  defaultMinutes: number;
+  saving: boolean;
+};
 
 const WEEKLY_TASKS_ROUTE = {
   pathname: "/feature/[feature]",
@@ -104,6 +111,15 @@ const formatDigital = (seconds: number) => {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }
   return `${minutes}:${String(secs).padStart(2, "0")}`;
+};
+
+const formatMinutes = (minutes: number) => {
+  const safe = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(safe / 60);
+  const mins = safe % 60;
+  if (hours === 0) return `${mins}m`;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
 };
 
 const gradientCard = ["rgba(30,94,255,0.18)", "rgba(12,18,32,0.95)"] as const;
@@ -198,6 +214,13 @@ export default function TaskTimerScreen() {
   const [isSavingCompletion, setIsSavingCompletion] = useState(false);
   const [nextStartPoint, setNextStartPoint] = useState<string | null>(null);
   const [viewStartModalVisible, setViewStartModalVisible] = useState(false);
+  const [manualLog, setManualLog] = useState<ManualLogState>({
+    visible: false,
+    hours: "0",
+    minutes: "0",
+    defaultMinutes: 0,
+    saving: false,
+  });
 
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);  // setIntervalのID管理/停止/リセット/完了時のclearInterval用
   const foregroundAlarmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // タイマー終了予定時刻に合わせてforeground中だけ音+バイブを発火する予約を管理する用。キャンセル時はここに埋め込まれたIDを使用してclearTimeoutをしている。
@@ -302,6 +325,21 @@ export default function TaskTimerScreen() {
     () => Math.max(0, Math.round(completionElapsedSeconds / 60)),
     [completionElapsedSeconds],
   );
+  const manualHoursNumber = useMemo(() => Number(manualLog.hours || "0"), [manualLog.hours]);
+  const manualMinutesNumber = useMemo(
+    () => Math.min(59, Number(manualLog.minutes || "0")),
+    [manualLog.minutes],
+  );
+  const manualAddedMinutes = useMemo(
+    () => manualHoursNumber * 60 + manualMinutesNumber,
+    [manualHoursNumber, manualMinutesNumber],
+  );
+  const manualFinalMinutes = useMemo(
+    () => manualLog.defaultMinutes + manualAddedMinutes,
+    [manualAddedMinutes, manualLog.defaultMinutes],
+  );
+  const manualHasInput = manualAddedMinutes > 0;
+  const manualInRange = manualHasInput;
 
   const fetchUserId = useCallback(async () => {
     if (userId) return userId;
@@ -327,6 +365,14 @@ export default function TaskTimerScreen() {
   const clearTimerSession = useCallback(async () => {
     await clearPersistedTaskTimerSession();
   }, []);
+
+  useEffect(() => {
+    setManualLog((prev) =>
+      prev.visible
+        ? prev
+        : { ...prev, defaultMinutes: Math.max(0, loggedBaseline) },
+    );
+  }, [loggedBaseline]);
 
   useEffect(() => {
     addSentryBreadcrumb("task_timer.lifecycle", "task_timer_mounted", {
@@ -864,6 +910,119 @@ export default function TaskTimerScreen() {
     }
     Alert.alert(message);
   }, []);
+
+
+  // 手動で作業時間積み上げモーダルをオープンする処理
+  const handleOpenManualLog = useCallback(() => {
+    if (!taskId) return;
+    setManualLog({
+      visible: true,
+      hours: "0",
+      minutes: "0",
+      defaultMinutes: Math.max(0, loggedBaseline),
+      saving: false,
+    });
+  }, [loggedBaseline, taskId]);
+
+  const handleManualHoursChange = useCallback((value: string) => {
+    const sanitized = value.replace(/[^0-9]/g, "").slice(0, 4);
+    setManualLog((prev) => ({ ...prev, hours: sanitized }));
+  }, []);
+
+  const handleManualMinutesChange = useCallback((value: string) => {
+    //奇数から数字以外を全てから文字に変換し、文字列内を数字だけにする。先頭から２桁までの数値を切り取ることで、値を必ず2桁までの数値に制御できる。
+    const sanitized = value.replace(/[^0-9]/g, "").slice(0, 2);
+    if (sanitized === "") {
+      setManualLog((prev) => ({ ...prev, minutes: "" }));
+      return;
+    }
+    const numeric = Math.min(59, Number(sanitized));
+    setManualLog((prev) => ({ ...prev, minutes: String(numeric) }));
+  }, []);
+
+  const closeManualLog = useCallback(() => {
+    setManualLog((prev) => ({
+      ...prev,
+      visible: false,
+      hours: "0",
+      minutes: "0",
+      saving: false,
+      defaultMinutes: Math.max(0, loggedBaselineRef.current),
+    }));
+  }, []);
+
+  const handleSubmitManualLog = useCallback(() => {
+    if (!taskId || !manualInRange || manualLog.saving) return;
+    const safeTotal = Math.max(0, manualFinalMinutes);
+    Alert.alert(
+      t("manualModal.confirmTitle"),
+      t("manualModal.confirmMessage", {
+        total: formatMinutes(safeTotal),
+        added: formatMinutes(manualAddedMinutes),
+      }),
+      [
+        { text: t("manualModal.cancel"), style: "cancel" },
+        {
+          text: t("manualModal.confirm"),
+          style: "default",
+          onPress: async () => {
+            setManualLog((prev) => ({ ...prev, saving: true }));
+            const uid = userId ?? (await fetchUserId());
+            if (!uid || !taskId) {
+              Alert.alert(t("manualModal.errorTitle"), t("feedback.missingTaskOnSave"));
+              closeManualLog();
+              return;
+            }
+            try {
+              const netState = await NetInfo.fetch();
+              const isOnline =
+                netState.isConnected !== false &&
+                netState.isInternetReachable !== false;
+              if (!isOnline) {
+                Alert.alert(t("manualModal.errorTitle"), t("feedback.offlineManualBlocked"));
+                return;
+              }
+
+              const latest = await fetchLatestLogged(uid, taskId);
+              if (!latest) {
+                Alert.alert(t("manualModal.errorTitle"), t("feedback.missingTaskOnSave"));
+                return;
+              }
+
+              const result = await updateAccumulatedTimes({
+                userId: uid,
+                taskId,
+                yearlyGoalId: latest.yearlyGoalId ?? yearlyGoalIdSafe,
+                newLoggedMinutes: safeTotal,
+                previousLoggedMinutes: latest.accumulated,
+              });
+
+              setLoggedBaseline(result.newLoggedMinutes);
+              Alert.alert(t("manualModal.successTitle"), t("manualModal.successBody"));
+              closeManualLog();
+            } catch (error) {
+              const message = error instanceof Error ? error.message : t("manualModal.errorTitle");
+              Alert.alert(t("manualModal.errorTitle"), message);
+            } finally {
+              setManualLog((prev) => ({ ...prev, saving: false }));
+            }
+          },
+        },
+      ],
+    );
+  }, [
+    closeManualLog,
+    fetchLatestLogged,
+    fetchUserId,
+    manualAddedMinutes,
+    manualFinalMinutes,
+    manualInRange,
+    manualLog.saving,
+    t,
+    taskId,
+    userId,
+    yearlyGoalIdSafe,
+  ]);
 
   // 通知設定画面へ遷移する処理
   const handleOpenSettings = useCallback(async () => {
@@ -1822,10 +1981,17 @@ export default function TaskTimerScreen() {
               style={({ pressed }) => [
                 styles.secondaryButton,
                 styles.exitButton,
+                styles.exitButtonCompact,
                 pressed && styles.secondaryPressed,
               ]}
             >
-              <Text style={styles.secondaryButtonText}>
+              <Text
+                testID="task-timer-exit-weekly-label"
+                style={[styles.secondaryButtonText, styles.exitButtonText]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
                 {t("exitActions.weeklyTasks")}
               </Text>
             </Pressable>
@@ -1837,16 +2003,186 @@ export default function TaskTimerScreen() {
               style={({ pressed }) => [
                 styles.secondaryButton,
                 styles.exitButton,
+                styles.exitButtonCompact,
                 pressed && styles.secondaryPressed,
               ]}
             >
-              <Text style={styles.secondaryButtonText}>
+              <Text
+                testID="task-timer-exit-dashboard-label"
+                style={[styles.secondaryButtonText, styles.exitButtonText]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
                 {t("exitActions.dashboard")}
               </Text>
             </Pressable>
           </View>
         </View>
+
+        {taskId ? (
+          <View
+            style={[styles.card, styles.exitCard, shadows.card]}
+            testID="task-timer-manual-log-card"
+          >
+            <Text style={styles.cardTitle}>{t("manualEntryCard.title")}</Text>
+            <Text style={styles.exitDescription}>
+              {t("manualEntryCard.description")}
+            </Text>
+            <View style={styles.exitActions}>
+              <Pressable
+                testID="task-timer-manual-log-button"
+                accessibilityRole="button"
+                onPress={handleOpenManualLog}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  styles.exitButton,
+                  pressed && styles.secondaryPressed,
+                ]}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {t("manualEntryCard.button")}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
       </ScrollView>
+
+      <Modal
+        visible={manualLog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeManualLog}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={getKeyboardAvoidingBehavior()}
+            style={styles.modalContainer}
+            testID="task-timer-manual-log-modal-kav"
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              testID="task-timer-manual-log-modal-scroll"
+            >
+              <View style={[styles.modalCard, styles.manualCard, shadows.card]}>
+                <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
+
+                <View style={styles.manualTaskBox}>
+                  <Text
+                    style={styles.manualTaskTitle}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {taskTitle}
+                  </Text>
+                  <View style={styles.manualSummaryBox}>
+                    <View style={styles.manualSummaryRow}>
+                      <Text style={styles.manualSummaryLabel}>
+                        {t("manualModal.currentLabel")}
+                      </Text>
+                      <Text style={styles.manualSummaryValue}>
+                        {formatMinutes(manualLog.defaultMinutes)}
+                      </Text>
+                    </View>
+                    <View style={styles.manualSummaryRow}>
+                      <Text style={styles.manualSummaryLabel}>
+                        {t("manualModal.addedLabel")}
+                      </Text>
+                      <Text style={styles.manualSummaryValue}>
+                        {formatMinutes(manualAddedMinutes)}
+                      </Text>
+                    </View>
+                    <View style={styles.manualSummaryDivider} />
+                    <View style={styles.manualSummaryRow}>
+                      <Text style={styles.manualSummaryLabel}>
+                        {t("manualModal.finalLabel")}
+                      </Text>
+                      <Text style={styles.manualSummaryTotal}>
+                        {formatMinutes(manualFinalMinutes)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.manualInputsRow}>
+                  <View style={styles.manualInputGroup}>
+                    <Text style={styles.fieldLabel}>
+                      {t("manualModal.hoursLabel")}
+                    </Text>
+                    <TextInput
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                      value={manualLog.hours}
+                      onChangeText={handleManualHoursChange}
+                      style={styles.manualNumberInput}
+                    />
+                  </View>
+                  <View style={styles.manualInputGroup}>
+                    <Text style={styles.fieldLabel}>
+                      {t("manualModal.minutesLabel")}
+                    </Text>
+                    <TextInput
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="number-pad"
+                      value={manualLog.minutes}
+                      onChangeText={handleManualMinutesChange}
+                      style={styles.manualNumberInput}
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.fieldHelper}>
+                  {t("manualModal.rangeHelper")}
+                </Text>
+
+                <View style={styles.completionActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={styles.secondaryButton}
+                    onPress={closeManualLog}
+                    disabled={manualLog.saving}
+                  >
+                    <Text style={styles.secondaryButtonText}>
+                      {t("manualModal.cancel")}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleSubmitManualLog}
+                    disabled={!manualInRange || manualLog.saving}
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      styles.controlButton,
+                      styles.completionPrimary,
+                      pressed && styles.primaryPressed,
+                      (!manualInRange || manualLog.saving) &&
+                      styles.primaryButtonDisabled,
+                    ]}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {manualLog.saving
+                        ? t("manualModal.saving")
+                        : t("manualModal.submit")}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+          {keyboardVisible ? (
+            <KeyboardDismissButton
+              keyboardHeight={keyboardHeight}
+              onPress={dismissKeyboard}
+            />
+          ) : null}
+        </View>
+      </Modal>
 
       <Modal
         visible={completionModalVisible}
@@ -2377,6 +2713,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
     justifyContent: "center",
   },
+  exitButtonCompact: {
+    paddingHorizontal: spacing.sm + 2,
+  },
+  exitButtonText: {
+    fontSize: typography.sm + 1,
+    lineHeight: (typography.sm + 1) * 1.2,
+    flexShrink: 1,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: colors.overlay,
@@ -2414,6 +2758,9 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
   },
   completionCard: {
+    gap: spacing.md,
+  },
+  manualCard: {
     gap: spacing.md,
   },
   completionSummary: {
@@ -2461,6 +2808,66 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
+  },
+  manualTaskBox: {
+    gap: spacing.sm,
+  },
+  manualTaskTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+    lineHeight: typography.md * 1.4,
+  },
+  manualSummaryBox: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    gap: spacing.xs,
+  },
+  manualSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  manualSummaryLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+  },
+  manualSummaryValue: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+  },
+  manualSummaryDivider: {
+    height: 1,
+    backgroundColor: colors.divider,
+    marginVertical: spacing.xs / 2,
+  },
+  manualSummaryTotal: {
+    color: colors.textPrimary,
+    fontSize: typography.lg,
+    fontWeight: "800",
+  },
+  manualInputsRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  manualInputGroup: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  manualNumberInput: {
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
   completionActions: {
     flexDirection: "row",

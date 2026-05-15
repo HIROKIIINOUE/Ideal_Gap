@@ -10,6 +10,11 @@ export type WeeklyTasksTranslations = {
     delete: string;
     deleteExit: string;
   };
+  completion: {
+    complete: string;
+    undo: string;
+    badge: string;
+  };
   deleteConfirm: {
     title: string;
     body: string;
@@ -95,6 +100,11 @@ export const weeklyTasksTranslations: Record<
       delete: "削除",
       deleteExit: "戻る",
     },
+    completion: {
+      complete: "完了",
+      undo: "未完了に戻す",
+      badge: "完了済み",
+    },
     deleteConfirm: {
       title: "削除してもよろしいですか？",
       body: "削除すると元に戻せません。",
@@ -176,6 +186,11 @@ export const weeklyTasksTranslations: Record<
       delete: "Delete",
       deleteExit: "Exit",
     },
+    completion: {
+      complete: "Done",
+      undo: "Mark as active",
+      badge: "Done",
+    },
     deleteConfirm: {
       title: "Delete this weekly task?",
       body: "You can’t undo this action after deleting.",
@@ -256,6 +271,11 @@ export const weeklyTasksTranslations: Record<
       add: "Ajouter",
       delete: "Supprimer",
       deleteExit: "Quitter",
+    },
+    completion: {
+      complete: "Terminer",
+      undo: "Rendre active",
+      badge: "Terminée",
     },
     deleteConfirm: {
       title: "Supprimer cette tâche hebdomadaire ?",

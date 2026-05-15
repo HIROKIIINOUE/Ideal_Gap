@@ -406,6 +406,7 @@ export type Database = {
           created_at: string | null;
           description: string;
           id: string;
+          is_done: boolean | null;
           next_start_point: string | null;
           order: number | null;
           updated_at: string | null;
@@ -417,6 +418,7 @@ export type Database = {
           created_at?: string | null;
           description: string;
           id?: string;
+          is_done?: boolean | null;
           next_start_point?: string | null;
           order?: number | null;
           updated_at?: string | null;
@@ -428,6 +430,7 @@ export type Database = {
           created_at?: string | null;
           description?: string;
           id?: string;
+          is_done?: boolean | null;
           next_start_point?: string | null;
           order?: number | null;
           updated_at?: string | null;

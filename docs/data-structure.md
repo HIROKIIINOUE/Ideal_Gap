@@ -142,6 +142,7 @@
     description varchar [not null]
     next_start_point varchar
     accumulated_time_week int // 作業タイマーの実績
+    is_done boolean
     "order" int
     created_at timestamptz
     updated_at timestamptz

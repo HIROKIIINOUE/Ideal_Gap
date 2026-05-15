@@ -217,7 +217,6 @@ describe("WeeklyTasksScreen", () => {
 
     expect(queryByText("Weekly progress")).toBeFalsy();
     expect(getByTestId("weekly-task-timer-w1")).toBeTruthy();
-    expect(getByTestId("weekly-task-manual-w1")).toBeTruthy();
     expect(getByTestId("weekly-task-edit-w1")).toBeTruthy();
     expect(getByTestId("weekly-task-reorder-w1")).toBeTruthy();
   });
@@ -252,12 +251,16 @@ describe("WeeklyTasksScreen", () => {
       marginBottom: spacing.sm,
     });
     expect(await findByTestId("weekly-task-title-w1")).toHaveStyle({
+      marginHorizontal: spacing.xs / 2,
       fontSize: typography.md,
       lineHeight: typography.md * 1.15,
     });
-    expect(await findByTestId("weekly-task-timer-w1")).toHaveStyle({
+    expect(await findByTestId("weekly-task-edit-w1")).toHaveStyle({
       width: 32,
       height: 32,
+    });
+    expect(await findByTestId("weekly-task-total-w1")).toHaveStyle({
+      marginHorizontal: spacing.xs / 2,
     });
   });
 
@@ -292,6 +295,65 @@ describe("WeeklyTasksScreen", () => {
     expect(card.props.children[2]).toBe(controls);
     expect(card.props.children[3]).toBeTruthy();
     expect(card.props.children[3].props.children).toBe(title);
+  });
+
+  test("toggles completed state styling on and off", async () => {
+    mockOrderYearly.mockResolvedValue({
+      data: [
+        { id: "y1", description: "Career growth", year_goal_color: "#1E5EFF" },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          yearly_goal_id: "y1",
+          accumulated_time_week: 180,
+          is_done: false,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId, queryByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+
+    const card = await findByTestId("weekly-task-card-w1");
+    const title = await findByTestId("weekly-task-title-w1");
+    const completeButton = await findByTestId("weekly-task-complete-w1");
+
+    expect(queryByTestId("weekly-task-completed-badge-w1")).toBeNull();
+
+    fireEvent.press(completeButton);
+
+    await waitFor(() => {
+      expect(mockUpdateWeekly).toHaveBeenCalledWith({ is_done: true });
+    });
+    await waitFor(() => {
+      expect(mockEqUpdateWeekly).toHaveBeenCalledWith("id", "w1");
+    });
+
+    expect(await findByTestId("weekly-task-completed-badge-w1")).toBeTruthy();
+    expect(card).toHaveStyle({ borderColor: "rgba(56,217,150,0.55)" });
+    expect(queryByTestId("weekly-task-timer-w1")).toBeNull();
+    expect(queryByTestId("weekly-task-edit-w1")).toBeNull();
+    expect(title).toHaveStyle({ color: "rgba(233,237,247,0.78)" });
+
+    fireEvent.press(completeButton);
+
+    await waitFor(() => {
+      expect(mockUpdateWeekly).toHaveBeenCalledWith({ is_done: false });
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId("weekly-task-completed-badge-w1")).toBeNull();
+    });
+    expect(await findByTestId("weekly-task-timer-w1")).toBeTruthy();
+    expect(await findByTestId("weekly-task-edit-w1")).toBeTruthy();
   });
 
   test("renders long weekly task titles without truncation props", async () => {
@@ -442,7 +504,6 @@ describe("WeeklyTasksScreen", () => {
     expect(getByTestId("weekly-task-delete-w1")).toBeTruthy();
     expect(queryByText("Delete")).toBeNull();
     expect(queryByTestId("weekly-task-timer-w1")).toBeNull();
-    expect(queryByTestId("weekly-task-manual-w1")).toBeNull();
     expect(queryByTestId("weekly-task-edit-w1")).toBeNull();
     expect(queryByTestId("weekly-task-reorder-w1")).toBeNull();
   });
@@ -518,6 +579,7 @@ describe("WeeklyTasksScreen", () => {
         description: "Read 20 pages",
         yearly_goal_id: null,
         accumulated_time_week: 0,
+        is_done: false,
         user_id: "user-123",
         order: 0,
       }),
@@ -534,6 +596,7 @@ describe("WeeklyTasksScreen", () => {
         description: string;
         yearly_goal_id: string | null;
         accumulated_time_week: number;
+        is_done: boolean;
         order: number;
       };
       error: null;
@@ -569,6 +632,7 @@ describe("WeeklyTasksScreen", () => {
         description: "Read 20 pages",
         yearly_goal_id: null,
         accumulated_time_week: 0,
+        is_done: false,
         order: 0,
       },
       error: null,
@@ -631,6 +695,7 @@ describe("WeeklyTasksScreen", () => {
         description: "Review flashcards",
         yearly_goal_id: null,
         accumulated_time_week: 0,
+        is_done: false,
         user_id: "user-123",
         order: 0,
       }),
@@ -830,39 +895,6 @@ describe("WeeklyTasksScreen", () => {
 
     expect(await findByTestId("weekly-tasks-modal-kav")).toBeTruthy();
     expect(await findByTestId("weekly-tasks-modal-scroll")).toBeTruthy();
-  });
-
-  test("renders keyboard avoiding view and scroll area in manual log modal", async () => {
-    mockOrderYearly.mockResolvedValue({
-      data: [
-        {
-          id: "y1",
-          description: "Career growth",
-          year_goal_color: "#1E5EFF",
-        },
-      ],
-      error: null,
-    });
-    mockOrderWeekly.mockResolvedValue({
-      data: [
-        {
-          id: "w1",
-          description: "Ship UX fixes",
-          yearly_goal_id: "y1",
-          accumulated_time_week: 180,
-          order: 0,
-        },
-      ],
-      error: null,
-    });
-
-    const { findByRole, getByTestId } = renderScreen();
-
-    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
-    fireEvent.press(await findByRole("button", { name: "Manual" }));
-
-    expect(getByTestId("manual-log-modal-kav")).toBeTruthy();
-    expect(getByTestId("manual-log-modal-scroll")).toBeTruthy();
   });
 
   test("hides keyboard icon when keyboard is not visible", async () => {

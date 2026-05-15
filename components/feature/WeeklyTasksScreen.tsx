@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -23,7 +23,6 @@ import { colors, radius, shadows, spacing, typography } from "../../constants/th
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
-import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { supabase } from "../../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
@@ -41,6 +40,7 @@ type WeeklyTask = {
   yearlyGoalLabel: string;
   yearlyGoalId: string | null;
   loggedMinutes: number;
+  completed: boolean;
   order: number;
 };
 
@@ -50,17 +50,9 @@ type WeeklyTaskInsert = Database["public"]["Tables"]["weekly_tasks"]["Insert"];
 type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
 type WeeklyTaskListRow = Pick<
   WeeklyTaskRow,
-  "id" | "description" | "yearly_goal_id" | "accumulated_time_week" | "order"
+  "id" | "description" | "yearly_goal_id" | "accumulated_time_week" | "order" | "is_done"
 >;
 type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
-
-type ManualLogState = {
-  visible: boolean;
-  task: WeeklyTask | null;
-  hours: string;
-  minutes: string;
-  defaultMinutes: number;
-};
 
 type WeeklyTaskDraft = {
   title: string;
@@ -78,6 +70,7 @@ const formatMinutes = (minutes: number) => {
 };
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
+const COMPLETED_CARD_GRADIENT = ["rgba(56,217,150,0.2)", "rgba(10,28,24,0.96)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 const LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY = "weekly_tasks_last_selected_yearly_goal_id";
 const offlineWeeklyTasksSchema = z.array(
@@ -87,6 +80,7 @@ const offlineWeeklyTasksSchema = z.array(
     yearlyGoalLabel: z.string(),
     yearlyGoalId: z.string().nullable(),
     loggedMinutes: z.number(),
+    completed: z.boolean().optional().default(false),
     order: z.number(),
   }),
 );
@@ -107,27 +101,6 @@ export default function WeeklyTasksScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasOfflineCache, setHasOfflineCache] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [manualLog, setManualLog] = useState<ManualLogState>({
-    visible: false,
-    task: null,
-    hours: "0",
-    minutes: "0",
-    defaultMinutes: 0,
-  });
-
-  const manualHoursNumber = useMemo(() => Number(manualLog.hours || "0"), [manualLog.hours]);
-  const manualMinutesNumber = useMemo(() => Math.min(59, Number(manualLog.minutes || "0")), [manualLog.minutes]);
-  const manualAddedMinutes = useMemo(
-    () => manualHoursNumber * 60 + manualMinutesNumber,
-    [manualHoursNumber, manualMinutesNumber],
-  );
-  const manualFinalMinutes = useMemo(
-    () => manualLog.defaultMinutes + manualAddedMinutes,
-    [manualAddedMinutes, manualLog.defaultMinutes],
-  );
-  const manualHasInput = manualAddedMinutes > 0;
-  const manualChanged = manualLog.task !== null && manualHasInput;
-  const manualInRange = manualHasInput;
 
   const [yearlyGoalOptions, setYearlyGoalOptions] = useState<
     { id: string; label: string; color: string }[]
@@ -254,6 +227,7 @@ export default function WeeklyTasksScreen() {
       yearlyGoalId: row.yearly_goal_id ?? null,
       yearlyGoalLabel: goalLookup[row.yearly_goal_id ?? ""]?.label ?? t("modal.unlinkedYearlyGoal"),
       loggedMinutes: row.accumulated_time_week ?? 0,
+      completed: row.is_done ?? false,
       order: row.order ?? 0,
     }),
     [t],
@@ -267,6 +241,7 @@ export default function WeeklyTasksScreen() {
       description: task.title,
       yearly_goal_id: task.yearlyGoalId ?? null,
       accumulated_time_week: task.loggedMinutes,
+      is_done: task.completed,
       order: task.order,
     }),
     [],
@@ -320,7 +295,7 @@ export default function WeeklyTasksScreen() {
         .order("order", { ascending: true }),
       supabase
         .from("weekly_tasks")
-        .select("id, description, yearly_goal_id, accumulated_time_week, order")
+        .select("id, description, yearly_goal_id, accumulated_time_week, order, is_done")
         .eq("user_id", uid)
         .order("order", { ascending: true }),
     ]);
@@ -477,95 +452,6 @@ export default function WeeklyTasksScreen() {
     setModalVisible(true);
   };
 
-  // 手動で作業時間積み上げモーダルをオープンする処理
-  const handleOpenManualLog = (task: WeeklyTask) => {
-    if (guardOfflineAction()) return;
-    setManualLog({
-      visible: true,
-      task,
-      hours: "0",
-      minutes: "0",
-      defaultMinutes: Math.max(0, task.loggedMinutes),
-    });
-  };
-
-  const handleManualHoursChange = (value: string) => {
-    const sanitized = value.replace(/[^0-9]/g, "").slice(0, 4);
-    setManualLog((prev) => ({ ...prev, hours: sanitized }));
-  };
-
-  const handleManualMinutesChange = (value: string) => {
-    //奇数から数字以外を全てから文字に変換し、文字列内を数字だけにする。先頭から２桁までの数値を切り取ることで、値を必ず2桁までの数値に制御できる。
-    const sanitized = value.replace(/[^0-9]/g, "").slice(0, 2);
-    if (sanitized === "") {
-      setManualLog((prev) => ({ ...prev, minutes: "" }));
-      return;
-    }
-    const numeric = Math.min(59, Number(sanitized));
-    setManualLog((prev) => ({ ...prev, minutes: String(numeric) }));
-  };
-
-  const closeManualLog = () => {
-    setManualLog({
-      visible: false,
-      task: null,
-      hours: "0",
-      minutes: "0",
-      defaultMinutes: 0,
-    });
-  };
-
-  const handleSubmitManualLog = () => {
-    if (guardOfflineAction()) return;
-    if (!manualLog.task || !manualInRange || !manualChanged) return;
-    const safeTotal = Math.max(0, manualFinalMinutes);
-    Alert.alert(
-      t("manualModal.confirmTitle"),
-      t("manualModal.confirmMessage", {
-        total: formatMinutes(safeTotal),
-        added: formatMinutes(manualAddedMinutes),
-      }),
-      [
-        { text: t("manualModal.cancel"), style: "cancel" },
-        {
-          text: t("manualModal.confirm"),
-          style: "default",
-          onPress: async () => {
-            const uid = userId ?? (await fetchUserId());
-            if (!uid || !manualLog.task) {
-              Alert.alert(t("manualModal.errorTitle"), t("modal.errorRequired"));
-              closeManualLog();
-              return;
-            }
-            try {
-              const result = await updateAccumulatedTimes({
-                userId: uid,
-                taskId: manualLog.task.id,
-                yearlyGoalId: manualLog.task.yearlyGoalId,
-                newLoggedMinutes: safeTotal,
-                previousLoggedMinutes: manualLog.defaultMinutes,
-              });
-
-              setTasks((prev) =>
-                prev.map((task) =>
-                  task.id === manualLog.task?.id ? { ...task, loggedMinutes: result.newLoggedMinutes } : task,
-                ),
-              );
-
-              Alert.alert(t("manualModal.successTitle"), t("manualModal.successBody"));
-            } catch (error) {
-              const message = error instanceof Error ? error.message : t("modal.errorRequired");
-              Alert.alert(t("manualModal.errorTitle"), message);
-            } finally {
-              closeManualLog();
-            }
-          },
-        },
-      ]);
-  };
-
-
-
   const handleSave = async () => {
     if (guardOfflineAction()) return;
     if (saving) return;
@@ -611,10 +497,11 @@ export default function WeeklyTasksScreen() {
             description: parse.data.title,
             yearly_goal_id: parse.data.yearlyGoalId ?? null,
             accumulated_time_week: 0,
+            is_done: false,
             user_id: uid,
             order: 0,
           })
-          .select("id, description, yearly_goal_id, accumulated_time_week, order")
+          .select("id, description, yearly_goal_id, accumulated_time_week, order, is_done")
           .single();
         if (error || !inserted) {
           Alert.alert("追加に失敗しました", error?.message ?? "Failed to add");
@@ -650,7 +537,7 @@ export default function WeeklyTasksScreen() {
       // ↓ 追加・更新後に再度Supabase DBから週間タスクを取得する
       const { data: weeklyData, error: weeklyError } = await supabase
         .from("weekly_tasks")
-        .select("id, description, yearly_goal_id, accumulated_time_week, order")
+        .select("id, description, yearly_goal_id, accumulated_time_week, order, is_done")
         .eq("user_id", uid)
         .order("order", { ascending: true });
       if (!weeklyError && weeklyData) {
@@ -683,12 +570,44 @@ export default function WeeklyTasksScreen() {
     }
   };
 
+  const handleToggleCompleted = async (taskId: string) => {
+    const currentTask = tasks.find((task) => task.id === taskId);
+    if (!currentTask) return;
+
+    const nextCompleted = !currentTask.completed;
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId ? { ...task, completed: nextCompleted } : task,
+      ),
+    );
+
+    try {
+      const { error } = await supabase
+        .from("weekly_tasks")
+        .update({ is_done: nextCompleted })
+        .eq("id", taskId);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("modal.errorRequired");
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId ? { ...task, completed: currentTask.completed } : task,
+        ),
+      );
+      Alert.alert(t("deleteConfirm.title"), message);
+    }
+  };
+
   // 指定のPressable要素の長押しドラッグを可能にするロジック
   const renderTaskCard = ({ item, drag, isActive }: RenderItemParams<WeeklyTask>) => {
     return (
       <View
         style={[
           styles.taskCard,
+          item.completed && styles.taskCardCompleted,
           shadows.card,
           isActive && styles.taskCardDragging,
           deleteMode && styles.taskCardDeleteMode,
@@ -696,7 +615,7 @@ export default function WeeklyTasksScreen() {
         testID={`weekly-task-card-${item.id}`}
       >
         <LinearGradient
-          colors={LIST_CARD_GRADIENT}
+          colors={item.completed ? COMPLETED_CARD_GRADIENT : LIST_CARD_GRADIENT}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -705,12 +624,17 @@ export default function WeeklyTasksScreen() {
         <View style={styles.taskControlRow} testID={`weekly-task-controls-${item.id}`}>
           <Text
             testID={`weekly-task-total-${item.id}`}
-            style={styles.totalInlineText}
+            style={[styles.totalInlineText, item.completed && styles.goalTimeCompleted]}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
             {formatMinutes(item.loggedMinutes)}
           </Text>
+          {item.completed ? (
+            <View style={styles.completedBadge} testID={`weekly-task-completed-badge-${item.id}`}>
+              <Text style={styles.completedBadgeText}>{t("completion.badge")}</Text>
+            </View>
+          ) : null}
           <View style={styles.taskActionGroup}>
             {deleteMode ? (
               <Pressable
@@ -730,50 +654,59 @@ export default function WeeklyTasksScreen() {
               </Pressable>
             ) : (
               <>
+                {!item.completed ? (
+                  <Pressable
+                    testID={`weekly-task-timer-${item.id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("task.openTimer")}
+                    disabled={offlineBlocked}
+                    onPress={() => handleOpenTimer(item)}
+                    style={({ pressed }) => [
+                      styles.goalActionIconButton,
+                      styles.timerActionButton,
+                      pressed && styles.secondaryPressed,
+                      offlineBlocked && styles.buttonDisabled,
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="timer-outline" size={20} color={colors.textPrimary} />
+                  </Pressable>
+                ) : null}
+                {!item.completed ? (
+                  <Pressable
+                    testID={`weekly-task-edit-${item.id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("modal.editTitle")}
+                    style={({ pressed }) => [
+                      styles.goalActionIconButton,
+                      styles.dragHandleButton,
+                      pressed && styles.secondaryPressed,
+                      offlineBlocked && styles.buttonDisabled,
+                    ]}
+                    onPress={() => handleOpenEdit(item)}
+                    disabled={offlineBlocked}
+                  >
+                    <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textPrimary} />
+                  </Pressable>
+                ) : null}
                 <Pressable
-                  testID={`weekly-task-timer-${item.id}`}
+                  testID={`weekly-task-complete-${item.id}`}
                   accessibilityRole="button"
-                  accessibilityLabel={t("task.openTimer")}
+                  accessibilityLabel={item.completed ? t("completion.undo") : t("completion.complete")}
                   disabled={offlineBlocked}
-                  onPress={() => handleOpenTimer(item)}
+                  onPress={() => handleToggleCompleted(item.id)}
                   style={({ pressed }) => [
                     styles.goalActionIconButton,
-                    styles.timerActionButton,
+                    styles.completeButton,
+                    item.completed && styles.completeButtonActive,
                     pressed && styles.secondaryPressed,
                     offlineBlocked && styles.buttonDisabled,
                   ]}
                 >
-                  <MaterialCommunityIcons name="timer-outline" size={20} color={colors.textPrimary} />
-                </Pressable>
-                <Pressable
-                  testID={`weekly-task-manual-${item.id}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("task.manualLog")}
-                  disabled={offlineBlocked}
-                  onPress={() => handleOpenManualLog(item)}
-                  style={({ pressed }) => [
-                    styles.goalActionIconButton,
-                    styles.dragHandleButton,
-                    pressed && styles.secondaryPressed,
-                    offlineBlocked && styles.buttonDisabled,
-                  ]}
-                >
-                  <MaterialCommunityIcons name="playlist-edit" size={20} color={colors.textPrimary} />
-                </Pressable>
-                <Pressable
-                  testID={`weekly-task-edit-${item.id}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("modal.editTitle")}
-                  style={({ pressed }) => [
-                    styles.goalActionIconButton,
-                    styles.dragHandleButton,
-                    pressed && styles.secondaryPressed,
-                    offlineBlocked && styles.buttonDisabled,
-                  ]}
-                  onPress={() => handleOpenEdit(item)}
-                  disabled={offlineBlocked}
-                >
-                  <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textPrimary} />
+                  <MaterialCommunityIcons
+                    name={item.completed ? "check-circle" : "check-circle-outline"}
+                    size={20}
+                    color={item.completed ? colors.success : colors.textPrimary}
+                  />
                 </Pressable>
                 <Pressable
                   testID={`weekly-task-reorder-${item.id}`}
@@ -791,7 +724,7 @@ export default function WeeklyTasksScreen() {
           </View>
         </View>
         <View style={styles.taskHeader}>
-          <Text style={styles.taskTitle} testID={`weekly-task-title-${item.id}`}>
+          <Text style={[styles.taskTitle, item.completed && styles.goalTitleCompleted]} testID={`weekly-task-title-${item.id}`}>
             {item.title}
           </Text>
         </View>
@@ -1080,98 +1013,6 @@ export default function WeeklyTasksScreen() {
         </Pressable>
       </Modal>
 
-      <Modal visible={manualLog.visible} transparent animationType="fade" onRequestClose={closeManualLog}>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={getKeyboardAvoidingBehavior()}
-            style={styles.modalContainer}
-            testID="manual-log-modal-kav"
-          >
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              testID="manual-log-modal-scroll"
-            >
-              <View style={[styles.manualCard, shadows.card]}>
-                <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
-
-                <View style={styles.manualTaskBox}>
-                  <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
-                    {manualLog.task?.title ?? "-"}
-                  </Text>
-                  <View style={styles.manualSummaryBox}>
-                    <View style={styles.manualSummaryRow}>
-                      <Text style={styles.manualSummaryLabel}>{t("manualModal.currentLabel")}</Text>
-                      <Text style={styles.manualSummaryValue}>{formatMinutes(manualLog.defaultMinutes)}</Text>
-                    </View>
-                    <View style={styles.manualSummaryRow}>
-                      <Text style={styles.manualSummaryLabel}>{t("manualModal.addedLabel")}</Text>
-                      <Text style={styles.manualSummaryValue}>{formatMinutes(manualAddedMinutes)}</Text>
-                    </View>
-                    <View style={styles.manualSummaryDivider} />
-                    <View style={styles.manualSummaryRow}>
-                      <Text style={styles.manualSummaryLabel}>{t("manualModal.finalLabel")}</Text>
-                      <Text style={styles.manualSummaryTotal}>{formatMinutes(manualFinalMinutes)}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.manualInputsRow}>
-                  <View style={styles.manualInputGroup}>
-                    <Text style={styles.label}>{t("manualModal.hoursLabel")}</Text>
-                    <TextInput
-                      placeholder="0"
-                      placeholderTextColor={colors.textSecondary}
-                      keyboardType="number-pad"
-                      value={manualLog.hours}
-                      onChangeText={handleManualHoursChange}
-                      style={styles.manualNumberInput}
-                    />
-                  </View>
-                  <View style={styles.manualInputGroup}>
-                    <Text style={styles.label}>{t("manualModal.minutesLabel")}</Text>
-                    <TextInput
-                      placeholder="0"
-                      placeholderTextColor={colors.textSecondary}
-                      keyboardType="number-pad"
-                      value={manualLog.minutes}
-                      onChangeText={handleManualMinutesChange}
-                      style={styles.manualNumberInput}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.manualHelperRow}>
-                  <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
-                </View>
-
-                <View style={styles.modalActions}>
-                  <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
-                    <Text style={styles.secondaryButtonText}>{t("manualModal.cancel")}</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={!manualLog.task || !manualInRange || !manualChanged}
-                    onPress={handleSubmitManualLog}
-                    style={({ pressed }) => [
-                      styles.primaryButton,
-                      pressed && styles.primaryPressed,
-                      (!manualLog.task || !manualInRange || !manualChanged) && styles.primaryButtonDisabled,
-                    ]}
-                  >
-                    <Text style={styles.primaryButtonText}>{t("manualModal.submit")}</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-          {keyboardVisible ? (
-            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
-          ) : null}
-        </View>
-      </Modal>
     </GestureHandlerRootView>
   );
 }
@@ -1313,6 +1154,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: spacing.sm,
   },
+  taskCardCompleted: {
+    borderColor: "rgba(56,217,150,0.55)",
+    shadowColor: colors.success,
+    shadowOpacity: 0.22,
+  },
   taskCardDragging: {
     borderColor: "rgba(110,168,255,0.6)",
     backgroundColor: "rgba(30,94,255,0.08)",
@@ -1326,10 +1172,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   taskTitle: {
+    marginHorizontal: spacing.xs,
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "800",
     lineHeight: typography.md * 1.15,
+  },
+  goalTitleCompleted: {
+    color: "rgba(233,237,247,0.78)",
   },
   categoryDot: {
     width: 10,
@@ -1353,9 +1203,13 @@ const styles = StyleSheet.create({
   totalInlineText: {
     flex: 1,
     minWidth: 0,
+    marginHorizontal: spacing.xs,
     color: colors.accentSubtle,
     fontSize: typography.sm,
     fontWeight: "800",
+  },
+  goalTimeCompleted: {
+    color: "rgba(56,217,150,0.92)",
   },
   taskActionGroup: {
     flexDirection: "row",
@@ -1378,6 +1232,30 @@ const styles = StyleSheet.create({
   timerActionButton: {
     backgroundColor: "rgba(30,94,255,0.2)",
     borderColor: colors.accentPrimary,
+  },
+  completeButton: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(56,217,150,0.3)",
+  },
+  completeButtonActive: {
+    backgroundColor: "rgba(56,217,150,0.14)",
+    borderColor: "rgba(56,217,150,0.65)",
+  },
+  completedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs / 1.5,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 1.5,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: "rgba(56,217,150,0.45)",
+    backgroundColor: "rgba(56,217,150,0.12)",
+  },
+  completedBadgeText: {
+    color: colors.success,
+    fontSize: typography.sm,
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,

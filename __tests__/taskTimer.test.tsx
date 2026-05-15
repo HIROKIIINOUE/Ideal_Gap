@@ -1045,6 +1045,94 @@ describe("TaskTimerScreen", () => {
     }
   });
 
+  test("renders a manual entry card at the bottom for the selected weekly task", async () => {
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+
+    try {
+      const { getByTestId, getByText } = renderScreen();
+
+      expect(getByTestId("task-timer-manual-log-card")).toBeTruthy();
+      expect(getByText("Manual entry")).toBeTruthy();
+      expect(getByText("Add work time manually")).toBeTruthy();
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
+  test("opens the manual entry modal and adds time to the selected weekly task", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    const updateAccumulatedTimes = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes")
+      .updateAccumulatedTimes as jest.Mock;
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: "user-1",
+          },
+        },
+      },
+    } as any);
+
+    try {
+      const { getAllByPlaceholderText, getByTestId, getByText } = renderScreen();
+
+      fireEvent.press(getByTestId("task-timer-manual-log-button"));
+
+      expect(getByTestId("task-timer-manual-log-modal-kav")).toBeTruthy();
+      expect(getByTestId("task-timer-manual-log-modal-scroll")).toBeTruthy();
+
+      const inputs = getAllByPlaceholderText("0");
+      fireEvent.changeText(inputs[0], "1");
+      fireEvent.changeText(inputs[1], "15");
+      fireEvent.press(getByText("Add time"));
+
+      await waitFor(() =>
+        expect(alertSpy).toHaveBeenCalledWith(
+          "Update this log?",
+          "Add 1h 15m and update the total to 1h 40m.",
+          expect.any(Array),
+        ),
+      );
+
+      const buttons = alertSpy.mock.calls[alertSpy.mock.calls.length - 1][2] as Array<{
+        text: string;
+        onPress?: () => void | Promise<void>;
+      }>;
+
+      await act(async () => {
+        await buttons[1]?.onPress?.();
+      });
+
+      await waitFor(() =>
+        expect(updateAccumulatedTimes).toHaveBeenCalledWith({
+          userId: "user-1",
+          taskId: "task-1",
+          yearlyGoalId: "year-1",
+          newLoggedMinutes: 100,
+          previousLoggedMinutes: 25,
+        }),
+      );
+    } finally {
+      alertSpy.mockRestore();
+      paramsSpy.mockRestore();
+    }
+  });
+
   test("stops focus music when manually completing the timer", async () => {
     const stop = jest.fn().mockResolvedValue(undefined);
     const playSelected = jest.fn().mockResolvedValue(true);
@@ -1225,6 +1313,34 @@ describe("TaskTimerScreen", () => {
       });
       expect(screen.getByText("Weekly tasks")).toBeTruthy();
       expect(screen.getByText("Dashboard")).toBeTruthy();
+      expect(screen.getByTestId("task-timer-exit-weekly")).toHaveStyle({
+        paddingHorizontal: 12,
+      });
+      expect(screen.getByTestId("task-timer-exit-dashboard")).toHaveStyle({
+        paddingHorizontal: 12,
+      });
+      expect(screen.getByTestId("task-timer-exit-weekly-label").props).toMatchObject({
+        numberOfLines: 1,
+        adjustsFontSizeToFit: true,
+        minimumFontScale: 0.8,
+      });
+      expect(
+        screen.getByTestId("task-timer-exit-weekly-label"),
+      ).toHaveStyle({
+        fontSize: 14,
+      });
+      expect(
+        screen.getByTestId("task-timer-exit-dashboard-label").props,
+      ).toMatchObject({
+        numberOfLines: 1,
+        adjustsFontSizeToFit: true,
+        minimumFontScale: 0.8,
+      });
+      expect(
+        screen.getByTestId("task-timer-exit-dashboard-label"),
+      ).toHaveStyle({
+        fontSize: 14,
+      });
       expect(screen.queryByText("Back to weekly tasks")).toBeNull();
       expect(screen.queryByText("calendar-week-outline")).toBeNull();
       expect(screen.queryByText("view-dashboard-outline")).toBeNull();
@@ -1350,7 +1466,7 @@ describe("TaskTimerScreen", () => {
     await waitFor(() =>
       expect(alertSpy).toHaveBeenCalledWith(
         "Finish this session?",
-        "You are offline. Reconnect to the internet, or record your time manually from the manual log button.",
+        "You are offline. Reconnect to the internet, or record your time manually from the manual entry card.",
         [{ text: "Back", onPress: expect.any(Function) }],
       ),
     );

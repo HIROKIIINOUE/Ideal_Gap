@@ -67,6 +67,11 @@ export type TaskTimerTranslations = {
     confirmTitle: string;
     confirmBody: string;
   };
+  manualEntryCard: {
+    title: string;
+    description: string;
+    button: string;
+  };
   completionModal: {
     title: string;
     description: string;
@@ -79,6 +84,24 @@ export type TaskTimerTranslations = {
     confirm: string;
     saving: string;
   };
+  manualModal: {
+    title: string;
+    currentLabel: string;
+    addedLabel: string;
+    finalLabel: string;
+    hoursLabel: string;
+    minutesLabel: string;
+    rangeHelper: string;
+    confirmTitle: string;
+    confirmMessage: string;
+    confirm: string;
+    cancel: string;
+    submit: string;
+    saving: string;
+    successTitle: string;
+    successBody: string;
+    errorTitle: string;
+  };
   feedback: {
     startError: string;
     permissionDenied: string;
@@ -86,6 +109,7 @@ export type TaskTimerTranslations = {
     permissionAction: string;
     permissionHide: string;
     offlineSaveBlocked: string;
+    offlineManualBlocked: string;
     missingTaskOnSave: string;
     offlineSaveBlockedAction: string;
     saveTimeout: string;
@@ -163,6 +187,12 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         confirmTitle: "タイマーを強制終了しますか？",
         confirmBody: "現在のタイマーデータはリセットされます。",
       },
+      manualEntryCard: {
+        title: "手動記録",
+        description:
+          "タイマーを使わなかった作業時間を、選択中の週間タスクへ直接加算できます。",
+        button: "手動で作業時間を追加",
+      },
       completionModal: {
         title: "実績を保存",
         description:
@@ -176,6 +206,26 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         confirm: "完了",
         saving: "保存中...",
       },
+      manualModal: {
+        title: "手動で記録",
+        currentLabel: "現在の実績",
+        addedLabel: "追加する時間",
+        finalLabel: "追加後の合計",
+        hoursLabel: "時間",
+        minutesLabel: "分",
+        rangeHelper:
+          "入力した時間を現在の実績に積み上げます。関連する年間目標にも反映されます。",
+        confirmTitle: "この実績で更新しますか？",
+        confirmMessage:
+          "{{added}} を加算して合計を {{total}} に更新します。",
+        confirm: "加算する",
+        cancel: "戻る",
+        submit: "加算する",
+        saving: "保存中...",
+        successTitle: "更新しました",
+        successBody: "追加分を保存しました。",
+        errorTitle: "更新に失敗しました",
+      },
       feedback: {
         startError: "時間を設定してから開始してください",
         permissionDenied:
@@ -184,7 +234,9 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         permissionAction: "設定を開く",
         permissionHide: "今後表示しない",
         offlineSaveBlocked:
-          "オフラインです。通信を再接続するか、手動記録ボタンから手動で時間を記録してください。",
+          "オフラインです。通信を再接続するか、手動記録カードから手動で時間を記録してください。",
+        offlineManualBlocked:
+          "オフラインです。通信を再接続してから手動で時間を追加してください。",
         missingTaskOnSave:
           "この週間タスクは削除されたため、今回の作業時間は保存されませんでした。週間タスクページに戻ります。",
         offlineSaveBlockedAction: "戻る",
@@ -262,6 +314,12 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         confirmTitle: "Force stop the timer?",
         confirmBody: "The current timer data will be reset.",
       },
+      manualEntryCard: {
+        title: "Manual entry",
+        description:
+          "Add work time directly to the selected weekly task when you did not use the timer.",
+        button: "Add work time manually",
+      },
       completionModal: {
         title: "Review before saving",
         description:
@@ -276,6 +334,25 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         confirm: "Save",
         saving: "Saving...",
       },
+      manualModal: {
+        title: "Manual record",
+        currentLabel: "Current log",
+        addedLabel: "Add",
+        finalLabel: "New total",
+        hoursLabel: "Hours",
+        minutesLabel: "Minutes",
+        rangeHelper:
+          "The time you enter will be added to the current total. It will also be applied to the related annual goal.",
+        confirmTitle: "Update this log?",
+        confirmMessage: "Add {{added}} and update the total to {{total}}.",
+        confirm: "Add time",
+        cancel: "Back",
+        submit: "Add time",
+        saving: "Saving...",
+        successTitle: "Added",
+        successBody: "The additional time has been saved.",
+        errorTitle: "Update failed",
+      },
       feedback: {
         startError: "Set a duration before starting",
         permissionDenied:
@@ -284,7 +361,9 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         permissionAction: "Open settings",
         permissionHide: "Don't show again",
         offlineSaveBlocked:
-          "You are offline. Reconnect to the internet, or record your time manually from the manual log button.",
+          "You are offline. Reconnect to the internet, or record your time manually from the manual entry card.",
+        offlineManualBlocked:
+          "You are offline. Reconnect to the internet before adding work time manually.",
         missingTaskOnSave:
           "This weekly task no longer exists, so this session was not saved. You will be returned to weekly tasks.",
         offlineSaveBlockedAction: "Back",
@@ -364,6 +443,12 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         confirmTitle: "Arrêter le minuteur de force ?",
         confirmBody: "Les données du minuteur en cours seront réinitialisées.",
       },
+      manualEntryCard: {
+        title: "Saisie manuelle",
+        description:
+          "Ajoutez directement du temps de travail à la tâche hebdomadaire sélectionnée si vous n'avez pas utilisé le minuteur.",
+        button: "Ajouter du temps manuellement",
+      },
       completionModal: {
         title: "Revoir avant d'enregistrer",
         description:
@@ -379,6 +464,26 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         confirm: "Enregistrer",
         saving: "Enregistrement...",
       },
+      manualModal: {
+        title: "Saisie manuelle",
+        currentLabel: "Enregistré",
+        addedLabel: "Ajout",
+        finalLabel: "Progression totale",
+        hoursLabel: "Heures",
+        minutesLabel: "Minutes",
+        rangeHelper:
+          "Le temps que vous saisissez sera additionné au total actuel. Il sera également appliqué à l'objectif annuel associé.",
+        confirmTitle: "Voulez-vous mettre à jour la progression ?",
+        confirmMessage:
+          "Ajouter {{added}} à votre progression et passer à {{total}}.",
+        confirm: "Ajouter",
+        cancel: "Retour",
+        submit: "Ajouter",
+        saving: "Enregistrement...",
+        successTitle: "Ajout enregistré",
+        successBody: "Le temps ajouté a été enregistré.",
+        errorTitle: "Échec de la mise à jour",
+      },
       feedback: {
         startError: "Définissez une durée avant de démarrer",
         permissionDenied:
@@ -387,7 +492,9 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         permissionAction: "Ouvrir les réglages",
         permissionHide: "Ne plus afficher",
         offlineSaveBlocked:
-          "Vous êtes hors ligne. Reconnectez-vous à Internet, ou enregistrez le temps manuellement avec le bouton de saisie manuelle.",
+          "Vous êtes hors ligne. Reconnectez-vous à Internet, ou enregistrez le temps manuellement depuis la carte de saisie manuelle.",
+        offlineManualBlocked:
+          "Vous êtes hors ligne. Reconnectez-vous à Internet avant d'ajouter du temps manuellement.",
         missingTaskOnSave:
           "Cette tâche hebdomadaire n'existe plus, donc cette session n'a pas été enregistrée. Vous allez revenir aux tâches hebdomadaires.",
         offlineSaveBlockedAction: "Retour",

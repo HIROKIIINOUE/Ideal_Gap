@@ -38,6 +38,7 @@ describe("Database types", () => {
       user_id: "user-1",
       yearly_goal_id: "yearly-1",
       description: "Ship UX fixes",
+      is_done: false,
       next_start_point: "Resume from checklist",
       accumulated_time_week: 90,
       order: 0,
