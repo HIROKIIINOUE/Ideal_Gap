@@ -1,5 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import {
+  TIMER_ALARM_ENABLED_STORAGE_KEY,
+  TimerAlarmPreferenceProvider,
+} from "../providers/TimerAlarmPreferenceProvider";
 import * as Notifications from "expo-notifications";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
@@ -9,9 +13,32 @@ import i18n from "../i18n";
 
 jest.useFakeTimers();
 
+const mockAlarmPlay = jest.fn();
+const mockAlarmPause = jest.fn();
+const mockAlarmSeekTo = jest.fn().mockResolvedValue(undefined);
+
 jest.mock("../providers/LanguageProvider", () => ({
   useLanguage: () => ({ language: "ja", setLanguage: jest.fn(), ready: true }),
   LanguageProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+jest.mock("expo-audio", () => ({
+  useAudioPlayer: () => {
+    const React = require("react");
+    const ref = React.useRef(null as null | {
+      play: typeof mockAlarmPlay;
+      pause: typeof mockAlarmPause;
+      seekTo: typeof mockAlarmSeekTo;
+    });
+    if (!ref.current) {
+      ref.current = {
+        play: mockAlarmPlay,
+        pause: mockAlarmPause,
+        seekTo: mockAlarmSeekTo,
+      };
+    }
+    return ref.current;
+  },
 }));
 
 jest.mock("expo-notifications", () => {
@@ -62,7 +89,9 @@ jest.mock("@react-native-community/datetimepicker", () => {
 const renderScreen = () =>
   render(
     <I18nextProvider i18n={i18n}>
-      <BreakReminderScreen />
+      <TimerAlarmPreferenceProvider>
+        <BreakReminderScreen />
+      </TimerAlarmPreferenceProvider>
     </I18nextProvider>,
   );
 
@@ -197,6 +226,20 @@ describe("BreakReminderScreen", () => {
     );
   });
 
+  test("uses banner only in foreground notification handling", async () => {
+    renderScreen();
+
+    const handlerCall = (Notifications.setNotificationHandler as jest.Mock).mock.calls.at(-1)?.[0];
+    const result = await handlerCall.handleNotification();
+
+    expect(result).toEqual({
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    });
+  });
+
   test("does not clear the schedule only because the target time has passed", async () => {
     const { getByText, getByTestId } = renderScreen();
     const nextTime = new Date(Date.now() + 60 * 1000);
@@ -247,6 +290,46 @@ describe("BreakReminderScreen", () => {
     await waitFor(() => expect(queryByText(/Reminder set for/)).toBeNull());
     expect(getByTestId("break-reminder-datetime")).toBeTruthy();
     expect(() => getByText(/Break reminder active/)).toThrow();
+  });
+
+  test("plays the same foreground alarm when break reminder fires and alarm preference is enabled", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "true");
+    const { __listeners } = jest.requireMock("expo-notifications") as {
+      __listeners: Array<(notification: Notifications.Notification) => void>;
+    };
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValueOnce("notif-alarm");
+    const { getByText, getByTestId } = renderScreen();
+    const nextTime = new Date(Date.now() + 2 * 60 * 1000);
+
+    fireEvent(getByTestId("break-reminder-datetime"), "onChange", { type: "set" }, nextTime);
+    fireEvent.press(getByText("Schedule reminder"));
+    await waitFor(() => expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled());
+
+    const listener = __listeners[0];
+    listener?.({ request: { identifier: "notif-alarm" } } as Notifications.Notification);
+
+    await waitFor(() => expect(mockAlarmSeekTo).toHaveBeenCalledWith(0));
+    await waitFor(() => expect(mockAlarmPlay).toHaveBeenCalled());
+  });
+
+  test("does not play foreground alarm when break reminder fires and alarm preference is disabled", async () => {
+    await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "false");
+    const { __listeners } = jest.requireMock("expo-notifications") as {
+      __listeners: Array<(notification: Notifications.Notification) => void>;
+    };
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValueOnce("notif-no-alarm");
+    const { getByText, getByTestId } = renderScreen();
+    const nextTime = new Date(Date.now() + 2 * 60 * 1000);
+
+    fireEvent(getByTestId("break-reminder-datetime"), "onChange", { type: "set" }, nextTime);
+    fireEvent.press(getByText("Schedule reminder"));
+    await waitFor(() => expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled());
+
+    const listener = __listeners[0];
+    listener?.({ request: { identifier: "notif-no-alarm" } } as Notifications.Notification);
+
+    expect(mockAlarmSeekTo).not.toHaveBeenCalled();
+    expect(mockAlarmPlay).not.toHaveBeenCalled();
   });
 
   test("on Android, returning to the app clears an already-fired reminder", async () => {

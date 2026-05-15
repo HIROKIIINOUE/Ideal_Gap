@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
+import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -7,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Alert, AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useLanguage } from "../../providers/LanguageProvider";
+import { useTimerAlarmPreference } from "../../providers/TimerAlarmPreferenceProvider";
 
 type StoredReminder = {
   fireDate: number;
@@ -15,6 +17,7 @@ type StoredReminder = {
 
 const STORAGE_KEY = "break_reminder_schedule";
 const BREAK_REMINDER_CHANNEL = "break-reminder";
+const FOREGROUND_ALARM_SOUND = require("../../assets/sounds/timer-alarm.wav");
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
 
@@ -78,6 +81,10 @@ const ensureAndroidBreakReminderChannel = async () => {
 export default function BreakReminderScreen() {
   const { t } = useTranslation("breakReminder");
   const { language } = useLanguage();
+  const { timerAlarmEnabled } = useTimerAlarmPreference();
+  const alarmPlayer = useAudioPlayer(FOREGROUND_ALARM_SOUND, {
+    keepAudioSessionActive: true,
+  });
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date(Date.now() + INITIAL_OFFSET_MINUTES * 60 * 1000));
   const [scheduled, setScheduled] = useState<StoredReminder | null>(null);
   const [permissionError, setPermissionError] = useState(false);
@@ -88,6 +95,29 @@ export default function BreakReminderScreen() {
 
   const isAndroid = Platform.OS === "android";
 
+
+  // 休憩終了アラーム音の停止
+  const stopForegroundAlarm = useCallback(() => {
+    try {
+      alarmPlayer.pause();
+    } catch {
+    }
+    void alarmPlayer.seekTo(0).catch(() => {
+    });
+  }, [alarmPlayer]);
+
+  // 休憩終了アラーム音の停止(ユーザがアプリ内設定でアラーム音をONにしている場合のみ)
+  const playForegroundAlarm = useCallback(async () => {
+    if (!timerAlarmEnabled) return;
+    try {
+      await alarmPlayer.seekTo(0);
+    } catch {
+    }
+    try {
+      alarmPlayer.play();
+    } catch {
+    }
+  }, [alarmPlayer, timerAlarmEnabled]);
 
   // 【Android】日付と時刻それぞれのpickerから選択された通知時間情報をもとにselectedDataを更新する
   const updateSelectedDate = useCallback(
@@ -218,11 +248,12 @@ export default function BreakReminderScreen() {
     (notification: Notifications.Notification) => {
       const id = notification?.request?.identifier;
       if (id && scheduledRef.current?.notificationId === id) {
+        void playForegroundAlarm();
         Alert.alert(t("notificationTitle"), t("notificationBody"));
-        clearSchedule();
+        void clearSchedule();
       }
     },
-    [clearSchedule, t],
+    [clearSchedule, playForegroundAlarm, t],
   );
 
   // ユーザがバックグラウンドで通知を受け取り、それをタップした時に発火される
@@ -268,6 +299,8 @@ export default function BreakReminderScreen() {
     };
   }, [handleNotificationReceived, handleNotificationResponse, restoreSchedule]);
 
+  useEffect(() => stopForegroundAlarm, [stopForegroundAlarm]);
+
 
   // マウント時に「通知を受け取った時、このアプリ内でどう表示するか」を設定
   useEffect(() => {
@@ -275,7 +308,7 @@ export default function BreakReminderScreen() {
       handleNotification: async () => ({
         shouldShowBanner: true, // iOS などで通知バナーを画面上に表示する
         shouldShowList: true,   // 通知センターの一覧にも残す
-        shouldPlaySound: true,  // 通知音を鳴らす
+        shouldPlaySound: false, // foregroundでは通知音ではなく、必要なら独自アラームを鳴らす
         shouldSetBadge: false,  // アプリアイコンのバッジ数は変えない
       }),
     });
