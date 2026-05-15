@@ -2,7 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import * as Linking from "expo-linking";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
-import { Platform } from "react-native";
+import { Platform, ScrollView } from "react-native";
 import ResetPassword from "../app/reset-password";
 import i18n from "../i18n";
 
@@ -90,6 +90,13 @@ describe("ResetPassword screen", () => {
 
     const { getByTestId } = renderScreen();
     expect(getByTestId("reset-password-form-kav")).toBeTruthy();
+  });
+
+  test("keeps CTA tappable while keyboard is open", () => {
+    mockSetSessionFromRecoveryLink.mockResolvedValue(false);
+    const { UNSAFE_getByType } = renderScreen();
+
+    expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe("handled");
   });
 
   test("shows error message when email is not found", async () => {

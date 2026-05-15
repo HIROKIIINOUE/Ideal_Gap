@@ -161,7 +161,11 @@ export default function ResetPassword() {
         behavior={getKeyboardAvoidingBehavior()}
         testID="reset-password-form-kav"
       >
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.headerRow}>
             <Text style={styles.label}>{t("pageLabel")}</Text>
             <Link href="/login" style={styles.link}>

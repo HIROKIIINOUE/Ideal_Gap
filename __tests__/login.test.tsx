@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
-import { Alert, Platform } from "react-native";
+import { Alert, Platform, ScrollView } from "react-native";
 import { router } from "expo-router";
 import Login from "../app/login";
 import i18n from "../i18n";
@@ -114,6 +114,12 @@ describe("Login screen", () => {
     const { getByTestId } = renderScreen();
 
     expect(getByTestId("login-form-kav")).toBeTruthy();
+  });
+
+  test("keeps CTA tappable while keyboard is open", () => {
+    const { UNSAFE_getByType } = renderScreen();
+
+    expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe("handled");
   });
 
   test("toggles password visibility", () => {

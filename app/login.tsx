@@ -131,7 +131,11 @@ export default function Login() {
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommon("back") }} />
       <KeyboardAvoidingView style={styles.formContainer} behavior={getKeyboardAvoidingBehavior()} testID="login-form-kav">
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.headerRow}>
             <Text style={styles.label}>{t("pageLabel")}</Text>
             <Link href="/" style={styles.link}>
