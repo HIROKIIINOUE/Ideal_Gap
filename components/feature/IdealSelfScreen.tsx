@@ -313,42 +313,44 @@ export default function IdealSelfScreen() {
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Text style={styles.idealTitle}>{item.description}</Text>
+        <View style={styles.idealCardRow}>
+          <Text style={styles.idealTitle}>{item.description}</Text>
 
-        <View style={styles.idealActions} testID={`ideal-self-card-actions-${item.id}`}>
-          {deleteMode ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleButtonPress(item)}
-              style={[styles.dangerButton, styles.iconButtonRow]}
-            >
-              <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-              <Text style={styles.dangerButtonText}>{t("delete")}</Text>
-            </Pressable>
-          ) : (
-            <>
+          <View style={styles.idealActions} testID={`ideal-self-card-actions-${item.id}`}>
+            {deleteMode ? (
               <Pressable
                 accessibilityRole="button"
-                onPress={onEditPress}
-                style={[styles.editButton, styles.iconButtonRow]}
-                testID={`ideal-self-card-edit-${item.id}`}
+                accessibilityLabel={t("delete")}
+                onPress={() => handleButtonPress(item)}
+                style={[styles.iconButton, styles.dangerButton]}
               >
-                <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
-                <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
+                <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
               </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
-                style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
-                onLongPress={drag}
-                delayLongPress={200}
-                hitSlop={14}
-                testID={`ideal-self-card-reorder-${item.id}`}
-              >
-                <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
-              </Pressable>
-            </>
-          )}
+            ) : (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("modal.editTitle")}
+                  onPress={onEditPress}
+                  style={[styles.iconButton, styles.editButton]}
+                  testID={`ideal-self-card-edit-${item.id}`}
+                >
+                  <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+                  style={[styles.iconButton, styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+                  onLongPress={drag}
+                  delayLongPress={200}
+                  hitSlop={14}
+                  testID={`ideal-self-card-reorder-${item.id}`}
+                >
+                  <MaterialCommunityIcons name="swap-vertical-bold" size={18} color={colors.textSecondary} />
+                </Pressable>
+              </>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -616,7 +618,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   idealGrid: {
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl * 2,
   },
@@ -628,6 +630,11 @@ const styles = StyleSheet.create({
     padding: compactFeatureSpacing.itemCardPadding,
     gap: compactFeatureSpacing.itemContentGap,
     overflow: "hidden",
+  },
+  idealCardRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
   },
   idealCardDragging: {
     borderColor: "rgba(110,168,255,0.6)",
@@ -652,54 +659,35 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
   },
   idealTitle: {
+    flex: 1,
     color: colors.textPrimary,
-    fontSize: typography.md + compactFeatureSpacing.descriptionFontSizeOffset,
+    fontSize: typography.md,
     fontWeight: "800",
-    lineHeight: (typography.md + compactFeatureSpacing.descriptionFontSizeOffset) * compactFeatureSpacing.descriptionLineHeightMultiplier,
+    lineHeight: typography.md * 1.4,
     textAlign: "left",
   },
   idealActions: {
     flexDirection: "row",
-    justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 0,
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   editButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderWidth: 1,
     borderColor: colors.accentPrimary,
-  },
-  editButtonText: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-    fontSize: typography.sm,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   dangerButton: {
     borderColor: "rgba(242,95,92,0.4)",
     backgroundColor: "rgba(242,95,92,0.08)",
   },
-  dangerButtonText: {
-    color: colors.error,
-    fontWeight: "700",
-    fontSize: typography.sm,
-  },
-  iconButtonRow: {
-    flexDirection: "row",
+  iconButton: {
+    width: 36,
+    height: 36,
     alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-  },
-  dragHandleButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    justifyContent: "center",
     borderRadius: radius.md,
     borderWidth: 1,
+  },
+  dragHandleButton: {
     borderColor: colors.divider,
     backgroundColor: "rgba(255,255,255,0.04)",
   },

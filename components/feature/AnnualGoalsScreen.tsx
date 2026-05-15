@@ -30,10 +30,10 @@ import { closedModalState, createAddModalState, createEditModalState, ModalState
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
-import { compactFeatureSpacing } from "./compactFeatureSpacing";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 type AnnualGoal = {
   id: string;
@@ -579,13 +579,7 @@ export default function AnnualGoalsScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <Text
-        style={[styles.goalTitle, item.completed && styles.goalTitleCompleted]}
-        testID={`annual-goal-card-title-${item.id}`}
-      >
-        {item.description}
-      </Text>
-      <View style={styles.goalFooter}>
+      <View style={styles.goalFooter} testID={`annual-goal-card-footer-${item.id}`}>
         <View style={styles.colorRow}>
           <View style={[styles.colorDot, { backgroundColor: item.goalColor }]} />
           <Text
@@ -662,6 +656,12 @@ export default function AnnualGoalsScreen() {
           )}
         </View>
       </View>
+      <Text
+        style={[styles.goalTitle, item.completed && styles.goalTitleCompleted]}
+        testID={`annual-goal-card-title-${item.id}`}
+      >
+        {item.description}
+      </Text>
     </View>
   );
 
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
   },
   goalGrid: {
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl * 2,
   },
@@ -1147,8 +1147,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
-    padding: compactFeatureSpacing.itemCardPadding,
-    gap: compactFeatureSpacing.itemContentGap,
+    padding: 11,
+    gap: 7,
     overflow: "hidden",
   },
   goalCardCompleted: {
@@ -1167,14 +1167,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.xs,
     marginTop: 0,
   },
   goalActions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   colorRow: {
     flexDirection: "row",
@@ -1182,8 +1182,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   colorDot: {
-    width: 12,
-    height: 12,
+    width: 10,
+    height: 10,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
@@ -1197,17 +1197,16 @@ const styles = StyleSheet.create({
   },
   goalTitle: {
     color: colors.textPrimary,
-    fontSize: typography.md + compactFeatureSpacing.descriptionFontSizeOffset,
+    fontSize: typography.md,
     fontWeight: "800",
-    lineHeight: (typography.md + compactFeatureSpacing.descriptionFontSizeOffset) * compactFeatureSpacing.descriptionLineHeightMultiplier,
-    minHeight: 40,
+    lineHeight: typography.md * 1.25,
   },
   goalTitleCompleted: {
     color: "rgba(233,237,247,0.78)",
   },
   goalActionIconButton: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",

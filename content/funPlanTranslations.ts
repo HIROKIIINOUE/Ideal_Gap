@@ -51,7 +51,7 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     modal: {
       addTitle: "追加",
       editTitle: "編集",
-      placeholder: "例 金曜の友人とのディナー",
+      placeholder: "例 金曜日：友人とディナー",
       cancel: "キャンセル",
       save: "保存",
       errorRequired: "1文字以上入力してください",

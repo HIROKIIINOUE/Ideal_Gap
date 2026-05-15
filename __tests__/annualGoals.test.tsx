@@ -3,6 +3,7 @@ import { Alert, Keyboard } from "react-native";
 import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import AnnualGoalsScreen from "../components/feature/AnnualGoalsScreen";
+import { spacing, typography } from "../constants/theme";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 import { deleteYearlyGoals } from "../lib/api/supabase/goals/allItemDelete";
@@ -47,18 +48,21 @@ jest.mock("react-native-gifted-charts", () => {
 
 jest.mock("react-native-draggable-flatlist", () => {
   const React = require("react");
+  const { View } = require("react-native");
   const MockFlatList = ({
     data,
     renderItem,
     onDragEnd,
     ListHeaderComponent,
     ListEmptyComponent,
+    contentContainerStyle,
   }: {
     data: unknown[];
     renderItem: (params: { item: unknown; index: number; drag: () => void; isActive: boolean; getIndex: () => number }) => React.ReactNode;
     onDragEnd: (params: { data: unknown[] }) => void;
     ListHeaderComponent?: React.ReactNode | (() => React.ReactNode);
     ListEmptyComponent?: React.ReactNode | (() => React.ReactNode);
+    contentContainerStyle?: unknown;
   }) => {
     const firedRef = React.useRef(false);
     const renderSlot = (slot?: React.ReactNode | (() => React.ReactNode)) => {
@@ -73,7 +77,7 @@ jest.mock("react-native-draggable-flatlist", () => {
     }, [data, onDragEnd]);
 
     return (
-      <>
+      <View testID="annual-goals-list-content" style={contentContainerStyle}>
         {renderSlot(ListHeaderComponent)}
         {data.length === 0 && renderSlot(ListEmptyComponent)}
         {data.map((item, index) => (
@@ -87,7 +91,7 @@ jest.mock("react-native-draggable-flatlist", () => {
             })}
           </React.Fragment>
         ))}
-      </>
+      </View>
     );
   };
   MockFlatList.displayName = "MockDraggableFlatList";
@@ -343,6 +347,48 @@ describe("AnnualGoalsScreen", () => {
     const actionRow = await findByTestId("annual-goal-card-actions-goal-1");
     expect(within(actionRow).queryByText("Delete")).toBeNull();
     expect(within(actionRow).getByRole("button", { name: "Delete" })).toBeTruthy();
+  });
+
+  test("uses compact annual goal cards and tighter action buttons", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    expect(await findByTestId("annual-goal-card-goal-1")).toHaveStyle({
+      padding: 11,
+      gap: 7,
+    });
+    expect(await findByTestId("annual-goal-card-title-goal-1")).toHaveStyle({
+      fontSize: typography.md,
+      lineHeight: typography.md * 1.25,
+    });
+    expect(await findByTestId("annual-goal-card-detail-goal-1")).toHaveStyle({
+      width: 32,
+      height: 32,
+    });
+  });
+
+  test("uses a tighter gap between annual goal cards", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    expect(await findByTestId("annual-goals-list-content")).toHaveStyle({
+      gap: spacing.sm,
+    });
+  });
+
+  test("places time and action controls above the goal title", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const card = await findByTestId("annual-goal-card-goal-1");
+    const footer = await findByTestId("annual-goal-card-footer-goal-1");
+    const title = await findByTestId("annual-goal-card-title-goal-1");
+
+    expect(card.props.children[1]).toBe(footer);
+    expect(card.props.children[2]).toBe(title);
   });
 
   test("toggles completed state styling on and off", async () => {

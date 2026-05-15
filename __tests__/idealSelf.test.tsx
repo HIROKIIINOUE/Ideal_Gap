@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor, within } from "@testing-library/react-nativ
 import { Keyboard } from "react-native";
 import { I18nextProvider } from "react-i18next";
 import IdealSelfScreen from "../components/feature/IdealSelfScreen";
+import { spacing } from "../constants/theme";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
@@ -29,18 +30,21 @@ jest.mock("../lib/supabaseClient", () => ({
 
 jest.mock("react-native-draggable-flatlist", () => {
   const React = require("react");
+  const { View } = require("react-native");
   const MockFlatList = ({
     data,
     renderItem,
     onDragEnd,
     ListHeaderComponent,
     ListEmptyComponent,
+    contentContainerStyle,
   }: {
     data: unknown[];
     renderItem: (params: { item: unknown; index: number; drag: () => void; isActive: boolean; getIndex: () => number }) => React.ReactNode;
     onDragEnd: (params: { data: unknown[] }) => void;
     ListHeaderComponent?: React.ReactNode | (() => React.ReactNode);
     ListEmptyComponent?: React.ReactNode | (() => React.ReactNode);
+    contentContainerStyle?: unknown;
   }) => {
     const firedRef = React.useRef(false);
     const renderSlot = (slot?: React.ReactNode | (() => React.ReactNode)) => {
@@ -55,19 +59,21 @@ jest.mock("react-native-draggable-flatlist", () => {
     }, [data, onDragEnd]);
 
     return (
-      <>
+      <View testID="ideal-self-list-content" style={contentContainerStyle}>
         {renderSlot(ListHeaderComponent)}
         {data.length === 0 && renderSlot(ListEmptyComponent)}
-        {data.map((item, index) =>
-          renderItem({
-            item,
-            index,
-            drag: () => {},
-            isActive: false,
-            getIndex: () => index,
-          }),
-        )}
-      </>
+        {data.map((item, index) => (
+          <React.Fragment key={String((item as { id?: string }).id ?? index)}>
+            {renderItem({
+              item,
+              index,
+              drag: () => {},
+              isActive: false,
+              getIndex: () => index,
+            })}
+          </React.Fragment>
+        ))}
+      </View>
     );
   };
   MockFlatList.displayName = "MockDraggableFlatList";
@@ -224,6 +230,28 @@ describe("IdealSelfScreen reordering", () => {
 
     expect(within(actionRow).getByTestId("ideal-self-card-edit-ideal-1")).toBeTruthy();
     expect(within(actionRow).getByTestId("ideal-self-card-reorder-ideal-1")).toBeTruthy();
+  });
+
+  test("keeps card action buttons icon-only while preserving accessibility labels", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const actionRow = await findByTestId("ideal-self-card-actions-ideal-1");
+
+    expect(within(actionRow).queryByText("Edit")).toBeNull();
+    expect(within(actionRow).getByRole("button", { name: "Edit" })).toBeTruthy();
+    expect(within(actionRow).getByRole("button", { name: "Drag to reorder" })).toBeTruthy();
+  });
+
+  test("uses a tighter gap between ideal self cards", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    expect(await findByTestId("ideal-self-list-content")).toHaveStyle({
+      gap: spacing.sm,
+    });
   });
 
   test("shows localized required message instead of generic invalid input on empty submit", async () => {

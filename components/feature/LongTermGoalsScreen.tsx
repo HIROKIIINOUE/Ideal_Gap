@@ -274,7 +274,6 @@ export default function LongTermGoalsScreen() {
               }
             }
             await syncOfflineCache(uid, nextGoals, currentPoint);
-            Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
           } catch (error) {
             const message = error instanceof Error ? error.message : t("errors.deleteFailed");
             setGoals(previousGoals);
@@ -466,9 +465,7 @@ export default function LongTermGoalsScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <Text style={[styles.goalDescription, item.completed && styles.goalTextCompleted]}>{item.description}</Text>
-
-      <View style={styles.goalFooter} testID={`long-term-goal-card-footer-${item.id}`}>
+      <View style={styles.goalHeaderRow} testID={`long-term-goal-card-footer-${item.id}`}>
         <View style={styles.goalFooterStatus}>
           {!item.completed ? (
             <View style={styles.untilWhenWrap} testID={`long-term-goal-card-until-when-${item.id}`}>
@@ -479,7 +476,6 @@ export default function LongTermGoalsScreen() {
               >
                 {item.untilWhen}
               </Text>
-              <View style={styles.untilWhenUnderline} />
             </View>
           ) : null}
           {item.completed ? (
@@ -492,11 +488,11 @@ export default function LongTermGoalsScreen() {
           {deleteMode ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={t("delete")}
               onPress={() => handleDeletePress(item)}
-              style={[styles.dangerButton, styles.iconButtonRow]}
+              style={[styles.goalActionIconButton, styles.dangerButton]}
             >
               <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-              <Text style={styles.dangerButtonText}>{t("delete")}</Text>
             </Pressable>
           ) : (
             <>
@@ -539,6 +535,7 @@ export default function LongTermGoalsScreen() {
           )}
         </View>
       </View>
+      <Text style={[styles.goalDescription, item.completed && styles.goalTextCompleted]}>{item.description}</Text>
     </View>
   );
 
@@ -780,7 +777,7 @@ const styles = StyleSheet.create({
   goalGrid: {
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl * 2,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   listHeader: {
     marginBottom: spacing.lg,
@@ -801,12 +798,15 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.xl,
     fontWeight: "800",
+    lineHeight: typography.xl * 1.3,
   },
   headingFrench: {
     fontSize: 24,
+    lineHeight: 31,
   },
   headingAndroidJa: {
     fontSize: 24,
+    lineHeight: 31,
   },
   subtitle: {
     color: colors.textSecondary,
@@ -825,30 +825,29 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: "row",
     gap: spacing.sm,
+    flexWrap: "wrap",
   },
   primaryButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: spacing.xs,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
     backgroundColor: "rgba(30,94,255,0.2)",
     borderWidth: 1,
-    borderColor: "#1E5EFF",
+    borderColor: colors.accentPrimary,
   },
   secondaryButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: spacing.xs,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.03)",
   },
   secondaryButtonActive: {
     backgroundColor: "rgba(239,83,80,0.12)",
@@ -858,6 +857,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "700",
+    letterSpacing: 0.2,
   },
   secondaryButtonText: {
     color: colors.textPrimary,
@@ -869,9 +869,9 @@ const styles = StyleSheet.create({
   },
   goalCard: {
     overflow: "hidden",
-    borderRadius: radius.xl,
-    padding: compactFeatureSpacing.itemCardPadding,
-    gap: compactFeatureSpacing.itemContentGap,
+    borderRadius: radius.lg,
+    padding: 12,
+    gap: 8,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: colors.surface,
@@ -887,60 +887,47 @@ const styles = StyleSheet.create({
   },
   untilWhenWrap: {
     alignSelf: "flex-start",
-    gap: spacing.xs / 1.5,
+    paddingBottom: 3,
     maxWidth: "100%",
+    borderBottomWidth: 2,
+    borderBottomColor: colors.accentSubtle,
   },
   untilWhenText: {
     color: colors.accentSubtle,
-    fontSize: typography.md,
+    fontSize: typography.sm,
     fontWeight: "800",
-  },
-  untilWhenUnderline: {
-    height: 2,
-    borderRadius: radius.full,
-    backgroundColor: "rgba(110,168,255,0.65)",
-    width: "100%",
   },
   goalDescription: {
     color: colors.textPrimary,
-    fontSize: typography.md + compactFeatureSpacing.descriptionFontSizeOffset,
-    lineHeight: (typography.md + compactFeatureSpacing.descriptionFontSizeOffset) * compactFeatureSpacing.descriptionLineHeightMultiplier,
+    fontSize: typography.md,
+    lineHeight: typography.md * 1.3,
     fontWeight: "700",
   },
   goalTextCompleted: {
     color: "rgba(255,255,255,0.78)",
   },
-  goalFooter: {
+  goalHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: spacing.sm,
-    marginTop: 0,
+    gap: spacing.xs,
   },
   goalFooterStatus: {
     flex: 1,
     alignItems: "flex-start",
     justifyContent: "center",
-    minHeight: 40,
-    paddingRight: spacing.sm,
+    minHeight: 34,
+    paddingRight: spacing.xs,
   },
   goalActions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: spacing.sm,
-  },
-  iconButtonRow: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: spacing.xs,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
   },
   goalActionIconButton: {
-    width: 40,
-    height: 40,
+    width: 34,
+    height: 34,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
@@ -966,17 +953,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(239,83,80,0.4)",
     backgroundColor: "rgba(239,83,80,0.12)",
   },
-  dangerButtonText: {
-    color: colors.error,
-    fontSize: typography.sm,
-    fontWeight: "700",
-  },
   completedBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs / 1.5,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 1.5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: "rgba(56,217,150,0.45)",

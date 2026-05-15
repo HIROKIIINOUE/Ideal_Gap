@@ -4,6 +4,7 @@ import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { Alert, Keyboard, Platform } from "react-native";
 import WeeklyTasksScreen from "../components/feature/WeeklyTasksScreen";
+import { spacing, typography } from "../constants/theme";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 import { deleteWeeklyTasks } from "../lib/api/supabase/goals/allItemDelete";
@@ -221,6 +222,78 @@ describe("WeeklyTasksScreen", () => {
     expect(getByTestId("weekly-task-reorder-w1")).toBeTruthy();
   });
 
+  test("uses tighter inner spacing for compact weekly task cards", async () => {
+    mockOrderYearly.mockResolvedValue({
+      data: [
+        { id: "y1", description: "Career growth", year_goal_color: "#1E5EFF" },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          yearly_goal_id: "y1",
+          accumulated_time_week: 180,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+
+    expect(await findByTestId("weekly-task-card-w1")).toHaveStyle({
+      padding: 9,
+      gap: 4,
+      marginBottom: spacing.sm,
+    });
+    expect(await findByTestId("weekly-task-title-w1")).toHaveStyle({
+      fontSize: typography.md,
+      lineHeight: typography.md * 1.15,
+    });
+    expect(await findByTestId("weekly-task-timer-w1")).toHaveStyle({
+      width: 32,
+      height: 32,
+    });
+  });
+
+  test("places time and action controls above the task title", async () => {
+    mockOrderYearly.mockResolvedValue({
+      data: [
+        { id: "y1", description: "Career growth", year_goal_color: "#1E5EFF" },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: [
+        {
+          id: "w1",
+          description: "Ship UX fixes",
+          yearly_goal_id: "y1",
+          accumulated_time_week: 180,
+          order: 0,
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
+
+    const card = await findByTestId("weekly-task-card-w1");
+    const controls = await findByTestId("weekly-task-controls-w1");
+    const title = await findByTestId("weekly-task-title-w1");
+
+    expect(card.props.children[2]).toBe(controls);
+    expect(card.props.children[3]).toBeTruthy();
+    expect(card.props.children[3].props.children).toBe(title);
+  });
+
   test("renders long weekly task titles without truncation props", async () => {
     const longTitle =
       "Ship the weekly task card update with enough detail to wrap across multiple lines instead of being truncated";
@@ -284,7 +357,7 @@ describe("WeeklyTasksScreen", () => {
     });
   });
 
-  test("shows only logged total hours on the simplified card", async () => {
+  test("shows only logged total time on the simplified card", async () => {
     mockOrderYearly.mockResolvedValue({
       data: [
         { id: "y1", description: "Career growth", year_goal_color: "#1E5EFF" },
@@ -306,7 +379,7 @@ describe("WeeklyTasksScreen", () => {
 
     const { findByTestId, queryByText } = renderScreen();
 
-    expect(await findByTestId("weekly-task-total-w1")).toHaveTextContent("1.1h");
+    expect(await findByTestId("weekly-task-total-w1")).toHaveTextContent("1h 5m");
     expect(queryByText("1.6 h")).toBeFalsy();
     expect(queryByText("0.5 h")).toBeFalsy();
   });
@@ -360,13 +433,14 @@ describe("WeeklyTasksScreen", () => {
       error: null,
     });
 
-    const { getByRole, getByTestId, queryByTestId } = renderScreen();
+    const { getByRole, getByTestId, queryByTestId, queryByText } = renderScreen();
 
     await waitFor(() => expect(mockOrderWeekly).toHaveBeenCalled());
 
     fireEvent.press(getByRole("button", { name: "Delete" }));
 
     expect(getByTestId("weekly-task-delete-w1")).toBeTruthy();
+    expect(queryByText("Delete")).toBeNull();
     expect(queryByTestId("weekly-task-timer-w1")).toBeNull();
     expect(queryByTestId("weekly-task-manual-w1")).toBeNull();
     expect(queryByTestId("weekly-task-edit-w1")).toBeNull();

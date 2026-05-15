@@ -1,11 +1,12 @@
 import React from "react";
 import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
-import { Keyboard } from "react-native";
+import { Alert, Keyboard } from "react-native";
 import LongTermGoalsScreen from "../components/feature/LongTermGoalsScreen";
-import { typography } from "../constants/theme";
+import { colors, radius, spacing, typography } from "../constants/theme";
 import i18n from "../i18n";
 import {
+  deleteLongTermGoal,
   fetchCurrentPoint,
   fetchLongTermGoals,
   insertLongTermGoal,
@@ -29,18 +30,21 @@ jest.mock("expo-linear-gradient", () => {
 
 jest.mock("react-native-draggable-flatlist", () => {
   const React = require("react");
+  const { View } = require("react-native");
   const MockFlatList = ({
     data,
     renderItem,
     onDragEnd,
     ListHeaderComponent,
     ListEmptyComponent,
+    contentContainerStyle,
   }: {
     data: unknown[];
     renderItem: (params: { item: unknown; index: number; drag: () => void; isActive: boolean; getIndex: () => number }) => React.ReactNode;
     onDragEnd: (params: { data: unknown[] }) => void;
     ListHeaderComponent?: React.ReactNode | (() => React.ReactNode);
     ListEmptyComponent?: React.ReactNode | (() => React.ReactNode);
+    contentContainerStyle?: unknown;
   }) => {
     const firedRef = React.useRef(false);
     const renderSlot = (slot?: React.ReactNode | (() => React.ReactNode)) => {
@@ -56,7 +60,7 @@ jest.mock("react-native-draggable-flatlist", () => {
     }, [data, onDragEnd]);
 
     return (
-      <>
+      <View testID="long-term-goals-list-content" style={contentContainerStyle}>
         {renderSlot(ListHeaderComponent)}
         {data.length === 0 && renderSlot(ListEmptyComponent)}
         {data.map((item, index) => (
@@ -70,7 +74,7 @@ jest.mock("react-native-draggable-flatlist", () => {
             })}
           </React.Fragment>
         ))}
-      </>
+      </View>
     );
   };
   MockFlatList.displayName = "MockDraggableFlatList";
@@ -130,6 +134,7 @@ describe("LongTermGoalsScreen", () => {
     });
     (upsertLongTermGoals as jest.Mock).mockResolvedValue({ error: null });
     (updateCurrentPoint as jest.Mock).mockResolvedValue({ error: null });
+    (deleteLongTermGoal as jest.Mock).mockResolvedValue({ error: null });
     (insertLongTermGoal as jest.Mock).mockResolvedValue({
       data: {
         id: "goal-3",
@@ -228,12 +233,95 @@ describe("LongTermGoalsScreen", () => {
     }));
   });
 
+  test("matches the ideal self header title and button sizing", async () => {
+    const { findByText, findByRole } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+
+    expect(await findByText("Long-Term Goals")).toHaveStyle({
+      fontSize: typography.xl,
+      lineHeight: typography.xl * 1.3,
+    });
+    expect(await findByRole("button", { name: "Add" })).toHaveStyle({
+      paddingVertical: spacing.sm + 2,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.md,
+    });
+    expect(await findByRole("button", { name: "Delete" })).toHaveStyle({
+      paddingVertical: spacing.sm + 2,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.md,
+    });
+  });
+
   test("shows completion and edit controls together in the card footer", async () => {
     const { findByTestId } = renderScreen();
 
     const actions = await findByTestId("long-term-goal-card-actions-goal-1");
     expect(within(actions).getByTestId("long-term-goal-complete-goal-1")).toBeTruthy();
     expect(within(actions).getByTestId("long-term-goal-edit-goal-1")).toBeTruthy();
+  });
+
+  test("matches the compact annual goal card sizing", async () => {
+    const { findByTestId, findByText } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+
+    expect(await findByTestId("long-term-goal-card-goal-1")).toHaveStyle({
+      padding: 12,
+      gap: 8,
+    });
+    expect(await findByTestId("long-term-goal-complete-goal-1")).toHaveStyle({
+      width: 34,
+      height: 34,
+    });
+    expect(await findByText("Reach IELTS 8")).toHaveStyle({
+      fontSize: typography.md,
+      lineHeight: typography.md * 1.3,
+    });
+  });
+
+  test("uses a tighter gap between long-term goal cards", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+
+    expect(await findByTestId("long-term-goals-list-content")).toHaveStyle({
+      gap: spacing.sm,
+    });
+  });
+
+  test("uses an icon-only delete button in delete mode while keeping accessibility text", async () => {
+    const { getByRole, findByTestId } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+
+    const actions = await findByTestId("long-term-goal-card-actions-goal-1");
+    expect(within(actions).queryByText("Delete")).toBeNull();
+    expect(within(actions).getByRole("button", { name: "Delete" })).toBeTruthy();
+  });
+
+  test("does not show a success alert after deleting a goal", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    const { getByRole, findByTestId } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+
+    const actions = await findByTestId("long-term-goal-card-actions-goal-1");
+    fireEvent.press(within(actions).getByRole("button", { name: "Delete" }));
+
+    const confirmCall = alertSpy.mock.calls[0];
+    const confirmButtons = confirmCall?.[2] as Array<{ text?: string; onPress?: () => void | Promise<void> }>;
+    const confirmDeleteButton = confirmButtons.find((button) => button.text === "Delete");
+
+    await confirmDeleteButton?.onPress?.();
+
+    expect(deleteLongTermGoal).toHaveBeenCalledWith("goal-1");
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+
+    alertSpy.mockRestore();
   });
 
   test("shows until-when text in footer for incomplete goals and completed badge in the same area for completed goals", async () => {
@@ -262,7 +350,10 @@ describe("LongTermGoalsScreen", () => {
     const { findByTestId } = renderScreen();
 
     const incompleteFooter = await findByTestId("long-term-goal-card-footer-goal-1");
-    expect(within(incompleteFooter).getByTestId("long-term-goal-card-until-when-goal-1")).toBeTruthy();
+    expect(within(incompleteFooter).getByTestId("long-term-goal-card-until-when-goal-1")).toHaveStyle({
+      borderBottomColor: colors.accentSubtle,
+      borderBottomWidth: 2,
+    });
     expect(within(incompleteFooter).queryByTestId("long-term-goal-card-completed-badge-goal-1")).toBeNull();
 
     const completedFooter = await findByTestId("long-term-goal-card-footer-goal-2");

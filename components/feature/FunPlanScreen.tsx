@@ -16,7 +16,6 @@ import {
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
-import KeyboardDismissButton from "../KeyboardDismissButton";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
@@ -25,9 +24,10 @@ import { supabase } from "../../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
-import { compactFeatureSpacing } from "./compactFeatureSpacing";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 type FunPlanCard = {
   id: string;
@@ -338,42 +338,44 @@ export default function FunPlanScreen() {
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Text style={styles.planTitle}>{item.description}</Text>
+        <View style={styles.planCardRow}>
+          <Text style={styles.planTitle}>{item.description}</Text>
 
-        <View style={styles.planActions} testID={`fun-plan-card-actions-${item.id}`}>
-          {deleteMode ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleButtonPress(item)}
-              style={[styles.dangerButton, styles.iconButtonRow]}
-            >
-              <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-              <Text style={styles.dangerButtonText}>{t("delete")}</Text>
-            </Pressable>
-          ) : (
-            <>
+          <View style={styles.planActions} testID={`fun-plan-card-actions-${item.id}`}>
+            {deleteMode ? (
               <Pressable
                 accessibilityRole="button"
-                onPress={onEditPress}
-                style={[styles.editButton, styles.iconButtonRow]}
-                testID={`fun-plan-card-edit-${item.id}`}
+                accessibilityLabel={t("delete")}
+                onPress={() => handleButtonPress(item)}
+                style={[styles.iconButton, styles.dangerButton]}
               >
-                <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
-                <Text style={styles.editButtonText}>{t("modal.editTitle")}</Text>
+                <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
               </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
-                style={[styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
-                onLongPress={drag}
-                delayLongPress={200}
-                hitSlop={14}
-                testID={`fun-plan-card-reorder-${item.id}`}
-              >
-                <MaterialCommunityIcons name="swap-vertical-bold" size={20} color={colors.textSecondary} />
-              </Pressable>
-            </>
-          )}
+            ) : (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("modal.editTitle")}
+                  onPress={onEditPress}
+                  style={[styles.iconButton, styles.editButton]}
+                  testID={`fun-plan-card-edit-${item.id}`}
+                >
+                  <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textPrimary} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("reorderHandle", { defaultValue: "Drag to reorder" })}
+                  style={[styles.iconButton, styles.dragHandleButton, isActive && styles.dragHandleButtonActive]}
+                  onLongPress={drag}
+                  delayLongPress={200}
+                  hitSlop={14}
+                  testID={`fun-plan-card-reorder-${item.id}`}
+                >
+                  <MaterialCommunityIcons name="swap-vertical-bold" size={18} color={colors.textSecondary} />
+                </Pressable>
+              </>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -652,18 +654,23 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   planGrid: {
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl * 2,
   },
   planCard: {
-    backgroundColor: "#123457",
+    backgroundColor: "#1c3358",
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: "rgba(110,168,255,0.35)",
+    borderColor: "rgba(110,168,255,0.25)",
     padding: compactFeatureSpacing.itemCardPadding,
     gap: compactFeatureSpacing.itemContentGap,
     overflow: "hidden",
+  },
+  planCardRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
   },
   planCardDragging: {
     borderColor: "rgba(110,168,255,0.65)",
@@ -673,51 +680,35 @@ const styles = StyleSheet.create({
     borderColor: "rgba(242,95,92,0.5)",
   },
   planTitle: {
+    flex: 1,
     color: colors.textPrimary,
-    fontSize: typography.md + compactFeatureSpacing.descriptionFontSizeOffset,
+    fontSize: typography.md,
     fontWeight: "800",
-    lineHeight: (typography.md + compactFeatureSpacing.descriptionFontSizeOffset) * compactFeatureSpacing.descriptionLineHeightMultiplier,
+    lineHeight: typography.md * 1.4,
     textAlign: "left",
   },
   planActions: {
     flexDirection: "row",
-    justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 0,
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   editButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  editButtonText: {
-    color: colors.textPrimary,
-    fontWeight: "700",
-    fontSize: typography.sm,
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   dangerButton: {
     borderColor: "rgba(242,95,92,0.4)",
     backgroundColor: "rgba(242,95,92,0.08)",
   },
-  dangerButtonText: {
-    color: colors.error,
-    fontWeight: "700",
-    fontSize: typography.sm,
-  },
-  iconButtonRow: {
-    flexDirection: "row",
+  iconButton: {
+    width: 36,
+    height: 36,
     alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    justifyContent: "center",
     borderRadius: radius.md,
+    borderWidth: 1,
   },
   dragHandleButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
     backgroundColor: "rgba(255,255,255,0.04)",

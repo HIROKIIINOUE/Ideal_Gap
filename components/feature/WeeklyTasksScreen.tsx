@@ -20,7 +20,6 @@ import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flat
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
-import { compactFeatureSpacing } from "./compactFeatureSpacing";
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
@@ -33,6 +32,7 @@ import { Database } from "../../types/database";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 // 画面表示用データの型
 type WeeklyTask = {
@@ -75,14 +75,6 @@ const formatMinutes = (minutes: number) => {
   if (hours === 0) return `${mins}m`;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
-};
-
-// 分を時間へ変換し、小数第1位まで表示する
-const formatCompactHours = (minutes: number) => {
-  const safeMinutes = Math.max(0, minutes);
-  const roundedHours = Math.round((safeMinutes / 60) * 10) / 10;
-  const displayValue = Number.isInteger(roundedHours) ? String(roundedHours) : roundedHours.toFixed(1);
-  return `${displayValue}h`;
 };
 
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
@@ -701,6 +693,7 @@ export default function WeeklyTasksScreen() {
           isActive && styles.taskCardDragging,
           deleteMode && styles.taskCardDeleteMode,
         ]}
+        testID={`weekly-task-card-${item.id}`}
       >
         <LinearGradient
           colors={LIST_CARD_GRADIENT}
@@ -709,20 +702,14 @@ export default function WeeklyTasksScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View pointerEvents="none" style={styles.cardBorderOverlay} />
-        <View style={styles.taskHeader}>
-          <Text style={styles.taskTitle}>
-            {item.title}
-          </Text>
-        </View>
-
-        <View style={styles.taskControlRow}>
+        <View style={styles.taskControlRow} testID={`weekly-task-controls-${item.id}`}>
           <Text
             testID={`weekly-task-total-${item.id}`}
             style={styles.totalInlineText}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {formatCompactHours(item.loggedMinutes)}
+            {formatMinutes(item.loggedMinutes)}
           </Text>
           <View style={styles.taskActionGroup}>
             {deleteMode ? (
@@ -731,8 +718,8 @@ export default function WeeklyTasksScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t("actions.delete")}
                 style={({ pressed }) => [
+                  styles.goalActionIconButton,
                   styles.dangerButton,
-                  styles.iconButtonRow,
                   pressed && styles.secondaryPressed,
                   offlineBlocked && styles.buttonDisabled,
                 ]}
@@ -740,7 +727,6 @@ export default function WeeklyTasksScreen() {
                 disabled={offlineBlocked}
               >
                 <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-                <Text style={styles.dangerButtonText}>{t("actions.delete")}</Text>
               </Pressable>
             ) : (
               <>
@@ -803,6 +789,11 @@ export default function WeeklyTasksScreen() {
               </>
             )}
           </View>
+        </View>
+        <View style={styles.taskHeader}>
+          <Text style={styles.taskTitle} testID={`weekly-task-title-${item.id}`}>
+            {item.title}
+          </Text>
         </View>
       </View>
     );
@@ -1313,12 +1304,12 @@ const styles = StyleSheet.create({
     lineHeight: typography.md * 1.5,
   },
   taskCard: {
-    padding: compactFeatureSpacing.itemCardPadding,
+    padding: 9,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: "#1c3358",
-    gap: compactFeatureSpacing.itemContentGap,
+    gap: 4,
     overflow: "hidden",
     marginBottom: spacing.sm,
   },
@@ -1331,14 +1322,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(242,95,92,0.08)",
   },
   taskHeader: {
-    minHeight: 32,
+    minHeight: 24,
     justifyContent: "center",
   },
   taskTitle: {
     color: colors.textPrimary,
-    fontSize: typography.md + compactFeatureSpacing.descriptionFontSizeOffset,
+    fontSize: typography.md,
     fontWeight: "800",
-    lineHeight: (typography.md + compactFeatureSpacing.descriptionFontSizeOffset) * compactFeatureSpacing.descriptionLineHeightMultiplier,
+    lineHeight: typography.md * 1.15,
   },
   categoryDot: {
     width: 10,
@@ -1353,42 +1344,28 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(242,95,92,0.14)",
     borderColor: colors.error,
   },
-  dangerButtonText: {
-    color: colors.error,
-    fontWeight: "700",
-    fontSize: typography.sm,
-  },
-  iconButtonRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
   taskControlRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: spacing.sm,
+    gap: spacing.xs / 2,
   },
   totalInlineText: {
     flex: 1,
     minWidth: 0,
     color: colors.accentSubtle,
-    fontSize: typography.md,
+    fontSize: typography.sm,
     fontWeight: "800",
   },
   taskActionGroup: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: spacing.sm,
+    gap: spacing.xs / 1.5,
   },
   goalActionIconButton: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",

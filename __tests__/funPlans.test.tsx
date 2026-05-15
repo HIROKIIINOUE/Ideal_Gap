@@ -242,6 +242,18 @@ describe("FunPlanScreen interactions", () => {
     expect(within(actionRow).getByTestId("fun-plan-card-reorder-plan-1")).toBeTruthy();
   });
 
+  test("keeps card action buttons icon-only while preserving accessibility labels", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    const actionRow = await findByTestId("fun-plan-card-actions-plan-1");
+
+    expect(within(actionRow).queryByText("Edit")).toBeNull();
+    expect(within(actionRow).getByRole("button", { name: "Edit" })).toBeTruthy();
+    expect(within(actionRow).getByRole("button", { name: "Drag to reorder" })).toBeTruthy();
+  });
+
   test("dismisses keyboard when tapping modal overlay", async () => {
     const dismissSpy = jest.spyOn(Keyboard, "dismiss");
     const { getByRole, getByTestId } = renderScreen();
