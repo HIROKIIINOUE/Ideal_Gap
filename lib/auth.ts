@@ -18,7 +18,11 @@ type SignUpParams = {
 
 type SignUpResult =
   | { ok: true }
-  | { ok: false; reason: "email_exists" | "unknown"; message: string };
+  | {
+      ok: false;
+      reason: "email_exists" | "email_unconfirmed" | "unknown";
+      message: string;
+    };
 
 type SignInParams = {
   email: string;
@@ -29,7 +33,11 @@ type SignInResult =
   | { ok: true }
   | {
       ok: false;
-      reason: "user_not_found" | "invalid_password" | "unknown";
+      reason:
+        | "user_not_found"
+        | "invalid_password"
+        | "email_unconfirmed"
+        | "unknown";
       message: string;
     };
 
@@ -86,6 +94,72 @@ const isExistingEmailError = (error: AuthError) => {
   );
 };
 
+// 本人確認が未完了が原因のエラーかどうかを判定
+const isEmailNotConfirmedError = (error: AuthError) => {
+  const message = error.message?.toLowerCase() ?? "";
+  return message.includes("email not confirmed");
+};
+
+// 本人確認メールの再送信
+const resendSignupConfirmationEmail = async (email: string) => {
+  const emailRedirectTo = buildRedirect("/purchases?signup=1");
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: {
+      emailRedirectTo,
+    },
+  });
+
+  if (error) {
+    return { ok: false as const, message: error.message };
+  }
+
+  return { ok: true as const };
+};
+
+// サインアップで登録しようとしたアドレスが既にSupabase上にある場合に、以下の関数が呼び起こされる。
+// サインアップ時に使用されたアドレスでログインを試み、問題なくログインができれば「ユーザは既に存在している」という結果を返し、ログインが失敗すれば「本人確認が未完了のユーザが存在している」という結果を返し、本人確認メール再送信の処理を実行する
+const tryResendConfirmationForExistingUnconfirmedUser = async (
+  email: string,
+  password: string,
+): Promise<SignUpResult | null> => {
+  // 本人確認が未完了の場合はsignInWithPasswordでその旨を含んだerrorが返ってくる
+  const { error } = await supabaseRecovery.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (!error) {
+    await supabaseRecovery.auth.signOut();
+    return {
+      ok: false,
+      reason: "email_exists",
+      message: "Email is already registered",
+    };
+  }
+
+  if (!isEmailNotConfirmedError(error)) {
+    return null;
+  }
+
+  const resendResult = await resendSignupConfirmationEmail(email);
+  if (!resendResult.ok) {
+    return {
+      ok: false,
+      reason: "unknown",
+      message: resendResult.message,
+    };
+  }
+
+  // 本人確認メールの再送信後にユーザへ状況を説明するためのデータを返す
+  return {
+    ok: false,
+    reason: "email_unconfirmed",
+    message: "Email verification resent",
+  };
+};
+
 // サインアップロジック
 export const signUpWithEmailConfirmation = async ({
   email,
@@ -94,9 +168,6 @@ export const signUpWithEmailConfirmation = async ({
   language,
 }: SignUpParams): Promise<SignUpResult> => {
   try {
-    // Eメールのサインアップリンククリック時の遷移先指定
-    const emailRedirectTo = buildRedirect("/purchases?signup=1");
-
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -105,19 +176,37 @@ export const signUpWithEmailConfirmation = async ({
           name: username,
           language,
         },
-        emailRedirectTo,
+        // emailRedirectToはメール内リンククリック時の遷移先指定。Supabase側の Redirect URL 設定に含まれている必要あり
+        emailRedirectTo: buildRedirect("/purchases?signup=1"),
       },
     });
 
+    // ユーザがすでに存在している場合auth.signUp()はerrorを返す(その他が原因の場合はSentryに送られ。理由はunknownを返す)
     if (error) {
       if (isExistingEmailError(error)) {
+        // 本人確認がまだかどうかを判断、まだの場合はtryResendConfirmationForExistingUnconfirmedUser内でメール再送信処理をし、
+        // その状況をユーザに知らせるためのデータをunconfirmedResultに保持させる
+        const unconfirmedResult =
+          await tryResendConfirmationForExistingUnconfirmedUser(
+            email,
+            password,
+          );
+        if (unconfirmedResult) return unconfirmedResult;
         return { ok: false, reason: "email_exists", message: error.message };
       }
       captureSupabaseAuthUnexpectedError(error, "sign_up");
       return { ok: false, reason: "unknown", message: error.message };
     }
 
+    // ユーザーが既に存在してもSupabaseの設定次第でauth.signUp()後にerrorではなくdata.userが返ることがある。
+    //　→ user.identitiesが存在するかどうかで既存ユーザかどうかをチェック
+    //    既存ユーザであれば上記の「ユーザがすでに存在している場合」と同様のステップで、
+    //    サインアップ時に登録しようとしたメアドのユーザがすでに存在してるかどうかを確認
+    // ※identitiesはユーザーに紐づいている認証プロバイダの一覧(email, twitter認証など)。本アプリにおいて通常であればemailが存在するためlength===0はおかしい
     if ((data?.user?.identities?.length ?? 0) === 0) {
+      const unconfirmedResult =
+        await tryResendConfirmationForExistingUnconfirmedUser(email, password);
+      if (unconfirmedResult) return unconfirmedResult;
       return {
         ok: false,
         reason: "email_exists",
@@ -235,9 +324,12 @@ export const completePasswordReset = async (
         updateError.status === 429 ||
         message.toLowerCase().includes("rate")
       ) {
-      return { ok: false, reason: "rate_limited", message };
+        return { ok: false, reason: "rate_limited", message };
       }
-      captureSupabaseAuthUnexpectedError(updateError, "complete_password_reset");
+      captureSupabaseAuthUnexpectedError(
+        updateError,
+        "complete_password_reset",
+      );
       return { ok: false, reason: "unknown", message: updateError.message };
     }
 
@@ -257,7 +349,8 @@ const isUserNotFoundError = (error: AuthError) => {
 };
 
 // ユーザー存在チェック (RLS 対応: RPC 経由)
-// セキュリティ上サーバ側で呼ぶ(全ユーザのメアドを漏洩させないため)
+// rpc() は DB 内の Postgres function を実行する仕組み
+// → セキュリティ上サーバ側で実行するため(全ユーザのメアドを漏洩させないため)
 const checkUserExists = async (email: string) => {
   const { data, error } = await supabase.rpc("check_user_exists", {
     p_email: email,
@@ -278,7 +371,10 @@ export const signInWithEmailPassword = async ({
   try {
     const userExistsResult = await checkUserExists(email);
     if (!userExistsResult.ok) {
-      captureSupabaseAuthUnexpectedError(new Error(userExistsResult.message), "sign_in");
+      captureSupabaseAuthUnexpectedError(
+        new Error(userExistsResult.message),
+        "sign_in",
+      );
       return {
         ok: false,
         reason: "unknown",
@@ -295,6 +391,21 @@ export const signInWithEmailPassword = async ({
     });
 
     if (error) {
+      if (isEmailNotConfirmedError(error)) {
+        const resendResult = await resendSignupConfirmationEmail(email);
+        if (!resendResult.ok) {
+          return {
+            ok: false,
+            reason: "unknown",
+            message: resendResult.message,
+          };
+        }
+        return {
+          ok: false,
+          reason: "email_unconfirmed",
+          message: "Email verification resent",
+        };
+      }
       if (isUserNotFoundError(error)) {
         return { ok: false, reason: "user_not_found", message: error.message };
       }

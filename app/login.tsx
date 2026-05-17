@@ -44,6 +44,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { t } = useTranslation("login");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
@@ -72,6 +73,7 @@ export default function Login() {
     if (disabled) return;
     setIsSubmitting(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
     try {
       const parsed = loginSchema.parse({ email, password });
       const lockoutStatus = await checkLockout(parsed.email);
@@ -86,6 +88,10 @@ export default function Login() {
 
       //　打ち込んだEmailのユーザが存在するか、パスワードは正しいかを検証
       if (!result.ok) {
+        if (result.reason === "email_unconfirmed") {
+          setSuccessMessage(t("errorEmailUnconfirmed"));
+          return;
+        }
         const lockout = await recordFailure(parsed.email);
         const message =
           lockout.locked
@@ -100,6 +106,7 @@ export default function Login() {
       }
 
       setErrorMessage(null);
+      setSuccessMessage(null);
       await clearLockout(parsed.email);
 
       // ログイン情報が正しい時、Authのユーザ情報からSubscriptionデータを取得し、それに応じてユーザを各ページに遷移させる
@@ -207,6 +214,11 @@ export default function Login() {
           {!!errorLabel && (
             <View style={[styles.alertBox, styles.errorBox]}>
               <Text style={styles.alertBody}>{errorLabel}</Text>
+            </View>
+          )}
+          {!!successMessage && (
+            <View style={[styles.alertBox, styles.successBox]}>
+              <Text style={styles.alertBody}>{successMessage}</Text>
             </View>
           )}
           {!!remainingText && (
@@ -393,8 +405,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     gap: spacing.xs,
-    backgroundColor: "rgba(255,138,138,0.08)",
-    borderColor: "#ff8a8a",
   },
   alertBody: {
     color: colors.textSecondary,
@@ -402,7 +412,12 @@ const styles = StyleSheet.create({
     lineHeight: typography.sm * 1.4,
   },
   errorBox: {
+    backgroundColor: "rgba(255,138,138,0.08)",
     borderColor: "#ff8a8a",
+  },
+  successBox: {
+    borderColor: "rgba(56,217,150,0.9)",
+    backgroundColor: "rgba(56,217,150,0.12)",
   },
   infoBox: {
     backgroundColor: "rgba(110,168,255,0.12)",

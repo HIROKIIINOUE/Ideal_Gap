@@ -180,6 +180,31 @@ describe("Signup screen", () => {
     expect(getByText("An account with this email already exists. Please log in instead.")).toBeTruthy();
   });
 
+  test("shows green verification resend message when existing account is still unconfirmed", async () => {
+    mockSignUpWithEmailConfirmation.mockResolvedValue({
+      ok: false,
+      reason: "email_unconfirmed",
+      message: "Email verification resent",
+    });
+
+    const { getByPlaceholderText, getByText, queryByText } = renderScreen();
+
+    fireEvent.changeText(getByPlaceholderText("Your name"), "Hiro");
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "hiro@example.com");
+    fireEvent.changeText(getByPlaceholderText("6+ characters"), "password123");
+
+    fireEvent.press(getByText("Continue to sign up"));
+
+    await waitFor(() => expect(mockSignUpWithEmailConfirmation).toHaveBeenCalledTimes(1));
+
+    expect(queryByText("An account with this email already exists. Please log in instead.")).toBeNull();
+    expect(
+      getByText(
+        "Your email is not verified yet. We resent the verification email. Please complete verification from the link in your inbox.",
+      ),
+    ).toBeTruthy();
+  });
+
   test("renders plan price and trial copy from RevenueCat offering", async () => {
     const { findAllByText } = renderScreen();
 

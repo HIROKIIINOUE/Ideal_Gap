@@ -171,6 +171,29 @@ describe("Login screen", () => {
     expect(await findByText("Incorrect password. Please try again.")).toBeTruthy();
   });
 
+  test("shows green verification resend message when login credentials are correct but email is still unconfirmed", async () => {
+    mockSignInWithEmailPassword.mockResolvedValue({
+      ok: false,
+      reason: "email_unconfirmed",
+      message: "Email verification resent",
+    });
+
+    const { getByPlaceholderText, getByRole, findByText, queryByText } = renderScreen();
+
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "user@example.com");
+    fireEvent.changeText(getByPlaceholderText("Password"), "password123");
+    fireEvent.press(getByRole("button", { name: "Log In" }));
+
+    await waitFor(() => expect(mockSignInWithEmailPassword).toHaveBeenCalledTimes(1));
+
+    expect(queryByText("Incorrect password. Please try again.")).toBeNull();
+    expect(
+      await findByText(
+        "Your email is not verified yet. We resent the verification email. Please complete verification from the link in your inbox.",
+      ),
+    ).toBeTruthy();
+  });
+
   test("redirects to purchases when subscription is pending signup", async () => {
     mockSignInWithEmailPassword.mockResolvedValue({ ok: true });
     mockGetAccessStateForUser.mockResolvedValue({

@@ -37,7 +37,9 @@ export default function Signup() {
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
-  const [submissionState, setSubmissionState] = useState<"idle" | "success">("idle");
+  const [submissionState, setSubmissionState] = useState<
+    "idle" | "success" | "verification_resent"
+  >("idle");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
@@ -123,7 +125,9 @@ export default function Signup() {
       });
 
       if (!result.ok) {
-        if (result.reason === "email_exists") {
+        if (result.reason === "email_unconfirmed") {
+          setSubmissionState("verification_resent");
+        } else if (result.reason === "email_exists") {
           setSubmissionError(t("emailExistsError"));
         } else {
           setSubmissionError(t("unknownError"));
@@ -245,6 +249,11 @@ export default function Signup() {
             <View style={[styles.alertBox, styles.successBox]}>
               <Text style={styles.alertTitle}>{t("verificationTitle")}</Text>
               <Text style={styles.alertBody}>{t("verificationBody", { email })}</Text>
+            </View>
+          )}
+          {submissionState === "verification_resent" && (
+            <View style={[styles.alertBox, styles.successBox]}>
+              <Text style={styles.alertBody}>{t("unconfirmedVerificationBody")}</Text>
             </View>
           )}
           {submissionError && (

@@ -34,6 +34,7 @@ export type SignupTranslations = {
   unknownError: string;
   verificationTitle: string;
   verificationBody: string;
+  unconfirmedVerificationBody: string;
 };
 
 export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
@@ -76,6 +77,8 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     verificationTitle: "メールを確認してください",
     verificationBody:
       "確認メールを{{email}}に送信しました。リンクを開いてサインアップを完了してください。",
+    unconfirmedVerificationBody:
+      "本人確認がまだ完了しておりません。メールを再送しましたので、メール内リンクから本人確認を完了してください。",
   },
   en: {
     pageLabel: "Signup",
@@ -114,6 +117,8 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     verificationTitle: "Check your inbox",
     verificationBody:
       "We sent a verification link to {{email}}. Confirm to finish sign-up.",
+    unconfirmedVerificationBody:
+      "Your email is not verified yet. We resent the verification email. Please complete verification from the link in your inbox.",
   },
   fr: {
     pageLabel: "Inscription",
@@ -152,5 +157,7 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     verificationTitle: "Vérifiez votre boîte mail",
     verificationBody:
       "Nous avons envoyé un lien de vérification à {{email}}. Confirmez pour terminer l'inscription.",
+    unconfirmedVerificationBody:
+      "Votre adresse e-mail n’est pas encore vérifiée. Nous avons renvoyé l’e-mail de vérification. Veuillez terminer la vérification depuis le lien reçu.",
   },
 };
