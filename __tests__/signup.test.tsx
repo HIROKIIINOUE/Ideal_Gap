@@ -26,6 +26,8 @@ jest.mock("expo-router", () => {
 });
 
 const mockSignUpWithEmailConfirmation = jest.fn();
+const mockContinueWithOAuthProvider = jest.fn();
+const mockResolveAuthenticatedEntryDestination = jest.fn();
 
 jest.mock("../lib/revenuecatOfferings", () => ({
   fetchTestStorePackage: (...args: unknown[]) => mockFetchTestStorePackage(...args),
@@ -48,6 +50,12 @@ jest.mock("../lib/supabaseClient", () => ({
 
 jest.mock("../lib/auth", () => ({
   signUpWithEmailConfirmation: (...args: unknown[]) => mockSignUpWithEmailConfirmation(...args),
+  continueWithOAuthProvider: (...args: unknown[]) => mockContinueWithOAuthProvider(...args),
+}));
+
+jest.mock("../lib/authEntry", () => ({
+  resolveAuthenticatedEntryDestination: (...args: unknown[]) =>
+    mockResolveAuthenticatedEntryDestination(...args),
 }));
 
 jest.mock("../components/LanguageSheet", () => () => null);
@@ -98,6 +106,11 @@ describe("Signup screen", () => {
       trialLabel: "Free for 1 month",
       hasTrial: true,
     });
+    mockContinueWithOAuthProvider.mockResolvedValue({
+      ok: true,
+      user: { id: "user-123" },
+    });
+    mockResolveAuthenticatedEntryDestination.mockResolvedValue("/purchases?from=signup");
   });
 
   afterEach(() => {
@@ -178,6 +191,24 @@ describe("Signup screen", () => {
     await waitFor(() => expect(mockSignUpWithEmailConfirmation).toHaveBeenCalledTimes(1));
 
     expect(getByText("An account with this email already exists. Please log in instead.")).toBeTruthy();
+  });
+
+  test("continues with Google using the shared OAuth entry flow", async () => {
+    const { getByRole } = renderScreen();
+
+    fireEvent.press(getByRole("button", { name: "Continue with Google" }));
+
+    await waitFor(() => expect(mockContinueWithOAuthProvider).toHaveBeenCalledWith("google"));
+    await waitFor(() =>
+      expect(mockResolveAuthenticatedEntryDestination).toHaveBeenCalledWith({
+        source: "signup",
+        user: { id: "user-123" },
+        language: "en",
+      }),
+    );
+    expect(require("expo-router").router.replace).toHaveBeenCalledWith(
+      "/purchases?from=signup",
+    );
   });
 
   test("shows green verification resend message when existing account is still unconfirmed", async () => {

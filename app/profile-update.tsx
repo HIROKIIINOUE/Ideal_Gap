@@ -24,6 +24,7 @@ import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { buildRedirectUrl } from "../lib/auth";
+import { hasAppleOrGoogleProvider } from "../lib/authProviders";
 import { signOutCurrentSession } from "../lib/logout";
 import { supabase } from "../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
@@ -54,6 +55,7 @@ export default function ProfileUpdate() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [initialEmail, setInitialEmail] = useState<string | null>(null);
   const [emailChangeRequested, setEmailChangeRequested] = useState(false);
+  const [isExternalProviderProfile, setIsExternalProviderProfile] = useState(false);
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
 
   const validation = useMemo(() => profileSchema.safeParse({ username, email, password }), [email, password, username]);
@@ -93,6 +95,8 @@ export default function ProfileUpdate() {
       }
       const user = data.user;
       const userId = user.id;
+      // Google/Apple経由のログインかどうか判定する
+      const isExternalProvider = hasAppleOrGoogleProvider(user);
 
       const { data: profile } = await supabase
         .from("users")
@@ -116,6 +120,7 @@ export default function ProfileUpdate() {
       setUsername(resolvedName);
       setEmail(authEmail);
       setInitialEmail(authEmail);
+      setIsExternalProviderProfile(isExternalProvider);
       setLoading(false);
     };
 
@@ -137,7 +142,7 @@ export default function ProfileUpdate() {
     setError(null);
     setInfo(null);
 
-    if (!isFormValid || submitting) return;
+    if (isExternalProviderProfile || !isFormValid || submitting) return;
     setSubmitting(true);
 
     try {
@@ -280,47 +285,57 @@ export default function ProfileUpdate() {
               <TextInput
                 placeholder={t("usernamePlaceholder")}
                 placeholderTextColor={colors.textSecondary}
-                style={styles.input}
+                style={[styles.input, isExternalProviderProfile && styles.inputReadonly]}
                 value={username}
                 onChangeText={setUsername}
                 onBlur={() => setUsernameTouched(true)}
                 autoCapitalize="none"
                 keyboardAppearance="dark"
-                editable={!loading}
+                editable={!loading && !isExternalProviderProfile}
               />
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
-              <TextInput
-                placeholder={t("emailPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                onBlur={() => setEmailTouched(true)}
-                autoCapitalize="none"
-                keyboardAppearance="dark"
-                keyboardType="email-address"
-                editable={!loading}
-              />
-            </View>
+            {!isExternalProviderProfile && (
+              <>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
+                  <TextInput
+                    placeholder={t("emailPlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    onBlur={() => setEmailTouched(true)}
+                    autoCapitalize="none"
+                    keyboardAppearance="dark"
+                    keyboardType="email-address"
+                    editable={!loading}
+                  />
+                </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
-              <PasswordField
-                placeholder={t("passwordPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                onBlur={() => setPasswordTouched(true)}
-                keyboardAppearance="dark"
-                editable={!loading}
-                showPasswordLabel={t("showPassword")}
-                hidePasswordLabel={t("hidePassword")}
-              />
-            </View>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
+                  <PasswordField
+                    placeholder={t("passwordPlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    onBlur={() => setPasswordTouched(true)}
+                    keyboardAppearance="dark"
+                    editable={!loading}
+                    showPasswordLabel={t("showPassword")}
+                    hidePasswordLabel={t("hidePassword")}
+                  />
+                </View>
+              </>
+            )}
+
+            {isExternalProviderProfile && (
+              <View style={[styles.alertBox, styles.infoBox]}>
+                <Text style={styles.alertText}>{t("externalProviderNotice")}</Text>
+              </View>
+            )}
 
             {errorLabel && (
               <View style={[styles.alertBox, styles.errorBox]}>
@@ -334,26 +349,28 @@ export default function ProfileUpdate() {
               </View>
             )}
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleSubmit}
-              disabled={!isFormValid || submitting || loading || emailChangeRequested}
-              style={({ pressed }) => [
-                styles.ctaButton,
-                styles.primaryButton,
-                styles.buttonShadow,
-                (!isFormValid || submitting || loading || emailChangeRequested) && styles.buttonDisabled,
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <LinearGradient
-                colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.buttonGlass}
-              />
-              <Text style={styles.primaryLabel}>{submitting ? t("saving") : t("save")}</Text>
-            </Pressable>
+            {!isExternalProviderProfile && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleSubmit}
+                disabled={!isFormValid || submitting || loading || emailChangeRequested}
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  styles.primaryButton,
+                  styles.buttonShadow,
+                  (!isFormValid || submitting || loading || emailChangeRequested) && styles.buttonDisabled,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <LinearGradient
+                  colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.buttonGlass}
+                />
+                <Text style={styles.primaryLabel}>{submitting ? t("saving") : t("save")}</Text>
+              </Pressable>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -424,6 +441,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
     fontSize: typography.md,
+  },
+  inputReadonly: {
+    opacity: 0.72,
   },
   ctaButton: {
     paddingVertical: spacing.md,

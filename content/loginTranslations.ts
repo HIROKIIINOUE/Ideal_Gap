@@ -11,6 +11,10 @@ export type LoginTranslations = {
   passwordPlaceholder: string;
   showPassword: string;
   hidePassword: string;
+  continueWithGoogle: string;
+  continueWithApple: string;
+  oauthLoading: string;
+  oauthError: string;
   loginCta: string;
   forgotPassword: string;
   firstTimeHeading: string;
@@ -37,6 +41,11 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     passwordPlaceholder: "Password",
     showPassword: "パスワードを表示",
     hidePassword: "パスワードを非表示",
+    continueWithGoogle: "Googleで続ける",
+    continueWithApple: "Appleで続ける",
+    oauthLoading: "認証中...",
+    oauthError:
+      "Apple/Google認証に失敗しました。時間をおいて再度お試しください。",
     loginCta: "ログイン",
     forgotPassword: "パスワードをお忘れの方はこちら",
     firstTimeHeading: "はじめての方はこちら",
@@ -63,6 +72,10 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     passwordPlaceholder: "Password",
     showPassword: "Show password",
     hidePassword: "Hide password",
+    continueWithGoogle: "Continue with Google",
+    continueWithApple: "Continue with Apple",
+    oauthLoading: "Signing in...",
+    oauthError: "Apple/Google sign-in failed. Please try again.",
     loginCta: "Log In",
     forgotPassword: "Forgot password?",
     firstTimeHeading: "New here?",
@@ -90,6 +103,11 @@ export const loginTranslations: Record<LanguageKey, LoginTranslations> = {
     passwordPlaceholder: "Mot de passe",
     showPassword: "Afficher le mot de passe",
     hidePassword: "Masquer le mot de passe",
+    continueWithGoogle: "Continuer avec Google",
+    continueWithApple: "Continuer avec Apple",
+    oauthLoading: "Connexion...",
+    oauthError:
+      "La connexion avec Apple/Google a échoué. Veuillez réessayer.",
     loginCta: "Se connecter",
     forgotPassword: "Mot de passe oublié ?",
     firstTimeHeading: "Première visite ?",

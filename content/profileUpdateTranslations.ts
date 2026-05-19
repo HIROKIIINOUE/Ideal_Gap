@@ -9,6 +9,8 @@ export type ProfileUpdateTranslations = {
   usernamePlaceholder: string;
   emailPlaceholder: string;
   passwordPlaceholder: string;
+  externalProviderPasswordPlaceholder: string;
+  externalProviderNotice: string;
   showPassword: string;
   hidePassword: string;
   save: string;
@@ -40,6 +42,9 @@ export const profileUpdateTranslations: Record<
     usernamePlaceholder: "ユーザ名を入力",
     emailPlaceholder: "メールアドレスを入力",
     passwordPlaceholder: "新しいパスワード（任意）",
+    externalProviderPasswordPlaceholder: "Apple/Googleアカウントで管理されています",
+    externalProviderNotice:
+      "Apple/Googleアカウントでログインしているため本アプリではプロフィールを変更できません。",
     showPassword: "パスワードを表示",
     hidePassword: "パスワードを非表示",
     save: "変更を保存",
@@ -68,6 +73,9 @@ export const profileUpdateTranslations: Record<
     usernamePlaceholder: "Enter your username",
     emailPlaceholder: "Enter your email",
     passwordPlaceholder: "New password (optional)",
+    externalProviderPasswordPlaceholder: "Managed by your Apple/Google account",
+    externalProviderNotice:
+      "You are logged in with your Apple/Google account, so this app cannot change your profile.",
     showPassword: "Show password",
     hidePassword: "Hide password",
     save: "Save changes",
@@ -96,6 +104,9 @@ export const profileUpdateTranslations: Record<
     usernamePlaceholder: "Saisissez votre nom d’utilisateur",
     emailPlaceholder: "Saisissez votre adresse e-mail",
     passwordPlaceholder: "Nouveau mot de passe (facultatif)",
+    externalProviderPasswordPlaceholder: "Géré par votre compte Apple/Google",
+    externalProviderNotice:
+      "Vous êtes connecté avec votre compte Apple/Google. Ce profil ne peut donc pas être modifié dans l’application.",
     showPassword: "Afficher le mot de passe",
     hidePassword: "Masquer le mot de passe",
     save: "Enregistrer les modifications",

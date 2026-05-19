@@ -54,6 +54,10 @@ export default (): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: iosBundleIdentifier,
+    usesAppleSignIn: true,
+    entitlements: {
+      "com.apple.developer.applesignin": ["Default"],
+    },
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ["audio"],

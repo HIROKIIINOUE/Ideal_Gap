@@ -174,6 +174,7 @@ export const captureSupabaseAuthUnexpectedError = (
   operation:
     | "sign_up"
     | "sign_in"
+    | "oauth"
     | "request_password_reset"
     | "complete_password_reset",
 ) => {

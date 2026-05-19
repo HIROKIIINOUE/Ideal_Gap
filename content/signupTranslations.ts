@@ -26,6 +26,10 @@ export type SignupTranslations = {
   showPassword: string;
   hidePassword: string;
   passwordInvalid: string;
+  continueWithGoogle: string;
+  continueWithApple: string;
+  oauthLoading: string;
+  oauthError: string;
   primaryCta: string;
   primaryCtaLoading: string;
   existingAccountHeading: string;
@@ -66,6 +70,11 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     showPassword: "パスワードを表示",
     hidePassword: "パスワードを非表示",
     passwordInvalid: "パスワードは6文字以上で入力してください",
+    continueWithGoogle: "Googleで続ける",
+    continueWithApple: "Appleで続ける",
+    oauthLoading: "認証中...",
+    oauthError:
+      "Apple/Google認証に失敗しました。時間をおいて再度お試しください。",
     primaryCta: "サインアップを続ける",
     primaryCtaLoading: "送信中...",
     existingAccountHeading: "すでにアカウントをお持ちですか？",
@@ -107,6 +116,10 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     showPassword: "Show password",
     hidePassword: "Hide password",
     passwordInvalid: "Password must be at least 6 characters",
+    continueWithGoogle: "Continue with Google",
+    continueWithApple: "Continue with Apple",
+    oauthLoading: "Signing in...",
+    oauthError: "Apple/Google sign-in failed. Please try again.",
     primaryCta: "Continue to sign up",
     primaryCtaLoading: "Sending...",
     existingAccountHeading: "Already have an account?",
@@ -147,6 +160,11 @@ export const signupTranslations: Record<LanguageKey, SignupTranslations> = {
     showPassword: "Afficher le mot de passe",
     hidePassword: "Masquer le mot de passe",
     passwordInvalid: "Le mot de passe doit comporter au moins 6 caractères",
+    continueWithGoogle: "Continuer avec Google",
+    continueWithApple: "Continuer avec Apple",
+    oauthLoading: "Connexion...",
+    oauthError:
+      "La connexion avec Apple/Google a échoué. Veuillez réessayer.",
     primaryCta: "Continuer l’inscription",
     primaryCtaLoading: "Envoi...",
     existingAccountHeading: "Vous avez déjà un compte ?",

@@ -19,18 +19,21 @@ import { z } from "zod";
 import Footer from "../components/Footer";
 import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
+import OAuthContinueButtons, { OAuthProviderId } from "../components/OAuthContinueButtons";
 import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
-import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { useLoginLockout } from "../hooks/useLoginLockout";
-import { signInWithEmailPassword } from "../lib/auth";
-import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
+import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
+import { isSupportedLanguage } from "../i18n";
+import { continueWithOAuthProvider, signInWithEmailPassword } from "../lib/auth";
+import { resolveAuthenticatedEntryDestination } from "../lib/authEntry";
 import {
   ensureSignupAwaitSubscription,
   getAccessStateForUser,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
+import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 
 const loginSchema = z.object({
   email: z.string().trim().min(1),
@@ -43,9 +46,10 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthProvider, setOauthProvider] = useState<OAuthProviderId | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { t } = useTranslation("login");
+  const { t, i18n } = useTranslation("login");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const { isLocked, remainingText, checkLockout, recordFailure, clearLockout } = useLoginLockout({
@@ -59,7 +63,15 @@ export default function Login() {
     }
     return { isValid: false };
   }, [email, password]);
-  const disabled = !loginValidation.isValid || isSubmitting || isLocked;
+  const disabled = !loginValidation.isValid || isSubmitting || isLocked || Boolean(oauthProvider);
+  const oauthProviders = useMemo<OAuthProviderId[]>(
+    () => (Platform.OS === "ios" ? ["apple", "google"] : ["google"]),
+    [],
+  );
+  const oauthLanguage = useMemo(
+    () => (isSupportedLanguage(i18n.language) ? i18n.language : "en"),
+    [i18n.language],
+  );
 
   const showToast = useCallback((message: string) => {
     if (Platform.OS === "android") {
@@ -132,6 +144,44 @@ export default function Login() {
     }
   }, [checkLockout, clearLockout, disabled, email, password, recordFailure, showToast, t]);
 
+  // Google/Apple認証処理
+  const handleOAuthContinue = useCallback(
+    async (provider: OAuthProviderId) => {
+      if (oauthProvider || isSubmitting) return;
+
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      setOauthProvider(provider);
+
+      try {
+        // google/apple認証の結果と該当ユーザのセッション情報を受け取る
+        const result = await continueWithOAuthProvider(provider);
+        if (!result.ok) {
+          if (result.reason !== "cancelled") {
+            setErrorMessage(t("oauthError"));
+          }
+          return;
+        }
+
+        // Google/Apple認証完了ユーザと紐づくDBデータを参照(必要データがなければ作成)し
+        // 認証処理完了後の遷移先(ダッシュボードor支払い画面)を確定する
+        const destination = await resolveAuthenticatedEntryDestination({
+          source: "login",
+          user: result.user,
+          language: oauthLanguage,
+        });
+        router.replace(destination);
+        showToast(t("loginSuccess"));
+      } catch (error) {
+        console.warn("OAuth login flow failed", error);
+        setErrorMessage(t("oauthError"));
+      } finally {
+        setOauthProvider(null);
+      }
+    },
+    [isSubmitting, oauthLanguage, oauthProvider, showToast, t],
+  );
+
   const errorLabel = useMemo(() => errorMessage, [errorMessage]);
 
   return (
@@ -151,118 +201,128 @@ export default function Login() {
           </View>
 
           <View style={[styles.card, shadows.card]}>
-          <LinearGradient
-            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.title}>{t("welcomeTitle")}</Text>
-          <Text style={styles.body}>{t("welcomeBody")}</Text>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
-            <TextInput
-              placeholder={t("emailPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              keyboardAppearance="dark"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
-            <PasswordField
-              placeholder={t("passwordPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              keyboardAppearance="dark"
-              value={password}
-              onChangeText={setPassword}
-              showPasswordLabel={t("showPassword")}
-              hidePasswordLabel={t("hidePassword")}
-            />
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleLogin}
-            accessibilityState={{ disabled }}
-            disabled={disabled}
-            style={({ pressed }) => [
-              styles.ctaButton,
-              styles.primaryButton,
-              styles.buttonShadow,
-              Platform.OS === "android" && styles.buttonShadowAndroidFix,
-              pressed && styles.buttonPressed,
-              disabled && styles.buttonDisabled,
-            ]}
-          >
             <LinearGradient
-              colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
+              colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.buttonGlass}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.primaryLabel}>{isSubmitting ? t("loggingIn") : t("loginCta")}</Text>
-          </Pressable>
+            <Text style={styles.title}>{t("welcomeTitle")}</Text>
+            <Text style={styles.body}>{t("welcomeBody")}</Text>
 
-          {!!errorLabel && (
-            <View style={[styles.alertBox, styles.errorBox]}>
-              <Text style={styles.alertBody}>{errorLabel}</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
+              <TextInput
+                placeholder={t("emailPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                keyboardAppearance="dark"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
             </View>
-          )}
-          {!!successMessage && (
-            <View style={[styles.alertBox, styles.successBox]}>
-              <Text style={styles.alertBody}>{successMessage}</Text>
-            </View>
-          )}
-          {!!remainingText && (
-            <View style={[styles.alertBox, styles.infoBox]}>
-              <Text style={styles.alertBody}>{remainingText}</Text>
-            </View>
-          )}
 
-          <Link href="/reset-password" asChild>
-            <Pressable accessibilityRole="button" style={styles.subtleButton}>
-              <Text style={styles.subtleLabel}>{t("forgotPassword")}</Text>
-            </Pressable>
-          </Link>
-          </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
+              <PasswordField
+                placeholder={t("passwordPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                keyboardAppearance="dark"
+                value={password}
+                onChangeText={setPassword}
+                showPasswordLabel={t("showPassword")}
+                hidePasswordLabel={t("hidePassword")}
+              />
+            </View>
 
-          <View style={[styles.card, shadows.card]}>
-          <LinearGradient
-            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.cardHeading}>{t("firstTimeHeading")}</Text>
-          <Text style={styles.body}>{t("firstTimeBody")}</Text>
-          <Link href="/signup" asChild>
+            <OAuthContinueButtons
+              providers={oauthProviders}
+              googleLabel={t("continueWithGoogle")}
+              appleLabel={t("continueWithApple")}
+              loadingLabel={t("oauthLoading")}
+              loadingProvider={oauthProvider}
+              disabled={isSubmitting || isLocked}
+              onPress={handleOAuthContinue}
+            />
+
             <Pressable
               accessibilityRole="button"
+              onPress={handleLogin}
+              accessibilityState={{ disabled }}
+              disabled={disabled}
               style={({ pressed }) => [
+                styles.ctaButton,
+                styles.primaryButton,
+                styles.buttonShadow,
+                Platform.OS === "android" && styles.buttonShadowAndroidFix,
                 pressed && styles.buttonPressed,
+                disabled && styles.buttonDisabled,
               ]}
             >
               <LinearGradient
-                colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
+                colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.buttonGlass, styles.ctaButton,
+                style={styles.buttonGlass}
+              />
+              <Text style={styles.primaryLabel}>{isSubmitting ? t("loggingIn") : t("loginCta")}</Text>
+            </Pressable>
+
+            {!!errorLabel && (
+              <View style={[styles.alertBox, styles.errorBox]}>
+                <Text style={styles.alertBody}>{errorLabel}</Text>
+              </View>
+            )}
+            {!!successMessage && (
+              <View style={[styles.alertBox, styles.successBox]}>
+                <Text style={styles.alertBody}>{successMessage}</Text>
+              </View>
+            )}
+            {!!remainingText && (
+              <View style={[styles.alertBox, styles.infoBox]}>
+                <Text style={styles.alertBody}>{remainingText}</Text>
+              </View>
+            )}
+
+            <Link href="/reset-password" asChild>
+              <Pressable accessibilityRole="button" style={styles.subtleButton}>
+                <Text style={styles.subtleLabel}>{t("forgotPassword")}</Text>
+              </Pressable>
+            </Link>
+          </View>
+
+          <View style={[styles.card, shadows.card]}>
+            <LinearGradient
+              colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={styles.cardHeading}>{t("firstTimeHeading")}</Text>
+            <Text style={styles.body}>{t("firstTimeBody")}</Text>
+            <Link href="/signup" asChild>
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <LinearGradient
+                  colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.buttonGlass, styles.ctaButton,
                   styles.secondaryButton,
                   styles.buttonShadow,
                   Platform.OS === "android" && styles.buttonShadowAndroidFix]}
-              >
-                <Text style={styles.secondaryLabel}>{t("signupCta")}</Text>
-              </LinearGradient>
-            </Pressable>
-          </Link>
+                >
+                  <Text style={styles.secondaryLabel}>{t("signupCta")}</Text>
+                </LinearGradient>
+              </Pressable>
+            </Link>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

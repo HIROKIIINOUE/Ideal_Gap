@@ -43,9 +43,17 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 const mockSignInWithEmailPassword = jest.fn();
+const mockContinueWithOAuthProvider = jest.fn();
+const mockResolveAuthenticatedEntryDestination = jest.fn();
 
 jest.mock("../lib/auth", () => ({
   signInWithEmailPassword: (...args: unknown[]) => mockSignInWithEmailPassword(...args),
+  continueWithOAuthProvider: (...args: unknown[]) => mockContinueWithOAuthProvider(...args),
+}));
+
+jest.mock("../lib/authEntry", () => ({
+  resolveAuthenticatedEntryDestination: (...args: unknown[]) =>
+    mockResolveAuthenticatedEntryDestination(...args),
 }));
 
 describe("Login screen", () => {
@@ -75,6 +83,11 @@ describe("Login screen", () => {
       user_id: "user-123",
       status: "signupAwait",
     });
+    mockContinueWithOAuthProvider.mockResolvedValue({
+      ok: true,
+      user: { id: "user-123" },
+    });
+    mockResolveAuthenticatedEntryDestination.mockResolvedValue("/purchases?from=login");
   });
 
   afterEach(() => {
@@ -235,6 +248,26 @@ describe("Login screen", () => {
 
     await waitFor(() => expect(mockSignInWithEmailPassword).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard"));
+    expect(alertSpy).toHaveBeenCalledWith("Logged in successfully");
+
+    alertSpy.mockRestore();
+  });
+
+  test("continues with Google using the shared OAuth entry flow", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    const { getByRole } = renderScreen();
+
+    fireEvent.press(getByRole("button", { name: "Continue with Google" }));
+
+    await waitFor(() => expect(mockContinueWithOAuthProvider).toHaveBeenCalledWith("google"));
+    await waitFor(() =>
+      expect(mockResolveAuthenticatedEntryDestination).toHaveBeenCalledWith({
+        source: "login",
+        user: { id: "user-123" },
+        language: "en",
+      }),
+    );
+    expect(router.replace).toHaveBeenCalledWith("/purchases?from=login");
     expect(alertSpy).toHaveBeenCalledWith("Logged in successfully");
 
     alertSpy.mockRestore();

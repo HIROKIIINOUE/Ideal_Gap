@@ -2,9 +2,10 @@
 // サインアップ、ログイン、パスワードリセット、環境(本番or開発)に応じたリダイレクトURL生成
 // メールアドレスの変更はapp/profile-update.tsxで直接supabase.auth.updateUserを呼んでいるためここには切り出されていない。
 
-import { AuthError } from "@supabase/supabase-js";
+import { AuthError, User } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { LanguageKey } from "../types/i18n";
 import { captureSupabaseAuthUnexpectedError } from "./sentry";
 import { supabase, supabaseRecovery } from "./supabaseClient";
@@ -38,6 +39,16 @@ type SignInResult =
         | "invalid_password"
         | "email_unconfirmed"
         | "unknown";
+      message: string;
+    };
+
+export type OAuthProvider = "apple" | "google";
+
+type OAuthContinueResult =
+  | { ok: true; user: User }
+  | {
+      ok: false;
+      reason: "cancelled" | "missing_session" | "unknown";
       message: string;
     };
 
@@ -83,6 +94,135 @@ const buildRedirect = (path: string) => {
 
 // 外部からも使えるように公開
 export const buildRedirectUrl = (path: string) => buildRedirect(path);
+
+// Google/Apple認証結果を元にSupabaseより返ってきたURLから
+// 必要情報(クエリとフラグ)を抽出しparamsに格納する
+const parseOAuthCallbackParams = (url: string) => {
+  const hashIndex = url.indexOf("#");
+  const questionIndex = url.indexOf("?");
+  const params = new URLSearchParams();
+
+  if (questionIndex !== -1) {
+    const queryEnd = hashIndex === -1 ? undefined : hashIndex;
+    const query = url.slice(questionIndex + 1, queryEnd);
+    new URLSearchParams(query).forEach((value, key) => params.set(key, value));
+  }
+  if (hashIndex !== -1) {
+    const fragment = url.slice(hashIndex + 1);
+    new URLSearchParams(fragment).forEach((value, key) =>
+      params.set(key, value),
+    );
+  }
+
+  return params;
+};
+
+//　supabaseより返されたGoogle/Apple認証結果(OAuth callback URL)からaccessToken refreshTokenデータを取得する
+const createSessionFromOAuthCallbackUrl = async (
+  url: string,
+): Promise<OAuthContinueResult> => {
+  // google/appleから帰ってきたurlを解析
+  const params = parseOAuthCallbackParams(url);
+  const errorDescription =
+    params.get("error_description") ??
+    params.get("error") ??
+    params.get("error_code");
+  if (errorDescription) {
+    return { ok: false, reason: "unknown", message: errorDescription };
+  }
+
+  // Google/Apple認証結果を元にSupabaseより発行されたトークンを取得
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+  if (accessToken && refreshToken) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) {
+      return { ok: false, reason: "unknown", message: error.message };
+    }
+    if (!data.session?.user) {
+      return {
+        ok: false,
+        reason: "missing_session",
+        message: "OAuth session was not created",
+      };
+    }
+    return { ok: true, user: data.session.user };
+  }
+
+  // paramからaccessTokenとrefreshTokenが見つからない場合、
+  // supabase.auth.exchangeCodeForSession(code)で、
+  // Supabase に code を渡して session を作ってもらう
+  const code = params.get("code");
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      return { ok: false, reason: "unknown", message: error.message };
+    }
+    if (!data.session?.user) {
+      return {
+        ok: false,
+        reason: "missing_session",
+        message: "OAuth session was not created",
+      };
+    }
+    return { ok: true, user: data.session.user };
+  }
+
+  return {
+    ok: false,
+    reason: "missing_session",
+    message: "OAuth callback did not include session tokens",
+  };
+};
+
+//　Google/Appleを使用したサインアップ/ログイン処理
+export const continueWithOAuthProvider = async (
+  provider: OAuthProvider,
+): Promise<OAuthContinueResult> => {
+  const redirectTo = buildRedirect("/auth/callback");
+
+  // OAuth開始用のURLをSupabaseから受け取る処理
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true, // ボタン押下時のポップアップを省略し、そのままGoogle or Apple認証画面へ遷移する
+      },
+    });
+
+    if (error) {
+      return { ok: false, reason: "unknown", message: error.message };
+    }
+    if (!data.url) {
+      return {
+        ok: false,
+        reason: "unknown",
+        message: "OAuth authorization URL was not returned",
+      };
+    }
+    // OAuth開始用のURLでGoogle/Appleブラウザを開き、Google/Apple側で認証を確認する
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo, {
+      preferEphemeralSession: true, // Safari の既存ログイン状態や cookie をできるだけ使わない方向
+    });
+    if (result.type !== "success") {
+      return {
+        ok: false,
+        reason: "cancelled",
+        message: "OAuth sign-in was cancelled",
+      };
+    }
+    // Google/Apple認証結果を引数で渡しaccessToken refreshTokenデータを取得する
+    return await createSessionFromOAuthCallbackUrl(result.url);
+  } catch (error) {
+    captureSupabaseAuthUnexpectedError(error, "oauth");
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    return { ok: false, reason: "unknown", message };
+  }
+};
 
 const isExistingEmailError = (error: AuthError) => {
   const message = error.message?.toLowerCase() ?? "";

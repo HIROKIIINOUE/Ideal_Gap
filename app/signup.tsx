@@ -8,14 +8,16 @@ import { z } from "zod";
 import Footer from "../components/Footer";
 import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
+import OAuthContinueButtons, { OAuthProviderId } from "../components/OAuthContinueButtons";
 import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
-import { signUpWithEmailConfirmation } from "../lib/auth";
-import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
+import { continueWithOAuthProvider, signUpWithEmailConfirmation } from "../lib/auth";
+import { resolveAuthenticatedEntryDestination } from "../lib/authEntry";
 import { ensureSignupAwaitSubscription, getAccessStateForUser } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
+import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { useLanguage } from "../providers/LanguageProvider";
 
 const signupSchema = z.object({
@@ -42,6 +44,7 @@ export default function Signup() {
   >("idle");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthProvider, setOauthProvider] = useState<OAuthProviderId | null>(null);
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const signupValidation = useMemo(() => {
     const result = signupSchema.safeParse({ username, email, password });
@@ -57,6 +60,10 @@ export default function Signup() {
   const isEmailValid = !signupValidation.fieldErrors.email;
   const isPasswordValid = !signupValidation.fieldErrors.password;
   const isFormValid = signupValidation.isValid;
+  const oauthProviders = useMemo<OAuthProviderId[]>(
+    () => (Platform.OS === "ios" ? ["apple", "google"] : ["google"]),
+    [],
+  );
   const localizedPrice = useMemo(() => (language === "ja" ? "390円" : "3.99CAD"), [language]);
   const trialLabel = useMemo(() => t("trialLabelDay", { count: 14 }), [t]);
   const planPriceCopy = useMemo(
@@ -106,7 +113,7 @@ export default function Signup() {
     setEmailTouched(true);
     setPasswordTouched(true);
 
-    if (!isFormValid || isSubmitting) {
+    if (!isFormValid || isSubmitting || oauthProvider) {
       return;
     }
 
@@ -139,7 +146,44 @@ export default function Signup() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [email, isFormValid, isSubmitting, language, password, t, username]);
+  }, [email, isFormValid, isSubmitting, language, oauthProvider, password, t, username]);
+
+  // Google/Apple認証処理
+  const handleOAuthContinue = useCallback(
+    async (provider: OAuthProviderId) => {
+      if (oauthProvider || isSubmitting) return;
+
+      setSubmissionError(null);
+      setSubmissionState("idle");
+      setOauthProvider(provider);
+
+      try {
+        // google/apple認証の結果と該当ユーザのセッション情報を受け取る
+        const result = await continueWithOAuthProvider(provider);
+        if (!result.ok) {
+          if (result.reason !== "cancelled") {
+            setSubmissionError(t("oauthError"));
+          }
+          return;
+        }
+
+        // Google?Apple認証完了ユーザと紐づくDBデータを参照(必要データがなければ作成)し
+        // 認証処理完了後の遷移先(ダッシュボードor支払い画面)を確定する
+        const destination = await resolveAuthenticatedEntryDestination({
+          source: "signup",
+          user: result.user,
+          language,
+        });
+        router.replace(destination);
+      } catch (error) {
+        console.warn("OAuth signup flow failed", error);
+        setSubmissionError(t("oauthError"));
+      } finally {
+        setOauthProvider(null);
+      }
+    },
+    [isSubmitting, language, oauthProvider, t],
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
@@ -158,130 +202,140 @@ export default function Signup() {
           </View>
 
           <View style={[styles.card, shadows.card]}>
-          <LinearGradient
-            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.title}>{t("heroTitle")}</Text>
-          <Text style={styles.body}>{t("heroBody", { planCopy: planPriceCopy })}</Text>
-
-          <View style={[styles.planCard, shadows.card]}>
-            <Text style={styles.trialPrice}>{trialPriceLine}</Text>
-            <Text style={styles.planPrice}>{paidPriceLine}</Text>
-            <Text style={styles.helperText}>{t("planDescription")}</Text>
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("usernameLabel")}</Text>
-            <TextInput
-              placeholder={t("usernamePlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              keyboardAppearance="dark"
-              autoCapitalize="none"
-              value={username}
-              onChangeText={setUsername}
-              onBlur={() => setUsernameTouched(true)}
-            />
-            {!isUsernameValid && usernameTouched && <Text style={styles.errorText}>{t("usernameInvalid")}</Text>}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
-            <TextInput
-              placeholder={t("emailPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              keyboardAppearance="dark"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-              onBlur={() => setEmailTouched(true)}
-            />
-            {!isEmailValid && emailTouched && <Text style={styles.errorText}>{t("emailInvalid")}</Text>}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
-            <PasswordField
-              placeholder={t("passwordPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              keyboardAppearance="dark"
-              value={password}
-              onChangeText={setPassword}
-              onBlur={() => setPasswordTouched(true)}
-              showPasswordLabel={t("showPassword")}
-              hidePasswordLabel={t("hidePassword")}
-            />
-            {!isPasswordValid && passwordTouched && (
-              <Text style={styles.errorText}>{t("passwordInvalid")}</Text>
-            )}
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.ctaButton,
-              styles.primaryButton,
-              styles.buttonShadow,
-              Platform.OS === "android" && styles.buttonShadowAndroidFix,
-              (!isFormValid || isSubmitting) && styles.buttonDisabled,
-              pressed && isFormValid && !isSubmitting && styles.buttonPressed,
-            ]}
-            disabled={!isFormValid || isSubmitting}
-            onPress={handleSubmit}
-          >
             <LinearGradient
-              colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
+              colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.buttonGlass}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.primaryLabel}>
-              {isSubmitting ? t("primaryCtaLoading") : t("primaryCta")}
-            </Text>
-          </Pressable>
-          {submissionState === "success" && (
-            <View style={[styles.alertBox, styles.successBox]}>
-              <Text style={styles.alertTitle}>{t("verificationTitle")}</Text>
-              <Text style={styles.alertBody}>{t("verificationBody", { email })}</Text>
+            <Text style={styles.title}>{t("heroTitle")}</Text>
+            <Text style={styles.body}>{t("heroBody", { planCopy: planPriceCopy })}</Text>
+
+            <View style={[styles.planCard, shadows.card]}>
+              <Text style={styles.trialPrice}>{trialPriceLine}</Text>
+              <Text style={styles.planPrice}>{paidPriceLine}</Text>
+              <Text style={styles.helperText}>{t("planDescription")}</Text>
             </View>
-          )}
-          {submissionState === "verification_resent" && (
-            <View style={[styles.alertBox, styles.successBox]}>
-              <Text style={styles.alertBody}>{t("unconfirmedVerificationBody")}</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t("usernameLabel")}</Text>
+              <TextInput
+                placeholder={t("usernamePlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                keyboardAppearance="dark"
+                autoCapitalize="none"
+                value={username}
+                onChangeText={setUsername}
+                onBlur={() => setUsernameTouched(true)}
+              />
+              {!isUsernameValid && usernameTouched && <Text style={styles.errorText}>{t("usernameInvalid")}</Text>}
             </View>
-          )}
-          {submissionError && (
-            <View style={[styles.alertBox, styles.errorBox]}>
-              <Text style={styles.alertBody}>{submissionError}</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
+              <TextInput
+                placeholder={t("emailPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                keyboardAppearance="dark"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+                onBlur={() => setEmailTouched(true)}
+              />
+              {!isEmailValid && emailTouched && <Text style={styles.errorText}>{t("emailInvalid")}</Text>}
             </View>
-          )}
-          </View>
-          <View style={[styles.card, shadows.card]}>
-          <LinearGradient
-            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.cardHeading}>{t("existingAccountHeading")}</Text>
-          <Link href="/login" asChild>
-            <Pressable accessibilityRole="button" style={({ pressed }) => [pressed && styles.buttonPressed]}>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
+              <PasswordField
+                placeholder={t("passwordPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                keyboardAppearance="dark"
+                value={password}
+                onChangeText={setPassword}
+                onBlur={() => setPasswordTouched(true)}
+                showPasswordLabel={t("showPassword")}
+                hidePasswordLabel={t("hidePassword")}
+              />
+              {!isPasswordValid && passwordTouched && (
+                <Text style={styles.errorText}>{t("passwordInvalid")}</Text>
+              )}
+            </View>
+
+            <OAuthContinueButtons
+              providers={oauthProviders}
+              googleLabel={t("continueWithGoogle")}
+              appleLabel={t("continueWithApple")}
+              loadingLabel={t("oauthLoading")}
+              loadingProvider={oauthProvider}
+              disabled={isSubmitting}
+              onPress={handleOAuthContinue}
+            />
+
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.ctaButton,
+                styles.primaryButton,
+                styles.buttonShadow,
+                Platform.OS === "android" && styles.buttonShadowAndroidFix,
+                (!isFormValid || isSubmitting || oauthProvider) && styles.buttonDisabled,
+                pressed && isFormValid && !isSubmitting && !oauthProvider && styles.buttonPressed,
+              ]}
+              disabled={!isFormValid || isSubmitting || Boolean(oauthProvider)}
+              onPress={handleSubmit}
+            >
               <LinearGradient
                 colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.altCtaGradient, styles.altCtaPressable, styles.secondaryButton]}
-              >
-                <Text style={styles.primaryLabel}>{t("goToLogin")}</Text>
-              </LinearGradient>
+                style={styles.buttonGlass}
+              />
+              <Text style={styles.primaryLabel}>
+                {isSubmitting ? t("primaryCtaLoading") : t("primaryCta")}
+              </Text>
             </Pressable>
-          </Link>
+            {submissionState === "success" && (
+              <View style={[styles.alertBox, styles.successBox]}>
+                <Text style={styles.alertTitle}>{t("verificationTitle")}</Text>
+                <Text style={styles.alertBody}>{t("verificationBody", { email })}</Text>
+              </View>
+            )}
+            {submissionState === "verification_resent" && (
+              <View style={[styles.alertBox, styles.successBox]}>
+                <Text style={styles.alertBody}>{t("unconfirmedVerificationBody")}</Text>
+              </View>
+            )}
+            {submissionError && (
+              <View style={[styles.alertBox, styles.errorBox]}>
+                <Text style={styles.alertBody}>{submissionError}</Text>
+              </View>
+            )}
+          </View>
+          <View style={[styles.card, shadows.card]}>
+            <LinearGradient
+              colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={styles.cardHeading}>{t("existingAccountHeading")}</Text>
+            <Link href="/login" asChild>
+              <Pressable accessibilityRole="button" style={({ pressed }) => [pressed && styles.buttonPressed]}>
+                <LinearGradient
+                  colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.altCtaGradient, styles.altCtaPressable, styles.secondaryButton]}
+                >
+                  <Text style={styles.primaryLabel}>{t("goToLogin")}</Text>
+                </LinearGradient>
+              </Pressable>
+            </Link>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

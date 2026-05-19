@@ -6,7 +6,9 @@
 // ２、DB上のaccess_override.access_typeが"friend_free" かつ is_active=trueである(友人用の無料ユーザ)
 // ３、アクセス権なし
 
+import { User } from "@supabase/supabase-js";
 import { Database } from "../types/database";
+import { LanguageKey } from "../types/i18n";
 import { supabase } from "./supabaseClient";
 
 export type SubscriptionStatus = Database["public"]["Enums"]["status"];
@@ -39,12 +41,136 @@ type UserRow = Pick<
   Database["public"]["Tables"]["users"]["Row"],
   "id" | "had_account_before"
 >;
+type UserProfileRow = Database["public"]["Tables"]["users"]["Row"];
+type AuthUserProfileInput = Pick<
+  User,
+  "id" | "email" | "user_metadata" | "app_metadata"
+>;
+type EnsureSignupAwaitSubscriptionOptions = {
+  authUser?: AuthUserProfileInput | null;
+  language?: LanguageKey | null;
+};
 const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] =
   DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES;
 
 const nowIso = () => new Date().toISOString();
 // 同じuserIdで複数回同時にensureSignupAwaitSubscription が呼ばれたとき、DBに重複行を挿入しないためのデータ構造。進行中のプロミス処理も一つにまとめてくれる。
 const ensureInFlight = new Map<string, Promise<SubscriptionRow>>();
+
+// メタデータ解析ヘルパー  (後日復習対象)
+const getMetadataString = (
+  metadata: Record<string, unknown> | null | undefined,
+  keys: string[],
+) => {
+  for (const key of keys) {
+    const value = metadata?.[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+// メタデータ解析ヘルパー  (後日復習対象)
+const getPrimaryProvider = (authUser: AuthUserProfileInput) => {
+  const provider = authUser.app_metadata?.provider;
+  return typeof provider === "string" ? provider : null;
+};
+// メタデータ解析ヘルパー  (後日復習対象)
+const buildFallbackEmail = (userId: string) =>
+  `no-reply+${userId}@idealgap.app`;
+
+// OAuth認証後にgoogle/appleより返されるメタデータをアプリDBのユーザメールアドレス用に解析
+const resolveUserEmail = (authUser: AuthUserProfileInput) =>
+  authUser.email?.trim() || buildFallbackEmail(authUser.id);
+
+// OAuth認証後にgoogle/appleより返されるメタデータをアプリDBのユーザ名用に解析
+const resolveUserName = (authUser: AuthUserProfileInput, email: string) => {
+  const metadataName = getMetadataString(authUser.user_metadata, [
+    "name",
+    "full_name",
+    "display_name",
+    "user_name",
+  ]);
+  if (metadataName) return metadataName;
+
+  const provider = getPrimaryProvider(authUser);
+  if (provider === "apple") return "Apple User";
+  if (provider === "google") return "Google User";
+
+  const [localPart] = email.split("@");
+  if (localPart && !localPart.startsWith("no-reply+")) return localPart;
+  return `User-${authUser.id.slice(0, 8)}`;
+};
+
+// ユーザ情報をsupabase Authから取得
+const getCurrentAuthUserForId = async (
+  userId: string,
+): Promise<AuthUserProfileInput | null> => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user || data.user.id !== userId) {
+    return null;
+  }
+  return data.user;
+};
+
+// Google/Apple認証完了後にDBに該当ユーザが存在するか確認、しなければ作成する
+export const ensureUserProfileForAuthUser = async (
+  authUser: AuthUserProfileInput,
+  language?: LanguageKey | null,
+): Promise<UserProfileRow> => {
+  const { data: existing, error: existingError } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error(existingError.message);
+  }
+  // DBに該当のユーザデータが既に存在していたらそのユーザを返す
+  if (existing) {
+    return existing as UserProfileRow;
+  }
+
+  const timestamp = nowIso();
+  // google/appleより返されるメタデータをアプリのユーザメールアドレス用に解析
+  const email = resolveUserEmail(authUser);
+  // google/appleより返されるメタデータをアプリのユーザ名用に解析
+  const name = resolveUserName(authUser, email);
+
+  // 解析済みのgoogle/appleからのメタデータをDBのユーザテーブルに保存する
+  const { data, error } = await supabase
+    .from("users")
+    .insert({
+      id: authUser.id,
+      email,
+      name,
+      language: language ?? null,
+      had_account_before: false,
+      is_canceled: false,
+      created_at: timestamp,
+      updated_at: timestamp,
+    })
+    .select("*")
+    .single();
+
+  if (error?.code === "23505") {
+    const { data: fallback, error: fallbackError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", authUser.id)
+      .maybeSingle();
+    if (fallbackError) throw new Error(fallbackError.message);
+    if (fallback) return fallback as UserProfileRow;
+  }
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to ensure user profile");
+  }
+
+  return data as UserProfileRow;
+};
 
 // Subscriptionsテーブルから該当のユーザの情報を取得
 export const getSubscriptionForUser = async (
@@ -191,6 +317,7 @@ export const waitForActiveSubscription = async (
 // ユーザのサブスクリプションデータが存在していなかった場合、ユーザに紐づくサブスクリプションデータを新規作成するロジック
 export const ensureSignupAwaitSubscription = async (
   userId: string,
+  options?: EnsureSignupAwaitSubscriptionOptions,
 ): Promise<SubscriptionRow> => {
   // 既に同じuserIdの非同期処理が進行中ならそれに相乗りする新しい処理を発生させないためのロジック。複数非同期処理の制御
   const inFlight = ensureInFlight.get(userId);
@@ -203,6 +330,13 @@ export const ensureSignupAwaitSubscription = async (
 
   const promise = (async () => {
     const timestamp = nowIso();
+    // ユーザ情報がDBに存在するか確認し、なければsubscriptionデータ処理の前に作成
+    const authUser =
+      options?.authUser ?? (await getCurrentAuthUserForId(userId));
+    if (authUser) {
+      await ensureUserProfileForAuthUser(authUser, options?.language);
+    }
+
     // 新規作成時は had_account_before を明示的に false に初期化する
     await supabase
       .from("users")

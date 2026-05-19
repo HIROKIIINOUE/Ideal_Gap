@@ -132,4 +132,45 @@ describe("ProfileUpdate", () => {
     fireEvent.press(screen.getByRole("button", { name: "Hide password" }));
     expect((await screen.findByPlaceholderText("New password (optional)")).props.secureTextEntry).toBe(true);
   });
+
+  test("renders Apple or Google users with only the username as read-only", async () => {
+    (supabase.auth.getUser as jest.Mock).mockReset();
+    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+      data: {
+        user: {
+          id: "user-1",
+          email: "google@example.com",
+          app_metadata: { providers: ["google"], provider: "google" },
+          identities: [{ provider: "google" }],
+          user_metadata: { name: "Google Name" },
+        },
+      },
+      error: null,
+    });
+    mockProfileMaybeSingle.mockResolvedValue({
+      data: { name: "Google Name", email: "google@example.com" },
+      error: null,
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    expect(await screen.findByDisplayValue("Google Name")).toHaveProp(
+      "editable",
+      false,
+    );
+    expect(
+      await screen.findByText(
+        "You are logged in with your Apple/Google account, so this app cannot change your profile.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByDisplayValue("google@example.com")).toBeNull();
+    expect(screen.queryByText("Email")).toBeNull();
+    expect(screen.queryByText("Password")).toBeNull();
+    expect(screen.queryByPlaceholderText("New password (optional)")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+  });
 });
