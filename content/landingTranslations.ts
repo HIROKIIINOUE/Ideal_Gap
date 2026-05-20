@@ -64,14 +64,15 @@ export const landingTranslations: LandingTranslations = {
     },
     membership: {
       label: "Membership",
-      title: "定額プラン(現在無料期間あり)",
+      title: "定額プラン",
       price: "390 円",
       period: "/月",
       trialBadge: "14日間無料トライアル付き",
       description:
-        "支払い情報はApple Store/Google Playを使用するため安全に管理されます。トライアル中にキャンセルすれば一切料金はかかりません。",
+        "支払い情報は{{storeName}}で安全に管理されます。無料期間中にキャンセルすれば請求は発生しません。",
       bulletPoints: [
-        "14日間無料、無料期間以降390円/月",
+        "390円/月で30日ごとに自動更新",
+        "14日間の無料トライアルあり",
         "いつでもキャンセル予約可能",
         "再サインアップ時は無料プラン適用なし",
       ],
@@ -112,14 +113,15 @@ export const landingTranslations: LandingTranslations = {
     },
     membership: {
       label: "Membership",
-      title: "Subscription(Free Trial Available)",
+      title: "Subscription",
       price: "3.99 CAD",
       period: "/month",
       trialBadge: "Includes 14-day free trial",
       description:
-        "Payments are securely processed through the App Store / Google Play. You can cancel anytime during the free trial and you won’t be charged.",
+        "Payments are securely processed through {{storeName}}. Cancel during the free trial and you won’t be charged.",
       bulletPoints: [
-        "14-day free trial, then 3.99 CAD/month",
+        "3.99 CAD/month, billed every 30 days",
+        "14-day free trial available",
         "Cancel anytime",
         "No free plan when re-signing up",
       ],
@@ -160,14 +162,15 @@ export const landingTranslations: LandingTranslations = {
     },
     membership: {
       label: "Abonnement",
-      title: "Forfait fixe (essai gratuit disponible)",
+      title: "Abonnement",
       price: "3.99 CAD",
       period: "/mois",
       trialBadge: "Essai gratuit de 14 jours inclus",
       description:
-        "Paiements sécurisés via l’App Store / Google Play. Annulez à tout moment pendant l’essai gratuit, sans frais.",
+        "Les paiements sont traités en sécurité via {{storeName}}. Annulez pendant l’essai gratuit et vous ne serez pas facturé.",
       bulletPoints: [
-        "Essai gratuit de 14 jours, puis 3.99 CAD/mois",
+        "3.99 CAD/mois, facturé tous les 30 jours",
+        "Essai gratuit de 14 jours disponible",
         "Annulation possible à tout moment",
         "Pas d’offre gratuite lors d’une réinscription",
       ],

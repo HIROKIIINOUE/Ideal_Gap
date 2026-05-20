@@ -11,6 +11,8 @@ export type ProfileUpdateTranslations = {
   passwordPlaceholder: string;
   externalProviderPasswordPlaceholder: string;
   externalProviderNotice: string;
+  externalProviderNoticeApple: string;
+  externalProviderNoticeGoogle: string;
   showPassword: string;
   hidePassword: string;
   save: string;
@@ -44,7 +46,11 @@ export const profileUpdateTranslations: Record<
     passwordPlaceholder: "新しいパスワード（任意）",
     externalProviderPasswordPlaceholder: "Apple/Googleアカウントで管理されています",
     externalProviderNotice:
-      "Apple/Googleアカウントでログインしているため本アプリではプロフィールを変更できません。",
+      "外部プロバイダでログインしているため本アプリではプロフィールを変更できません。",
+    externalProviderNoticeApple:
+      "Appleでログインしているため本アプリではプロフィールを変更できません。",
+    externalProviderNoticeGoogle:
+      "Googleでログインしているため本アプリではプロフィールを変更できません。",
     showPassword: "パスワードを表示",
     hidePassword: "パスワードを非表示",
     save: "変更を保存",
@@ -75,7 +81,11 @@ export const profileUpdateTranslations: Record<
     passwordPlaceholder: "New password (optional)",
     externalProviderPasswordPlaceholder: "Managed by your Apple/Google account",
     externalProviderNotice:
-      "You are logged in with your Apple/Google account, so this app cannot change your profile.",
+      "You are logged in with an external provider, so this app cannot change your profile.",
+    externalProviderNoticeApple:
+      "You are logged in with Apple, so this app cannot change your profile.",
+    externalProviderNoticeGoogle:
+      "You are logged in with Google, so this app cannot change your profile.",
     showPassword: "Show password",
     hidePassword: "Hide password",
     save: "Save changes",
@@ -106,7 +116,11 @@ export const profileUpdateTranslations: Record<
     passwordPlaceholder: "Nouveau mot de passe (facultatif)",
     externalProviderPasswordPlaceholder: "Géré par votre compte Apple/Google",
     externalProviderNotice:
-      "Vous êtes connecté avec votre compte Apple/Google. Ce profil ne peut donc pas être modifié dans l’application.",
+      "Vous êtes connecté avec un fournisseur externe. Ce profil ne peut donc pas être modifié dans l’application.",
+    externalProviderNoticeApple:
+      "Vous êtes connecté avec Apple. Ce profil ne peut donc pas être modifié dans l’application.",
+    externalProviderNoticeGoogle:
+      "Vous êtes connecté avec Google. Ce profil ne peut donc pas être modifié dans l’application.",
     showPassword: "Afficher le mot de passe",
     hidePassword: "Masquer le mot de passe",
     save: "Enregistrer les modifications",

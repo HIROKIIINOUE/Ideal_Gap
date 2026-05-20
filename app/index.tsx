@@ -25,6 +25,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { LandingSections } from "../content/landingTranslations";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { signOutCurrentSession } from "../lib/logout";
+import { getStoreName } from "../lib/subscriptionLegal";
 import {
   LANDING_SECTION_REVEAL_OFFSET,
   shouldRevealLandingSection,
@@ -230,6 +231,7 @@ export default function Index() {
   // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
   const { width, height, fontScale } = useWindowDimensions();
   const compact = isCompactScreen(width, fontScale);
+  const storeName = useMemo(() => getStoreName(Platform.OS), []);
   // i18n より現在の設定言語を取得
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
@@ -244,10 +246,13 @@ export default function Index() {
     () => ({
       hero: t("hero", { returnObjects: true }) as LandingSections["hero"],
       overview: t("overview", { returnObjects: true }) as LandingSections["overview"],
-      membership: t("membership", { returnObjects: true }) as LandingSections["membership"],
+      membership: t("membership", {
+        returnObjects: true,
+        storeName,
+      }) as LandingSections["membership"],
       getStarted: t("getStarted", { returnObjects: true }) as LandingSections["getStarted"],
     }),
-    [t],
+    [storeName, t],
   );
 
   // ヒーロー画面CTAボタンの光沢アニメーション【Animated from ReactNative】

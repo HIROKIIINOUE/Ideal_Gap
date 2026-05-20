@@ -10,12 +10,14 @@ import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import OAuthContinueButtons, { OAuthProviderId } from "../components/OAuthContinueButtons";
 import PasswordField from "../components/PasswordField";
+import SubscriptionLegalLinks from "../components/SubscriptionLegalLinks";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { continueWithOAuthProvider, signUpWithEmailConfirmation } from "../lib/auth";
 import { resolveAuthenticatedEntryDestination } from "../lib/authEntry";
 import { ensureSignupAwaitSubscription, getAccessStateForUser } from "../lib/subscription";
+import { getStoreName } from "../lib/subscriptionLegal";
 import { supabase } from "../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { useLanguage } from "../providers/LanguageProvider";
@@ -65,18 +67,19 @@ export default function Signup() {
     [],
   );
   const localizedPrice = useMemo(() => (language === "ja" ? "390円" : "3.99CAD"), [language]);
+  const storeName = useMemo(() => getStoreName(Platform.OS), []);
   const trialLabel = useMemo(() => t("trialLabelDay", { count: 14 }), [t]);
-  const planPriceCopy = useMemo(
+  const renewalPriceCopy = useMemo(
+    () => t("planRenewalPrice", { price: localizedPrice }),
+    [localizedPrice, t],
+  );
+  const trialInfoCopy = useMemo(
     () =>
-      t("planPriceWithTrial", {
+      t("trialInfo", {
         trial: trialLabel,
         price: localizedPrice,
       }),
     [localizedPrice, t, trialLabel],
-  );
-  const [trialPriceLine = "", paidPriceLine = ""] = useMemo(
-    () => planPriceCopy.split("\n"),
-    [planPriceCopy],
   );
 
   //　画面が表示されたときの初期処理(ログイン状態時のみ、状況に応じて各ページに遷移される)
@@ -209,13 +212,19 @@ export default function Signup() {
               style={StyleSheet.absoluteFill}
             />
             <Text style={styles.title}>{t("heroTitle")}</Text>
-            <Text style={styles.body}>{t("heroBody", { planCopy: planPriceCopy })}</Text>
+            <Text style={styles.body}>{t("heroBody", { storeName })}</Text>
 
             <View style={[styles.planCard, shadows.card]}>
-              <Text style={styles.trialPrice}>{trialPriceLine}</Text>
-              <Text style={styles.planPrice}>{paidPriceLine}</Text>
+              <Text style={styles.planTitle}>{t("planTitle")}</Text>
+              <Text style={styles.planDuration}>{t("planDuration")}</Text>
+              <Text style={styles.planPrice}>{renewalPriceCopy}</Text>
+              <Text style={styles.trialPrice}>{trialInfoCopy}</Text>
               <Text style={styles.helperText}>{t("planDescription")}</Text>
             </View>
+            <SubscriptionLegalLinks
+              privacyPolicyLabel={t("privacyPolicyLabel")}
+              termsOfUseLabel={t("termsOfUseLabel")}
+            />
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>{t("usernameLabel")}</Text>
@@ -420,16 +429,30 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     gap: spacing.xs,
   },
-  planPrice: {
+  planTitle: {
     color: colors.textSecondary,
-    fontSize: typography.md,
-    fontWeight: "700",
+    fontSize: typography.sm,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  planDuration: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  planPrice: {
+    color: colors.textPrimary,
+    fontSize: typography.xl,
+    fontWeight: "800",
     flexShrink: 0,
+    lineHeight: typography.xl * 1.2,
   },
   trialPrice: {
-    color: colors.textPrimary,
-    fontSize: typography.lg,
-    fontWeight: "800",
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    fontWeight: "600",
+    lineHeight: typography.sm * 1.5,
   },
   fieldGroup: {
     gap: spacing.xs,

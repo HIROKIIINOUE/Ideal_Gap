@@ -133,7 +133,7 @@ describe("ProfileUpdate", () => {
     expect((await screen.findByPlaceholderText("New password (optional)")).props.secureTextEntry).toBe(true);
   });
 
-  test("renders Apple or Google users with only the username as read-only", async () => {
+  test("renders Google users with only the username as read-only", async () => {
     (supabase.auth.getUser as jest.Mock).mockReset();
     (supabase.auth.getUser as jest.Mock).mockResolvedValue({
       data: {
@@ -164,13 +164,46 @@ describe("ProfileUpdate", () => {
     );
     expect(
       await screen.findByText(
-        "You are logged in with your Apple/Google account, so this app cannot change your profile.",
+        "You are logged in with Google, so this app cannot change your profile.",
       ),
     ).toBeTruthy();
     expect(screen.queryByDisplayValue("google@example.com")).toBeNull();
     expect(screen.queryByText("Email")).toBeNull();
     expect(screen.queryByText("Password")).toBeNull();
     expect(screen.queryByPlaceholderText("New password (optional)")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+  });
+
+  test("prefers Apple when both Apple and Google providers are present", async () => {
+    (supabase.auth.getUser as jest.Mock).mockReset();
+    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+      data: {
+        user: {
+          id: "user-1",
+          email: "apple@example.com",
+          app_metadata: { providers: ["google", "apple"], provider: "google" },
+          identities: [{ provider: "google" }, { provider: "apple" }],
+          user_metadata: { name: "Apple Name" },
+        },
+      },
+      error: null,
+    });
+    mockProfileMaybeSingle.mockResolvedValue({
+      data: { name: "Apple Name", email: "apple@example.com" },
+      error: null,
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    expect(
+      await screen.findByText(
+        "You are logged in with Apple, so this app cannot change your profile.",
+      ),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
   });
 });

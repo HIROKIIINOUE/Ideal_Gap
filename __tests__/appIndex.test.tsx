@@ -110,11 +110,11 @@ describe("Index screen", () => {
     );
 
     const title = await screen.findByText("Votre premier pas vers votre moi idéal");
-    const membership = await screen.findByText("Forfait fixe (essai gratuit disponible)");
+    const membershipLabels = await screen.findAllByText("Abonnement");
     const ctaLabels = await screen.findAllByText("Essai gratuit");
 
     expect(title).toHaveStyle({ fontSize: 22.08 });
-    expect(membership).toHaveStyle({ fontSize: 16 });
+    expect(membershipLabels[1]).toHaveStyle({ fontSize: 16 });
     expect(ctaLabels[0]).toHaveStyle({ fontSize: 13 });
   });
 

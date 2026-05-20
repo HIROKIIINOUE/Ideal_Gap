@@ -22,14 +22,22 @@ export const getTrialLabel = (plan: TestStorePlan | null, t: TFunction) => {
   return null;
 };
 
-export const getPlanPriceCopy = (plan: TestStorePlan | null, t: TFunction) => {
+export const getPlanBillingCopy = (plan: TestStorePlan | null, t: TFunction) => {
   if (!plan) return t("planUnavailable");
+  return t("planRenewalPrice", { price: plan.priceString });
+};
+
+export const getPlanTrialCopy = (plan: TestStorePlan | null, t: TFunction) => {
+  if (!plan) return null;
   const trialLabel = getTrialLabel(plan, t);
   if (trialLabel) {
-    return t("planPriceWithTrial", {
+    return t("trialInfo", {
       trial: trialLabel,
       price: plan.priceString,
     });
   }
-  return t("planPriceNoTrial", { price: plan.priceString });
+  return null;
 };
+
+export const getPlanPriceCopy = (plan: TestStorePlan | null, t: TFunction) =>
+  getPlanBillingCopy(plan, t);

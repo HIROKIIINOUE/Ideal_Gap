@@ -102,13 +102,15 @@ beforeEach(() => {
 });
 
 describe("Purchases screen", () => {
-  test("shows revenuecat price copy without redundant plan labels", async () => {
-    const { findByText, queryByText } = renderScreen();
+  test("shows billed price, subscription details, and legal links", async () => {
+    const { findByText } = renderScreen();
 
-    expect(await findByText("Free for 1 month")).toBeTruthy();
-    expect(await findByText("After the trial, $8.50/month")).toBeTruthy();
-    expect(queryByText("Standard plan")).toBeNull();
-    expect(queryByText("Uses your App Store/Google Play billing.")).toBeNull();
+    expect(await findByText("Standard plan")).toBeTruthy();
+    expect(await findByText("Auto-renews every 30 days")).toBeTruthy();
+    expect(await findByText("$8.50/month")).toBeTruthy();
+    expect(await findByText("Free for 1 month, then renews at $8.50/month.")).toBeTruthy();
+    expect(await findByText("Privacy Policy")).toBeTruthy();
+    expect(await findByText("Terms of Use")).toBeTruthy();
   });
 
   test("shows signup success message when opened from email link", async () => {

@@ -4,8 +4,8 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
   Platform,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,9 +14,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import SubscriptionLegalLinks from "../components/SubscriptionLegalLinks";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signOutCurrentSession } from "../lib/logout";
-import { getPlanPriceCopy, getTrialLabel } from "../lib/planCopy";
+import {
+  getPlanBillingCopy,
+  getPlanTrialCopy,
+} from "../lib/planCopy";
 import {
   fetchTestStorePackage,
   hasActiveEntitlement,
@@ -29,6 +33,7 @@ import {
   getAccessStateForUser,
   waitForActiveSubscription,
 } from "../lib/subscription";
+import { getStoreName } from "../lib/subscriptionLegal";
 import { supabase } from "../lib/supabaseClient";
 
 export default function Purchases() {
@@ -127,13 +132,9 @@ export default function Purchases() {
     };
   }, [loadPlan, t]);
 
-  const planPriceCopy = useMemo(() => getPlanPriceCopy(plan, t), [plan, t]);
-  // trialPriceLineとpaidPriceLineでRevenue Catから取得したトライアルと料金プランをUI用に整形している
-  const trialPriceLine = useMemo(() => getTrialLabel(plan, t), [plan, t]);
-  const paidPriceLine = useMemo(() => {
-    if (!plan) return null;
-    return t("planPriceNoTrial", { price: plan.priceString });
-  }, [plan, t]);
+  const storeName = useMemo(() => getStoreName(Platform.OS), []);
+  const billedPriceLine = useMemo(() => getPlanBillingCopy(plan, t), [plan, t]);
+  const trialInfoLine = useMemo(() => getPlanTrialCopy(plan, t), [plan, t]);
 
   //　ボタン押下時の購入処理
   const handlePurchase = useCallback(async () => {
@@ -226,14 +227,13 @@ export default function Purchases() {
           >
             {!isLoadingPlan && plan && (
               <>
-                {trialPriceLine ? (
-                  <>
-                    <Text style={styles.trialPrice}>{trialPriceLine}</Text>
-                    <Text style={styles.planPrice}>{paidPriceLine}</Text>
-                  </>
-                ) : (
-                  <Text style={styles.planPrice}>{planPriceCopy}</Text>
-                )}
+                <Text style={styles.planTitle}>{t("planTitle")}</Text>
+                <Text style={styles.planDuration}>{t("planDuration")}</Text>
+                <Text style={styles.planPrice}>{billedPriceLine}</Text>
+                {trialInfoLine ? (
+                  <Text style={styles.trialPrice}>{trialInfoLine}</Text>
+                ) : null}
+                <Text style={styles.planDescription}>{t("planDescription", { storeName })}</Text>
               </>
             )}
             <Text style={styles.trialNotice}>{t("trialCancelNotice")}</Text>
@@ -262,9 +262,13 @@ export default function Purchases() {
 
           <View style={styles.noticeCard}>
             <Text style={styles.noticeText}>
-              {`${t("storeBillingNotice")} ${t("cardInfoPolicy")}`}
+              {`${t("storeBillingNotice", { storeName })} ${t("cardInfoPolicy")}`}
             </Text>
           </View>
+          <SubscriptionLegalLinks
+            privacyPolicyLabel={t("privacyPolicyLabel")}
+            termsOfUseLabel={t("termsOfUseLabel")}
+          />
 
           <Pressable
             accessibilityRole="button"
@@ -366,19 +370,36 @@ const styles = StyleSheet.create({
   planCardAndroid: {
     elevation: 0,
   },
+  planTitle: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  planDuration: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
   planPrice: {
     color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
-    flexShrink: 1,
-    lineHeight: typography.md * 1.5,
-  },
-  trialPrice: {
-    color: colors.textPrimary,
-    fontSize: typography.md * 1.5,
+    fontSize: typography.xl,
     fontWeight: "800",
     flexShrink: 1,
-    lineHeight: typography.md * 1.8,
+    lineHeight: typography.xl * 1.2,
+  },
+  trialPrice: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    fontWeight: "600",
+    flexShrink: 1,
+    lineHeight: typography.sm * 1.5,
+  },
+  planDescription: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
   },
   trialNotice: {
     color: "#FFD56A",

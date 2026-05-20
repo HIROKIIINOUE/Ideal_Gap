@@ -241,9 +241,9 @@ describe("Signup screen", () => {
 
     const trialTexts = await findAllByText(/Free for 14 day/i);
     expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/then 3\.99CAD\/month/i);
+    const priceTexts = await findAllByText(/^3\.99CAD\/month$/i);
     expect(priceTexts.length).toBeGreaterThan(0);
-    expect(priceTexts[0]).toHaveStyle({ fontSize: typography.md });
+    expect(priceTexts[0]).toHaveStyle({ fontSize: typography.xl });
   });
 
   test("shows fixed Japanese subscription copy", async () => {
@@ -253,7 +253,7 @@ describe("Signup screen", () => {
 
     const trialTexts = await findAllByText(/14日間無料/);
     expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/その後 390円\/月/);
+    const priceTexts = await findAllByText(/^390円\/月$/);
     expect(priceTexts.length).toBeGreaterThan(0);
   });
 
@@ -264,7 +264,7 @@ describe("Signup screen", () => {
 
     const trialTexts = await findAllByText(/14 jours? gratuit/i);
     expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/puis 3\.99CAD\/mois/i);
+    const priceTexts = await findAllByText(/^3\.99CAD\/mois$/i);
     expect(priceTexts.length).toBeGreaterThan(0);
   });
 });

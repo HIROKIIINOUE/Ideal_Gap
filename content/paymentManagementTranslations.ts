@@ -34,7 +34,7 @@ export const paymentManagementTranslations: Record<
   ja: {
     pageTitle: "支払い方法の変更・退会",
     heading: "支払い設定を管理",
-    body: "支払い情報の変更・退会（サブスク解約）は App Store / Google Play の管理画面で行います。",
+    body: "支払い情報の変更・退会（サブスク解約）は {{storeName}} の管理画面で行います。",
     statusLabel: "現在の契約ステータス",
     statusValue: {
       signupAwait: "支払い待ち",
@@ -60,7 +60,7 @@ export const paymentManagementTranslations: Record<
   en: {
     pageTitle: "Manage payment",
     heading: "Manage billing settings",
-    body: "You can review your payment method, updates it, and cancel your subscription in App Store / Google Play management. You can press the Open Billing Setting button below.",
+    body: "You can review your payment method, update it, and cancel your subscription in {{storeName}} settings.",
     statusLabel: "Current subscription status",
     statusValue: {
       signupAwait: "Awaiting payment",
@@ -87,7 +87,7 @@ export const paymentManagementTranslations: Record<
   fr: {
     pageTitle: "Gérer le paiement",
     heading: "Gérer les paramètres de facturation",
-    body: "La vérification, la modification du moyen de paiement et la résiliation s'effectuent dans App Store / Google Play.",
+    body: "La vérification, la modification du moyen de paiement et la résiliation s'effectuent dans {{storeName}}.",
     statusLabel: "Statut actuel de l'abonnement",
     statusValue: {
       signupAwait: "En attente de paiement",

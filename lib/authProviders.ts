@@ -26,3 +26,15 @@ export const hasAppleOrGoogleProvider = (
   getUserAuthProviders(user).some((provider) =>
     EXTERNAL_AUTH_PROVIDERS.includes(provider as ExternalAuthProvider),
   );
+
+// ログイン中ユーザーの Auth 情報から、Apple / Google どっちのユーザか判定しその文言を返す
+export const getPreferredExternalAuthProvider = (
+  user: Pick<User, "app_metadata" | "identities">,
+): ExternalAuthProvider | null => {
+  const providers = getUserAuthProviders(user);
+
+  if (providers.includes("apple")) return "apple";
+  if (providers.includes("google")) return "google";
+
+  return null;
+};

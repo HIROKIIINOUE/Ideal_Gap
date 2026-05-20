@@ -10,6 +10,7 @@ import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signOutCurrentSession } from "../lib/logout";
 import { getAccessStateForUser } from "../lib/subscription";
+import { getStoreName } from "../lib/subscriptionLegal";
 import { openSubscriptionManagementPortal } from "../lib/subscriptionManagement";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
@@ -18,6 +19,7 @@ export default function PaymentManagement() {
   const { t, i18n } = useTranslation("paymentManagement");
   const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
+  const storeName = useMemo(() => getStoreName(Platform.OS), []);
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
   const [statusKey, setStatusKey] = useState<
@@ -171,7 +173,7 @@ export default function PaymentManagement() {
             style={StyleSheet.absoluteFill}
           />
           <Text style={styles.heading}>{t("heading")}</Text>
-          <Text style={styles.body}>{t("body")}</Text>
+          <Text style={styles.body}>{t("body", { storeName })}</Text>
 
           <View style={styles.statusCard}>
             <Text style={styles.statusLabel}>{t("statusLabel")}</Text>
@@ -199,7 +201,7 @@ export default function PaymentManagement() {
             </Text>
           </Pressable>
 
-          <Text style={styles.hint}>{t("manageHint")}</Text>
+          <Text style={styles.hint}>{t("manageHint", { storeName })}</Text>
         </View>
       </View>
       <Footer

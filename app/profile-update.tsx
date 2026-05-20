@@ -24,7 +24,11 @@ import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { buildRedirectUrl } from "../lib/auth";
-import { hasAppleOrGoogleProvider } from "../lib/authProviders";
+import type { ExternalAuthProvider } from "../lib/authProviders";
+import {
+  getPreferredExternalAuthProvider,
+  hasAppleOrGoogleProvider,
+} from "../lib/authProviders";
 import { signOutCurrentSession } from "../lib/logout";
 import { supabase } from "../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
@@ -56,6 +60,8 @@ export default function ProfileUpdate() {
   const [initialEmail, setInitialEmail] = useState<string | null>(null);
   const [emailChangeRequested, setEmailChangeRequested] = useState(false);
   const [isExternalProviderProfile, setIsExternalProviderProfile] = useState(false);
+  const [externalAuthProvider, setExternalAuthProvider] =
+    useState<ExternalAuthProvider | null>(null);
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
 
   const validation = useMemo(() => profileSchema.safeParse({ username, email, password }), [email, password, username]);
@@ -97,6 +103,7 @@ export default function ProfileUpdate() {
       const userId = user.id;
       // Google/Apple経由のログインかどうか判定する
       const isExternalProvider = hasAppleOrGoogleProvider(user);
+      const preferredProvider = getPreferredExternalAuthProvider(user);
 
       const { data: profile } = await supabase
         .from("users")
@@ -121,6 +128,7 @@ export default function ProfileUpdate() {
       setEmail(authEmail);
       setInitialEmail(authEmail);
       setIsExternalProviderProfile(isExternalProvider);
+      setExternalAuthProvider(preferredProvider);
       setLoading(false);
     };
 
@@ -229,6 +237,13 @@ export default function ProfileUpdate() {
     return null;
   }, [emailTouched, error, isEmailValid, isPasswordValid, isUsernameValid, passwordTouched, t, usernameTouched]);
 
+  // ユーザが使用しているプロバイダー(Apple or Google)に応じて表示文章を変更させる。
+  const externalProviderNotice = useMemo(() => {
+    if (externalAuthProvider === "apple") return t("externalProviderNoticeApple");
+    if (externalAuthProvider === "google") return t("externalProviderNoticeGoogle");
+    return t("externalProviderNotice");
+  }, [externalAuthProvider, t]);
+
 
   // その他のメニュー機能
   const handleMoreSelect = async (key: string) => {
@@ -333,7 +348,7 @@ export default function ProfileUpdate() {
 
             {isExternalProviderProfile && (
               <View style={[styles.alertBox, styles.infoBox]}>
-                <Text style={styles.alertText}>{t("externalProviderNotice")}</Text>
+                <Text style={styles.alertText}>{externalProviderNotice}</Text>
               </View>
             )}
 
