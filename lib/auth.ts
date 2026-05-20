@@ -178,7 +178,7 @@ const createSessionFromOAuthCallbackUrl = async (
   };
 };
 
-//　Google/Appleを使用したサインアップ/ログイン処理
+//　Google/Appleを使用したサインアップ/ログイン処理(処理結果の合否と該当ユーザデータを返す)
 export const continueWithOAuthProvider = async (
   provider: OAuthProvider,
 ): Promise<OAuthContinueResult> => {

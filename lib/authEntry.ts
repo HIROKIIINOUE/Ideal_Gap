@@ -15,6 +15,7 @@ type ResolveAuthenticatedEntryDestinationParams = {
 };
 
 // Google/Apple認証完了後、紐づくユーザのDB情報を確認し、データの作成and遷移先を決める
+// ＜流れ＞Supabase session 確定 → users ensure → subscriptions ensure → status に応じて遷移
 export const resolveAuthenticatedEntryDestination = async ({
   source,
   user,
