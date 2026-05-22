@@ -1,7 +1,7 @@
 // タスク集中音楽周りの共通設定
 
 export const FOCUS_MUSIC_MAX_INSTALLED = 5;
-export const FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT = 100; //【ここチェック】変更
+export const FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT = 20; //【ここチェック】変更
 export const FOCUS_MUSIC_INSTALLED_KEY = "focusMusic.installed";
 export const FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX = "focusMusic.downloadQuota";
 export const FOCUS_MUSIC_DIR_NAME = "focus-music"; // 音楽一覧を格納したSupabase Storage内のディレクトリ名
