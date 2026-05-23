@@ -24,6 +24,19 @@ export type ProfileUpdateTranslations = {
   successBody: string;
   errorUnknown: string;
   errorEmailExists: string;
+  deleteSectionTitle: string;
+  deleteSectionBody: string;
+  deleteButton: string;
+  deleting: string;
+  deleteConfirmTitle: string;
+  deleteConfirmBody: string;
+  deleteConfirmFinalTitle: string;
+  deleteConfirmFinalBody: string;
+  deleteConfirmYes: string;
+  deleteConfirmNo: string;
+  deleteSuccessTitle: string;
+  deleteSuccessBody: string;
+  deleteError: string;
   validation: {
     username: string;
     email: string;
@@ -64,6 +77,22 @@ export const profileUpdateTranslations: Record<
     errorUnknown:
       "エラーが発生しました。時間をおいて再度お試しください。前回と同じパスワード、既に登録済みのメールアドレスは指定できません。",
     errorEmailExists: "このメールアドレスは既に登録されています。",
+    deleteSectionTitle: "アカウント削除",
+    deleteSectionBody:
+      "アカウントを削除すると、プロフィール・目標・タスク・お問い合わせ履歴など、このアプリ内データは削除されます。この操作は元に戻せません。",
+    deleteButton: "アカウントを削除",
+    deleting: "削除中…",
+    deleteConfirmTitle: "アカウントを削除しますか？",
+    deleteConfirmBody:
+      "アカウントを削除してもサブスクリプションは自動解約されません。先に支払い管理画面から解約処理をしてください。",
+    deleteConfirmFinalTitle: "最終確認",
+    deleteConfirmFinalBody:
+      "アカウント削除を確定します。この操作は取り消せません。",
+    deleteConfirmYes: "削除する",
+    deleteConfirmNo: "キャンセル",
+    deleteSuccessTitle: "アカウントを削除しました",
+    deleteSuccessBody: "ご利用ありがとうございました。",
+    deleteError: "アカウント削除に失敗しました。通信状況を確認して再度お試しください。",
     validation: {
       username: "ユーザ名を入力してください",
       email: "メールアドレスの形式が正しくありません",
@@ -99,6 +128,23 @@ export const profileUpdateTranslations: Record<
     errorUnknown:
       "Something went wrong. Please try again later. Your new password must be different from previous one",
     errorEmailExists: "This email is already registered.",
+    deleteSectionTitle: "Delete account",
+    deleteSectionBody:
+      "Deleting your account removes your profile, goals, tasks, and contact history from this app. This action cannot be undone.",
+    deleteButton: "Delete account",
+    deleting: "Deleting…",
+    deleteConfirmTitle: "Delete your account?",
+    deleteConfirmBody:
+      "Deleting your account does not automatically cancel your subscription. Please cancel it from the payment management screen first.",
+    deleteConfirmFinalTitle: "Final confirmation",
+    deleteConfirmFinalBody:
+      "Your account deletion will now be completed. This action cannot be undone.",
+    deleteConfirmYes: "Delete",
+    deleteConfirmNo: "Cancel",
+    deleteSuccessTitle: "Your account was deleted",
+    deleteSuccessBody: "Thank you for using Ideal Gap.",
+    deleteError:
+      "We could not delete your account. Check your connection and try again.",
     validation: {
       username: "Please enter a username",
       email: "Invalid email format",
@@ -135,6 +181,23 @@ export const profileUpdateTranslations: Record<
     errorUnknown:
       "Une erreur est survenue. Réessayez plus tard. Votre nouveau mot de passe doit être différent du précédent.",
     errorEmailExists: "Cet e-mail est déjà enregistré.",
+    deleteSectionTitle: "Supprimer le compte",
+    deleteSectionBody:
+      "La suppression du compte efface votre profil, vos objectifs, vos tâches et votre historique de contact dans cette application. Cette action est irréversible.",
+    deleteButton: "Supprimer le compte",
+    deleting: "Suppression…",
+    deleteConfirmTitle: "Supprimer votre compte ?",
+    deleteConfirmBody:
+      "La suppression de votre compte n’annule pas automatiquement votre abonnement. Veuillez d’abord l’annuler depuis l’écran de gestion du paiement.",
+    deleteConfirmFinalTitle: "Confirmation finale",
+    deleteConfirmFinalBody:
+      "La suppression du compte va être confirmée. Cette action est irréversible.",
+    deleteConfirmYes: "Supprimer",
+    deleteConfirmNo: "Annuler",
+    deleteSuccessTitle: "Votre compte a été supprimé",
+    deleteSuccessBody: "Merci d’avoir utilisé Ideal Gap.",
+    deleteError:
+      "Impossible de supprimer votre compte. Vérifiez votre connexion et réessayez.",
     validation: {
       username: "Veuillez saisir un nom d’utilisateur",
       email: "Format d’e-mail invalide",

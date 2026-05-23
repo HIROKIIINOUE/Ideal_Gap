@@ -52,6 +52,33 @@ export type Database = {
           },
         ];
       };
+      deleted_accounts: {
+        Row: {
+          created_at: string;
+          deleted_at: string;
+          email_hash: string;
+          had_account_before: boolean;
+          id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          deleted_at?: string;
+          email_hash: string;
+          had_account_before?: boolean;
+          id?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string;
+          email_hash?: string;
+          had_account_before?: boolean;
+          id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       users: {
         Row: {
           created_at: string | null;

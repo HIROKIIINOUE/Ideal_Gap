@@ -23,6 +23,7 @@ import MoreSheet from "../components/MoreSheet";
 import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
+import { deleteCurrentAccount } from "../lib/accountDeletion";
 import { buildRedirectUrl } from "../lib/auth";
 import type { ExternalAuthProvider } from "../lib/authProviders";
 import {
@@ -52,6 +53,7 @@ export default function ProfileUpdate() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [usernameTouched, setUsernameTouched] = useState(false);
@@ -228,6 +230,53 @@ export default function ProfileUpdate() {
     }
   };
 
+  // アカウント完全削除処理
+  const runAccountDeletion = async () => {
+    if (deletingAccount) return;
+    setError(null);
+    setInfo(null);
+    setDeletingAccount(true);
+
+    try {
+      await deleteCurrentAccount();
+      showToast(t("deleteSuccessTitle"));
+      router.replace("/");
+    } catch (deleteError) {
+      console.warn("Failed to delete account", deleteError);
+      setError(t("deleteError"));
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  // アカウント削除ボタン押下後の処理(２度のポップアップ警告)
+  // 「サブスクは自動解除されない警告」と「undoできない警告」
+  const handleDeleteAccount = () => {
+    if (deletingAccount || loading || submitting) return;
+
+    Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
+      { text: t("deleteConfirmNo"), style: "cancel" },
+      {
+        text: t("deleteConfirmYes"),
+        style: "destructive",
+        onPress: () => {
+          Alert.alert(t("deleteConfirmFinalTitle"), t("deleteConfirmFinalBody"), [
+            { text: t("deleteConfirmNo"), style: "cancel" },
+            {
+              text: t("deleteConfirmYes"),
+              style: "destructive",
+              onPress: () => {
+                runAccountDeletion().catch((deleteError) => {
+                  console.warn("Unexpected account deletion failure", deleteError);
+                });
+              },
+            },
+          ]);
+        },
+      },
+    ]);
+  };
+
   //  画面に表示するエラーメッセージ1件を決定するロジック
   const errorLabel = useMemo(() => {
     if (error) return error;
@@ -386,6 +435,27 @@ export default function ProfileUpdate() {
                 <Text style={styles.primaryLabel}>{submitting ? t("saving") : t("save")}</Text>
               </Pressable>
             )}
+
+            <View style={[styles.deleteSection, styles.deleteBox]}>
+              <Text style={styles.deleteTitle}>{t("deleteSectionTitle")}</Text>
+              <Text style={styles.deleteBody}>{t("deleteSectionBody")}</Text>
+              <Pressable
+                testID="account-delete-button"
+                accessibilityRole="button"
+                onPress={handleDeleteAccount}
+                disabled={deletingAccount || loading || submitting}
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  styles.deleteButton,
+                  (deletingAccount || loading || submitting) && styles.buttonDisabled,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Text style={styles.deleteButtonLabel}>
+                  {deletingAccount ? t("deleting") : t("deleteButton")}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -513,7 +583,34 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
   },
-  heroFooter: {
-    gap: spacing.xs,
+  deleteSection: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  deleteBox: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(242,95,92,0.4)",
+    backgroundColor: "rgba(242,95,92,0.08)",
+    padding: spacing.md,
+  },
+  deleteTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+  },
+  deleteBody: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.45,
+  },
+  deleteButton: {
+    backgroundColor: "rgba(242,95,92,0.14)",
+    borderColor: "rgba(242,95,92,0.75)",
+  },
+  deleteButtonLabel: {
+    color: colors.textPrimary,
+    fontWeight: "700",
+    fontSize: typography.md,
   },
 });

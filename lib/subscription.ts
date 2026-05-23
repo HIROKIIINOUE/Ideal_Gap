@@ -84,6 +84,22 @@ const buildFallbackEmail = (userId: string) =>
 const resolveUserEmail = (authUser: AuthUserProfileInput) =>
   authUser.email?.trim() || buildFallbackEmail(authUser.id);
 
+// supabase上のEdge functionでDB内のdeleted_accountsテーブルを確認し既にアカウントを削除ずみか(以前アカウントを保持していたことがあるか)どうかを判定。（再サインアップ時の無料トライアル防止）
+const fetchDeletedAccountHadAccountBefore = async () => {
+  const { data, error } = await supabase.functions.invoke(
+    "account-deletion-status",
+    { method: "POST" },
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return (
+    (data as { hadAccountBefore?: boolean } | null)?.hadAccountBefore ?? false
+  );
+};
+
 // OAuth認証後にgoogle/appleより返されるメタデータをアプリDBのユーザ名用に解析
 const resolveUserName = (authUser: AuthUserProfileInput, email: string) => {
   const metadataName = getMetadataString(authUser.user_metadata, [
@@ -138,6 +154,7 @@ export const ensureUserProfileForAuthUser = async (
   const email = resolveUserEmail(authUser);
   // google/appleより返されるメタデータをアプリのユーザ名用に解析
   const name = resolveUserName(authUser, email);
+  const hadAccountBefore = await fetchDeletedAccountHadAccountBefore();
 
   // 解析済みのgoogle/appleからのメタデータをDBのユーザテーブルに保存する
   const { data, error } = await supabase
@@ -147,7 +164,7 @@ export const ensureUserProfileForAuthUser = async (
       email,
       name,
       language: language ?? null,
-      had_account_before: false,
+      had_account_before: hadAccountBefore,
       is_canceled: false,
       created_at: timestamp,
       updated_at: timestamp,
@@ -329,19 +346,13 @@ export const ensureSignupAwaitSubscription = async (
   if (existing) return existing;
 
   const promise = (async () => {
-    const timestamp = nowIso();
     // ユーザ情報がDBに存在するか確認し、なければsubscriptionデータ処理の前に作成
     const authUser =
       options?.authUser ?? (await getCurrentAuthUserForId(userId));
     if (authUser) {
       await ensureUserProfileForAuthUser(authUser, options?.language);
     }
-
-    // 新規作成時は had_account_before を明示的に false に初期化する
-    await supabase
-      .from("users")
-      .update({ had_account_before: false, updated_at: timestamp })
-      .eq("id", userId);
+    const timestamp = nowIso();
 
     const { data, error } = await supabase
       .from("subscriptions")
