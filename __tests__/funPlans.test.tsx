@@ -199,6 +199,32 @@ describe("FunPlanScreen interactions", () => {
     expect(await findByText("Up to 5 plans can be added")).toBeTruthy();
   });
 
+  test("shows page subtitle only in the empty state between title and CTA", async () => {
+    mockOrder.mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+
+    const { findAllByText, findByText } = renderScreen();
+
+    const emptyTitle = await findByText("No fun plans yet");
+    const emptyBody = await findByText(
+      "Keep your next exciting events in sight and stay motivated. (Only the top item appears on the dashboard)",
+    );
+    const emptyCta = await findByText("Add your first plan");
+
+    expect(
+      await findAllByText(
+        "Keep your next exciting events in sight and stay motivated. (Only the top item appears on the dashboard)",
+      ),
+    ).toHaveLength(1);
+    expect(emptyTitle.props.children).toBe("No fun plans yet");
+    expect(emptyBody.props.children).toBe(
+      "Keep your next exciting events in sight and stay motivated. (Only the top item appears on the dashboard)",
+    );
+    expect(emptyCta.props.children).toBe("Add your first plan");
+  });
+
   test("adds a new fun plan using the updated placeholder", async () => {
     const { getByPlaceholderText, getByRole } = renderScreen();
 

@@ -424,7 +424,6 @@ export default function FunPlanScreen() {
             <View style={styles.headerRow}>
               <View style={styles.headerText}>
                 <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
-                <Text style={styles.body}>{t("pageSubtitle")}</Text>
               </View>
             </View>
 
