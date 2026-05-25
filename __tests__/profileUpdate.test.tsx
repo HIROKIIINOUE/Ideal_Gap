@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
+import { Platform } from "react-native";
 import ProfileUpdate from "../app/profile-update";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
@@ -55,6 +56,8 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 describe("ProfileUpdate", () => {
+  const originalPlatform = Platform.OS;
+
   beforeEach(async () => {
     jest.clearAllMocks();
     await i18n.changeLanguage("en");
@@ -88,6 +91,13 @@ describe("ProfileUpdate", () => {
     mockEmailExistsNeq.mockResolvedValue({ count: 0, error: null });
     mockUpdateEq.mockResolvedValue({ error: null });
     (supabase.auth.updateUser as jest.Mock).mockResolvedValue({ error: null });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
+    });
   });
 
   test("disables save button after email change request is sent", async () => {
@@ -131,6 +141,22 @@ describe("ProfileUpdate", () => {
 
     fireEvent.press(screen.getByRole("button", { name: "Hide password" }));
     expect((await screen.findByPlaceholderText("New password (optional)")).props.secureTextEntry).toBe(true);
+  });
+
+  test("uses the same Android CTA shadow fix as other entry buttons", async () => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    const saveButton = await screen.findByRole("button", { name: "Save changes" });
+    expect(saveButton).toHaveStyle({ elevation: 0, shadowOpacity: 0 });
   });
 
   test("renders Google users with only the username as read-only", async () => {

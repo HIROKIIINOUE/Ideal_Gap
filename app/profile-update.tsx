@@ -422,6 +422,7 @@ export default function ProfileUpdate() {
                   styles.ctaButton,
                   styles.primaryButton,
                   styles.buttonShadow,
+                  Platform.OS === "android" && styles.buttonShadowAndroidFix,
                   (!isFormValid || submitting || loading || emailChangeRequested) && styles.buttonDisabled,
                   pressed && styles.buttonPressed,
                 ]}
@@ -447,6 +448,7 @@ export default function ProfileUpdate() {
                 style={({ pressed }) => [
                   styles.ctaButton,
                   styles.deleteButton,
+                  Platform.OS === "android" && styles.buttonShadowAndroidFix,
                   (deletingAccount || loading || submitting) && styles.buttonDisabled,
                   pressed && styles.buttonPressed,
                 ]}
@@ -552,6 +554,10 @@ const styles = StyleSheet.create({
   },
   buttonShadow: {
     ...shadows.button,
+  },
+  buttonShadowAndroidFix: {
+    elevation: 0,
+    shadowOpacity: 0,
   },
   buttonPressed: {
     transform: [{ translateY: 1 }],
