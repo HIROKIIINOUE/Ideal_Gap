@@ -159,6 +159,21 @@ describe("ProfileUpdate", () => {
     expect(saveButton).toHaveStyle({ elevation: 0, shadowOpacity: 0 });
   });
 
+  test("reduces delete button horizontal padding only for French", async () => {
+    await i18n.changeLanguage("fr");
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    const deleteButton = await screen.findByRole("button", {
+      name: "Supprimer le compte",
+    });
+    expect(deleteButton).toHaveStyle({ paddingHorizontal: 20 });
+  });
+
   test("renders Google users with only the username as read-only", async () => {
     (supabase.auth.getUser as jest.Mock).mockReset();
     (supabase.auth.getUser as jest.Mock).mockResolvedValue({

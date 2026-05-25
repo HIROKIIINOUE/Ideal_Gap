@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -42,7 +43,7 @@ const profileSchema = z.object({
 });
 
 export default function ProfileUpdate() {
-  const { t } = useTranslation("profileUpdate");
+  const { t, i18n } = useTranslation("profileUpdate");
   const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
@@ -64,7 +65,9 @@ export default function ProfileUpdate() {
   const [isExternalProviderProfile, setIsExternalProviderProfile] = useState(false);
   const [externalAuthProvider, setExternalAuthProvider] =
     useState<ExternalAuthProvider | null>(null);
+  const [deleteConfirmModalVisible, setDeleteConfirmModalVisible] = useState(false);
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
+  const isFrench = i18n.language === "fr";
 
   const validation = useMemo(() => profileSchema.safeParse({ username, email, password }), [email, password, username]);
   const fieldErrors = validation.success ? {} : z.flattenError(validation.error).fieldErrors;
@@ -253,25 +256,20 @@ export default function ProfileUpdate() {
   // 「サブスクは自動解除されない警告」と「undoできない警告」
   const handleDeleteAccount = () => {
     if (deletingAccount || loading || submitting) return;
+    setDeleteConfirmModalVisible(true);
+  };
 
-    Alert.alert(t("deleteConfirmTitle"), t("deleteConfirmBody"), [
+  const handleConfirmDeleteWarning = () => {
+    setDeleteConfirmModalVisible(false);
+    Alert.alert(t("deleteConfirmFinalTitle"), t("deleteConfirmFinalBody"), [
       { text: t("deleteConfirmNo"), style: "cancel" },
       {
         text: t("deleteConfirmYes"),
         style: "destructive",
         onPress: () => {
-          Alert.alert(t("deleteConfirmFinalTitle"), t("deleteConfirmFinalBody"), [
-            { text: t("deleteConfirmNo"), style: "cancel" },
-            {
-              text: t("deleteConfirmYes"),
-              style: "destructive",
-              onPress: () => {
-                runAccountDeletion().catch((deleteError) => {
-                  console.warn("Unexpected account deletion failure", deleteError);
-                });
-              },
-            },
-          ]);
+          runAccountDeletion().catch((deleteError) => {
+            console.warn("Unexpected account deletion failure", deleteError);
+          });
         },
       },
     ]);
@@ -448,6 +446,7 @@ export default function ProfileUpdate() {
                 style={({ pressed }) => [
                   styles.ctaButton,
                   styles.deleteButton,
+                  isFrench && styles.deleteButtonFrench,
                   Platform.OS === "android" && styles.buttonShadowAndroidFix,
                   (deletingAccount || loading || submitting) && styles.buttonDisabled,
                   pressed && styles.buttonPressed,
@@ -474,6 +473,43 @@ export default function ProfileUpdate() {
         onToggleFunPlan={toggleFunPlan}
         onSelect={handleMoreSelect}
       />
+      <Modal
+        visible={deleteConfirmModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteConfirmModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setDeleteConfirmModalVisible(false)}
+          testID="profile-delete-confirm-overlay"
+        >
+          <Pressable
+            style={[styles.modalCard, shadows.card]}
+            onPress={(event) => event.stopPropagation()}
+            testID="profile-delete-confirm-card"
+          >
+            <Text style={styles.modalTitle}>{t("deleteConfirmTitle")}</Text>
+            <Text style={styles.deleteConfirmBodyText}>{t("deleteConfirmBody")}</Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.modalSecondaryButton}
+                onPress={() => setDeleteConfirmModalVisible(false)}
+              >
+                <Text style={styles.modalSecondaryButtonText}>{t("deleteConfirmNo")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.modalPrimaryButton}
+                onPress={handleConfirmDeleteWarning}
+              >
+                <Text style={styles.modalPrimaryButtonText}>{t("deleteConfirmYes")}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
       {keyboardVisible ? (
         <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
       ) : null}
@@ -614,9 +650,67 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(242,95,92,0.14)",
     borderColor: "rgba(242,95,92,0.75)",
   },
+  deleteButtonFrench: {
+    paddingHorizontal: spacing.lg,
+  },
   deleteButtonLabel: {
     color: colors.textPrimary,
     fontWeight: "700",
     fontSize: typography.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(7,10,18,0.72)",
+    justifyContent: "center",
+    padding: spacing.xl,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    padding: spacing.xl,
+    gap: spacing.md,
+  },
+  modalTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.lg,
+    fontWeight: "800",
+  },
+  deleteConfirmBodyText: {
+    color: colors.error,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.5,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+  },
+  modalSecondaryButton: {
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  modalSecondaryButtonText: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+  },
+  modalPrimaryButton: {
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(242,95,92,0.7)",
+    backgroundColor: colors.warning,
+  },
+  modalPrimaryButtonText: {
+    color: colors.background,
+    fontSize: typography.md,
+    fontWeight: "800",
   },
 });
