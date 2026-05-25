@@ -60,7 +60,12 @@ import {
   scaleFontSizeForIpad,
 } from "../../lib/ui/ipadLayout";
 import { getKeyboardAvoidingBehavior } from "../../lib/ui/platform";
-import { isCompactScreen } from "../../lib/ui/responsive";
+import { isCompactScreen, isTabletScreen } from "../../lib/ui/responsive";
+import {
+  formatTaskTimerDigital,
+  getTaskTimerDurationLabel,
+  getTaskTimerDurationMultilineLabel,
+} from "../../lib/ui/taskTimerDuration";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { useTimerAlarmPreference } from "../../providers/TimerAlarmPreferenceProvider";
 import { Database } from "../../types/database";
@@ -103,18 +108,6 @@ const PRESETS = [
   { label: "add1h", minutes: 60 },
   { label: "add2h", minutes: 120 },
 ] as const;
-
-// 〇〇〇〇秒から「〇時間〇分〇秒」の表示用フォーマットに変換する
-const formatDigital = (seconds: number) => {
-  const safe = Math.max(0, Math.round(seconds));
-  const hours = Math.floor(safe / 3600);
-  const minutes = Math.floor((safe % 3600) / 60);
-  const secs = safe % 60;
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  }
-  return `${minutes}:${String(secs).padStart(2, "0")}`;
-};
 
 const formatMinutes = (minutes: number) => {
   const safe = Math.max(0, Math.round(minutes));
@@ -183,8 +176,9 @@ export default function TaskTimerScreen() {
   const isFocused = useIsFocused();
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
-  const { width, fontScale } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   const compactScreen = isCompactScreen(width, fontScale);
+  const tabletScreen = isTabletScreen(width, height);
   const { installedTracks, selectedTrack, selectTrack, playSelected, pause, stop } =
     useFocusMusic();
   const { timerAlarmEnabled } = useTimerAlarmPreference();
@@ -326,14 +320,24 @@ export default function TaskTimerScreen() {
   }, [hasDuration, inputSeconds, remainingSeconds]);
 
   // 進捗ドーナッツの中央部に表示する値
-  const durationLabel = `${formatDigital(remainingSeconds)} / ${formatDigital(inputSeconds)}`;
+  const useStableTabletHourLabel = tabletScreen && inputSeconds >= 3600;
+  const durationLabel = getTaskTimerDurationLabel({
+    inputSeconds,
+    remainingSeconds,
+    tabletScreen,
+  });
+  const durationMultilineLabel = getTaskTimerDurationMultilineLabel({
+    inputSeconds,
+    remainingSeconds,
+    tabletScreen: useStableTabletHourLabel,
+  });
   const endTimeText = useMemo(
     () => formatEndTimeLabel(expectedEndAt),
     [expectedEndAt],
   );
   // 作業完了モーダル画面で表示する値
   const completionDurationLabel = useMemo(
-    () => formatDigital(completionElapsedSeconds),
+    () => formatTaskTimerDigital(completionElapsedSeconds),
     [completionElapsedSeconds],
   );
   const completionMinutes = useMemo(
@@ -1817,12 +1821,24 @@ export default function TaskTimerScreen() {
                 style={styles.circularProgress}
               >
                 {() => (
-                  <View style={styles.ringCenter}>
+                  <View
+                    style={[
+                      styles.ringCenter,
+                      useStableTabletHourLabel && styles.ringCenterTabletDuration,
+                    ]}
+                  >
                     <Text
-                      style={[styles.durationLabel, compactScreen && styles.durationLabelCompact]}
+                      style={[
+                        styles.durationLabel,
+                        compactScreen && styles.durationLabelCompact,
+                        useStableTabletHourLabel && styles.durationLabelTabletDuration,
+                      ]}
                       testID="timer-duration"
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.82}
+                      numberOfLines={useStableTabletHourLabel ? 2 : 1}
                     >
-                      {durationLabel}
+                      {useStableTabletHourLabel ? durationMultilineLabel : durationLabel}
                     </Text>
                     <Text style={[styles.remainingLabel, compactScreen && styles.remainingLabelCompact]}>
                       {t("timerCard.endTimeLabel", { time: endTimeText })}
@@ -2652,12 +2668,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  ringCenterTabletDuration: {
+    width: "72%",
+  },
   durationLabel: {
     color: colors.textPrimary,
     fontSize: scaleFontSizeForIpad(20, isIpadDevice),
     fontWeight: "800",
     letterSpacing: 0.4,
     textAlign: "center",
+  },
+  durationLabelTabletDuration: {
+    fontSize: scaleFontSizeForIpad(18, isIpadDevice),
+    lineHeight: scaleFontSizeForIpad(24, isIpadDevice),
   },
   durationLabelCompact: {
     fontSize: scaleFontSizeForIpad(18, isIpadDevice),
