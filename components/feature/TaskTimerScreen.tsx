@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { useIsFocused } from "@react-navigation/native";
 import { useAudioPlayer } from "expo-audio";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import { router, useLocalSearchParams } from "expo-router";
@@ -122,6 +123,7 @@ const gradientCard = ["rgba(30,94,255,0.18)", "rgba(12,18,32,0.95)"] as const;
 const TIMER_NOTIFICATION_CHANNEL = "task-timer";
 const TASK_TIMER_NOTIFICATION_PROMPT_HIDDEN_KEY =
   "task_timer_notification_prompt_hidden";
+const TASK_TIMER_KEEP_AWAKE_TAG = "task-timer-running";
 const FOREGROUND_ALARM_SOUND = require("../../assets/sounds/timer-alarm.wav");  // アラーム音
 const FOREGROUND_VIBRATION_PATTERN = [0, 250, 150, 250];  // バイブレーションの定義
 const COMPLETION_SAVE_TIMEOUT_MS = 7_000; // 作業時間をDBへ送信する際にタイムアウトエラーを返す待ち時間(7秒)
@@ -214,6 +216,7 @@ export default function TaskTimerScreen() {
   const [nextStartPoint, setNextStartPoint] = useState<string | null>(null);
   const [completionMissingLinkedTask, setCompletionMissingLinkedTask] = useState(false);
   const [viewStartModalVisible, setViewStartModalVisible] = useState(false);
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const [manualLog, setManualLog] = useState<ManualLogState>({
     visible: false,
     hours: "0",
@@ -271,6 +274,8 @@ export default function TaskTimerScreen() {
   const hasDuration = inputSeconds > 0;
   const hasInstalledMusic = installedTracks.length > 0;
   const activeTrack = selectedTrack;
+  const shouldKeepScreenAwake =
+    status === "running" && isFocused && isForegroundAppState(appState);
 
   useEffect(() => {
     statusRef.current = status;
@@ -311,6 +316,29 @@ export default function TaskTimerScreen() {
   useEffect(() => {
     selectedTrackIdRef.current = activeTrack?.id ?? null;
   }, [activeTrack?.id]);
+
+
+  // 以下はスクリーン常時点灯モードのON/OFFを切り替えている。catch文の中身を空にすることでエラーが起きても他機能の実行を止めないようにしてる
+  useEffect(() => {
+    // 常時点灯機能を取り消す(画面の常時点灯を解除して通常のスリープ動作に戻す)
+    if (!shouldKeepScreenAwake) {
+      void deactivateKeepAwake(TASK_TIMER_KEEP_AWAKE_TAG).catch(() => {
+        // 常時点灯の解除に失敗しても、画面表示やタイマー動作は継続する
+      });
+      return;
+    }
+    // タイマー実行中かつタイマー画面表示中かつフォアグラウンドの場合はスクリーン常時点灯
+    void activateKeepAwakeAsync(TASK_TIMER_KEEP_AWAKE_TAG).catch(() => {
+      // 常時点灯の有効化に失敗しても、タイマー自体は継続させる
+    });
+
+    // 画面離脱や条件変更で effect が破棄される時は、常時点灯を解除する
+    return () => {
+      void deactivateKeepAwake(TASK_TIMER_KEEP_AWAKE_TAG).catch(() => {
+        // 常時点灯の解除に失敗しても、画面表示やタイマー動作は継続する
+      });
+    };
+  }, [shouldKeepScreenAwake]);
 
   // 「経過した時間 / 設定作業時間」からどの割合進んだかを算出してリターンする
   const progress = useMemo(() => {
@@ -1543,6 +1571,7 @@ export default function TaskTimerScreen() {
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       appStateRef.current = nextState;
+      setAppState(nextState);
       addSentryBreadcrumb("task_timer.app_state", "app_state_changed", {
         nextState,
         status: statusRef.current,

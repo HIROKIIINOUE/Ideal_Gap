@@ -2,6 +2,7 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import * as Notifications from "expo-notifications";
+import * as KeepAwake from "expo-keep-awake";
 import { Alert, AppState, AppStateStatus, Linking, Vibration } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
@@ -174,6 +175,11 @@ jest.mock("expo-notifications", () => ({
   },
 }));
 
+jest.mock("expo-keep-awake", () => ({
+  activateKeepAwakeAsync: jest.fn().mockResolvedValue(undefined),
+  deactivateKeepAwake: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock("react-native-circular-progress", () => {
   const React = require("react");
   const { View } = require("react-native");
@@ -243,6 +249,14 @@ const mockCancelScheduledNotificationAsync =
   Notifications.cancelScheduledNotificationAsync as jest.MockedFunction<
     typeof Notifications.cancelScheduledNotificationAsync
   >;
+const mockActivateKeepAwakeAsync =
+  KeepAwake.activateKeepAwakeAsync as jest.MockedFunction<
+    typeof KeepAwake.activateKeepAwakeAsync
+  >;
+const mockDeactivateKeepAwake =
+  KeepAwake.deactivateKeepAwake as jest.MockedFunction<
+    typeof KeepAwake.deactivateKeepAwake
+  >;
 const mockNetInfoFetch = NetInfo.fetch as jest.MockedFunction<typeof NetInfo.fetch>;
 const mockSupabaseFrom = supabase.from as jest.MockedFunction<typeof supabase.from>;
 const mockGetSession = supabase.auth.getSession as jest.MockedFunction<
@@ -281,6 +295,9 @@ describe("TaskTimerScreen", () => {
     } as Notifications.NotificationPermissionsStatus);
     mockScheduleNotificationAsync.mockResolvedValue("timer-notification-id");
     mockCancelScheduledNotificationAsync.mockResolvedValue(undefined);
+    mockActivateKeepAwakeAsync.mockResolvedValue(undefined);
+    mockDeactivateKeepAwake.mockReset();
+    mockDeactivateKeepAwake.mockResolvedValue(undefined);
     mockSupabaseFrom.mockReset();
     mockSupabaseFrom.mockImplementation((table: string) => {
       if (table === "weekly_tasks") {
@@ -352,6 +369,81 @@ describe("TaskTimerScreen", () => {
     await waitFor(() =>
       expect(getByTestId("pause-resume-icon")).toHaveTextContent("timer-off-outline"),
     );
+  });
+
+  test("activates keep-awake only while the timer is running on the focused screen", async () => {
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+    await waitFor(() => expect(mockActivateKeepAwakeAsync).toHaveBeenCalled());
+    expect(mockActivateKeepAwakeAsync).toHaveBeenCalledTimes(1);
+  });
+
+  test("deactivates keep-awake when the timer is paused", async () => {
+    const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByTestId("start-button"));
+
+    await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+
+    fireEvent.press(getByText("Pause"));
+
+    await waitFor(() => expect(mockDeactivateKeepAwake).toHaveBeenCalled());
+  });
+
+  test("deactivates keep-awake when the task timer screen loses focus", async () => {
+    const screen = renderScreen();
+
+    fireEvent.press(screen.getByText("+5m"));
+    fireEvent.press(screen.getByTestId("start-button"));
+
+    await waitFor(() => expect(screen.queryByTestId("start-button")).toBeNull());
+    await waitFor(() => expect(mockActivateKeepAwakeAsync).toHaveBeenCalled());
+
+    mockIsFocused = false;
+    screen.rerender(
+      <I18nextProvider i18n={i18n}>
+        <TimerAlarmPreferenceProvider>
+          <FocusMusicProvider>
+            <TaskTimerScreen />
+          </FocusMusicProvider>
+        </TimerAlarmPreferenceProvider>
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(mockDeactivateKeepAwake).toHaveBeenCalled());
+  });
+
+  test("deactivates keep-awake when the app becomes inactive", async () => {
+    let appStateListener: ((state: AppStateStatus) => void) | null = null;
+    const appStateSpy = jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_type, listener) => {
+        appStateListener = listener;
+        return { remove: jest.fn() } as any;
+      });
+
+    try {
+      const { getByText, getByTestId, queryByTestId } = renderScreen();
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+
+      await waitFor(() => expect(queryByTestId("start-button")).toBeNull());
+      await waitFor(() => expect(mockActivateKeepAwakeAsync).toHaveBeenCalled());
+
+      act(() => {
+        appStateListener?.("inactive");
+      });
+
+      await waitFor(() => expect(mockDeactivateKeepAwake).toHaveBeenCalled());
+    } finally {
+      appStateSpy.mockRestore();
+    }
   });
 
   test("keeps full progress after resumed timer completes on app return", async () => {
