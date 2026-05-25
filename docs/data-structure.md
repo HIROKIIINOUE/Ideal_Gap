@@ -6,13 +6,13 @@
 
 - ユーザー情報
 - サブスク状態
-- 理想 / 長期目標　/　年間ゴール / 週間タスク
+- 理想 /　年間ゴール / 週間タスク
 - タスクログ（work_sessions）
 - ミュージック情報、楽しい予定
 
 ### ローカル DB: SQLite
 
-- 理想/長期目標/年間/週間タスクのコピー
+- 理想/年間/週間タスクのコピー
   <!-- アプリ起動時にSupabaseから「上記のユーザー最新データ」を取得 → SQLiteに保存 -->
   <!-- オフライン時も起動時に取得したデータを表示、オンライン復帰時にSupabaseに同期 -->
 
@@ -34,7 +34,7 @@
     id uuid [pk]
     email varchar [not null, unique]
     name varchar [not null]
-    current_point varchar
+    current_point varchar  // DB上では当面残す(旧版アプリ使用中のテスター用)
     language language
     created_at timestamptz
     updated_at timestamptz
@@ -84,6 +84,7 @@
     }
   }
 
+  <!-- 現在削除(今後の復活可能性を含めてスキーマのみDBに残す) -->
   Table long_term_goals {
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
