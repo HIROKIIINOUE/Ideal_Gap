@@ -127,7 +127,12 @@ describe("Dashboard task timer entry", () => {
     fireEvent.press(getByTestId("dashboard-card-taskTimer"));
 
     expect(await findByText("Start Task Timer")).toBeTruthy();
-    expect(await findByText("Do not link a weekly task")).toBeTruthy();
+    expect(
+      await findByText(
+        "Link a weekly task to save this session toward your annual goal.",
+      ),
+    ).toBeTruthy();
+    expect(await findByText("No weekly task linked")).toBeTruthy();
     fireEvent.press(getByTestId("dashboard-task-timer-task-select"));
     expect(await findByText("Write report")).toBeTruthy();
 
@@ -186,7 +191,59 @@ describe("Dashboard task timer entry", () => {
 
     fireEvent.press(getByTestId("dashboard-task-timer-task-select"));
 
-    expect(getAllByText("Do not link a weekly task")).toHaveLength(2);
+    expect(getAllByText("No weekly task linked")).toHaveLength(2);
     await waitFor(() => expect(getByText("Loading weekly tasks...")).toBeTruthy());
+  });
+
+  test("shows the no-tasks message below the selector in muted red", async () => {
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table === "yearly_goals") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: [{ id: "year-1", year_goal_color: "#5f9cff" }],
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "weekly_tasks") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+            }),
+          }),
+        }),
+      };
+    });
+
+    const { findByTestId, getByTestId } = render(
+      <I18nextProvider i18n={i18n}>
+        <Dashboard />
+      </I18nextProvider>,
+    );
+
+    fireEvent.press(getByTestId("dashboard-card-taskTimer"));
+
+    const noTasksMessage = await findByTestId("dashboard-task-timer-no-tasks-message");
+    expect(noTasksMessage).toHaveStyle({ color: "#F25F5C" });
+    expect(noTasksMessage).toHaveTextContent(
+      "No weekly tasks are set yet.\nYou can still use the task timer, but work time will not be recorded.",
+    );
   });
 });

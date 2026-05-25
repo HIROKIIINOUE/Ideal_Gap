@@ -429,12 +429,10 @@ export default function Dashboard() {
             onPress={(event) => event.stopPropagation()}
           >
             <Text style={styles.modalTitle}>{t("taskTimerModal.title")}</Text>
+            <Text style={styles.modalDescription}>{t("taskTimerModal.description")}</Text>
 
             <View style={styles.modalFormGroup}>
               <Text style={styles.modalLabel}>{t("taskTimerModal.taskLabel")}</Text>
-              {taskTimerTasks.length === 0 && !taskTimerTasksLoading ? (
-                <Text style={styles.modalHelper}>{t("taskTimerModal.noTasksMessage")}</Text>
-              ) : null}
               {taskTimerTasksError ? <Text style={styles.modalError}>{taskTimerTasksError}</Text> : null}
               <Pressable
                 accessibilityRole="button"
@@ -467,6 +465,14 @@ export default function Dashboard() {
                   color={colors.textPrimary}
                 />
               </Pressable>
+              {taskTimerTasks.length === 0 && !taskTimerTasksLoading ? (
+                <Text
+                  style={styles.modalWarning}
+                  testID="dashboard-task-timer-no-tasks-message"
+                >
+                  {t("taskTimerModal.noTasksMessage")}
+                </Text>
+              ) : null}
 
               {taskTimerDropdownOpen ? (
                 <View style={styles.selectList}>
@@ -774,6 +780,11 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: "800",
   },
+  modalDescription: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
   modalFormGroup: {
     gap: spacing.xs,
   },
@@ -783,6 +794,11 @@ const styles = StyleSheet.create({
   },
   modalHelper: {
     color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  modalWarning: {
+    color: colors.error,
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
   },
