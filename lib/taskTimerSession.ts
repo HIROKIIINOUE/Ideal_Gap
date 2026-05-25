@@ -1,9 +1,8 @@
+// AsyncStorageに記録するタスクタイマー記録。
+// １端末につき1つだけ保存され、これを元に現行のタイマーの復元や管理を行っている」
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { z } from "zod";
-import {
-  addSentryBreadcrumb,
-  captureTaskTimerAnomaly,
-} from "./sentry";
+import { addSentryBreadcrumb, captureTaskTimerAnomaly } from "./sentry";
 
 export const TASK_TIMER_SESSION_STORAGE_KEY = "task_timer_active_session";
 
@@ -12,7 +11,11 @@ const TASK_TIMER_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 const persistedTaskTimerSessionSchema = z.object({
   version: z.literal(TASK_TIMER_SESSION_VERSION),
-  taskId: z.string().min(1),
+  source: z
+    .enum(["weekly_tasks", "dashboard"])
+    .optional()
+    .default("weekly_tasks"),
+  taskId: z.string().min(1).nullable(),
   title: z.string().min(1),
   yearlyGoalId: z.string().min(1).nullable(),
   loggedBaseline: z.number().int().min(0),

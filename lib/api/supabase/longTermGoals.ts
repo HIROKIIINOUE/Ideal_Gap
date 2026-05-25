@@ -1,3 +1,6 @@
+// ⭐️⭐️⭐️現在の仕様では「長期目標機能」を取り除いたため、本コードは一切使用されていない。
+// ⭐️⭐️⭐️今後長期目標機能復活の可能性が0ではないので残している
+// ⭐️⭐️⭐️テストなどの関連コードと紐づくため、エラーが起きないように月間目標のようにコメントアウトはしていない。
 // 長期目標ページのデータベース処理
 
 import { Database } from "../../../types/database";
@@ -45,22 +48,4 @@ export const deleteLongTermGoal = async (id: string) => {
 
 export const upsertLongTermGoals = async (rows: LongTermGoalInsert[]) => {
   return upsertRows("long_term_goals", rows);
-};
-
-export const fetchCurrentPoint = async (userId: string) => {
-  return supabase
-    .from("users")
-    .select("current_point")
-    .eq("id", userId)
-    .single();
-};
-
-export const updateCurrentPoint = async (
-  userId: string,
-  currentPoint: string | null,
-) => {
-  return supabase
-    .from("users")
-    .update({ current_point: currentPoint })
-    .eq("id", userId);
 };

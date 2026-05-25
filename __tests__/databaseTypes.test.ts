@@ -1,12 +1,11 @@
 import { Database } from "../types/database";
 
 describe("Database types", () => {
-  test("includes users current_point field", () => {
+  test("includes users base profile fields without deprecated fields", () => {
     const row: Database["public"]["Tables"]["users"]["Row"] = {
       id: "user-1",
       email: "hiroki@example.com",
       name: "Hiroki",
-      current_point: "25歳",
       language: "ja",
       had_account_before: false,
       is_canceled: false,
@@ -14,7 +13,7 @@ describe("Database types", () => {
       updated_at: null,
     };
 
-    expect(row.current_point).toBe("25歳");
+    expect(row.email).toBe("hiroki@example.com");
   });
 
   test("includes long_term_goals table types", () => {

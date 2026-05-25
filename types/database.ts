@@ -82,7 +82,6 @@ export type Database = {
       users: {
         Row: {
           created_at: string | null;
-          current_point: string | null;
           email: string;
           had_account_before: boolean | null;
           id: string;
@@ -93,7 +92,6 @@ export type Database = {
         };
         Insert: {
           created_at?: string | null;
-          current_point?: string | null;
           email: string;
           had_account_before?: boolean | null;
           id: string;
@@ -104,7 +102,6 @@ export type Database = {
         };
         Update: {
           created_at?: string | null;
-          current_point?: string | null;
           email?: string;
           had_account_before?: boolean | null;
           id?: string;

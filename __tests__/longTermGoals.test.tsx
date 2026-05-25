@@ -7,10 +7,8 @@ import { colors, radius, spacing, typography } from "../constants/theme";
 import i18n from "../i18n";
 import {
   deleteLongTermGoal,
-  fetchCurrentPoint,
   fetchLongTermGoals,
   insertLongTermGoal,
-  updateCurrentPoint,
   updateLongTermGoal,
   upsertLongTermGoals,
 } from "../lib/api/supabase/longTermGoals";
@@ -87,12 +85,10 @@ jest.mock("../lib/api/supabase/common", () => ({
 
 jest.mock("../lib/api/supabase/longTermGoals", () => ({
   fetchLongTermGoals: jest.fn(),
-  fetchCurrentPoint: jest.fn(),
   insertLongTermGoal: jest.fn(),
   updateLongTermGoal: jest.fn(),
   deleteLongTermGoal: jest.fn(),
   upsertLongTermGoals: jest.fn(),
-  updateCurrentPoint: jest.fn(),
 }));
 
 describe("LongTermGoalsScreen", () => {
@@ -107,10 +103,6 @@ describe("LongTermGoalsScreen", () => {
     jest.clearAllMocks();
     await i18n.changeLanguage("en");
     (getUserId as jest.Mock).mockResolvedValue("user-123");
-    (fetchCurrentPoint as jest.Mock).mockResolvedValue({
-      data: { current_point: "Age 29" },
-      error: null,
-    });
     (fetchLongTermGoals as jest.Mock).mockResolvedValue({
       data: [
         {
@@ -133,7 +125,6 @@ describe("LongTermGoalsScreen", () => {
       error: null,
     });
     (upsertLongTermGoals as jest.Mock).mockResolvedValue({ error: null });
-    (updateCurrentPoint as jest.Mock).mockResolvedValue({ error: null });
     (deleteLongTermGoal as jest.Mock).mockResolvedValue({ error: null });
     (insertLongTermGoal as jest.Mock).mockResolvedValue({
       data: {
@@ -159,11 +150,10 @@ describe("LongTermGoalsScreen", () => {
     });
   });
 
-  test("renders current point and persists reordered goals with user id", async () => {
+  test("renders long-term goals and persists reordered goals with user id", async () => {
     const { findByText } = renderScreen();
 
     expect(await findByText("Long-Term Goals")).toBeTruthy();
-    expect(await findByText("Current point: Age 29")).toBeTruthy();
     expect(await findByText("Get permanent residency")).toBeTruthy();
 
     await waitFor(() => expect(upsertLongTermGoals).toHaveBeenCalled());
@@ -209,13 +199,12 @@ describe("LongTermGoalsScreen", () => {
     });
   });
 
-  test("adds a new long-term goal and updates current point", async () => {
+  test("adds a new long-term goal", async () => {
     const { getByRole, getByPlaceholderText } = renderScreen();
 
     await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
 
     fireEvent.press(getByRole("button", { name: "Add" }));
-    fireEvent.changeText(getByPlaceholderText("e.g. Age 25 / 2026"), "Age 30");
     fireEvent.changeText(getByPlaceholderText("e.g. By age 29 / By 2030"), "By 35");
     fireEvent.changeText(
       getByPlaceholderText("e.g. Get a master’s degree abroad"),
@@ -223,7 +212,6 @@ describe("LongTermGoalsScreen", () => {
     );
     fireEvent.press(getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(updateCurrentPoint).toHaveBeenCalledWith("user-123", "Age 30"));
     await waitFor(() => expect(insertLongTermGoal).toHaveBeenCalledWith({
       user_id: "user-123",
       until_when: "By 35",

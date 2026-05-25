@@ -1,3 +1,6 @@
+// ⭐️⭐️⭐️現在の仕様では「長期目標機能」を取り除いたため、本コードは一切使用されていない。
+// ⭐️⭐️⭐️今後長期目標機能復活の可能性が0ではないので残している
+// ⭐️⭐️⭐️テストなどの関連コードと紐づくため、エラーが起きないように月間目標のようにコメントアウトはしていない。
 // 「理想の自分ページ」「年間目標ページ」のハイブリッドのようなコードになっている。
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -27,11 +30,9 @@ import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { getUserId } from "../../lib/api/supabase/common";
 import {
   deleteLongTermGoal,
-  fetchCurrentPoint,
   fetchLongTermGoals,
   insertLongTermGoal,
   LongTermGoalRow,
-  updateCurrentPoint,
   updateLongTermGoal,
   upsertLongTermGoals,
 } from "../../lib/api/supabase/longTermGoals";
@@ -39,10 +40,10 @@ import { closedModalState, createAddModalState, createEditModalState, ModalState
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
-import { compactFeatureSpacing } from "./compactFeatureSpacing";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 type LongTermGoal = {
   id: string;
@@ -58,7 +59,6 @@ const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as cons
 const COMPLETED_CARD_GRADIENT = ["rgba(56,217,150,0.2)", "rgba(10,28,24,0.96)"] as const;
 
 const longTermGoalSchema = z.object({
-  currentPoint: z.string().trim(),
   untilWhen: z.string().trim().min(1),
   description: z.string().trim().min(1),
 });
@@ -66,7 +66,6 @@ const longTermGoalSchema = z.object({
 type LongTermFormValues = z.infer<typeof longTermGoalSchema>;
 
 const offlineLongTermSchema = z.object({
-  currentPoint: z.string().nullable(),
   goals: z.array(
     z.object({
       id: z.string(),
@@ -80,7 +79,6 @@ const offlineLongTermSchema = z.object({
 });
 
 const DEFAULT_FORM_VALUES: LongTermFormValues = {
-  currentPoint: "",
   untilWhen: "",
   description: "",
 };
@@ -110,7 +108,6 @@ export default function LongTermGoalsScreen() {
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
   const [goals, setGoals] = useState<LongTermGoal[]>([]);
-  const [currentPoint, setCurrentPoint] = useState<string | null>(null);
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
   const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -153,7 +150,6 @@ export default function LongTermGoalsScreen() {
         if (active) {
           if (cached) {
             setGoals(cached.goals);
-            setCurrentPoint(cached.currentPoint);
             setHasOfflineCache(true);
           } else {
             setHasOfflineCache(false);
@@ -163,14 +159,11 @@ export default function LongTermGoalsScreen() {
         return;
       }
 
-      const [{ data: goalData, error: goalError }, { data: userData, error: userError }] = await Promise.all([
-        fetchLongTermGoals(uid),
-        fetchCurrentPoint(uid),
-      ]);
+      const { data: goalData, error: goalError } = await fetchLongTermGoals(uid);
 
-      if (goalError || userError) {
+      if (goalError) {
         if (active) {
-          setErrorMessage(goalError?.message ?? userError?.message ?? t("errors.fetchFailed"));
+          setErrorMessage(goalError?.message ?? t("errors.fetchFailed"));
           setLoading(false);
         }
         return;
@@ -179,12 +172,9 @@ export default function LongTermGoalsScreen() {
       if (!active) return;
 
       const mappedGoals = ((goalData as LongTermGoalRow[]) ?? []).map(toLongTermGoal);
-      const nextCurrentPoint = userData?.current_point ?? null;
       setGoals(mappedGoals);
-      setCurrentPoint(nextCurrentPoint);
       setHasOfflineCache(true);
       await writeOfflineCache(cacheKey, offlineLongTermSchema, {
-        currentPoint: nextCurrentPoint,
         goals: mappedGoals,
       });
       setLoading(false);
@@ -198,10 +188,9 @@ export default function LongTermGoalsScreen() {
 
 
   // 長期目標データが更新された時に最新のデータをローカルに保存してオフライン時に表示できるように準備
-  const syncOfflineCache = async (uid: string, nextGoals: LongTermGoal[], nextCurrentPoint: string | null) => {
+  const syncOfflineCache = async (uid: string, nextGoals: LongTermGoal[]) => {
     const cacheKey = buildOfflineCacheKey("long-term-goals", uid);
     await writeOfflineCache(cacheKey, offlineLongTermSchema, {
-      currentPoint: nextCurrentPoint,
       goals: nextGoals,
     });
   };
@@ -211,7 +200,6 @@ export default function LongTermGoalsScreen() {
     if (guardOfflineAction()) return;
     setModalError(null);
     reset({
-      currentPoint: currentPoint ?? "",
       untilWhen: "",
       description: "",
     });
@@ -223,7 +211,6 @@ export default function LongTermGoalsScreen() {
   const handleEditPress = (goal: LongTermGoal) => {
     if (guardOfflineAction()) return;
     reset({
-      currentPoint: currentPoint ?? "",
       untilWhen: goal.untilWhen,
       description: goal.description,
     });
@@ -273,7 +260,7 @@ export default function LongTermGoalsScreen() {
                 throw upsertError;
               }
             }
-            await syncOfflineCache(uid, nextGoals, currentPoint);
+            await syncOfflineCache(uid, nextGoals);
           } catch (error) {
             const message = error instanceof Error ? error.message : t("errors.deleteFailed");
             setGoals(previousGoals);
@@ -305,7 +292,7 @@ export default function LongTermGoalsScreen() {
       const nextGoals = goals.map((goal) => (goal.id === goalId ? toLongTermGoal(row) : goal));
       setGoals(nextGoals);
       if (uid) {
-        await syncOfflineCache(uid, nextGoals, currentPoint);
+        await syncOfflineCache(uid, nextGoals);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : t("errors.saveFailed");
@@ -315,7 +302,7 @@ export default function LongTermGoalsScreen() {
   };
 
   // 保存・更新ボタン両方を管理するロジック
-  const onValidSubmit = async ({ currentPoint: draftCurrentPoint, untilWhen, description }: LongTermFormValues) => {
+  const onValidSubmit = async ({ untilWhen, description }: LongTermFormValues) => {
     if (guardOfflineAction()) return;
     setSaving(true);
     setModalError(null);
@@ -328,16 +315,8 @@ export default function LongTermGoalsScreen() {
         return;
       }
 
-      const normalizedCurrentPoint = draftCurrentPoint.trim() ? draftCurrentPoint.trim() : null;
       const normalizedUntilWhen = untilWhen.trim();
       const normalizedDescription = description.trim();
-
-      const { error: currentPointError } = await updateCurrentPoint(uid, normalizedCurrentPoint);
-      if (currentPointError) {
-        setModalError(currentPointError.message);
-        setSaving(false);
-        return;
-      }
 
       let nextGoals = goals;
       if (modalState.editingId) {
@@ -397,8 +376,7 @@ export default function LongTermGoalsScreen() {
         setGoals(nextGoals);
       }
 
-      setCurrentPoint(normalizedCurrentPoint);
-      await syncOfflineCache(uid, nextGoals, normalizedCurrentPoint);
+      await syncOfflineCache(uid, nextGoals);
       setModalState(closedModalState);
       reset(DEFAULT_FORM_VALUES);
     } catch (error: unknown) {
@@ -444,7 +422,7 @@ export default function LongTermGoalsScreen() {
       return;
     }
 
-    await syncOfflineCache(uid, nextGoals, currentPoint);
+    await syncOfflineCache(uid, nextGoals);
   };
 
   // 指定のPressable要素の長押しドラッグを可能にするロジック
@@ -458,9 +436,9 @@ export default function LongTermGoalsScreen() {
         deleteMode && styles.goalCardDeleteMode,
       ]}
       testID={`long-term-goal-card-${item.id}`}
-      >
-        <LinearGradient
-          colors={item.completed ? COMPLETED_CARD_GRADIENT : LIST_CARD_GRADIENT}
+    >
+      <LinearGradient
+        colors={item.completed ? COMPLETED_CARD_GRADIENT : LIST_CARD_GRADIENT}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -579,9 +557,6 @@ export default function LongTermGoalsScreen() {
               style={StyleSheet.absoluteFill}
             />
             <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
-            {currentPoint ? (
-              <Text style={styles.currentPoint}>{t("currentPointLabel")}: {currentPoint}</Text>
-            ) : null}
 
             <View style={styles.actionRow}>
               <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading || offlineBlocked}>
@@ -658,30 +633,11 @@ export default function LongTermGoalsScreen() {
               >
                 <Text style={styles.modalTitle}>{modalTitle}</Text>
 
-                <View style={styles.formGroup}>
-                  {modalUpdatedText ? (
-                    <View style={styles.modalMeta}>
-                      <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.labelRow}>
-                    <Text style={styles.label}>{t("modal.currentPointLabel")}</Text>
+                {modalUpdatedText ? (
+                  <View style={styles.modalMeta}>
+                    <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>
                   </View>
-                  <Controller
-                    control={control}
-                    name="currentPoint"
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <TextInput
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={onBlur}
-                        placeholder={t("modal.currentPointPlaceholder")}
-                        placeholderTextColor={colors.textSecondary}
-                        style={styles.modalInput}
-                      />
-                    )}
-                  />
-                </View>
+                ) : null}
 
                 <View style={styles.formGroup}>
                   <View style={styles.labelRow}>
@@ -812,11 +768,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.md,
     lineHeight: typography.md * 1.5,
-  },
-  currentPoint: {
-    color: colors.accentSubtle,
-    fontSize: typography.md,
-    fontWeight: "700",
   },
   reorderHint: {
     color: colors.textSecondary,

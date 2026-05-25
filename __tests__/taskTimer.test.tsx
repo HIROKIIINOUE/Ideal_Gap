@@ -1058,6 +1058,48 @@ describe("TaskTimerScreen", () => {
     }
   });
 
+  test("completes an unlinked dashboard timer without saving work time", async () => {
+    const router = require("expo-router").router;
+    const replaceSpy = jest.spyOn(router, "replace");
+    const updateAccumulatedTimes = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes")
+      .updateAccumulatedTimes as jest.Mock;
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({ source: "dashboard" });
+
+    try {
+      const { getByText, getByTestId, queryByTestId, queryByText } = renderScreen();
+
+      expect(queryByTestId("task-timer-manual-log-card")).toBeNull();
+
+      fireEvent.press(getByText("+5m"));
+      fireEvent.press(getByTestId("start-button"));
+
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeTruthy(),
+      );
+
+      fireEvent.press(getByText("Mark done"));
+      await waitFor(() => expect(getByText("Review before finishing")).toBeTruthy());
+
+      expect(queryByText("Next starting point (optional)")).toBeNull();
+      expect(getByText("Cancel")).toBeTruthy();
+      expect(
+        getByText("This timer is not linked to a weekly task, so work time will not be saved."),
+      ).toBeTruthy();
+
+      fireEvent.press(getByText("Done"));
+
+      await waitFor(async () =>
+        expect(await AsyncStorage.getItem(TASK_TIMER_SESSION_STORAGE_KEY)).toBeNull(),
+      );
+      expect(updateAccumulatedTimes).not.toHaveBeenCalled();
+      expect(replaceSpy).toHaveBeenCalledWith("/dashboard");
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
   test("renders a manual entry card at the bottom for the selected weekly task", async () => {
     const paramsSpy = jest
       .spyOn(require("expo-router"), "useLocalSearchParams")
@@ -1548,10 +1590,10 @@ describe("TaskTimerScreen", () => {
     expect(backSpy).toHaveBeenCalled();
   });
 
-  test("shows a task-missing alert and goes back without saving when the weekly task no longer exists", async () => {
+  test("shows a task-missing completion state without saving when the weekly task no longer exists", async () => {
     const alertSpy = jest.spyOn(Alert, "alert");
     const router = require("expo-router").router;
-    const backSpy = jest.spyOn(router, "back");
+    const replaceSpy = jest.spyOn(router, "replace");
     const updateAccumulatedTimes = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes")
       .updateAccumulatedTimes as jest.Mock;
     const paramsSpy = jest
@@ -1599,20 +1641,18 @@ describe("TaskTimerScreen", () => {
       fireEvent.press(getByText("Save"));
 
       await waitFor(() =>
-        expect(alertSpy).toHaveBeenCalledWith(
-          "Finish this session?",
-          "This weekly task no longer exists, so this session was not saved. You will be returned to weekly tasks.",
-          [{ text: "Back", onPress: expect.any(Function) }],
-        ),
+        expect(getByText("The linked weekly task was deleted, so work time will not be saved.")).toBeTruthy(),
       );
+      expect(getByText("Cancel")).toBeTruthy();
 
+      expect(alertSpy).not.toHaveBeenCalledWith(
+        "Finish this session?",
+        expect.stringContaining("weekly task no longer exists"),
+        expect.anything(),
+      );
       expect(updateAccumulatedTimes).not.toHaveBeenCalled();
-      const buttons = alertSpy.mock.calls[alertSpy.mock.calls.length - 1][2] as Array<{
-        text: string;
-        onPress?: () => void;
-      }>;
-      buttons[0]?.onPress?.();
-      expect(backSpy).toHaveBeenCalled();
+      fireEvent.press(getByText("Done"));
+      await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith("/dashboard"));
     } finally {
       paramsSpy.mockRestore();
     }

@@ -48,6 +48,7 @@ import {
   captureTaskTimerAnomaly,
 } from "../../lib/sentry";
 import { supabase } from "../../lib/supabaseClient";
+import { getTaskTimerRestorePolicy } from "../../lib/taskTimerRestorePolicy";
 import {
   clearPersistedTaskTimerSession,
   loadPersistedTaskTimerSession,
@@ -68,6 +69,7 @@ import KeyboardDismissButton from "../KeyboardDismissButton";
 
 type TimerStatus = "idle" | "running" | "paused" | "finished";
 type ForceExitDestination = "weekly_tasks" | "dashboard";
+type TimerEntrySource = "weekly_tasks" | "dashboard";
 type ManualLogState = {
   visible: boolean;
   hours: string;
@@ -196,6 +198,7 @@ export default function TaskTimerScreen() {
     logged?: string;
     taskId?: string;
     yearlyGoalId?: string;
+    source?: TimerEntrySource;
   }>();
   const [restoredTimerSession, setRestoredTimerSession] =
     useState<PersistedTaskTimerSession | null>(null);
@@ -215,6 +218,7 @@ export default function TaskTimerScreen() {
   const [nextStartNote, setNextStartNote] = useState("");
   const [isSavingCompletion, setIsSavingCompletion] = useState(false);
   const [nextStartPoint, setNextStartPoint] = useState<string | null>(null);
+  const [completionMissingLinkedTask, setCompletionMissingLinkedTask] = useState(false);
   const [viewStartModalVisible, setViewStartModalVisible] = useState(false);
   const [manualLog, setManualLog] = useState<ManualLogState>({
     visible: false,
@@ -242,6 +246,7 @@ export default function TaskTimerScreen() {
   const taskIdRef = useRef<string | null>(null);
   const taskTitleRef = useRef("");
   const yearlyGoalIdRef = useRef<string | null>(null);
+  const timerEntrySourceRef = useRef<TimerEntrySource>("weekly_tasks");
   const selectedTrackIdRef = useRef<string | null>(null);
   const discardTimerSessionOnUnmountRef = useRef(false);
   // 画面がアンマウントされる瞬間に実行したい最新の後片付け関数セットを保持する ref
@@ -257,6 +262,13 @@ export default function TaskTimerScreen() {
   const taskId = params.taskId ?? restoredTimerSession?.taskId ?? null;
   const yearlyGoalId = params.yearlyGoalId ?? restoredTimerSession?.yearlyGoalId ?? null;
   const yearlyGoalIdSafe = yearlyGoalId || null;
+  const timerEntrySource: TimerEntrySource =
+    params.source === "dashboard" || restoredTimerSession?.source === "dashboard"
+      ? "dashboard"
+      : "weekly_tasks";
+  const shouldReturnDashboardAfterCompletion = timerEntrySource === "dashboard" || !taskId;
+  const isUnlinkedDashboardTimer = timerEntrySource === "dashboard" && !taskId;
+  const canSaveCompletionToTask = !isUnlinkedDashboardTimer && !completionMissingLinkedTask;
   const previousLoggedMinutes = useMemo(
     () => Math.max(0, Math.round(Number(params.logged ?? 0))),
     [params.logged],
@@ -299,7 +311,8 @@ export default function TaskTimerScreen() {
     taskIdRef.current = taskId;
     taskTitleRef.current = taskTitle;
     yearlyGoalIdRef.current = yearlyGoalIdSafe;
-  }, [taskId, taskTitle, yearlyGoalIdSafe]);
+    timerEntrySourceRef.current = timerEntrySource;
+  }, [taskId, taskTitle, timerEntrySource, yearlyGoalIdSafe]);
 
   useEffect(() => {
     selectedTrackIdRef.current = activeTrack?.id ?? null;
@@ -353,10 +366,13 @@ export default function TaskTimerScreen() {
 
   const persistTimerSession = useCallback(
     async (
-      session: Omit<PersistedTaskTimerSession, "version" | "savedAt">,
+      session: Omit<PersistedTaskTimerSession, "version" | "savedAt" | "source"> & {
+        source?: TimerEntrySource;
+      },
     ) => {
       await savePersistedTaskTimerSession({
         version: 1,
+        source: session.source ?? timerEntrySourceRef.current,
         savedAt: Date.now(),
         ...session,
       });
@@ -385,10 +401,6 @@ export default function TaskTimerScreen() {
 
   const persistCurrentTimerSessionOnUnmount = useCallback(async () => {
     const currentTaskId = taskIdRef.current;
-    if (!currentTaskId) {
-      await clearTimerSession();
-      return;
-    }
 
     const currentInputSeconds = inputSecondsRef.current;
     const currentRemainingSeconds = remainingSecondsRef.current;
@@ -491,7 +503,19 @@ export default function TaskTimerScreen() {
       if (!mounted || !persisted) {
         return;
       }
-      if (params.taskId && params.taskId !== persisted.taskId) {
+
+      // タスクタイマーへユーザが戻ってきた時に、AsyncStorageに保存された現行のタスクタイマーセッションを復元するか破棄するか判定する
+      const policy = getTaskTimerRestorePolicy(
+        { source: params.source, taskId: params.taskId },
+        persisted,
+      );
+
+      // 「紐づかないタイマー」で入ったのに persisted が別タスクの作業中だった、などのケースはここで破棄する。
+      // これにより「他のタイマーが走っていても、紐づかないタイマー開始は初期化された画面に遷移する」を満たす。
+      if (policy.shouldClearPersisted) {
+        await clearTimerSession();
+      }
+      if (!policy.shouldRestore) {
         return;
       }
 
@@ -544,6 +568,7 @@ export default function TaskTimerScreen() {
       setExpectedEndAt(null);
       setCompletionModalVisible(true);
       await persistTimerSession({
+        source: persisted.source,
         taskId: persisted.taskId,
         title: persisted.title,
         yearlyGoalId: persisted.yearlyGoalId,
@@ -561,7 +586,7 @@ export default function TaskTimerScreen() {
     return () => {
       mounted = false;
     };
-  }, [params.taskId, persistTimerSession]);
+  }, [clearTimerSession, params.source, params.taskId, persistTimerSession]);
 
   // 初回レンダリング時に紐づく週間タスクの最新データをDBから取得
   const fetchLatestLogged = useCallback(
@@ -743,6 +768,7 @@ export default function TaskTimerScreen() {
       }
       setCompletionElapsedSeconds(safeElapsed);
       setCompletionModalVisible(true);
+      setCompletionMissingLinkedTask(false);
       if (completed) {
         setRemainingSeconds(0);
         setStatus("finished");
@@ -750,21 +776,19 @@ export default function TaskTimerScreen() {
         setStatus("paused");
       }
       setExpectedEndAt(null);
-      if (taskId) {
-        void persistTimerSession({
-          taskId,
-          title: taskTitle,
-          yearlyGoalId: yearlyGoalIdSafe,
-          loggedBaseline,
-          inputSeconds: inputSecondsRef.current,
-          remainingSeconds: completed
-            ? 0
-            : Math.max(0, inputSecondsRef.current - safeElapsed),
-          expectedEndAt: null,
-          completionElapsedSeconds: safeElapsed,
-          status: "awaiting_completion",
-        });
-      }
+      void persistTimerSession({
+        taskId,
+        title: taskTitle,
+        yearlyGoalId: yearlyGoalIdSafe,
+        loggedBaseline,
+        inputSeconds: inputSecondsRef.current,
+        remainingSeconds: completed
+          ? 0
+          : Math.max(0, inputSecondsRef.current - safeElapsed),
+        expectedEndAt: null,
+        completionElapsedSeconds: safeElapsed,
+        status: "awaiting_completion",
+      });
     },
     [
       clearForegroundAlarmSchedule,
@@ -786,40 +810,37 @@ export default function TaskTimerScreen() {
   const handleDismissCompletion = useCallback(() => {
     setCompletionModalVisible(false);
     setIsSavingCompletion(false);
+    setCompletionMissingLinkedTask(false);
     stopForegroundAlarmOutput();
     completionFiredRef.current = false;
     if (completionElapsedSeconds >= inputSeconds) {
       setRemainingSeconds(0);
       setStatus("finished");
-      if (taskId) {
-        void persistTimerSession({
-          taskId,
-          title: taskTitle,
-          yearlyGoalId: yearlyGoalIdSafe,
-          loggedBaseline,
-          inputSeconds,
-          remainingSeconds: 0,
-          expectedEndAt: null,
-          completionElapsedSeconds,
-          status: "awaiting_completion",
-        });
-      }
-      return;
-    }
-    setStatus("paused");
-    if (taskId) {
       void persistTimerSession({
         taskId,
         title: taskTitle,
         yearlyGoalId: yearlyGoalIdSafe,
         loggedBaseline,
         inputSeconds,
-        remainingSeconds,
+        remainingSeconds: 0,
         expectedEndAt: null,
-        completionElapsedSeconds: null,
-        status: "paused",
+        completionElapsedSeconds,
+        status: "awaiting_completion",
       });
+      return;
     }
+    setStatus("paused");
+    void persistTimerSession({
+      taskId,
+      title: taskTitle,
+      yearlyGoalId: yearlyGoalIdSafe,
+      loggedBaseline,
+      inputSeconds,
+      remainingSeconds,
+      expectedEndAt: null,
+      completionElapsedSeconds: null,
+      status: "paused",
+    });
   }, [
     completionElapsedSeconds,
     inputSeconds,
@@ -1064,19 +1085,17 @@ export default function TaskTimerScreen() {
       expectedEndAt: nextEndAt,
       taskId,
     });
-    if (taskId) {
-      void persistTimerSession({
-        taskId,
-        title: taskTitle,
-        yearlyGoalId: yearlyGoalIdSafe,
-        loggedBaseline,
-        inputSeconds: countdownSeconds,
-        remainingSeconds: countdownSeconds,
-        expectedEndAt: nextEndAt,
-        completionElapsedSeconds: null,
-        status: "running",
-      });
-    }
+    void persistTimerSession({
+      taskId,
+      title: taskTitle,
+      yearlyGoalId: yearlyGoalIdSafe,
+      loggedBaseline,
+      inputSeconds: countdownSeconds,
+      remainingSeconds: countdownSeconds,
+      expectedEndAt: nextEndAt,
+      completionElapsedSeconds: null,
+      status: "running",
+    });
   }, [
     inputSeconds,
     loggedBaseline,
@@ -1215,19 +1234,17 @@ export default function TaskTimerScreen() {
       const nextInput = Math.max(nextRemaining, inputSeconds + delta);
       setInputSeconds(nextInput);
       setRemainingSeconds(nextRemaining);
-      if (taskId) {
-        void persistTimerSession({
-          taskId,
-          title: taskTitle,
-          yearlyGoalId: yearlyGoalIdSafe,
-          loggedBaseline,
-          inputSeconds: nextInput,
-          remainingSeconds: nextRemaining,
-          expectedEndAt: null,
-          completionElapsedSeconds: null,
-          status: "paused",
-        });
-      }
+      void persistTimerSession({
+        taskId,
+        title: taskTitle,
+        yearlyGoalId: yearlyGoalIdSafe,
+        loggedBaseline,
+        inputSeconds: nextInput,
+        remainingSeconds: nextRemaining,
+        expectedEndAt: null,
+        completionElapsedSeconds: null,
+        status: "paused",
+      });
       return;
     }
     // タイマー完了時の作業時間追加ロジック
@@ -1257,6 +1274,7 @@ export default function TaskTimerScreen() {
     setExpectedEndAt(null);
     setCompletionModalVisible(false);
     setIsSavingCompletion(false);
+    setCompletionMissingLinkedTask(false);
     setNextStartNote("");
     completionFiredRef.current = false;
   };
@@ -1298,19 +1316,17 @@ export default function TaskTimerScreen() {
       setStatus("paused");
       setExpectedEndAt(null);
       clearForegroundAlarm();
-      if (taskId) {
-        void persistTimerSession({
-          taskId,
-          title: taskTitle,
-          yearlyGoalId: yearlyGoalIdSafe,
-          loggedBaseline,
-          inputSeconds,
-          remainingSeconds,
-          expectedEndAt: null,
-          completionElapsedSeconds: null,
-          status: "paused",
-        });
-      }
+      void persistTimerSession({
+        taskId,
+        title: taskTitle,
+        yearlyGoalId: yearlyGoalIdSafe,
+        loggedBaseline,
+        inputSeconds,
+        remainingSeconds,
+        expectedEndAt: null,
+        completionElapsedSeconds: null,
+        status: "paused",
+      });
       completionFiredRef.current = false;
       return;
     }
@@ -1323,43 +1339,57 @@ export default function TaskTimerScreen() {
       });
       setStatus("running");
       setExpectedEndAt(nextEndAt);
-      if (taskId) {
-        void persistTimerSession({
-          taskId,
-          title: taskTitle,
-          yearlyGoalId: yearlyGoalIdSafe,
-          loggedBaseline,
-          inputSeconds,
-          remainingSeconds,
-          expectedEndAt: nextEndAt,
-          completionElapsedSeconds: null,
-          status: "running",
-        });
-      }
+      void persistTimerSession({
+        taskId,
+        title: taskTitle,
+        yearlyGoalId: yearlyGoalIdSafe,
+        loggedBaseline,
+        inputSeconds,
+        remainingSeconds,
+        expectedEndAt: nextEndAt,
+        completionElapsedSeconds: null,
+        status: "running",
+      });
     }
   };
+
+  // 週間タスクが紐づかないタスクタイマーが完了された時の処理(作業時間保存のDB処理が走らない)
+  const completeWithoutSavingAndExit = useCallback(async () => {
+    await clearTimerSession();
+    setCompletionModalVisible(false);
+    setCompletionMissingLinkedTask(false);
+    setIsSavingCompletion(false);
+    setNextStartNote("");
+    setStatus("finished");
+    setExpectedEndAt(null);
+    setRemainingSeconds(0);
+    setInputSeconds(0);
+    router.replace("/dashboard");
+    return true;
+  }, [clearTimerSession]);
 
   // 「今回実行された作業時間」を紐づく週間タスクの最新の作業実績時間データに積み上げる
   const persistElapsedAndExit = useCallback(
     async (elapsedSeconds: number, nextStartPayload?: string | null) => {
+      if (isUnlinkedDashboardTimer) {
+        await completeWithoutSavingAndExit();
+        return "completed_without_save" as const;
+      }
+
       const uid = await fetchUserId();
       if (!uid || !taskId) {
         Alert.alert(
           t("controls.completeConfirmTitle"),
           t("feedback.startError"),
         );
-        return false;
+        return "failed" as const;
       }
 
       const elapsedMinutes = Math.max(0, Math.round(elapsedSeconds / 60));
       const latest = await fetchLatestLogged(uid, taskId);
       if (!latest) {
-        Alert.alert(
-          t("controls.completeConfirmTitle"),
-          t("feedback.missingTaskOnSave"),
-          [{ text: t("feedback.offlineSaveBlockedAction"), onPress: () => router.back() }],
-        );
-        return false;
+        setCompletionMissingLinkedTask(true);
+        return "missing_task" as const;
       }
       const baseLogged = latest.accumulated ?? loggedBaseline;
       const newLoggedMinutes = baseLogged + elapsedMinutes;
@@ -1389,21 +1419,24 @@ export default function TaskTimerScreen() {
         setRemainingSeconds(0);
         setInputSeconds(0);
         showToast(t("controls.completeToast"));
-        router.replace(WEEKLY_TASKS_ROUTE);
-        return true;
+        router.replace(shouldReturnDashboardAfterCompletion ? "/dashboard" : WEEKLY_TASKS_ROUTE);
+        return "saved" as const;
       } catch (error) {
         Alert.alert(
           t("controls.completeConfirmTitle"),
           error instanceof Error ? error.message : String(error),
         );
-        return false;
+        return "failed" as const;
       }
     },
     [
+      completeWithoutSavingAndExit,
       fetchLatestLogged,
       fetchUserId,
+      isUnlinkedDashboardTimer,
       loggedBaseline,
       clearTimerSession,
+      shouldReturnDashboardAfterCompletion,
       yearlyGoalIdSafe,
       showToast,
       t,
@@ -1561,6 +1594,11 @@ export default function TaskTimerScreen() {
   const handleConfirmCompletion = useCallback(async () => {
     if (isSavingCompletion) return;
 
+    if (!canSaveCompletionToTask) {
+      await completeWithoutSavingAndExit();
+      return;
+    }
+
     // ネットワーク状況を確認し、オフラインの場合はポップアップ画面で保存できない旨を伝え、週間タスクページに遷移させる。
     const network = await NetInfo.fetch();
     if (!network.isConnected || network.isInternetReachable === false) {
@@ -1576,9 +1614,9 @@ export default function TaskTimerScreen() {
     const nextStartPayload =
       trimmedNextStart.length > 0 ? trimmedNextStart : null;
     // 作業時間をDBへ送る際に7秒以内に完了しなければタイムアウトとなり、「'feedback.saveTimeout'」をエラーメッセージとしてcatchに入る
-    let success = false;
+    let result: Awaited<ReturnType<typeof persistElapsedAndExit>> = "failed";
     try {
-      success = await withTimeout(
+      result = await withTimeout(
         persistElapsedAndExit(
           completionElapsedSeconds,
           nextStartPayload,
@@ -1592,13 +1630,15 @@ export default function TaskTimerScreen() {
         error instanceof Error ? error.message : String(error),
       );
     }
-    if (success) {
+    if (result === "saved" || result === "completed_without_save") {
       setCompletionModalVisible(false);
       setNextStartNote("");
     }
     setIsSavingCompletion(false);
   }, [
+    canSaveCompletionToTask,
     completionElapsedSeconds,
+    completeWithoutSavingAndExit,
     isSavingCompletion,
     nextStartNote,
     persistElapsedAndExit,
@@ -2219,9 +2259,15 @@ export default function TaskTimerScreen() {
                 onPress={(event) => event.stopPropagation()}
                 testID="completion-modal"
               >
-                <Text style={styles.modalTitle}>{t("completionModal.title")}</Text>
+                <Text style={styles.modalTitle}>
+                  {canSaveCompletionToTask
+                    ? t("completionModal.title")
+                    : t("completionModal.unlinkedTitle")}
+                </Text>
                 <Text style={styles.modalSubtitle}>
-                  {t("completionModal.description")}
+                  {canSaveCompletionToTask
+                    ? t("completionModal.description")
+                    : t("completionModal.unlinkedDescription")}
                 </Text>
 
                 <View style={styles.completionSummary}>
@@ -2236,22 +2282,30 @@ export default function TaskTimerScreen() {
                   </Text>
                 </View>
 
-                <View style={styles.fieldBlock}>
-                  <Text style={styles.fieldLabel}>
-                    {t("completionModal.nextStartLabel")}
+                {canSaveCompletionToTask ? (
+                  <View style={styles.fieldBlock}>
+                    <Text style={styles.fieldLabel}>
+                      {t("completionModal.nextStartLabel")}
+                    </Text>
+                    <TextInput
+                      value={nextStartNote}
+                      onChangeText={setNextStartNote}
+                      placeholder={t("completionModal.nextStartPlaceholder")}
+                      placeholderTextColor={colors.textSecondary}
+                      style={styles.textInput}
+                      multiline
+                    />
+                    <Text style={styles.fieldHelper}>
+                      {t("completionModal.nextStartHelper")}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.completionNotice}>
+                    {completionMissingLinkedTask
+                      ? t("completionModal.missingTaskNotice")
+                      : t("completionModal.unlinkedNotice")}
                   </Text>
-                  <TextInput
-                    value={nextStartNote}
-                    onChangeText={setNextStartNote}
-                    placeholder={t("completionModal.nextStartPlaceholder")}
-                    placeholderTextColor={colors.textSecondary}
-                    style={styles.textInput}
-                    multiline
-                  />
-                  <Text style={styles.fieldHelper}>
-                    {t("completionModal.nextStartHelper")}
-                  </Text>
-                </View>
+                )}
 
                 <View style={styles.completionActions}>
                   <Pressable
@@ -2284,7 +2338,9 @@ export default function TaskTimerScreen() {
                     <Text style={styles.primaryButtonText}>
                       {isSavingCompletion
                         ? t("completionModal.saving")
-                        : t("completionModal.confirm")}
+                        : canSaveCompletionToTask
+                          ? t("completionModal.confirm")
+                          : t("completionModal.done")}
                     </Text>
                   </Pressable>
                 </View>
@@ -2819,6 +2875,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
+  },
+  completionNotice: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.45,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
   manualTaskBox: {
     gap: spacing.sm,
