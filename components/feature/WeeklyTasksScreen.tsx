@@ -839,6 +839,15 @@ export default function WeeklyTasksScreen() {
             />
             <Text style={styles.emptyTitle}>{t("list.emptyTitle")}</Text>
             <Text style={styles.emptyBody}>{t("list.emptyBody")}</Text>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.primaryButton}
+              onPress={handleOpenAdd}
+              disabled={offlineBlocked}
+            >
+              <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
+              <Text style={styles.primaryButtonText}>{t("list.emptyCta")}</Text>
+            </Pressable>
           </View>
         )}
       />
@@ -1121,6 +1130,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: "#1c3358",
+    alignItems: "flex-start",
     gap: spacing.sm,
     overflow: "hidden",
   },

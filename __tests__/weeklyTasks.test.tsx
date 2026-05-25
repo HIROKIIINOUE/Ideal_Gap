@@ -124,10 +124,11 @@ describe("WeeklyTasksScreen", () => {
       error: null,
     });
 
-    const { findByText } = renderScreen();
+    const { findByRole, findByText } = renderScreen();
 
     expect(await findByText("Weekly Tasks")).toBeTruthy();
     expect(await findByText("No tasks yet")).toBeTruthy();
+    expect(await findByRole("button", { name: "Add your first task" })).toBeTruthy();
   });
 
   test("shows a load error instead of the form validation message when the user session is missing", async () => {
