@@ -78,6 +78,11 @@ jest.mock("@react-native-community/netinfo", () => ({
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file://test/",
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+  getInfoAsync: jest.fn().mockImplementation(async (uri: string) => ({
+    exists: true,
+    isDirectory: false,
+    uri,
+  })),
   createDownloadResumable: jest.fn().mockReturnValue({
     downloadAsync: jest
       .fn()
@@ -943,6 +948,7 @@ describe("TaskTimerScreen", () => {
       storagePath: "tracks/deep-focus.mp3",
       durationSeconds: 150,
       musicCategories: ["study"],
+      fileName: "track-1.mp3",
       localPath: "file://test/focus-music/track-1.mp3",
       downloadedAt: new Date().toISOString(),
     };
@@ -1151,6 +1157,7 @@ describe("TaskTimerScreen", () => {
       storagePath: "tracks/deep-focus.mp3",
       durationSeconds: 150,
       musicCategories: ["study"],
+      fileName: "track-1.mp3",
       localPath: "file://test/focus-music/track-1.mp3",
       downloadedAt: new Date().toISOString(),
     };
@@ -1196,6 +1203,7 @@ describe("TaskTimerScreen", () => {
       storagePath: "tracks/deep-focus.mp3",
       durationSeconds: 150,
       musicCategories: ["study"],
+      fileName: "track-1.mp3",
       localPath: "file://test/focus-music/track-1.mp3",
       downloadedAt: new Date().toISOString(),
     };
@@ -1245,6 +1253,7 @@ describe("TaskTimerScreen", () => {
       storagePath: "tracks/deep-focus.mp3",
       durationSeconds: 150,
       musicCategories: ["study"],
+      fileName: "track-1.mp3",
       localPath: "file://test/focus-music/track-1.mp3",
       downloadedAt: new Date().toISOString(),
     };
@@ -1287,6 +1296,7 @@ describe("TaskTimerScreen", () => {
       storagePath: "tracks/deep-focus.mp3",
       durationSeconds: 150,
       musicCategories: ["study"],
+      fileName: "track-1.mp3",
       localPath: "file://test/focus-music/track-1.mp3",
       downloadedAt: new Date().toISOString(),
     };

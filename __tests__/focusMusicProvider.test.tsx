@@ -104,6 +104,11 @@ jest.mock("@react-native-community/netinfo", () => ({
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file://test/",
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+  getInfoAsync: jest.fn().mockResolvedValue({
+    exists: true,
+    isDirectory: false,
+    uri: "file://test/focus-music/track-1.mp3",
+  }),
   createDownloadResumable: jest.fn(
     (
       _url: string,
@@ -154,6 +159,16 @@ describe("FocusMusicProvider", () => {
     mockPlayer.replace.mockClear();
     mockPlayer.seekTo.mockClear();
     mockSetAudioModeAsync.mockClear();
+    (FileSystem.getInfoAsync as jest.Mock).mockReset();
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation(
+      async (uri: string) => ({
+        exists: true,
+        isDirectory: false,
+        uri,
+      }),
+    );
+    (FileSystem.deleteAsync as jest.Mock).mockReset();
+    (FileSystem.deleteAsync as jest.Mock).mockResolvedValue(undefined);
   });
 
   test("installs a track on wifi and persists metadata", async () => {
@@ -249,11 +264,12 @@ describe("FocusMusicProvider", () => {
     }
   });
 
-  test("playSelected uses a single looping player", async () => {
+  test("playSelected uses rebuilt local uri from current document directory", async () => {
     const installed = [
       {
         trackId: "track-1",
-        localPath: "file://test/focus-music/track-1.mp3",
+        localPath:
+          "file://old-container/Documents/focus-music/track-1.mp3",
         downloadedAt: new Date().toISOString(),
       },
     ];
@@ -273,6 +289,9 @@ describe("FocusMusicProvider", () => {
       await result.current.playSelected();
     });
 
+    expect(FileSystem.getInfoAsync).toHaveBeenCalledWith(
+      "file://test/focus-music/track-1.mp3",
+    );
     expect(mockPlayer.replace).toHaveBeenCalledWith(
       "file://test/focus-music/track-1.mp3",
     );
@@ -300,7 +319,7 @@ describe("FocusMusicProvider", () => {
     });
   });
 
-  test("migrates legacy installed entries and drops non-local paths", async () => {
+  test("migrates legacy installed entries to current document directory and drops non-local paths", async () => {
     await AsyncStorage.setItem(
       FOCUS_MUSIC_INSTALLED_KEY,
       JSON.stringify([
@@ -311,7 +330,8 @@ describe("FocusMusicProvider", () => {
         },
         {
           trackId: "track-2",
-          localPath: "/test/focus-music/track-2.mp3",
+          localPath:
+            "file://old-container/Documents/focus-music/track-2.mp3",
           downloadedAt: new Date().toISOString(),
         },
       ]),
@@ -326,17 +346,51 @@ describe("FocusMusicProvider", () => {
     expect(result.current.installedTracks).toHaveLength(1);
     expect(result.current.installedTracks[0].id).toBe("track-2");
     expect(result.current.installedTracks[0].localPath).toBe(
-      "file:///test/focus-music/track-2.mp3",
+      "file://test/focus-music/track-2.mp3",
     );
+
+    const stored = await AsyncStorage.getItem(FOCUS_MUSIC_INSTALLED_KEY);
+    expect(stored).not.toContain("old-container");
+    expect(stored).toContain("track-2.mp3");
   });
 
-  test("removes metadata even when file deletion fails", async () => {
+  test("drops installed entries when rebuilt local file does not exist", async () => {
     await AsyncStorage.setItem(
       FOCUS_MUSIC_INSTALLED_KEY,
       JSON.stringify([
         {
           trackId: "track-1",
-          localPath: "file://test/focus-music/track-1.mp3",
+          localPath:
+            "file://old-container/Documents/focus-music/track-1.mp3",
+          downloadedAt: new Date().toISOString(),
+        },
+      ]),
+    );
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({
+      exists: false,
+      isDirectory: false,
+      uri: "file://test/focus-music/track-1.mp3",
+    });
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    expect(result.current.installedTracks).toHaveLength(0);
+    const stored = await AsyncStorage.getItem(FOCUS_MUSIC_INSTALLED_KEY);
+    expect(stored).toBe("[]");
+  });
+
+  test("removeTrack deletes rebuilt local uri and removes metadata even when file deletion fails", async () => {
+    await AsyncStorage.setItem(
+      FOCUS_MUSIC_INSTALLED_KEY,
+      JSON.stringify([
+        {
+          trackId: "track-1",
+          localPath:
+            "file://old-container/Documents/focus-music/track-1.mp3",
           downloadedAt: new Date().toISOString(),
         },
       ]),
@@ -361,6 +415,10 @@ describe("FocusMusicProvider", () => {
     });
 
     expect(removeResult).toEqual({ ok: true });
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
+      "file://test/focus-music/track-1.mp3",
+      { idempotent: true },
+    );
     expect(result.current.installedTracks).toHaveLength(0);
   });
 
