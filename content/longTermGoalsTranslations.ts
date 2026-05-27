@@ -6,7 +6,6 @@ export type LongTermGoalsTranslations = {
   add: string;
   delete: string;
   deleteExit: string;
-  currentPointLabel: string;
   completion: {
     complete: string;
     undo: string;
@@ -19,8 +18,6 @@ export type LongTermGoalsTranslations = {
   modal: {
     addTitle: string;
     editTitle: string;
-    currentPointLabel: string;
-    currentPointPlaceholder: string;
     untilWhenLabel: string;
     untilWhenPlaceholder: string;
     descriptionLabel: string;
@@ -55,7 +52,6 @@ export const longTermGoalsTranslations: Record<
     add: "追加",
     delete: "削除",
     deleteExit: "戻る",
-    currentPointLabel: "現在地",
     completion: {
       complete: "完了",
       undo: "未完了に戻す",
@@ -69,8 +65,6 @@ export const longTermGoalsTranslations: Record<
     modal: {
       addTitle: "長期目標を追加",
       editTitle: "編集",
-      currentPointLabel: "現在地",
-      currentPointPlaceholder: "例 25歳 / 2026年",
       untilWhenLabel: "いつまでに",
       untilWhenPlaceholder: "例 29歳までに / 2030年までに",
       descriptionLabel: "長期目標",
@@ -100,7 +94,6 @@ export const longTermGoalsTranslations: Record<
     add: "Add",
     delete: "Delete",
     deleteExit: "Exit",
-    currentPointLabel: "Current point",
     completion: {
       complete: "Done",
       undo: "Mark as active",
@@ -114,8 +107,6 @@ export const longTermGoalsTranslations: Record<
     modal: {
       addTitle: "Add long-term goal",
       editTitle: "Edit",
-      currentPointLabel: "Current point",
-      currentPointPlaceholder: "e.g. Age 25 / 2026",
       untilWhenLabel: "By when",
       untilWhenPlaceholder: "e.g. By age 29 / By 2030",
       descriptionLabel: "Long-term goal",
@@ -145,7 +136,6 @@ export const longTermGoalsTranslations: Record<
     add: "Ajouter",
     delete: "Supprimer",
     deleteExit: "Quitter",
-    currentPointLabel: "Point actuel",
     completion: {
       complete: "Terminer",
       undo: "Réactiver",
@@ -153,14 +143,12 @@ export const longTermGoalsTranslations: Record<
     },
     emptyTitle: "Aucun objectif long terme pour le moment",
     emptyBody:
-      "Ajoutez les jalons qui relient votre moi idéal à vos objectifs annuels.",
+      "Ajoutez les étqpes qui relient votre moi idéal à vos objectifs annuels.",
     emptyCta: "Ajouter un objectif long terme",
     updatedSuffix: "Mis à jour",
     modal: {
       addTitle: "Ajouter un objectif long terme",
       editTitle: "Modifier",
-      currentPointLabel: "Point actuel",
-      currentPointPlaceholder: "ex. 25 ans / 2026",
       untilWhenLabel: "Pour quand",
       untilWhenPlaceholder: "ex. Avant 29 ans / Avant 2030",
       descriptionLabel: "Objectif long terme",

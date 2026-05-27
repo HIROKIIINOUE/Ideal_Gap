@@ -43,7 +43,8 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     deleteExit: "戻る",
     loading: "読み込み中...",
     emptyTitle: "まだ楽しい予定がありません",
-    emptyBody: "",
+    emptyBody:
+      "直近の楽しみを可視化して、毎日のモチベーションを高めましょう。(1番上のリストのみダッシュボードに表示されます)",
     emptyCta: "最初の予定を追加",
     updatedSuffix: "更新",
     limitHelper: "追加できるのは最大5件までです",
@@ -76,7 +77,8 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     deleteExit: "Exit",
     loading: "Loading...",
     emptyTitle: "No fun plans yet",
-    emptyBody: "",
+    emptyBody:
+      "Keep your next exciting events in sight and stay motivated. (Only the top item appears on the dashboard)",
     emptyCta: "Add your first plan",
     updatedSuffix: "Updated",
     limitHelper: "Up to 5 plans can be added",
@@ -109,8 +111,9 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     deleteExit: "Quitter",
     loading: "Chargement...",
     emptyTitle: "Aucun plan sympa à venir pour l’instant",
-    emptyBody: "",
-    emptyCta: "Ajouter un premier évènement",
+    emptyBody:
+      "Gardez vos prochains événements sympas en vue pour rester motivé-e au quotidien. (Seul le premier élément s’affiche sur le tableau de bord)",
+    emptyCta: "Ajouter un événement",
     updatedSuffix: "Mise à jour",
     limitHelper: "Vous pouvez en ajouter jusqu’à 5",
     limitReached: "Limite atteinte. Supprimez-en un pour en ajouter un autre.",

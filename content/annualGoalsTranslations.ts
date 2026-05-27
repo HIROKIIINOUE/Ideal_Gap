@@ -165,7 +165,7 @@ export const annualGoalsTranslations: Record<
       title: "Detail memo",
       label: "Detail memo (optional)",
       placeholder:
-        "e.g.) Path to IELTS 8\n \nApr:  Finish the textbook\nMay:  Start past exam practice\nAug:  Take a mock exam\nOct:  First official exam\nDec:  Second exam if needed",
+        "e.g.) Path to IELTS 8\n \nApr : finish the textbook\nMay : start past exam practice\nAug : take a mock exam\nOct : first official exam\nDec : second exam if needed",
       save: "Save",
       cancel: "Cancel",
     },
@@ -224,7 +224,7 @@ export const annualGoalsTranslations: Record<
     },
     emptyTitle: "Aucun objectif annuel pour le moment",
     emptyBody: "Visualisez vos priorités annuelles.",
-    emptyCta: "Ajouter un objectif annuel",
+    emptyCta: "Ajouter un objectif",
     updatedSuffix: "Mis à jour",
     chart: {
       title: "Répartition des tâches",
@@ -235,7 +235,7 @@ export const annualGoalsTranslations: Record<
       title: "Mémo détaillé",
       label: "Mémo détaillé (optionnel)",
       placeholder:
-        "ex) Parcours vers l'IELTS 8\n \nAvr: Terminer le manuel\nMai Commencer les annales\nAoût: Passer un examen blanc\nOct: Premier examen officiel\nDéc: Deuxième examen si nécessaire",
+        "ex) Parcours vers l'IELTS 8\n \nAvr : terminer le manuel\nMai : commencer les annales\nAoût : passer un examen blanc\nOct : premier examen officiel\nDéc : deuxième examen si nécessaire",
       save: "Enregistrer",
       cancel: "Annuler",
     },

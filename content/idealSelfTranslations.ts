@@ -109,7 +109,7 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       emptyTitle: "Aucun objectif d'idéal pour le moment",
       emptyBody:
         "Ajoutez votre premier objectif d'idéal pour vous donner une direction.",
-      emptyCta: "Ajouter un premier objectif d'idéal",
+      emptyCta: "Ajouter un idéal",
       handleA11y: "Maintenir le bouton pour réordonner",
       updatedSuffix: "Mise à jour",
       modal: {

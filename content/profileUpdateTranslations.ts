@@ -57,7 +57,8 @@ export const profileUpdateTranslations: Record<
     usernamePlaceholder: "ユーザ名を入力",
     emailPlaceholder: "メールアドレスを入力",
     passwordPlaceholder: "新しいパスワード（任意）",
-    externalProviderPasswordPlaceholder: "Apple/Googleアカウントで管理されています",
+    externalProviderPasswordPlaceholder:
+      "Apple/Googleアカウントで管理されています",
     externalProviderNotice:
       "外部プロバイダでログインしているため本アプリではプロフィールを変更できません。",
     externalProviderNoticeApple:
@@ -87,12 +88,13 @@ export const profileUpdateTranslations: Record<
       "アカウントを削除してもサブスクリプションは自動解約されません。先に支払い管理画面から解約処理をしてください。",
     deleteConfirmFinalTitle: "最終確認",
     deleteConfirmFinalBody:
-      "アカウント削除を確定します。この操作は取り消せません。",
+      "アカウント削除を確定します。プロフィール・目標・タスク・お問い合わせ履歴など、このアプリ内データは全て削除されます。この操作は元に戻せません。",
     deleteConfirmYes: "削除する",
     deleteConfirmNo: "キャンセル",
     deleteSuccessTitle: "アカウントを削除しました",
     deleteSuccessBody: "ご利用ありがとうございました。",
-    deleteError: "アカウント削除に失敗しました。通信状況を確認して再度お試しください。",
+    deleteError:
+      "アカウント削除に失敗しました。通信状況を確認して再度お試しください。",
     validation: {
       username: "ユーザ名を入力してください",
       email: "メールアドレスの形式が正しくありません",
@@ -138,7 +140,7 @@ export const profileUpdateTranslations: Record<
       "Deleting your account does not automatically cancel your subscription. Please cancel it from the payment management screen first.",
     deleteConfirmFinalTitle: "Final confirmation",
     deleteConfirmFinalBody:
-      "Your account deletion will now be completed. This action cannot be undone.",
+      "Your account deletion will now be completed. Your profile, goals, tasks, and contact history will be all deleted from this app. This action cannot be undone.",
     deleteConfirmYes: "Delete",
     deleteConfirmNo: "Cancel",
     deleteSuccessTitle: "Your account was deleted",
@@ -156,10 +158,10 @@ export const profileUpdateTranslations: Record<
     subtitle: "Gardez vos informations à jour.",
     usernameLabel: "Nom d’utilisateur",
     emailLabel: "E-mail",
-    passwordLabel: "Mot de passe",
+    passwordLabel: "Mot de passe (facultatif)",
     usernamePlaceholder: "Saisissez votre nom d’utilisateur",
     emailPlaceholder: "Saisissez votre adresse e-mail",
-    passwordPlaceholder: "Nouveau mot de passe (facultatif)",
+    passwordPlaceholder: "Nouveau mot de passe",
     externalProviderPasswordPlaceholder: "Géré par votre compte Apple/Google",
     externalProviderNotice:
       "Vous êtes connecté avec un fournisseur externe. Ce profil ne peut donc pas être modifié dans l’application.",
@@ -169,7 +171,7 @@ export const profileUpdateTranslations: Record<
       "Vous êtes connecté avec Google. Ce profil ne peut donc pas être modifié dans l’application.",
     showPassword: "Afficher le mot de passe",
     hidePassword: "Masquer le mot de passe",
-    save: "Enregistrer les modifications",
+    save: "Mettre à jour",
     saving: "Enregistrement…",
     emailPendingTitle: "E-mail de vérification envoyé",
     emailPendingBody:
@@ -191,7 +193,7 @@ export const profileUpdateTranslations: Record<
       "La suppression de votre compte n’annule pas automatiquement votre abonnement. Veuillez d’abord l’annuler depuis l’écran de gestion du paiement.",
     deleteConfirmFinalTitle: "Confirmation finale",
     deleteConfirmFinalBody:
-      "La suppression du compte va être confirmée. Cette action est irréversible.",
+      "La suppression du compte va être confirmée. Votre profil, vos objectifs, vos tâches et votre historique de contact seront entièrement supprimés de cette application. Cette action est irréversible.",
     deleteConfirmYes: "Supprimer",
     deleteConfirmNo: "Annuler",
     deleteSuccessTitle: "Votre compte a été supprimé",

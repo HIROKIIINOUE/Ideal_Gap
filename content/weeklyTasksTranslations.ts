@@ -38,6 +38,7 @@ export type WeeklyTasksTranslations = {
     title: string;
     emptyTitle: string;
     emptyBody: string;
+    emptyCta: string;
     loadError: string;
   };
   task: {
@@ -128,6 +129,7 @@ export const weeklyTasksTranslations: Record<
       title: "タスクリスト",
       emptyTitle: "まだタスクがありません",
       emptyBody: "追加ボタンからタスクを作成し、年間目標と紐づけてください。",
+      emptyCta: "最初のタスクを追加",
       loadError: "週間タスクを読み込めませんでした",
     },
     task: {
@@ -214,6 +216,7 @@ export const weeklyTasksTranslations: Record<
       title: "Task list",
       emptyTitle: "No tasks yet",
       emptyBody: "Add a task and link it to an annual goal.",
+      emptyCta: "Add your first task",
       loadError: "Unable to load weekly tasks.",
     },
     task: {
@@ -300,6 +303,7 @@ export const weeklyTasksTranslations: Record<
       title: "Liste des tâches",
       emptyTitle: "Aucune tâche pour le moment",
       emptyBody: "Ajoutez une tâche et associez-la à un objectif annuel.",
+      emptyCta: "Ajouter une tâche",
       loadError: "Impossible de charger les tâches hebdomadaires.",
     },
     task: {

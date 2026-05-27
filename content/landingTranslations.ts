@@ -51,10 +51,10 @@ export const landingTranslations: LandingTranslations = {
       label: "What is Ideal Gap",
       title: "理想と日常を結ぶ、6 つの柱",
       description:
-        "理想の自分を言語化し、長期目標と年間目標で道標を描く。週間タスクまで落とし込んだらあとは行動するのみ。カウントダウンタイマーで自分の努力の軌跡を可視化し、タスク集中音楽と休憩通知で集中力を最大化。直近の楽しみな予定も表示することで「今」を楽しみながらバランスよく理想の「未来」へ進んでいく。",
+        "理想の自分を言語化し、年間目標で道標を描く。週間タスクまで落とし込んだらあとは行動するのみ。カウントダウンタイマーで自分の努力の軌跡を可視化し、タスク集中音楽と休憩通知で集中力を最大化。直近の楽しみな予定も表示することで「今」を楽しみながらバランスよく理想の「未来」へ進んでいく。",
       highlights: [
         "理想の自分リストアップ機能",
-        "長期/年間目標リスト・進捗管理機能",
+        "年間目標リスト・進捗管理機能",
         "週間タスクリスト・進捗管理機能",
         "タスクタイマー・作業集中音楽機能",
         "休憩終了通知機能",
@@ -89,7 +89,7 @@ export const landingTranslations: LandingTranslations = {
   en: {
     hero: {
       logo: "Ideal Gap",
-      title: "The first step to your ideal self",
+      title: "First step to your ideal self",
       subtitle:
         "Define your ideal self and clarify the right path. Then just focus and move forward.",
       ctaPrimary: "Start free",
@@ -100,10 +100,10 @@ export const landingTranslations: LandingTranslations = {
       label: "What is Ideal Gap",
       title: "Six Pillars to Your Ideal Self",
       description:
-        "Define your ideal self and map your path with long-term / annual goals. Break them into weekly tasks and just go forward. Track your effort with a countdown timer, stay focused with task music and break reminders. And also enjoy upcoming plans while moving steadily toward your ideal future.",
+        "Define your ideal self and map your path with annual goals. Break them into weekly tasks and just go forward. Track your effort with a countdown timer, stay focused with task music and break reminders. And also enjoy upcoming plans while moving steadily toward your ideal future.",
       highlights: [
         "Ideal Self Vision Board",
-        "Long-Term / Annual Goal & Tracking",
+        "Annual Goal Planning & Tracking",
         "Weekly Task Planning & Tracking",
         "Task Timer with Focus Music",
         "Smart Break Reminders",
@@ -138,9 +138,9 @@ export const landingTranslations: LandingTranslations = {
   fr: {
     hero: {
       logo: "Ideal Gap",
-      title: "Votre premier pas vers votre moi idéal",
+      title: "Premier pas vers votre idéal",
       subtitle:
-        "Définissez votre idéal et identifiez la bonne voie. Il ne reste plus qu’à se concentrer et avancer.",
+        "Définissez votre idéal et identifiez la bonne méthode. Il ne reste plus qu’à se concentrer et avancer.",
       ctaPrimary: "Essai gratuit",
       ctaSecondary: "Connexion",
       scrollHint: "Faites défiler",
@@ -149,10 +149,10 @@ export const landingTranslations: LandingTranslations = {
       label: "Qu’est-ce l'Ideal Gap",
       title: "Six piliers reliant l'idéal et le quotidien",
       description:
-        "Définissez votre idéal et tracez votre voie avec des objectifs long terme et annuels. Divisez-les en tâches hebdomadaires et passez à l'action. Visualisez votre progression avec un compte à rebours, restez concentrer avec de la musique adaptées à vos envies et des rappels de temps de pause. Motivez-vous avec vos plans sympas à venir tout en avançant petit à petit vers votre avenir idéal.",
+        "Définissez votre idéal et tracez votre voie avec des objectifs annuels. Divisez-les en tâches hebdomadaires et passez à l'action. Visualisez votre progression avec un compte à rebours, restez concentré avec de la musique adaptée à vos envies et des rappels de temps de pause. Motivez-vous avec vos plans sympas à venir tout en avançant petit à petit vers votre avenir idéal.",
       highlights: [
         "Tableau d'inspiration de votre moi idéal",
-        "Suivi des objectifs long terme et annuels",
+        "Liste et suivi des objectifs annuels",
         "Liste et suivi des tâches hebdomadaires",
         "Minuteur et musique de concentration",
         "Rappels de pause",

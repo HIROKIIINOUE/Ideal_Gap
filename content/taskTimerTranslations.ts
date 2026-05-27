@@ -74,7 +74,9 @@ export type TaskTimerTranslations = {
   };
   completionModal: {
     title: string;
+    unlinkedTitle: string;
     description: string;
+    unlinkedDescription: string;
     actualTimeLabel: string;
     minutesLabel: string;
     nextStartLabel: string;
@@ -82,7 +84,10 @@ export type TaskTimerTranslations = {
     nextStartPlaceholder: string;
     nextStartHelper: string;
     confirm: string;
+    done: string;
     saving: string;
+    unlinkedNotice: string;
+    missingTaskNotice: string;
   };
   manualModal: {
     title: string;
@@ -195,8 +200,11 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       completionModal: {
         title: "実績を保存",
+        unlinkedTitle: "作業を完了",
         description:
           "週間タスクに戻る前に実績時間を確認し、次回のスタート地点をメモできます。",
+        unlinkedDescription:
+          "今回の作業時間を確認してタイマーを完了します。",
         actualTimeLabel: "今回の実績時間",
         minutesLabel: "{{minutes}}分として記録されます",
         nextStartLabel: "次回のスタート地点（任意）",
@@ -204,7 +212,12 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         nextStartPlaceholder: "例: 第2章から / 単語帳セクション3から",
         nextStartHelper: "メモを残すと次のセッション開始時に表示されます",
         confirm: "完了",
+        done: "完了",
         saving: "保存中...",
+        unlinkedNotice:
+          "タイマーが週間タスクに紐づいていないため作業時間は蓄積されません。",
+        missingTaskNotice:
+          "紐づけた週間タスクが削除されたため作業時間は保存されません。",
       },
       manualModal: {
         title: "手動で記録",
@@ -322,8 +335,11 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       completionModal: {
         title: "Review before saving",
+        unlinkedTitle: "Review before finishing",
         description:
           "Check the logged time and note your next starting point before returning to weekly tasks.",
+        unlinkedDescription:
+          "Check the elapsed time and finish this timer session.",
         actualTimeLabel: "Elapsed this session",
         minutesLabel: "Saved as {{minutes}} min",
         nextStartLabel: "Next starting point (optional)",
@@ -332,7 +348,12 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         nextStartHelper:
           "Leave a short note so you can resume from the proper point in next time.",
         confirm: "Save",
+        done: "Done",
         saving: "Saving...",
+        unlinkedNotice:
+          "This timer is not linked to a weekly task, so work time will not be saved.",
+        missingTaskNotice:
+          "The linked weekly task was deleted, so work time will not be saved.",
       },
       manualModal: {
         title: "Manual record",
@@ -451,8 +472,11 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
       },
       completionModal: {
         title: "Revoir avant d'enregistrer",
+        unlinkedTitle: "Revoir avant de terminer",
         description:
           "Vérifiez le temps enregistré et notez le prochain point de reprise avant de revenir aux tâches hebdomadaires.",
+        unlinkedDescription:
+          "Vérifiez le temps écoulé puis terminez cette session.",
         actualTimeLabel: "Temps passé sur cette session",
         minutesLabel: "Enregistré en {{minutes}}m",
         nextStartLabel: "Point de reprise (optionnel)",
@@ -462,7 +486,12 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         nextStartHelper:
           "Ajoutez une note pour reprendre plus vite la prochaine fois.",
         confirm: "Enregistrer",
+        done: "Terminer",
         saving: "Enregistrement...",
+        unlinkedNotice:
+          "Ce minuteur n'est associé à aucune tâche hebdomadaire, donc le temps de travail ne sera pas enregistré.",
+        missingTaskNotice:
+          "La tâche hebdomadaire associée a été supprimée, donc le temps de travail ne sera pas enregistré.",
       },
       manualModal: {
         title: "Saisie manuelle",
