@@ -5,6 +5,7 @@ import { I18nextProvider } from "react-i18next";
 import Dashboard from "../app/dashboard";
 import FunPlanScreen from "../components/feature/FunPlanScreen";
 import i18n from "../i18n";
+import { decryptFieldValue, isEncryptedFieldValue } from "../lib/security/fieldEncryption";
 import { supabase } from "../lib/supabaseClient";
 import { FunPlanProvider } from "../providers/FunPlanProvider";
 import { LanguageProvider } from "../providers/LanguageProvider";
@@ -190,9 +191,14 @@ describe("FunPlanScreen interactions", () => {
     await waitFor(() => expect(mockUpsert).toHaveBeenCalled());
 
     const [updates, options] = mockUpsert.mock.calls[0];
-    expect(updates).toEqual([
-      { id: "plan-2", description: "Second Plan", event_date: null, order: 0, user_id: "user-123" },
-      { id: "plan-1", description: "First Plan", event_date: null, order: 1, user_id: "user-123" },
+    expect(updates.map(({ description, ...row }: { description: string }) => row)).toEqual([
+      { id: "plan-2", event_date: null, order: 0, user_id: "user-123" },
+      { id: "plan-1", event_date: null, order: 1, user_id: "user-123" },
+    ]);
+    expect(updates.map((row: { description: string }) => isEncryptedFieldValue(row.description))).toEqual([true, true]);
+    expect(updates.map((row: { description: string }) => decryptFieldValue(row.description))).toEqual([
+      "Second Plan",
+      "First Plan",
     ]);
     expect(options).toEqual({ onConflict: "id" });
   });
@@ -269,14 +275,16 @@ describe("FunPlanScreen interactions", () => {
     );
     fireEvent.press(getByRole("button", { name: "Save" }));
 
-    await waitFor(() =>
-      expect(mockInsert).toHaveBeenCalledWith({
-        user_id: "user-123",
-        description: "New Plan",
-        event_date: null,
-        order: 0,
-      }),
-    );
+    await waitFor(() => expect(mockInsert).toHaveBeenCalled());
+    const [payload] = mockInsert.mock.calls[0];
+    const { description, ...row } = payload;
+    expect(row).toEqual({
+      user_id: "user-123",
+      event_date: null,
+      order: 0,
+    });
+    expect(isEncryptedFieldValue(description)).toBe(true);
+    expect(decryptFieldValue(description)).toBe("New Plan");
   });
 
   test("saves a fun plan with a past event_date when description is filled", async () => {
@@ -293,14 +301,16 @@ describe("FunPlanScreen interactions", () => {
     fireEvent(getByTestId("fun-plan-event-date-picker"), "onChange", {}, new Date("2026-05-20T12:00:00"));
     fireEvent.press(getByRole("button", { name: "Save" }));
 
-    await waitFor(() =>
-      expect(mockInsert).toHaveBeenCalledWith({
-        user_id: "user-123",
-        description: "Past Plan",
-        event_date: "2026-05-20",
-        order: 0,
-      }),
-    );
+    await waitFor(() => expect(mockInsert).toHaveBeenCalled());
+    const [payload] = mockInsert.mock.calls[0];
+    const { description, ...row } = payload;
+    expect(row).toEqual({
+      user_id: "user-123",
+      event_date: "2026-05-20",
+      order: 0,
+    });
+    expect(isEncryptedFieldValue(description)).toBe(true);
+    expect(decryptFieldValue(description)).toBe("Past Plan");
   });
 
   test("shows the dashboard note under the title card heading", async () => {

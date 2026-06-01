@@ -19,6 +19,7 @@ import { supabase } from "../lib/supabaseClient";
 import {
   TASK_TIMER_SESSION_STORAGE_KEY,
 } from "../lib/taskTimerSession";
+import { encryptNullableFieldValue } from "../lib/security/fieldEncryption";
 
 jest.useFakeTimers();
 
@@ -310,7 +311,7 @@ describe("TaskTimerScreen", () => {
                   data: {
                     accumulated_time_week: 25,
                     yearly_goal_id: "year-1",
-                    next_start_point: "Resume here",
+                    next_start_point: encryptNullableFieldValue("Resume here"),
                   },
                   error: null,
                 }),
@@ -331,6 +332,34 @@ describe("TaskTimerScreen", () => {
     expect(getAllByText("Task timer")[0]).toBeTruthy();
     expect(getByText("Start focus")).toBeTruthy();
     expect(getByTestId("timer-duration")).toHaveTextContent("0:00 / 0:00");
+  });
+
+  test("decrypts the saved next start point before displaying it", async () => {
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({
+        title: "Write report",
+        taskId: "task-1",
+        yearlyGoalId: "year-1",
+        logged: "25",
+      });
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: "user-1",
+          },
+        },
+      },
+    } as any);
+
+    try {
+      const { findByText } = renderScreen();
+
+      expect(await findByText("Resume here")).toBeTruthy();
+    } finally {
+      paramsSpy.mockRestore();
+    }
   });
 
   test("updates duration when preset buttons are pressed", () => {

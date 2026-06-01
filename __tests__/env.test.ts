@@ -21,6 +21,7 @@ describe("getValidatedEnv", () => {
   test("throws when required env vars are missing", () => {
     delete process.env.EXPO_PUBLIC_SUPABASE_URL;
     delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    delete process.env.EXPO_PUBLIC_FIELD_ENCRYPTION_KEY;
     delete process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV;
     delete process.env.APP_ENV;
 
@@ -34,6 +35,7 @@ describe("getValidatedEnv", () => {
   test("returns validated env when vars are set", () => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.EXPO_PUBLIC_FIELD_ENCRYPTION_KEY = "test-field-encryption-key-32-chars";
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV = "rc-test-key";
     process.env.APP_ENV = "dev";
 
@@ -43,6 +45,7 @@ describe("getValidatedEnv", () => {
       appEnv: "dev",
       supabaseUrl: "https://example.supabase.co",
       supabaseAnonKey: "anon-key",
+      fieldEncryptionKey: "test-field-encryption-key-32-chars",
       revenueCatApiKey: "rc-test-key",
     });
 
@@ -50,6 +53,7 @@ describe("getValidatedEnv", () => {
       appEnv: "dev",
       supabaseUrl: "https://example.supabase.co",
       supabaseAnonKey: "anon-key",
+      fieldEncryptionKey: "test-field-encryption-key-32-chars",
       revenueCatApiKey: "rc-test-key",
     });
   });
@@ -57,6 +61,7 @@ describe("getValidatedEnv", () => {
   test("uses iOS specific production RevenueCat key when available", () => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.EXPO_PUBLIC_FIELD_ENCRYPTION_KEY = "test-field-encryption-key-32-chars";
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_IOS = "rc-prod-ios";
     process.env.APP_ENV = "prod";
 
@@ -68,6 +73,7 @@ describe("getValidatedEnv", () => {
   test("uses iOS specific development RevenueCat key when available", () => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.EXPO_PUBLIC_FIELD_ENCRYPTION_KEY = "test-field-encryption-key-32-chars";
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_IOS = "rc-dev-ios";
     process.env.APP_ENV = "dev";
 
@@ -80,6 +86,7 @@ describe("getValidatedEnv", () => {
   test("uses Android specific production RevenueCat key when available", () => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.EXPO_PUBLIC_FIELD_ENCRYPTION_KEY = "test-field-encryption-key-32-chars";
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_PROD_ANDROID = "rc-prod-android";
     process.env.APP_ENV = "prod";
 
@@ -92,6 +99,7 @@ describe("getValidatedEnv", () => {
   test("falls back to legacy production key when platform specific key is absent", () => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.EXPO_PUBLIC_FIELD_ENCRYPTION_KEY = "test-field-encryption-key-32-chars";
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_PROD = "rc-prod-legacy";
     process.env.APP_ENV = "prod";
 

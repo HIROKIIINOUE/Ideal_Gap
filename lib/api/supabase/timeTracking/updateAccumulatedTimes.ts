@@ -2,6 +2,7 @@
 // 該当の週間タスクと紐づく年間目標の作業実績時間データを更新する機能
 
 import { Database } from "../../../../types/database";
+import { encryptNullableFieldValue } from "../../../security/fieldEncryption";
 import { supabase } from "../../../supabaseClient";
 
 type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
@@ -53,7 +54,7 @@ const supabaseTimeTrackingClient: TimeTrackingClient = {
       accumulated_time_week: newLoggedMinutes,
     };
     if (typeof nextStartPoint !== "undefined") {
-      payload.next_start_point = nextStartPoint ?? null;
+      payload.next_start_point = encryptNullableFieldValue(nextStartPoint ?? null);
     }
     const { error } = await supabase
       .from("weekly_tasks")

@@ -6,6 +6,7 @@ import IdealSelfScreen from "../components/feature/IdealSelfScreen";
 import { spacing } from "../constants/theme";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
+import { decryptFieldValue, isEncryptedFieldValue } from "../lib/security/fieldEncryption";
 
 jest.mock("@expo/vector-icons", () => {
   const MockIcon = () => null;
@@ -147,9 +148,14 @@ describe("IdealSelfScreen reordering", () => {
     await waitFor(() => expect(mockUpsert).toHaveBeenCalled());
 
     const [updates, options] = mockUpsert.mock.calls[0];
-    expect(updates).toEqual([
-      { id: "ideal-2", description: "Second Ideal", order: 0, user_id: "user-123" },
-      { id: "ideal-1", description: "First Ideal", order: 1, user_id: "user-123" },
+    expect(updates.map(({ description, ...row }: { description: string }) => row)).toEqual([
+      { id: "ideal-2", order: 0, user_id: "user-123" },
+      { id: "ideal-1", order: 1, user_id: "user-123" },
+    ]);
+    expect(updates.map((row: { description: string }) => isEncryptedFieldValue(row.description))).toEqual([true, true]);
+    expect(updates.map((row: { description: string }) => decryptFieldValue(row.description))).toEqual([
+      "Second Ideal",
+      "First Ideal",
     ]);
     expect(options).toEqual({ onConflict: "id" });
   });
@@ -197,10 +203,15 @@ describe("IdealSelfScreen reordering", () => {
 
     const lastUpsertCall = mockUpsert.mock.calls[mockUpsert.mock.calls.length - 1];
     const updates = lastUpsertCall[0];
-    expect(updates).toEqual([
-      { id: "ideal-2", description: "Second Ideal", order: 1, user_id: "user-123" },
-      { id: "ideal-1", description: "First Ideal", order: 2, user_id: "user-123" },
-      { id: "ideal-3", description: "New Ideal", order: 0, user_id: "user-123" },
+    expect(updates.map(({ description, ...row }: { description: string }) => row)).toEqual([
+      { id: "ideal-2", order: 1, user_id: "user-123" },
+      { id: "ideal-1", order: 2, user_id: "user-123" },
+      { id: "ideal-3", order: 0, user_id: "user-123" },
+    ]);
+    expect(updates.map((row: { description: string }) => decryptFieldValue(row.description))).toEqual([
+      "Second Ideal",
+      "First Ideal",
+      "New Ideal",
     ]);
   });
 

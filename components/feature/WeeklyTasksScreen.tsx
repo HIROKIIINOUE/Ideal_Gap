@@ -24,6 +24,7 @@ import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAcces
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { decryptFieldValue, encryptFieldValue } from "../../lib/security/fieldEncryption";
 import { supabase } from "../../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
@@ -223,7 +224,7 @@ export default function WeeklyTasksScreen() {
   const toWeeklyTask = React.useCallback(
     (row: WeeklyTaskListRow, goalLookup: Record<string, { label: string; color: string }>): WeeklyTask => ({
       id: row.id,
-      title: row.description,
+      title: decryptFieldValue(row.description),
       yearlyGoalId: row.yearly_goal_id ?? null,
       yearlyGoalLabel: goalLookup[row.yearly_goal_id ?? ""]?.label ?? t("modal.unlinkedYearlyGoal"),
       loggedMinutes: row.accumulated_time_week ?? 0,
@@ -238,7 +239,7 @@ export default function WeeklyTasksScreen() {
     (task: WeeklyTask, uid: string): WeeklyTaskInsert => ({
       id: task.id,
       user_id: uid,
-      description: task.title,
+      description: encryptFieldValue(task.title),
       yearly_goal_id: task.yearlyGoalId ?? null,
       accumulated_time_week: task.loggedMinutes,
       is_done: task.completed,
@@ -310,7 +311,7 @@ export default function WeeklyTasksScreen() {
     const yearlyOptions = ((yearlyData as YearlyGoalRow[] | null) ?? []).map((goalRow) => {
       return {
         id: goalRow.id,
-        label: goalRow.description,
+        label: decryptFieldValue(goalRow.description),
         color: goalRow.year_goal_color ?? colors.accentPrimary,
       };
     });
@@ -475,7 +476,7 @@ export default function WeeklyTasksScreen() {
       if (editingId) {
         const existing = tasks.find((task) => task.id === editingId);
         const payload: WeeklyTaskUpdate = {
-          description: parse.data.title,
+          description: encryptFieldValue(parse.data.title),
           yearly_goal_id: parse.data.yearlyGoalId ?? null,
           accumulated_time_week: existing?.loggedMinutes ?? 0,
         };
@@ -494,7 +495,7 @@ export default function WeeklyTasksScreen() {
         const { data: inserted, error } = await supabase
           .from("weekly_tasks")
           .insert({
-            description: parse.data.title,
+            description: encryptFieldValue(parse.data.title),
             yearly_goal_id: parse.data.yearlyGoalId ?? null,
             accumulated_time_week: 0,
             is_done: false,
@@ -515,7 +516,7 @@ export default function WeeklyTasksScreen() {
           },
           {},
         );
-        const newTask = toWeeklyTask(inserted, goalLookup);
+        const newTask = toWeeklyTask(inserted as WeeklyTaskListRow, goalLookup);
         const reordered = reorderTasks([...orderedExisting, newTask]);
         const updates = reordered.map((task) => toWeeklyRow(task, uid));
         const { error: reorderError } = await supabase.from("weekly_tasks").upsert(updates, { onConflict: "id" });

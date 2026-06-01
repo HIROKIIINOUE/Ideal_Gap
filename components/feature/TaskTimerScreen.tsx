@@ -48,6 +48,7 @@ import {
   addSentryBreadcrumb,
   captureTaskTimerAnomaly,
 } from "../../lib/sentry";
+import { decryptNullableFieldValue } from "../../lib/security/fieldEncryption";
 import { supabase } from "../../lib/supabaseClient";
 import { getTaskTimerRestorePolicy } from "../../lib/taskTimerRestorePolicy";
 import {
@@ -645,7 +646,7 @@ export default function TaskTimerScreen() {
           Math.round(row?.accumulated_time_week ?? 0),
         ),
         yearlyGoalId: row?.yearly_goal_id ?? null,
-        nextStartPoint: row?.next_start_point ?? null,
+        nextStartPoint: decryptNullableFieldValue(row?.next_start_point ?? null),
       };
     },
     [],

@@ -1,4 +1,8 @@
 import type { TimeTrackingClient } from "../lib/api/supabase/timeTracking/updateAccumulatedTimes";
+import {
+  decryptNullableFieldValue,
+  isEncryptedFieldValue,
+} from "../lib/security/fieldEncryption";
 
 const ensureTestEnv = () => {
   process.env.EXPO_PUBLIC_SUPABASE_URL =
@@ -7,6 +11,8 @@ const ensureTestEnv = () => {
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "test-anon-key";
   process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV =
     process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV ?? "test-revenuecat-key";
+  process.env.EXPO_PUBLIC_FIELD_ENCRYPTION_KEY =
+    process.env.EXPO_PUBLIC_FIELD_ENCRYPTION_KEY ?? "test-field-encryption-key-32-chars";
 };
 
 let updateAccumulatedTimes: typeof import("../lib/api/supabase/timeTracking/updateAccumulatedTimes").updateAccumulatedTimes;
@@ -141,6 +147,53 @@ describe("updateAccumulatedTimes", () => {
     expect(getState()).toEqual({
       weeklyLogged: 40,
       yearlyStored: 600,
+    });
+  });
+
+  it("encrypts nextStartPoint before updating Supabase", async () => {
+    const updatePayloads: Array<Record<string, unknown>> = [];
+    const update = jest.fn((payload) => {
+      updatePayloads.push(payload);
+      return {
+        match: jest.fn().mockResolvedValue({ error: null }),
+      };
+    });
+
+    jest.resetModules();
+    jest.doMock("../lib/supabaseClient", () => ({
+      supabase: {
+        from: jest.fn((table: string) => {
+          if (table === "weekly_tasks") {
+            return { update };
+          }
+          throw new Error(`Unexpected table: ${table}`);
+        }),
+      },
+    }));
+
+    const { updateAccumulatedTimes: updateWithSupabase } = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes");
+
+    await updateWithSupabase({
+      userId: "user-1",
+      taskId: "task-1",
+      yearlyGoalId: null,
+      newLoggedMinutes: 40,
+      previousLoggedMinutes: 40,
+      nextStartPoint: "Resume from chapter 2",
+    });
+
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(updatePayloads[0]?.accumulated_time_week).toBe(40);
+    expect(isEncryptedFieldValue(updatePayloads[0]?.next_start_point as string)).toBe(true);
+    expect(decryptNullableFieldValue(updatePayloads[0]?.next_start_point as string)).toBe(
+      "Resume from chapter 2",
+    );
+
+    jest.dontMock("../lib/supabaseClient");
+    jest.resetModules();
+    ensureTestEnv();
+    jest.isolateModules(() => {
+      ({ updateAccumulatedTimes } = require("../lib/api/supabase/timeTracking/updateAccumulatedTimes"));
     });
   });
 

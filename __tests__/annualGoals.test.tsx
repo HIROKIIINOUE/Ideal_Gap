@@ -5,6 +5,7 @@ import { I18nextProvider } from "react-i18next";
 import AnnualGoalsScreen from "../components/feature/AnnualGoalsScreen";
 import { spacing, typography } from "../constants/theme";
 import i18n from "../i18n";
+import { decryptFieldValue, decryptNullableFieldValue, isEncryptedFieldValue } from "../lib/security/fieldEncryption";
 import { supabase } from "../lib/supabaseClient";
 import { deleteYearlyGoals } from "../lib/api/supabase/goals/allItemDelete";
 
@@ -231,28 +232,34 @@ describe("AnnualGoalsScreen", () => {
 
     await waitFor(() => expect(mockUpsert).toHaveBeenCalled());
     const [updates, options] = mockUpsert.mock.calls[0];
-    expect(updates).toEqual([
+    expect(updates.map(({ description, yearly_goal_detail, ...row }: { description: string; yearly_goal_detail: string | null }) => row)).toEqual([
       {
         id: "goal-2",
-        description: "Career leap with shipped projects and portfolio refresh",
         year_goal_color: "#6EA8FF",
         is_done: false,
         accumulated_time_year: 2450,
         order: 0,
         user_id: "user-123",
-        yearly_goal_detail: null,
       },
       {
         id: "goal-1",
-        description: "Deep health routine with consistent sleep and workouts",
         year_goal_color: "#1E5EFF",
         is_done: false,
         accumulated_time_year: 1820,
         order: 1,
         user_id: "user-123",
-        yearly_goal_detail: "April rebuild morning routine",
       },
     ]);
+    expect(updates.map((row: { description: string }) => decryptFieldValue(row.description))).toEqual([
+      "Career leap with shipped projects and portfolio refresh",
+      "Deep health routine with consistent sleep and workouts",
+    ]);
+    expect(updates.map((row: { description: string }) => isEncryptedFieldValue(row.description))).toEqual([true, true]);
+    expect(updates.map((row: { yearly_goal_detail: string | null }) => decryptNullableFieldValue(row.yearly_goal_detail))).toEqual([
+      null,
+      "April rebuild morning routine",
+    ]);
+    expect(isEncryptedFieldValue(updates[1].yearly_goal_detail)).toBe(true);
     expect(options).toEqual({ onConflict: "id" });
   });
 
@@ -272,38 +279,44 @@ describe("AnnualGoalsScreen", () => {
     await waitFor(() => expect(mockUpsert).toHaveBeenCalledTimes(2));
 
     const [updates] = mockUpsert.mock.calls[mockUpsert.mock.calls.length - 1];
-    expect(updates).toEqual([
+    expect(updates.map(({ description, yearly_goal_detail, ...row }: { description: string; yearly_goal_detail: string | null }) => row)).toEqual([
       {
         id: "goal-2",
-        description: "Career leap with shipped projects and portfolio refresh",
         year_goal_color: "#6EA8FF",
         is_done: false,
         accumulated_time_year: 2450,
         order: 1,
         user_id: "user-123",
-        yearly_goal_detail: null,
       },
       {
         id: "goal-1",
-        description: "Deep health routine with consistent sleep and workouts",
         year_goal_color: "#1E5EFF",
         is_done: false,
         accumulated_time_year: 1820,
         order: 2,
         user_id: "user-123",
-        yearly_goal_detail: "April rebuild morning routine",
       },
       {
         id: "goal-3",
-        description: "Launch a side product",
         year_goal_color: "#1E5EFF",
         is_done: false,
         accumulated_time_year: 0,
         order: 0,
         user_id: "user-123",
-        yearly_goal_detail: null,
       },
     ]);
+    expect(updates.map((row: { description: string }) => decryptFieldValue(row.description))).toEqual([
+      "Career leap with shipped projects and portfolio refresh",
+      "Deep health routine with consistent sleep and workouts",
+      "Launch a side product",
+    ]);
+    expect(updates.map((row: { description: string }) => isEncryptedFieldValue(row.description))).toEqual([true, true, true]);
+    expect(updates.map((row: { yearly_goal_detail: string | null }) => decryptNullableFieldValue(row.yearly_goal_detail))).toEqual([
+      null,
+      "April rebuild morning routine",
+      null,
+    ]);
+    expect(isEncryptedFieldValue(updates[1].yearly_goal_detail)).toBe(true);
   });
 
   test("uses smaller header typography for French title and buttons", async () => {
@@ -444,11 +457,12 @@ describe("AnnualGoalsScreen", () => {
     fireEvent.changeText(memoInput, "April rebuild morning routine\nMay lock the weekly review cadence");
     fireEvent.press(getByRole("button", { name: "Save" }));
 
-    await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith({
-        yearly_goal_detail: "April rebuild morning routine\nMay lock the weekly review cadence",
-      });
-    });
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    const [payload] = mockUpdate.mock.calls[mockUpdate.mock.calls.length - 1];
+    expect(isEncryptedFieldValue(payload.yearly_goal_detail)).toBe(true);
+    expect(decryptNullableFieldValue(payload.yearly_goal_detail)).toBe(
+      "April rebuild morning routine\nMay lock the weekly review cadence",
+    );
   });
 
   test("truncates long accumulated time text after 9 characters", async () => {

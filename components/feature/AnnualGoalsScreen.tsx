@@ -28,6 +28,7 @@ import { getUserId } from "../../lib/api/supabase/common";
 import { deleteYearlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { encryptFieldValue, encryptNullableFieldValue } from "../../lib/security/fieldEncryption";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import KeyboardDismissButton from "../KeyboardDismissButton";
@@ -386,9 +387,9 @@ export default function AnnualGoalsScreen() {
             // 定数updatesに正しい順番の年間目標をセットし、データベース更新に使用
             const updates = nextGoals.map((item, idx) => ({
               id: item.id,
-              description: item.description,
+              description: encryptFieldValue(item.description),
               year_goal_color: item.goalColor,
-              yearly_goal_detail: item.detail,
+              yearly_goal_detail: encryptNullableFieldValue(item.detail),
               accumulated_time_year: item.accumulatedMinutes,
               is_done: item.completed,
               order: idx,
@@ -440,9 +441,9 @@ export default function AnnualGoalsScreen() {
         // ↓ 既存のgoalsのorderを＋１に更新し、新しいデータをorder0として処理する準備をする
         const shiftedExisting = goals.map((goal, idx) => ({
           id: goal.id,
-          description: goal.description,
+          description: encryptFieldValue(goal.description),
           year_goal_color: goal.goalColor,
-          yearly_goal_detail: goal.detail,
+          yearly_goal_detail: encryptNullableFieldValue(goal.detail),
           is_done: goal.completed,
           accumulated_time_year: goal.accumulatedMinutes,
           order: idx + 1,
@@ -467,9 +468,9 @@ export default function AnnualGoalsScreen() {
           ...shiftedExisting,
           {
             id: row.id,
-            description: row.description,
+            description: encryptFieldValue(row.description),
             year_goal_color: row.year_goal_color,
-            yearly_goal_detail: row.yearly_goal_detail ?? null,
+            yearly_goal_detail: encryptNullableFieldValue(row.yearly_goal_detail ?? null),
             is_done: row.is_done ?? false,
             accumulated_time_year: row.accumulated_time_year ?? 0,
             order: 0,
@@ -515,9 +516,9 @@ export default function AnnualGoalsScreen() {
 
     const updates = data.map((goal, idx) => ({
       id: goal.id,
-      description: goal.description,
+      description: encryptFieldValue(goal.description),
       year_goal_color: goal.goalColor,
-      yearly_goal_detail: goal.detail,
+      yearly_goal_detail: encryptNullableFieldValue(goal.detail),
       is_done: goal.completed,
       accumulated_time_year: goal.accumulatedMinutes,
       order: idx,
@@ -541,7 +542,7 @@ export default function AnnualGoalsScreen() {
     try {
       const normalizedDetail = detail.trim().length > 0 ? detail.trim() : null;
       const { data, error } = await updateYearlyGoal(detailGoalId, {
-        yearly_goal_detail: normalizedDetail,
+        yearly_goal_detail: encryptNullableFieldValue(normalizedDetail),
       });
       if (error) {
         setDetailError(error.message);

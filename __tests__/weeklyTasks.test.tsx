@@ -6,6 +6,7 @@ import { Alert, Keyboard, Platform } from "react-native";
 import WeeklyTasksScreen from "../components/feature/WeeklyTasksScreen";
 import { spacing, typography } from "../constants/theme";
 import i18n from "../i18n";
+import { decryptFieldValue, isEncryptedFieldValue } from "../lib/security/fieldEncryption";
 import { supabase } from "../lib/supabaseClient";
 import { deleteWeeklyTasks } from "../lib/api/supabase/goals/allItemDelete";
 
@@ -575,16 +576,18 @@ describe("WeeklyTasksScreen", () => {
     );
     fireEvent.press(await findByText("Save"));
 
-    await waitFor(() =>
-      expect(mockInsertWeekly).toHaveBeenCalledWith({
-        description: "Read 20 pages",
+    await waitFor(() => expect(mockInsertWeekly).toHaveBeenCalled());
+    const [payload] = mockInsertWeekly.mock.calls[0];
+    const { description, ...row } = payload;
+    expect(row).toEqual({
         yearly_goal_id: null,
         accumulated_time_week: 0,
         is_done: false,
         user_id: "user-123",
         order: 0,
-      }),
-    );
+    });
+    expect(isEncryptedFieldValue(description)).toBe(true);
+    expect(decryptFieldValue(description)).toBe("Read 20 pages");
   });
 
   test("disables the modal save button during a pending save to prevent duplicate submissions", async () => {
@@ -691,16 +694,18 @@ describe("WeeklyTasksScreen", () => {
     );
     fireEvent.press(await findByText("Save"));
 
-    await waitFor(() =>
-      expect(mockInsertWeekly).toHaveBeenCalledWith({
-        description: "Review flashcards",
+    await waitFor(() => expect(mockInsertWeekly).toHaveBeenCalled());
+    const [payload] = mockInsertWeekly.mock.calls[0];
+    const { description, ...row } = payload;
+    expect(row).toEqual({
         yearly_goal_id: null,
         accumulated_time_week: 0,
         is_done: false,
         user_id: "user-123",
         order: 0,
-      }),
-    );
+    });
+    expect(isEncryptedFieldValue(description)).toBe(true);
+    expect(decryptFieldValue(description)).toBe("Review flashcards");
   });
 
   test("remembers the last selected yearly goal for the next add modal", async () => {

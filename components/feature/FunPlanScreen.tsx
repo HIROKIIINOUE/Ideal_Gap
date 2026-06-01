@@ -22,6 +22,7 @@ import { colors, radius, shadows, spacing, typography } from "../../constants/th
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { decryptFieldValue, encryptFieldValue } from "../../lib/security/fieldEncryption";
 import { supabase } from "../../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
@@ -79,7 +80,7 @@ const toPlanCard = (row: {
   updated_at?: string | null;
 }): FunPlanCard => ({
   id: row.id,
-  description: row.description,
+  description: decryptFieldValue(row.description),
   eventDate: row.event_date ?? null,
   order: row.order ?? 0,
   updatedAt: row.updated_at ?? null,
@@ -294,7 +295,7 @@ export default function FunPlanScreen() {
         const { data, error } = await supabase
           .from("fun_plans")
           .update({
-            description: parsed.data.description,
+            description: encryptFieldValue(parsed.data.description),
             event_date: toEventDateString(modalEventDate),
           })
           .eq("id", editingId)
@@ -313,7 +314,7 @@ export default function FunPlanScreen() {
           .from("fun_plans")
           .insert({
             user_id: uid,
-            description: parsed.data.description,
+            description: encryptFieldValue(parsed.data.description),
             event_date: toEventDateString(modalEventDate),
             order: 0,
           })
@@ -327,7 +328,7 @@ export default function FunPlanScreen() {
         const row = data as unknown as FunPlanRow;
         const shiftedExisting = plans.map((plan, idx) => ({
           id: plan.id,
-          description: plan.description,
+          description: encryptFieldValue(plan.description),
           event_date: plan.eventDate,
           order: idx + 1,
           user_id: uid,
@@ -339,7 +340,7 @@ export default function FunPlanScreen() {
               ...shiftedExisting,
               {
                 id: row.id,
-                description: row.description,
+                description: encryptFieldValue(row.description),
                 event_date: row.event_date,
                 order: 0,
                 user_id: uid,
@@ -386,7 +387,7 @@ export default function FunPlanScreen() {
 
     const updates = data.map((item, idx) => ({
       id: item.id,
-      description: item.description,
+      description: encryptFieldValue(item.description),
       event_date: item.eventDate,
       order: idx,
       user_id: uid,

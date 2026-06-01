@@ -15,6 +15,7 @@ describe("supabase client", () => {
       ...originalEnv,
       EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
       EXPO_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+      EXPO_PUBLIC_FIELD_ENCRYPTION_KEY: "test-field-encryption-key-32-chars",
       EXPO_PUBLIC_REVENUECAT_API_KEY_DEV: "rc-test-key",
       APP_ENV: "dev",
     };

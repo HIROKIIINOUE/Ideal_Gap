@@ -23,6 +23,7 @@ import OfflineRequiredScreen from "../components/OfflineRequiredScreen";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signOutCurrentSession } from "../lib/logout";
 import { getAccessStateForUser } from "../lib/subscription";
+import { decryptFieldValue } from "../lib/security/fieldEncryption";
 import { supabase } from "../lib/supabaseClient";
 import { shouldUseAndroidJapaneseTypography } from "../lib/ui/platform";
 import { isCompactScreen } from "../lib/ui/responsive";
@@ -219,7 +220,7 @@ export default function Dashboard() {
     }, {});
     const nextTasks = ((data as any[]) ?? []).map((row): DashboardWeeklyTaskOption => ({
       id: row.id,
-      title: row.description,
+      title: decryptFieldValue(row.description),
       yearlyGoalId: row.yearly_goal_id ?? null,
       loggedMinutes: Math.max(0, Math.round(row.accumulated_time_week ?? 0)),
       color: row.yearly_goal_id ? (goalColorLookup[row.yearly_goal_id] ?? colors.accentPrimary) : colors.divider,
@@ -297,7 +298,7 @@ export default function Dashboard() {
     setNextFunPlan(
       firstPlan
         ? {
-            description: firstPlan.description,
+            description: decryptFieldValue(firstPlan.description),
             eventDate: firstPlan.event_date ?? null,
           }
         : null,
