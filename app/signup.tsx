@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, Stack, router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -37,6 +38,7 @@ export default function Signup() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isEmailSignupVisible, setIsEmailSignupVisible] = useState(false);
   // touched状態変数群でinputに1度でもFocusしたかどうかを判定しエラーメッセージ出力の有無に利用
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
@@ -226,55 +228,6 @@ export default function Signup() {
               termsOfUseLabel={t("termsOfUseLabel")}
             />
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>{t("usernameLabel")}</Text>
-              <TextInput
-                placeholder={t("usernamePlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.input}
-                keyboardAppearance="dark"
-                autoCapitalize="none"
-                value={username}
-                onChangeText={setUsername}
-                onBlur={() => setUsernameTouched(true)}
-              />
-              {!isUsernameValid && usernameTouched && <Text style={styles.errorText}>{t("usernameInvalid")}</Text>}
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
-              <TextInput
-                placeholder={t("emailPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.input}
-                keyboardAppearance="dark"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-                onBlur={() => setEmailTouched(true)}
-              />
-              {!isEmailValid && emailTouched && <Text style={styles.errorText}>{t("emailInvalid")}</Text>}
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
-              <PasswordField
-                placeholder={t("passwordPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.input}
-                keyboardAppearance="dark"
-                value={password}
-                onChangeText={setPassword}
-                onBlur={() => setPasswordTouched(true)}
-                showPasswordLabel={t("showPassword")}
-                hidePasswordLabel={t("hidePassword")}
-              />
-              {!isPasswordValid && passwordTouched && (
-                <Text style={styles.errorText}>{t("passwordInvalid")}</Text>
-              )}
-            </View>
-
             <OAuthContinueButtons
               providers={oauthProviders}
               googleLabel={t("continueWithGoogle")}
@@ -284,44 +237,117 @@ export default function Signup() {
               disabled={isSubmitting}
               onPress={handleOAuthContinue}
             />
+            {!isEmailSignupVisible ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setIsEmailSignupVisible(true)}
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  styles.emailCtaButton,
+                  styles.secondaryButton,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="email-outline"
+                  size={20}
+                  color={colors.textPrimary}
+                  testID="continue-with-email-icon"
+                />
+                <Text style={styles.secondaryLabel}>{t("continueWithEmail")}</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.emailSignupSection}>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{t("usernameLabel")}</Text>
+                  <TextInput
+                    placeholder={t("usernamePlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.input}
+                    keyboardAppearance="dark"
+                    autoCapitalize="none"
+                    value={username}
+                    onChangeText={setUsername}
+                    onBlur={() => setUsernameTouched(true)}
+                  />
+                  {!isUsernameValid && usernameTouched && (
+                    <Text style={styles.errorText}>{t("usernameInvalid")}</Text>
+                  )}
+                </View>
 
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.ctaButton,
-                styles.primaryButton,
-                styles.buttonShadow,
-                Platform.OS === "android" && styles.buttonShadowAndroidFix,
-                (!isFormValid || isSubmitting || oauthProvider) && styles.buttonDisabled,
-                pressed && isFormValid && !isSubmitting && !oauthProvider && styles.buttonPressed,
-              ]}
-              disabled={!isFormValid || isSubmitting || Boolean(oauthProvider)}
-              onPress={handleSubmit}
-            >
-              <LinearGradient
-                colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.buttonGlass}
-              />
-              <Text style={styles.primaryLabel}>
-                {isSubmitting ? t("primaryCtaLoading") : t("primaryCta")}
-              </Text>
-            </Pressable>
-            {submissionState === "success" && (
-              <View style={[styles.alertBox, styles.successBox]}>
-                <Text style={styles.alertTitle}>{t("verificationTitle")}</Text>
-                <Text style={styles.alertBody}>{t("verificationBody", { email })}</Text>
-              </View>
-            )}
-            {submissionState === "verification_resent" && (
-              <View style={[styles.alertBox, styles.successBox]}>
-                <Text style={styles.alertBody}>{t("unconfirmedVerificationBody")}</Text>
-              </View>
-            )}
-            {submissionError && (
-              <View style={[styles.alertBox, styles.errorBox]}>
-                <Text style={styles.alertBody}>{submissionError}</Text>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
+                  <TextInput
+                    placeholder={t("emailPlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.input}
+                    keyboardAppearance="dark"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    value={email}
+                    onChangeText={setEmail}
+                    onBlur={() => setEmailTouched(true)}
+                  />
+                  {!isEmailValid && emailTouched && <Text style={styles.errorText}>{t("emailInvalid")}</Text>}
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
+                  <PasswordField
+                    placeholder={t("passwordPlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.input}
+                    keyboardAppearance="dark"
+                    value={password}
+                    onChangeText={setPassword}
+                    onBlur={() => setPasswordTouched(true)}
+                    showPasswordLabel={t("showPassword")}
+                    hidePasswordLabel={t("hidePassword")}
+                  />
+                  {!isPasswordValid && passwordTouched && (
+                    <Text style={styles.errorText}>{t("passwordInvalid")}</Text>
+                  )}
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.ctaButton,
+                    styles.primaryButton,
+                    styles.buttonShadow,
+                    Platform.OS === "android" && styles.buttonShadowAndroidFix,
+                    (!isFormValid || isSubmitting || oauthProvider) && styles.buttonDisabled,
+                    pressed && isFormValid && !isSubmitting && !oauthProvider && styles.buttonPressed,
+                  ]}
+                  disabled={!isFormValid || isSubmitting || Boolean(oauthProvider)}
+                  onPress={handleSubmit}
+                >
+                  <LinearGradient
+                    colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.buttonGlass}
+                  />
+                  <Text style={styles.primaryLabel}>
+                    {isSubmitting ? t("primaryCtaLoading") : t("primaryCta")}
+                  </Text>
+                </Pressable>
+                {submissionState === "success" && (
+                  <View style={[styles.alertBox, styles.successBox]}>
+                    <Text style={styles.alertTitle}>{t("verificationTitle")}</Text>
+                    <Text style={styles.alertBody}>{t("verificationBody", { email })}</Text>
+                  </View>
+                )}
+                {submissionState === "verification_resent" && (
+                  <View style={[styles.alertBox, styles.successBox]}>
+                    <Text style={styles.alertBody}>{t("unconfirmedVerificationBody")}</Text>
+                  </View>
+                )}
+                {submissionError && (
+                  <View style={[styles.alertBox, styles.errorBox]}>
+                    <Text style={styles.alertBody}>{submissionError}</Text>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -449,10 +475,16 @@ const styles = StyleSheet.create({
     lineHeight: typography.xl * 1.2,
   },
   trialPrice: {
-    color: colors.textSecondary,
+    color: colors.warning,
     fontSize: typography.sm,
-    fontWeight: "600",
+    fontWeight: "700",
     lineHeight: typography.sm * 1.5,
+  },
+  emailSignupSection: {
+    gap: spacing.md,
+  },
+  emailCtaButton: {
+    flexDirection: "row",
   },
   fieldGroup: {
     gap: spacing.xs,

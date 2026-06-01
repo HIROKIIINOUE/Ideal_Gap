@@ -127,10 +127,16 @@ describe("Signup screen", () => {
       </I18nextProvider>,
     );
 
+  const revealEmailSignup = (getByRole: ReturnType<typeof renderScreen>["getByRole"]) => {
+    fireEvent.press(getByRole("button", { name: "Continue with Email" }));
+  };
+
   test("submits and shows verification prompt on success", async () => {
     mockSignUpWithEmailConfirmation.mockResolvedValue({ ok: true });
 
-    const { getByPlaceholderText, getByText, queryByText } = renderScreen();
+    const { getByPlaceholderText, getByRole, getByText, queryByText } = renderScreen();
+
+    revealEmailSignup(getByRole);
 
     fireEvent.changeText(getByPlaceholderText("Your name"), "Hiro");
     fireEvent.changeText(getByPlaceholderText("you@example.com"), "hiro@example.com");
@@ -184,6 +190,7 @@ describe("Signup screen", () => {
 
   test("toggles password visibility", () => {
     const { getByPlaceholderText, getByRole } = renderScreen();
+    revealEmailSignup(getByRole);
 
     const passwordInput = getByPlaceholderText("6+ characters");
     expect(passwordInput.props.secureTextEntry).toBe(true);
@@ -202,7 +209,9 @@ describe("Signup screen", () => {
       message: "User already registered",
     });
 
-    const { getByPlaceholderText, getByText } = renderScreen();
+    const { getByPlaceholderText, getByRole, getByText } = renderScreen();
+
+    revealEmailSignup(getByRole);
 
     fireEvent.changeText(getByPlaceholderText("Your name"), "Hiro");
     fireEvent.changeText(getByPlaceholderText("you@example.com"), "hiro@example.com");
@@ -240,7 +249,9 @@ describe("Signup screen", () => {
       message: "Email verification resent",
     });
 
-    const { getByPlaceholderText, getByText, queryByText } = renderScreen();
+    const { getByPlaceholderText, getByRole, getByText, queryByText } = renderScreen();
+
+    revealEmailSignup(getByRole);
 
     fireEvent.changeText(getByPlaceholderText("Your name"), "Hiro");
     fireEvent.changeText(getByPlaceholderText("you@example.com"), "hiro@example.com");
@@ -258,6 +269,23 @@ describe("Signup screen", () => {
     ).toBeTruthy();
   });
 
+  test("hides the email signup form by default and reveals it on demand", () => {
+    const { getByRole, getByTestId, queryByPlaceholderText, queryByText } = renderScreen();
+
+    expect(queryByPlaceholderText("Your name")).toBeNull();
+    expect(queryByPlaceholderText("you@example.com")).toBeNull();
+    expect(queryByPlaceholderText("6+ characters")).toBeNull();
+    expect(queryByText("Continue to sign up")).toBeNull();
+    expect(getByTestId("continue-with-email-icon")).toBeTruthy();
+
+    revealEmailSignup(getByRole);
+
+    expect(queryByPlaceholderText("Your name")).toBeTruthy();
+    expect(queryByPlaceholderText("you@example.com")).toBeTruthy();
+    expect(queryByPlaceholderText("6+ characters")).toBeTruthy();
+    expect(queryByText("Continue to sign up")).toBeTruthy();
+  });
+
   test("renders plan price and trial copy from RevenueCat offering", async () => {
     const { findAllByText } = renderScreen();
 
@@ -266,6 +294,7 @@ describe("Signup screen", () => {
     const priceTexts = await findAllByText(/^3\.99CAD\/month$/i);
     expect(priceTexts.length).toBeGreaterThan(0);
     expect(priceTexts[0]).toHaveStyle({ fontSize: typography.xl });
+    expect(trialTexts[0]).toHaveStyle({ color: "#F2C94C" });
   });
 
   test("shows fixed Japanese subscription copy", async () => {
