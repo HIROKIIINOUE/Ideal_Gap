@@ -11,6 +11,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import { getUserId } from "../lib/api/supabase/common";
 import { fetchFocusMusicCatalog } from "../lib/focus-music/catalog";
 import {
@@ -71,6 +72,7 @@ type FocusMusicContextValue = {
   pause: () => void;
   stop: () => Promise<void>;
   refreshCatalog: () => Promise<void>;
+  refreshDownloadQuota: () => Promise<void>;
 };
 
 const FocusMusicContext = createContext<FocusMusicContextValue | null>(null);
@@ -83,6 +85,10 @@ const areInstalledEntriesEqual = (
   current: InstalledTrack[],
   next: InstalledTrack[],
 ) => JSON.stringify(current) === JSON.stringify(next);
+
+//  2_147_483_647 は setTimeout()に渡せる32bit 符号付き整数の最大値で、ミリ秒だと約 24.8 日に当たる
+//  30日を直接渡せないので24.8日を渡し、それ以降にアプリが起動された場合は再計算することでDL制限日がズレない
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 const reconcileInstalledEntries = async (
   tracks: FocusMusicTrack[],
@@ -134,10 +140,22 @@ export function FocusMusicProvider({ children }: ProviderProps) {
 
   const isDownloadingRef = useRef(false);
   const catalogRef = useRef<FocusMusicTrack[]>([]);
+  const quotaResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appStateRef = useRef(AppState.currentState);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     catalogRef.current = catalog;
   }, [catalog]);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (quotaResetTimeoutRef.current) {
+        clearTimeout(quotaResetTimeoutRef.current);
+      }
+    };
+  }, []);
 
 
   // 音楽が再生されている時のみbackground: true設定をONにする(充電消費節約対策)
@@ -155,27 +173,71 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   );
 
 
-  // download quota (今月の曲のDL数と制限リセット日)を取得し、状態関数を更新
-  useEffect(() => {
-    let active = true;
-    const loadQuota = async () => {
-      const userId = await getUserId();
+  // 月間ダウンロード枠の状態を読み直して、次のリセット時刻に合わせて自動更新を予約する
+  const refreshDownloadQuota = useCallback(
+    async (providedUserId?: string | null) => {
+      const userId = providedUserId ?? (await getUserId());
+
+      if (quotaResetTimeoutRef.current) {
+        clearTimeout(quotaResetTimeoutRef.current);
+        quotaResetTimeoutRef.current = null;
+      }
+
       if (!userId) {
-        if (active) setMonthlyDownloadRemaining(null);
+        if (isMountedRef.current) {
+          setMonthlyDownloadRemaining(null);
+          setDownloadResetAt(null);
+        }
         return;
       }
+
+      // // Async StorageからdownloadQuotaを取得。(ここには該当ユーザの今月の曲のDL数と制限リセット日がオブジェクトで格納されている)
       const quota = await loadMonthlyDownloadQuota(userId);
-      if (!active) return;
+      if (!isMountedRef.current) return;
+
       setMonthlyDownloadRemaining(
         Math.max(FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT - quota.count, 0),
       );
       setDownloadResetAt(quota.resetAt);
-    };
-    loadQuota();
+
+      const resetAtTime = Date.parse(quota.resetAt);
+      if (Number.isNaN(resetAtTime)) return;
+
+      const scheduleDelay = Math.max(resetAtTime - Date.now(), 0);
+      quotaResetTimeoutRef.current = setTimeout(() => {
+        void refreshDownloadQuota(userId);
+      }, Math.min(scheduleDelay, MAX_TIMEOUT_MS));
+    },
+    [],
+  );
+
+  // download quota (今月の曲のDL数と制限リセット日)を取得し、状態関数を更新
+  useEffect(() => {
+    void refreshDownloadQuota();
+  }, [refreshDownloadQuota]);
+
+
+  // アプリ復帰時(foregroundに戻ってきた時)にdownload quota を最新化する
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        const previousAppState =
+          typeof appStateRef.current === "string" ? appStateRef.current : "";
+        if (
+          previousAppState.match(/inactive|background/) &&
+          nextAppState === "active"
+        ) {
+          void refreshDownloadQuota();
+        }
+        appStateRef.current = nextAppState;
+      },
+    );
+
     return () => {
-      active = false;
+      subscription?.remove?.();
     };
-  }, []);
+  }, [refreshDownloadQuota]);
 
   // カタログを最新のものに更新
   const refreshCatalog = useCallback(async () => {
@@ -298,6 +360,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       }
 
       // 月間最大DL数を上回っていたらダウンロードを却下
+      // // Async StorageからdownloadQuotaを取得。(ここには該当ユーザの今月の曲のDL数と制限リセット日がオブジェクトで格納されている)
       const quota = await loadMonthlyDownloadQuota(userId);
       setMonthlyDownloadRemaining(
         Math.max(FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT - quota.count, 0),
@@ -383,11 +446,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
         // 最新の手持ちの音楽リスト保存情報(メタ情報)をプロジェクト内(状態変数)と端末内(Async Storage)の両方で更新する
         await persistInstalledEntries(nextEntries);
         // 今月のダウンロード数の値(download quota)を更新
-        const updatedQuota = await incrementMonthlyDownloadQuota(userId);
-        setMonthlyDownloadRemaining(
-          Math.max(FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT - updatedQuota.count, 0),
-        );
-        setDownloadResetAt(updatedQuota.resetAt);
+        await incrementMonthlyDownloadQuota(userId);
+        await refreshDownloadQuota(userId);
         if (!selectedTrackId) {
           setSelectedTrackId(id);
         }
@@ -407,7 +467,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
         isDownloadingRef.current = false;
       }
     },
-    [catalog, installedEntries, persistInstalledEntries, selectedTrackId],
+    [catalog, installedEntries, persistInstalledEntries, refreshDownloadQuota, selectedTrackId],
   );
 
   // タスク集中音楽の削除、引数としてタスク集中音楽のid１つを受け取る
@@ -599,6 +659,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       pause,
       stop,
       refreshCatalog,
+      refreshDownloadQuota,
     }),
     [
       catalog,
@@ -620,6 +681,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       pause,
       stop,
       refreshCatalog,
+      refreshDownloadQuota,
     ],
   );
 

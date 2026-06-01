@@ -60,6 +60,7 @@ export default function FocusMusicScreen() {
     isLoadingCatalog,
     getInstallProgress,
     refreshCatalog,
+    refreshDownloadQuota,
     installTrack,
     removeTrack,
     selectTrack,
@@ -102,7 +103,9 @@ export default function FocusMusicScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshCatalog();
-    }, [refreshCatalog]),
+      // 月間ダウンロード枠の状態を読み直して、次のリセット時刻に合わせて自動更新を予約する
+      void refreshDownloadQuota();
+    }, [refreshCatalog, refreshDownloadQuota]),
   );
 
   // フィルターされた場合はフィルターされたカタログ、

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
+import { AppState, AppStateStatus } from "react-native";
 import { FocusMusicProvider, useFocusMusic } from "../providers/FocusMusicProvider";
 import {
   FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX,
@@ -82,6 +83,8 @@ const createMockPlayer = () => ({
 
 const mockPlayer = createMockPlayer();
 const mockSetAudioModeAsync = jest.fn().mockResolvedValue(undefined);
+let appStateChangeListener: ((nextState: AppStateStatus) => void) | null = null;
+const mockAppStateSubscriptionRemove = jest.fn();
 
 jest.mock("../lib/focus-music/catalog", () => ({
   fetchFocusMusicCatalog: () => mockFetchCatalog(),
@@ -138,6 +141,7 @@ jest.mock("expo-audio", () => ({
 describe("FocusMusicProvider", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    jest.useRealTimers();
     mockFetchCatalog.mockClear();
     mockSignedUrl.mockClear();
     mockNetInfoFetch.mockReset();
@@ -169,6 +173,22 @@ describe("FocusMusicProvider", () => {
     );
     (FileSystem.deleteAsync as jest.Mock).mockReset();
     (FileSystem.deleteAsync as jest.Mock).mockResolvedValue(undefined);
+    appStateChangeListener = null;
+    mockAppStateSubscriptionRemove.mockReset();
+    jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((type, listener) => {
+        if (type === "change") {
+          appStateChangeListener = listener as (nextState: AppStateStatus) => void;
+        }
+        return {
+          remove: mockAppStateSubscriptionRemove,
+        };
+      });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test("installs a track on wifi and persists metadata", async () => {
@@ -615,5 +635,61 @@ describe("FocusMusicProvider", () => {
     if (installResult && !installResult.ok) {
       expect(installResult.reason).toBe("monthly_limit");
     }
+  });
+
+  test("reloads monthly download quota when app returns to foreground", async () => {
+    await AsyncStorage.setItem(
+      `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.user-1`,
+      JSON.stringify({
+        resetAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        count: 18,
+      }),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.monthlyDownloadRemaining).toBe(2));
+
+    await AsyncStorage.setItem(
+      `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.user-1`,
+      JSON.stringify({
+        resetAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        count: 4,
+      }),
+    );
+
+    await act(async () => {
+      appStateChangeListener?.("background");
+      appStateChangeListener?.("active");
+    });
+
+    await waitFor(() => expect(result.current.monthlyDownloadRemaining).toBe(16));
+  });
+
+  test("automatically resets monthly download quota when resetAt passes", async () => {
+    jest.useFakeTimers();
+
+    await AsyncStorage.setItem(
+      `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.user-1`,
+      JSON.stringify({
+        resetAt: new Date(Date.now() + 1000).toISOString(),
+        count: 20,
+      }),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.monthlyDownloadRemaining).toBe(0));
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.monthlyDownloadRemaining).toBe(20));
   });
 });
