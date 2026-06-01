@@ -80,8 +80,33 @@ describe("Dashboard access guard", () => {
     mockGetAccessStateForUser.mockResolvedValue({
       canAccessApp: true,
       accessMode: "friend_free",
+      resolution: "entitled",
       subscription: { status: "signupAwait" },
       accessOverride: { access_type: "friend_free", is_active: true },
+    });
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Dashboard />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockGetAccessStateForUser).toHaveBeenCalledWith("user-123");
+    });
+
+    expect(mockReplace).not.toHaveBeenCalledWith("/purchases");
+  });
+
+  test("does not redirect to purchases while access cannot be verified", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      resolution: "unknown",
+      unknownReason: "subscription_fetch_failed",
+      subscription: null,
+      accessOverride: null,
+      source: "last_known_cache",
     });
 
     render(

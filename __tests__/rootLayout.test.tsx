@@ -137,4 +137,22 @@ describe("RootLayout", () => {
     await waitFor(() => expect(restoreSession).toHaveBeenCalledTimes(2));
     expect(router.replace).toHaveBeenCalledTimes(1);
   });
+
+  test("routes authenticated users to dashboard when access is temporarily unknown", async () => {
+    const router = require("expo-router").router;
+    (getAccessStateForUser as jest.Mock).mockResolvedValueOnce({
+      canAccessApp: true,
+      accessMode: "paid",
+      resolution: "unknown",
+      unknownReason: "subscription_fetch_failed",
+      subscription: null,
+      accessOverride: null,
+      source: "last_known_cache",
+    });
+
+    render(<RootLayout />);
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard"));
+    expect(router.replace).not.toHaveBeenCalledWith("/purchases");
+  });
 });

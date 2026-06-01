@@ -126,15 +126,15 @@ export default function Login() {
       const userId = data.session?.user?.id;
       if (userId) {
         const accessState = await getAccessStateForUser(userId);
-        if (!accessState.canAccessApp) {
+        if (accessState.canAccessApp) {
+          router.replace("/dashboard");
+        } else {
           try {
             await ensureSignupAwaitSubscription(userId);
           } catch (error) {
             console.warn("failed to ensure signupAwait subscription", error);
           }
           router.replace("/purchases?from=login");
-        } else {
-          router.replace("/dashboard");
         }
       }
 

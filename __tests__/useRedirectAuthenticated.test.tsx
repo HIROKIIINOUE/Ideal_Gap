@@ -70,6 +70,7 @@ describe("useRedirectAuthenticated", () => {
     (getAccessStateForUser as jest.Mock).mockResolvedValue({
       canAccessApp: true,
       accessMode: "paid",
+      resolution: "entitled",
       subscription: { status: "active" },
       accessOverride: null,
     });
@@ -135,6 +136,27 @@ describe("useRedirectAuthenticated", () => {
     });
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  test("redirects authenticated users to dashboard when access is temporarily unknown", async () => {
+    (supabase.auth.getSession as jest.Mock).mockResolvedValueOnce({
+      data: { session: { user: { id: "user-1" } } },
+      error: null,
+    });
+    (getAccessStateForUser as jest.Mock).mockResolvedValueOnce({
+      canAccessApp: true,
+      accessMode: "paid",
+      resolution: "unknown",
+      unknownReason: "subscription_fetch_failed",
+      subscription: null,
+      accessOverride: null,
+      source: "last_known_cache",
+    });
+
+    render(<TestScreen />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"));
+    expect(mockReplace).not.toHaveBeenCalledWith("/purchases");
   });
 
   test("unsubscribes auth listener when the focused screen unmounts", async () => {

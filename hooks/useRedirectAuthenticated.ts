@@ -42,6 +42,7 @@ export const useRedirectAuthenticated = () => {
           destination,
           event: event ?? null,
           hasPersistedTaskTimer,
+          resolution: accessState.resolution,
           source,
           userId,
         });

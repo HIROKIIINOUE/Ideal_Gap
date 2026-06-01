@@ -9,6 +9,12 @@
 import { User } from "@supabase/supabase-js";
 import { Database } from "../types/database";
 import { LanguageKey } from "../types/i18n";
+import {
+  clearLastKnownAccessState,
+  readLastKnownAccessState,
+  writeLastKnownAccessState,
+} from "./accessStateCache";
+import { getRevenueCatEntitlementAccessState } from "./revenuecatOfferings";
 import { supabase } from "./supabaseClient";
 
 export type SubscriptionStatus = Database["public"]["Enums"]["status"];
@@ -20,9 +26,22 @@ export type SubscriptionRow =
 export type AccessOverrideRow =
   Database["public"]["Tables"]["access_overrides"]["Row"];
 export type AccessMode = "paid" | "friend_free" | "none";
+export type AccessResolution = "entitled" | "not_entitled" | "unknown";
+export type AccessSource =
+  | "subscription"
+  | "revenuecat"
+  | "access_override"
+  | "last_known_cache"
+  | "none";
+export type AccessUnknownReason =
+  | "subscription_fetch_failed"
+  | "access_override_fetch_failed";
 export type AccessState = {
   canAccessApp: boolean;
   accessMode: AccessMode;
+  resolution: AccessResolution;
+  source: AccessSource;
+  unknownReason: AccessUnknownReason | null;
   subscription: SubscriptionRow | null;
   accessOverride: AccessOverrideRow | null;
 };
@@ -56,6 +75,11 @@ const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] =
 const nowIso = () => new Date().toISOString();
 // 同じuserIdで複数回同時にensureSignupAwaitSubscription が呼ばれたとき、DBに重複行を挿入しないためのデータ構造。進行中のプロミス処理も一つにまとめてくれる。
 const ensureInFlight = new Map<string, Promise<SubscriptionRow>>();
+
+type QueryResult<T> = {
+  data: T | null;
+  error: { message?: string } | null;
+};
 
 // メタデータ解析ヘルパー  (後日復習対象)
 const getMetadataString = (
@@ -189,10 +213,10 @@ export const ensureUserProfileForAuthUser = async (
   return data as UserProfileRow;
 };
 
-// Subscriptionsテーブルから該当のユーザの情報を取得
-export const getSubscriptionForUser = async (
+// Subscriptionsテーブルから該当のユーザの情報を取得し、通信失敗と未作成を分離する。
+const fetchSubscriptionForUser = async (
   userId: string,
-): Promise<SubscriptionRow | null> => {
+): Promise<QueryResult<SubscriptionRow>> => {
   const { data, error } = await supabase
     .from("subscriptions")
     .select("*")
@@ -203,10 +227,18 @@ export const getSubscriptionForUser = async (
 
   if (error) {
     console.warn("Failed to fetch subscription", error.message);
-    return null;
+    return { data: null, error };
   }
 
-  return data as SubscriptionRow | null;
+  return { data: data as SubscriptionRow | null, error: null };
+};
+
+// Subscriptionsテーブルから該当のユーザの情報を取得
+export const getSubscriptionForUser = async (
+  userId: string,
+): Promise<SubscriptionRow | null> => {
+  const result = await fetchSubscriptionForUser(userId);
+  return result.data;
 };
 
 type WaitForActiveSubscriptionOptions = {
@@ -250,11 +282,10 @@ const isAccessOverrideActiveAt = (
   return endsAt.getTime() > now.getTime();
 };
 
-// ユーザに紐づくaccess_overrideデータを取得する。
-// access_overrideデータが取得できない場合(友人無料枠じゃない場合)はnullを返す(ほとんどの場合はnull)
-export const getActiveAccessOverrideForUser = async (
+// ユーザに紐づくaccess_overrideデータを取得し、通信失敗と未設定を分離する。
+const fetchActiveAccessOverrideForUser = async (
   userId: string,
-): Promise<AccessOverrideRow | null> => {
+): Promise<QueryResult<AccessOverrideRow>> => {
   const { data, error } = await supabase
     .from("access_overrides")
     .select("*")
@@ -263,13 +294,26 @@ export const getActiveAccessOverrideForUser = async (
 
   if (error) {
     console.warn("Failed to fetch access override", error.message);
-    return null;
+    return { data: null, error };
   }
 
   const accessOverride = data as AccessOverrideRow | null;
-  return accessOverride && isAccessOverrideActiveAt(accessOverride)
-    ? accessOverride
-    : null;
+  return {
+    data:
+      accessOverride && isAccessOverrideActiveAt(accessOverride)
+        ? accessOverride
+        : null,
+    error: null,
+  };
+};
+
+// ユーザに紐づくaccess_overrideデータを取得する。
+// access_overrideデータが取得できない場合(友人無料枠じゃない場合)はnullを返す(ほとんどの場合は{data: null})
+export const getActiveAccessOverrideForUser = async (
+  userId: string,
+): Promise<AccessOverrideRow | null> => {
+  const result = await fetchActiveAccessOverrideForUser(userId);
+  return result.data;
 };
 
 export const canAccessDashboardWithAccessOverride = (
@@ -284,26 +328,95 @@ export const canAccessDashboardWithAccessOverride = (
 export const getAccessStateForUser = async (
   userId: string,
 ): Promise<AccessState> => {
-  const subscription = await getSubscriptionForUser(userId);
+  const subscriptionResult = await fetchSubscriptionForUser(userId);
+  const subscription = subscriptionResult.data;
 
+  // サブスクがステータスが正常(active, trial)の場合
   if (canAccessDashboardWithSubscriptionStatus(subscription?.status)) {
+    await writeLastKnownAccessState(userId, "paid");
     return {
       canAccessApp: true,
       accessMode: "paid",
+      resolution: "entitled",
+      source: "subscription",
+      unknownReason: null,
       subscription,
       accessOverride: null,
     };
   }
 
-  const accessOverride = await getActiveAccessOverrideForUser(userId);
+  const revenueCatAccess = await getRevenueCatEntitlementAccessState();
+  // ローカル端末に保存された直近のRevenueCat購買情報が「権限あり」の場合
+  if (revenueCatAccess.state === "entitled") {
+    await writeLastKnownAccessState(userId, "paid");
+    return {
+      canAccessApp: true,
+      accessMode: "paid",
+      resolution: "entitled",
+      source: "revenuecat",
+      unknownReason: null,
+      subscription,
+      accessOverride: null,
+    };
+  }
+
+  // supabase DBからsubscriptionテーブル取得に失敗した場合
+  if (subscriptionResult.error) {
+    const lastKnownAccessState = await readLastKnownAccessState(userId);
+    return {
+      canAccessApp: Boolean(lastKnownAccessState),
+      accessMode: lastKnownAccessState?.accessMode ?? "none",
+      resolution: "unknown",
+      source: lastKnownAccessState ? "last_known_cache" : "none",
+      unknownReason: "subscription_fetch_failed",
+      subscription: null,
+      accessOverride: null,
+    };
+  }
+
+  const accessOverrideResult = await fetchActiveAccessOverrideForUser(userId);
+  const accessOverride = accessOverrideResult.data;
   const canAccessWithOverride =
     canAccessDashboardWithAccessOverride(accessOverride);
 
+  // access_overrideが有効(友人無料枠)の場合
+  if (canAccessWithOverride) {
+    await writeLastKnownAccessState(userId, "friend_free");
+    return {
+      canAccessApp: true,
+      accessMode: "friend_free",
+      resolution: "entitled",
+      source: "access_override",
+      unknownReason: null,
+      subscription,
+      accessOverride,
+    };
+  }
+
+  // supabase DBからaccess_overrideテーブル取得に失敗した場合
+  if (accessOverrideResult.error) {
+    const lastKnownAccessState = await readLastKnownAccessState(userId);
+    return {
+      canAccessApp: Boolean(lastKnownAccessState),
+      accessMode: lastKnownAccessState?.accessMode ?? "none",
+      resolution: "unknown",
+      source: lastKnownAccessState ? "last_known_cache" : "none",
+      unknownReason: "access_override_fetch_failed",
+      subscription,
+      accessOverride: null,
+    };
+  }
+
+  // subscriptions.status、ローカルに保存された直近のRevenueCat情報、access_overrideテーブルのどれでも権限が確認されなかった時
+  await clearLastKnownAccessState(userId);
   return {
-    canAccessApp: canAccessWithOverride,
-    accessMode: canAccessWithOverride ? "friend_free" : "none",
+    canAccessApp: false,
+    accessMode: "none",
+    resolution: "not_entitled",
+    source: "none",
+    unknownReason: null,
     subscription,
-    accessOverride,
+    accessOverride: null,
   };
 };
 

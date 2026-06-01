@@ -253,6 +253,33 @@ describe("Login screen", () => {
     alertSpy.mockRestore();
   });
 
+  test("redirects to dashboard when access cannot be verified after login", async () => {
+    mockSignInWithEmailPassword.mockResolvedValue({ ok: true });
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      resolution: "unknown",
+      unknownReason: "subscription_fetch_failed",
+      subscription: null,
+      accessOverride: null,
+      source: "last_known_cache",
+    });
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+
+    const { getByPlaceholderText, getByRole } = renderScreen();
+
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "user@example.com");
+    fireEvent.changeText(getByPlaceholderText("Password"), "password123");
+    fireEvent.press(getByRole("button", { name: "Log In" }));
+
+    await waitFor(() => expect(mockSignInWithEmailPassword).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard"));
+    expect(router.replace).not.toHaveBeenCalledWith("/purchases?from=login");
+    expect(mockEnsureSignupAwaitSubscription).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
   test("continues with Google using the shared OAuth entry flow", async () => {
     const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     const { getByRole } = renderScreen();

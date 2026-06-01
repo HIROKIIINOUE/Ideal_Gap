@@ -58,6 +58,8 @@ const getSignupQuery = (url: string) => {
 
 const MIN_SPLASH_DURATION_MS = 600;  // スプラッシュ画面の最短表示時間を調整
 
+type RestoredSession = Awaited<ReturnType<typeof restoreSession>>["session"];
+
 
 // ====↓初回起動時の画面遷移が処理済みかどうかを記録する↓====
 //  handled: true の場合は初回遷移済みの状態
@@ -113,13 +115,15 @@ export default function RootLayout() {
     };
 
     // 既にユーザ端末にあるセッションとSupabase情報を見て起動直後の遷移先を決める処理
-    const resolveInitialRouteForSession = async () => {
+    const resolveInitialRouteForSession = async (restoredSession?: RestoredSession) => {
       // ・サインアップ時はSupabase client がsessionをAsyncStorage(ローカル端末)に保存 → 同ファイルの supabase.auth.setSession()
       // ・ログイン時はlib/auth.ts内のsignInWithEmailPassword()によってSupabase client がsessionをAsyncStorage(端末)に保存
-      // ・そしてここでSupabase client がAsyncStorage(ローカル端末)から保存済み session を復元する、sessionが切れていればリフレッシュする → await supabase.auth.getSession()
-      const { data, error } = await supabase.auth.getSession();
-      const userId = data.session?.user?.id;
-      if (error) {
+      // ・そしてここでSupabase client がAsyncStorage(ローカル端末)から保存済み session を復元する、sessionが切れていればリフレッシュする → await supabase.auth.getSession()。 (lib/supabaseClient.tsに書いてあるが本PJはsupabase.auth.getSessionではローカル端末のセッション情報を取得する設定となっている)
+      const sessionResult = restoredSession
+        ? { data: { session: restoredSession }, error: null }
+        : await supabase.auth.getSession();
+      const userId = sessionResult.data.session?.user?.id;
+      if (sessionResult.error && !userId) {
         addSentryBreadcrumb("navigation.bootstrap", "initial_route_skipped", {
           hasError: true,
           reason: "session_error",
@@ -156,6 +160,7 @@ export default function RootLayout() {
         canAccessApp: accessState.canAccessApp,
         destination,
         hasPersistedTaskTimer: Boolean(persistedTaskTimer),
+        resolution: accessState.resolution,
         userId,
       });
       initialNavigationState = {
@@ -232,11 +237,11 @@ export default function RootLayout() {
         isRoutedByInitialUrl = await handleUrl(initialUrl);
       }
       // 「端末に保存済み session があれば読んで使える状態にしておく」
-      await restoreSession();
+      const restored = await restoreSession();
       // URLで遷移先が決まっていなければ、session ベースで初期画面を決める
       // 遷移先の例 「課金アクセス不可→/purchases」「タイマー作動中→/task-timer」「通常ログイン済み→/dashboard」
       if (!isRoutedByInitialUrl && !initialNavigationState.handled) {
-        await resolveInitialRouteForSession();
+        await resolveInitialRouteForSession(restored.session);
       } else if (initialNavigationState.handled) {
         // 既に別ルートで初回遷移が決まっている場合はrouter.replace()をさせない、ログだけ残す形
         // → そうすることで非同期処理が起因の「 /purchases に飛ばしたのに、その直後に /dashboard へ上書き遷移する」のような事故を防ぐ

@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
+import OfflineRequiredScreen from "../components/OfflineRequiredScreen";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signOutCurrentSession } from "../lib/logout";
 import { getAccessStateForUser } from "../lib/subscription";
@@ -26,6 +27,7 @@ import { supabase } from "../lib/supabaseClient";
 import { shouldUseAndroidJapaneseTypography } from "../lib/ui/platform";
 import { isCompactScreen } from "../lib/ui/responsive";
 import { useFunPlan } from "../providers/FunPlanProvider";
+import { useOffline } from "../providers/OfflineProvider";
 
 type CardKey =
   | "idealSelf"
@@ -75,7 +77,9 @@ export default function Dashboard() {
   const [taskTimerDropdownOpen, setTaskTimerDropdownOpen] = useState(false);
   const [taskTimerTasksLoading, setTaskTimerTasksLoading] = useState(false);
   const [taskTimerTasksError, setTaskTimerTasksError] = useState<string | null>(null);
+  const [accessVerificationPending, setAccessVerificationPending] = useState(false);
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
+  const { offlineBlocked } = useOffline();
 
   const showLogoutToast = () => {
     const message = tCommon("logoutSuccess");
@@ -279,22 +283,36 @@ export default function Dashboard() {
       const guardDashboardAccess = async () => {
         const { data, error } = await supabase.auth.getSession();
         const userId = data.session?.user?.id;
-        if (error || !userId) {
+        if (error) {
+          if (active) setAccessVerificationPending(true);
+          return;
+        }
+        if (!userId) {
+          if (offlineBlocked) {
+            if (active) setAccessVerificationPending(true);
+            return;
+          }
           if (active) router.replace("/login");
           return;
         }
         const accessState = await getAccessStateForUser(userId);
+        if (accessState.resolution === "unknown" && accessState.canAccessApp) {
+          if (active) setAccessVerificationPending(true);
+          return;
+        }
+        if (active) setAccessVerificationPending(false);
         if (!accessState.canAccessApp && active) {
           router.replace("/purchases");
         }
       };
       guardDashboardAccess().catch((guardError) => {
         console.warn("Failed to guard dashboard access", guardError);
+        if (active) setAccessVerificationPending(true);
       });
       return () => {
         active = false;
       };
-    }, []),
+    }, [offlineBlocked]),
   );
 
   // 6つの機能ページへ遷移する各カードを展開
@@ -377,6 +395,8 @@ export default function Dashboard() {
             <Text style={styles.title}>{t("pageTitle")}</Text>
           </View>
         </View>
+
+        {accessVerificationPending ? <OfflineRequiredScreen /> : null}
 
         {funPlanVisible && (
           <Pressable

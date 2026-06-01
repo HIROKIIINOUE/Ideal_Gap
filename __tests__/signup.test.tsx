@@ -154,6 +154,28 @@ describe("Signup screen", () => {
     expect(getByTestId("signup-form-kav")).toBeTruthy();
   });
 
+  test("redirects authenticated users to dashboard when access cannot be verified", async () => {
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: { id: "user-123" } } },
+      error: null,
+    });
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      resolution: "unknown",
+      unknownReason: "subscription_fetch_failed",
+      subscription: null,
+      accessOverride: null,
+      source: "last_known_cache",
+    });
+
+    renderScreen();
+
+    await waitFor(() => expect(mockGetAccessStateForUser).toHaveBeenCalledWith("user-123"));
+    expect(require("expo-router").router.replace).toHaveBeenCalledWith("/dashboard");
+    expect(require("expo-router").router.replace).not.toHaveBeenCalledWith("/purchases?from=signup");
+  });
+
   test("keeps CTA tappable while keyboard is open", () => {
     const { UNSAFE_getByType } = renderScreen();
 

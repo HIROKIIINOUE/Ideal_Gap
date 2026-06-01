@@ -114,14 +114,12 @@ describe("Purchases screen", () => {
       expect(mockFetchTestStorePackage).toHaveBeenCalled(),
     );
 
-    await screen.findByText("Free for 1 month");
-    await screen.findByText("After the trial, $9.99/month");
-    await screen.findByText("If you cancel during the free trial, you will not be charged at all.");
+    await screen.findByText("Standard plan");
+    await screen.findByText("Free for 1 month, then renews at $9.99/month.");
+    await screen.findByText("If you cancel during the free trial, you will not be charged.");
     await screen.findByText(
-      "Payment details are managed securely by App Store or Google Play. We never store your credit card number in this app."
+      "Payment details are managed securely by App Store. We never store your credit card number in this app."
     );
-    expect(screen.queryByText("Standard plan")).toBeNull();
-    expect(screen.queryByText("Uses your App Store/Google Play billing.")).toBeNull();
 
     const button = await screen.findByRole("button", { name: "Continue to payment" });
     const screenOptions = mockStackScreen.mock.calls[0]?.[0] as {
@@ -225,6 +223,7 @@ describe("Purchases screen", () => {
     mockGetAccessStateForUser.mockResolvedValue({
       canAccessApp: false,
       accessMode: "none",
+      resolution: "not_entitled",
       subscription: { status: "canceled" },
       accessOverride: null,
     });
@@ -236,6 +235,26 @@ describe("Purchases screen", () => {
     });
 
     expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("returns to dashboard when access cannot be verified", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      resolution: "unknown",
+      unknownReason: "subscription_fetch_failed",
+      subscription: null,
+      accessOverride: null,
+      source: "last_known_cache",
+    });
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/dashboard");
+    });
+
+    expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
   });
 
   it("redirects to dashboard when friend free override is active", async () => {
@@ -264,7 +283,7 @@ describe("Purchases screen", () => {
 
     const labels = await screen.findAllByText(/購入|お支払い/);
     expect(labels.length).toBeGreaterThan(0);
-    await screen.findByText("無料期間中にキャンセルすれば支払いは一切発生しません");
+    await screen.findByText("無料期間中にキャンセルすれば請求は発生しません。");
   });
 
   it("localizes purchase copy and trial notice in French", async () => {
