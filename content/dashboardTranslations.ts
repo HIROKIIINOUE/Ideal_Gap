@@ -25,6 +25,8 @@ export type DashboardTranslations = {
     subtitle: string;
     cta: string;
     emptyLabel: string;
+    today: string;
+    daysLeft: string;
   };
   taskTimerModal: {
     title: string;
@@ -59,6 +61,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         subtitle: "",
         cta: "予定を追加",
         emptyLabel: "まだ予定がありません。",
+        today: "今日",
+        daysLeft: "あと{{count}}日",
       },
       taskTimerModal: {
         title: "タスクタイマーを開始",
@@ -127,6 +131,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         subtitle: "",
         cta: "Add a plan",
         emptyLabel: "No plan is set yet.",
+        today: "Today",
+        daysLeft: "{{count}} days left",
       },
       taskTimerModal: {
         title: "Start Task Timer",
@@ -196,6 +202,8 @@ export const dashboardTranslations: Record<LanguageKey, DashboardTranslations> =
         subtitle: "",
         cta: "Ajouter un évènement",
         emptyLabel: "Aucun évènement prévu pour l’instant.",
+        today: "Aujourd’hui",
+        daysLeft: "Dans {{count}} jours",
       },
       taskTimerModal: {
         title: "Lancer le minuteur",

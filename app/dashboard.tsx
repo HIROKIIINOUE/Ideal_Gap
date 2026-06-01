@@ -51,11 +51,38 @@ type DashboardWeeklyTaskOption = {
   color: string;
 };
 
+type DashboardFunPlan = {
+  description: string;
+  eventDate: string | null;
+};
+
 const alternatingGradients: readonly [readonly [string, string], readonly [string, string]] = [
   ["rgba(110,152,255,0.26)", "rgba(24,44,72,0.84)"],
   ["rgba(198,225,255,0.2)", "rgba(24,44,72,0.82)"],
 ];
 const HERO_GRADIENT: readonly [string, string] = ["rgba(110,168,255,0.4)", "rgba(15,28,47,0.92)"];
+
+const parseDateOnly = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const getStartOfToday = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+const getFunPlanCountdownLabel = (eventDate: string | null, todayLabel: string, daysLeftLabel: (count: number) => string) => {
+  if (!eventDate) return null;
+  const planDate = parseDateOnly(eventDate);
+  if (!planDate) return null;
+  const today = getStartOfToday();
+  const diffDays = Math.floor((planDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return null;
+  if (diffDays === 0) return todayLabel;
+  return daysLeftLabel(diffDays);
+};
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation("dashboard");
@@ -70,7 +97,7 @@ export default function Dashboard() {
   const { emailUpdated } = useLocalSearchParams<{ emailUpdated?: string }>();
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
-  const [nextFunPlan, setNextFunPlan] = useState<string | null>(null);
+  const [nextFunPlan, setNextFunPlan] = useState<DashboardFunPlan | null>(null);
   const [taskTimerModalVisible, setTaskTimerModalVisible] = useState(false);
   const [taskTimerTasks, setTaskTimerTasks] = useState<DashboardWeeklyTaskOption[]>([]);
   const [selectedTaskTimerTaskId, setSelectedTaskTimerTaskId] = useState<string | null>(null);
@@ -258,7 +285,7 @@ export default function Dashboard() {
     }
     const { data, error } = await supabase
       .from("fun_plans")
-      .select("id, description, order")
+      .select("id, description, event_date, order")
       .eq("user_id", uid)
       .order("order", { ascending: true })
       .limit(1);
@@ -266,8 +293,27 @@ export default function Dashboard() {
       setNextFunPlan(null);
       return;
     }
-    setNextFunPlan(((data as any[]) ?? [])[0]?.description ?? null);
+    const firstPlan = ((data as any[]) ?? [])[0];
+    setNextFunPlan(
+      firstPlan
+        ? {
+            description: firstPlan.description,
+            eventDate: firstPlan.event_date ?? null,
+          }
+        : null,
+    );
   }, [funPlanVisible]);
+
+  const nextFunPlanCountdown = useMemo(
+    () =>
+      getFunPlanCountdownLabel(
+        nextFunPlan?.eventDate ?? null,
+        t("nextFunPlan.today"),
+        (count) => t("nextFunPlan.daysLeft", { count }),
+      ),
+    [nextFunPlan?.eventDate, t],
+  );
+  const isTodayCountdown = nextFunPlanCountdown === t("nextFunPlan.today");
 
   useFocusEffect(
     useCallback(() => {
@@ -418,9 +464,20 @@ export default function Dashboard() {
                   numberOfLines={3}
                   ellipsizeMode="tail"
                 >
-                  {nextFunPlan ?? t("nextFunPlan.cta")}
+                  {nextFunPlan?.description ?? t("nextFunPlan.cta")}
                 </Text>
               </View>
+              {nextFunPlanCountdown ? (
+                <Text
+                  style={[
+                    styles.heroCountdown,
+                    isTodayCountdown ? styles.heroCountdownToday : styles.heroCountdownDefault,
+                    compact && styles.heroCountdownCompact,
+                  ]}
+                >
+                  {nextFunPlanCountdown}
+                </Text>
+              ) : null}
             </View>
           </Pressable>
         )}
@@ -683,6 +740,19 @@ const styles = StyleSheet.create({
   },
   heroCtaCompact: {
     fontSize: typography.md * 1.08,
+  },
+  heroCountdown: {
+    fontSize: typography.sm,
+    fontWeight: "700",
+  },
+  heroCountdownDefault: {
+    color: colors.textPrimary,
+  },
+  heroCountdownToday: {
+    color: colors.warning,
+  },
+  heroCountdownCompact: {
+    fontSize: typography.sm * 0.95,
   },
   heroHelper: {
     color: colors.textSecondary,

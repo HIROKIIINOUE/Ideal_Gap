@@ -232,6 +232,7 @@ const buildFocusMusicStub = (
   pause: jest.fn(),
   stop: jest.fn().mockResolvedValue(undefined),
   refreshCatalog: jest.fn().mockResolvedValue(undefined),
+  refreshDownloadQuota: jest.fn().mockResolvedValue(undefined),
   ...overrides,
 });
 

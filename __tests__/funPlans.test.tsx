@@ -37,6 +37,21 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: MockLinearGradient };
 });
 
+jest.mock("@react-native-community/datetimepicker", () => {
+  const React = require("react");
+  const { Text } = require("react-native");
+  const MockDateTimePicker = ({ testID }: { testID?: string }) => (
+    <Text testID={testID ?? "mock-datetime-picker"}>MockDateTimePicker</Text>
+  );
+  return {
+    __esModule: true,
+    default: MockDateTimePicker,
+    DateTimePickerAndroid: {
+      open: jest.fn(),
+    },
+  };
+});
+
 jest.mock("react-native-draggable-flatlist", () => {
   const React = require("react");
   const MockFlatList = ({
@@ -68,15 +83,17 @@ jest.mock("react-native-draggable-flatlist", () => {
       <>
         {renderSlot(ListHeaderComponent)}
         {data.length === 0 && renderSlot(ListEmptyComponent)}
-        {data.map((item, index) =>
-          renderItem({
-            item,
-            index,
-            drag: () => { },
-            isActive: false,
-            getIndex: () => index,
-          }),
-        )}
+        {data.map((item, index) => (
+          <React.Fragment key={String((item as { id?: string }).id ?? index)}>
+            {renderItem({
+              item,
+              index,
+              drag: () => { },
+              isActive: false,
+              getIndex: () => index,
+            })}
+          </React.Fragment>
+        ))}
       </>
     );
   };
@@ -174,8 +191,8 @@ describe("FunPlanScreen interactions", () => {
 
     const [updates, options] = mockUpsert.mock.calls[0];
     expect(updates).toEqual([
-      { id: "plan-2", description: "Second Plan", order: 0, user_id: "user-123" },
-      { id: "plan-1", description: "First Plan", order: 1, user_id: "user-123" },
+      { id: "plan-2", description: "Second Plan", event_date: null, order: 0, user_id: "user-123" },
+      { id: "plan-1", description: "First Plan", event_date: null, order: 1, user_id: "user-123" },
     ]);
     expect(options).toEqual({ onConflict: "id" });
   });
@@ -240,6 +257,58 @@ describe("FunPlanScreen interactions", () => {
     await waitFor(() => expect(mockInsert).toHaveBeenCalled());
   });
 
+  test("saves a fun plan without a date when event_date is not set", async () => {
+    const { getByPlaceholderText, getByRole } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    fireEvent.changeText(
+      getByPlaceholderText("e.g. Dinner with friends on Friday"),
+      "New Plan",
+    );
+    fireEvent.press(getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(mockInsert).toHaveBeenCalledWith({
+        user_id: "user-123",
+        description: "New Plan",
+        event_date: null,
+        order: 0,
+      }),
+    );
+  });
+
+  test("saves a fun plan with a past event_date when description is filled", async () => {
+    const { getByPlaceholderText, getByRole, getByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    fireEvent.changeText(
+      getByPlaceholderText("e.g. Dinner with friends on Friday"),
+      "Past Plan",
+    );
+    fireEvent.press(getByRole("button", { name: "Select date" }));
+    fireEvent(getByTestId("fun-plan-event-date-picker"), "onChange", {}, new Date("2026-05-20T12:00:00"));
+    fireEvent.press(getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(mockInsert).toHaveBeenCalledWith({
+        user_id: "user-123",
+        description: "Past Plan",
+        event_date: "2026-05-20",
+        order: 0,
+      }),
+    );
+  });
+
+  test("shows the dashboard note under the title card heading", async () => {
+    const { findByText } = renderScreen();
+
+    expect(await findByText("(Only the top item appears on the dashboard)")).toBeTruthy();
+  });
+
   test("uses smaller header typography for French title and buttons", async () => {
     await i18n.changeLanguage("fr");
 
@@ -301,6 +370,39 @@ describe("FunPlanScreen interactions", () => {
     expect(getByTestId("fun-plan-modal-scroll")).toBeTruthy();
   });
 
+  test("shows the iOS date picker after pressing the select date button", async () => {
+    const { getByRole, queryByRole, queryByTestId } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+
+    expect(queryByTestId("fun-plan-event-date-picker")).toBeNull();
+    expect(queryByRole("button", { name: "Clear" })).toBeNull();
+
+    fireEvent.press(getByRole("button", { name: "Select date" }));
+
+    expect(queryByTestId("fun-plan-event-date-picker")).toBeTruthy();
+  });
+
+  test("shows the selected event date below the date button after input", async () => {
+    const { getByRole, getByTestId, findByText } = renderScreen();
+
+    await waitFor(() => expect(mockOrder).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Add" }));
+    fireEvent.press(getByRole("button", { name: "Select date" }));
+    fireEvent(getByTestId("fun-plan-event-date-picker"), "onChange", {}, new Date("2026-05-20T12:00:00"));
+
+    expect(
+      await findByText(
+        `Selected date: ${new Intl.DateTimeFormat("en-CA", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }).format(new Date("2026-05-20T12:00:00"))}`,
+      ),
+    ).toBeTruthy();
+  });
+
   test("hides keyboard icon when keyboard is not visible", async () => {
     const { getByRole, queryByTestId } = renderScreen();
 
@@ -355,14 +457,35 @@ describe("Dashboard next fun plan hero", () => {
       limit: mockLimit,
     });
     mockLimit.mockResolvedValue({
-      data: [{ id: "plan-1", description: "Weekend brunch", order: 0 }],
+      data: [{ id: "plan-1", description: "Weekend brunch", order: 0, event_date: "2026-05-30" }],
       error: null,
     });
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test("shows the first fun plan description in the hero when visible", async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-05-30T12:00:00"));
     const { findByText } = renderDashboard();
 
     expect(await findByText("Weekend brunch")).toBeTruthy();
+    expect(await findByText("今日")).toBeTruthy();
+  });
+
+  test("hides the countdown when event_date is null", async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-05-30T12:00:00"));
+    mockLimit.mockResolvedValueOnce({
+      data: [{ id: "plan-1", description: "Weekend brunch", order: 0, event_date: null }],
+      error: null,
+    });
+
+    const { findByText, queryByText } = renderDashboard();
+
+    expect(await findByText("Weekend brunch")).toBeTruthy();
+    await waitFor(() => expect(queryByText("今日")).toBeNull());
   });
 });

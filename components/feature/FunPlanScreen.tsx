@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,6 +7,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,6 +34,7 @@ import { compactFeatureSpacing } from "./compactFeatureSpacing";
 type FunPlanCard = {
   id: string;
   description: string;
+  eventDate: string | null;
   updatedAt: string | null;
   order: number;
 };
@@ -45,6 +48,7 @@ const offlineFunPlanSchema = z.array(
   z.object({
     id: z.string(),
     description: z.string(),
+    eventDate: z.string().nullable(),
     order: z.number(),
     updatedAt: z.string().nullable(),
   }),
@@ -67,12 +71,46 @@ const formatUpdated = (iso?: string | null, updatedLabel?: string) => {
 };
 
 // データベースから取得した「次回の楽しい予定データ」からUIに必要なデータにのみ抽出
-const toPlanCard = (row: { id: string; description: string; order: number | null; updated_at?: string | null }): FunPlanCard => ({
+const toPlanCard = (row: {
+  id: string;
+  description: string;
+  event_date?: string | null;
+  order: number | null;
+  updated_at?: string | null;
+}): FunPlanCard => ({
   id: row.id,
   description: row.description,
+  eventDate: row.event_date ?? null,
   order: row.order ?? 0,
   updatedAt: row.updated_at ?? null,
 });
+
+const localeFromLanguage = (language: string) => {
+  switch (language) {
+    case "ja":
+      return "ja-JP";
+    case "fr":
+      return "fr-FR";
+    case "en":
+    default:
+      return "en-CA";
+  }
+};
+
+const parseStoredEventDate = (value: string | null) => {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const toEventDateString = (date: Date | null) => {
+  if (!date) return null;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export default function FunPlanScreen() {
   const { t, i18n } = useTranslation("funPlan");
@@ -81,6 +119,8 @@ export default function FunPlanScreen() {
   const [deleteMode, setDeleteMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalDraft, setModalDraft] = useState("");
+  const [modalEventDate, setModalEventDate] = useState<Date | null>(null);
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingMeta, setEditingMeta] = useState<{ updatedAt: string | null } | null>(null);
@@ -92,8 +132,10 @@ export default function FunPlanScreen() {
   const guardOfflineAction = useOfflineActionGuard();
   const updatedLabel = t("updatedSuffix");
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const pickerLocale = localeFromLanguage(currentLanguage);
   const isFrench = currentLanguage.startsWith("fr");
   const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
+  const isAndroid = Platform.OS === "android";
   const limitReached = plans.length >= MAX_PLANS;
 
   const getUserId = useMemo(
@@ -135,7 +177,7 @@ export default function FunPlanScreen() {
       }
       const { data, error } = await supabase
         .from("fun_plans")
-        .select("id, description, order, updated_at")
+        .select("id, description, event_date, order, updated_at")
         .eq("user_id", uid)
         .order("order", { ascending: true });
       if (!active) return;
@@ -146,6 +188,7 @@ export default function FunPlanScreen() {
           toPlanCard({
             id: row.id,
             description: row.description,
+            event_date: row.event_date,
             order: row.order,
             updated_at: row.updated_at,
           }),
@@ -169,6 +212,8 @@ export default function FunPlanScreen() {
     if (limitReached) return;
     setEditingId(null);
     setModalDraft("");
+    setModalEventDate(null);
+    setIsDatePickerVisible(false);
     setModalError(null);
     setModalVisible(true);
     setEditingMeta(null);
@@ -202,9 +247,25 @@ export default function FunPlanScreen() {
     }
     setEditingId(item.id);
     setModalDraft(item.description);
+    setModalEventDate(parseStoredEventDate(item.eventDate));
+    setIsDatePickerVisible(false);
     setModalError(null);
     setEditingMeta({ updatedAt: item.updatedAt });
     setModalVisible(true);
+  };
+
+  const handleOpenAndroidDatePicker = () => {
+    DateTimePickerAndroid.open({
+      value: modalEventDate ?? new Date(),
+      mode: "date",
+      display: "calendar",
+      onChange: (event, selectedDate) => {
+        if (event?.type === "dismissed" || !selectedDate) return;
+        const normalized = new Date(selectedDate);
+        normalized.setHours(0, 0, 0, 0);
+        setModalEventDate(normalized);
+      },
+    });
   };
 
   const handleSave = async () => {
@@ -232,9 +293,12 @@ export default function FunPlanScreen() {
         // 編集モーダルの保存処理
         const { data, error } = await supabase
           .from("fun_plans")
-          .update({ description: parsed.data.description })
+          .update({
+            description: parsed.data.description,
+            event_date: toEventDateString(modalEventDate),
+          })
           .eq("id", editingId)
-          .select("id, description, order, updated_at")
+          .select("id, description, event_date, order, updated_at")
           .single();
         if (error) {
           setModalError(error.message);
@@ -247,8 +311,13 @@ export default function FunPlanScreen() {
         // 追加モーダルの保存処理
         const { data, error } = await supabase
           .from("fun_plans")
-          .insert({ user_id: uid, description: parsed.data.description, order: 0 })
-          .select("id, description, order, updated_at")
+          .insert({
+            user_id: uid,
+            description: parsed.data.description,
+            event_date: toEventDateString(modalEventDate),
+            order: 0,
+          })
+          .select("id, description, event_date, order, updated_at")
           .single();
         if (error) {
           setModalError(error.message);
@@ -259,6 +328,7 @@ export default function FunPlanScreen() {
         const shiftedExisting = plans.map((plan, idx) => ({
           id: plan.id,
           description: plan.description,
+          event_date: plan.eventDate,
           order: idx + 1,
           user_id: uid,
         }));
@@ -267,7 +337,13 @@ export default function FunPlanScreen() {
           .upsert(
             [
               ...shiftedExisting,
-              { id: row.id, description: row.description, order: 0, user_id: uid },
+              {
+                id: row.id,
+                description: row.description,
+                event_date: row.event_date,
+                order: 0,
+                user_id: uid,
+              },
             ],
             { onConflict: "id" },
           );
@@ -281,6 +357,8 @@ export default function FunPlanScreen() {
       setModalVisible(false);
       setEditingId(null);
       setModalDraft("");
+      setModalEventDate(null);
+      setIsDatePickerVisible(false);
       setEditingMeta(null);
       setSaving(false);
     } catch (error: unknown) {
@@ -309,6 +387,7 @@ export default function FunPlanScreen() {
     const updates = data.map((item, idx) => ({
       id: item.id,
       description: item.description,
+      event_date: item.eventDate,
       order: idx,
       user_id: uid,
     }));
@@ -383,6 +462,14 @@ export default function FunPlanScreen() {
 
   const modalTitle = editingId ? t("modal.editTitle") : t("modal.addTitle");
   const modalUpdatedText = editingMeta?.updatedAt ? formatUpdated(editingMeta.updatedAt, updatedLabel) : null;
+  const modalDateLabel = modalEventDate
+    ? modalEventDate.toLocaleDateString(pickerLocale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
+  const modalSelectedDateText = modalDateLabel ? t("modal.selectedDate", { date: modalDateLabel }) : null;
 
   if (loading) {
     return (
@@ -424,6 +511,7 @@ export default function FunPlanScreen() {
             <View style={styles.headerRow}>
               <View style={styles.headerText}>
                 <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
+                <Text style={styles.titleNote}>{t("titleCardNote")}</Text>
               </View>
             </View>
 
@@ -516,10 +604,103 @@ export default function FunPlanScreen() {
                     setModalError(null);
                   }}
                 />
+                <View style={styles.modalDateSection}>
+                  <Text style={styles.modalDateLabel}>{t("modal.optionalDateLabel")}</Text>
+                  {isAndroid ? (
+                    <View style={styles.modalDateInfoBlock}>
+                      <View style={styles.modalDateActions}>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={styles.datePickerButton}
+                          onPress={handleOpenAndroidDatePicker}
+                        >
+                          <MaterialCommunityIcons
+                            name="calendar-month-outline"
+                            size={18}
+                            color={colors.textPrimary}
+                          />
+                          <Text style={styles.datePickerButtonText}>{t("modal.pickDate")}</Text>
+                        </Pressable>
+                        {modalDateLabel ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            style={styles.ghostButton}
+                            onPress={() => setModalEventDate(null)}
+                          >
+                            <Text style={styles.ghostButtonText}>{t("modal.clearDate")}</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                      {modalSelectedDateText ? (
+                        <Text style={styles.modalSelectedDateText}>{modalSelectedDateText}</Text>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <View style={styles.iosDatePickerSection}>
+                      <View style={styles.modalDateActions}>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={({ pressed }) => [
+                            styles.datePickerButton,
+                            pressed && styles.buttonPressed,
+                          ]}
+                          onPress={() => setIsDatePickerVisible(true)}
+                        >
+                          <MaterialCommunityIcons
+                            name="calendar-month-outline"
+                            size={18}
+                            color={colors.textPrimary}
+                          />
+                          <Text style={styles.datePickerButtonText}>{t("modal.pickDate")}</Text>
+                        </Pressable>
+                        {modalDateLabel ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            style={styles.ghostButton}
+                            onPress={() => {
+                              setModalEventDate(null);
+                              setIsDatePickerVisible(false);
+                            }}
+                          >
+                            <Text style={styles.ghostButtonText}>{t("modal.clearDate")}</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                      {modalSelectedDateText ? (
+                        <Text style={styles.modalSelectedDateText}>{modalSelectedDateText}</Text>
+                      ) : null}
+                      {isDatePickerVisible ? (
+                        <DateTimePicker
+                          testID="fun-plan-event-date-picker"
+                          value={modalEventDate ?? new Date()}
+                          mode="date"
+                          display="spinner"
+                          locale={pickerLocale}
+                          textColor={colors.textPrimary}
+                          style={styles.picker}
+                          onChange={(_event, selectedDate) => {
+                            if (!selectedDate) return;
+                            const normalized = new Date(selectedDate);
+                            normalized.setHours(0, 0, 0, 0);
+                            setModalEventDate(normalized);
+                          }}
+                        />
+                      ) : null}
+                    </View>
+                  )}
+                </View>
                 {!!modalError && <Text style={styles.modalError}>{modalError}</Text>}
                 <View style={styles.modalFooterRow}>
                   <View style={[styles.modalActions, styles.modalActionsRight]}>
-                    <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setModalVisible(false)}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.secondaryButton}
+                      onPress={() => {
+                        setModalVisible(false);
+                        setModalEventDate(null);
+                        setIsDatePickerVisible(false);
+                      }}
+                    >
                       <Text style={styles.secondaryButtonText}>{t("modal.cancel")}</Text>
                     </Pressable>
                     <Pressable
@@ -582,6 +763,11 @@ const styles = StyleSheet.create({
   headingAndroidJa: {
     fontSize: 24,
     lineHeight: 31,
+  },
+  titleNote: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.5,
   },
   body: {
     color: colors.textSecondary,
@@ -782,6 +968,72 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     fontSize: typography.md,
     lineHeight: typography.md * 1.4,
+  },
+  modalDateSection: {
+    gap: spacing.sm,
+  },
+  modalDateLabel: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    fontWeight: "700",
+  },
+  modalDateActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flexWrap: "wrap",
+  },
+  modalDateInfoBlock: {
+    gap: spacing.sm,
+  },
+  modalSelectedDateText: {
+    color: colors.accentSubtle,
+    fontSize: typography.sm,
+    fontWeight: "600",
+    lineHeight: typography.sm * 1.4,
+  },
+  iosDatePickerSection: {
+    gap: spacing.sm,
+    alignItems: "flex-start",
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    minHeight: 50,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(110,168,255,0.45)",
+    backgroundColor: "rgba(110,168,255,0.14)",
+  },
+  buttonPressed: {
+    opacity: 0.82,
+  },
+  datePickerButtonText: {
+    color: colors.textPrimary,
+    fontWeight: "700",
+    fontSize: typography.md,
+    flexShrink: 1,
+  },
+  ghostButton: {
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(242,95,92,0.3)",
+    backgroundColor: "rgba(242,95,92,0.08)",
+  },
+  ghostButtonText: {
+    color: colors.textPrimary,
+    fontWeight: "700",
+    fontSize: typography.md,
+  },
+  picker: {
+    alignSelf: "flex-start",
+    marginLeft: -28,
+    transform: [{ scale: 0.92 }],
   },
   modalError: {
     color: colors.error,
