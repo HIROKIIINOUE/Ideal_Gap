@@ -203,8 +203,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         unlinkedTitle: "作業を完了",
         description:
           "週間タスクに戻る前に実績時間を確認し、次回のスタート地点をメモできます。",
-        unlinkedDescription:
-          "今回の作業時間を確認してタイマーを完了します。",
+        unlinkedDescription: "今回の作業時間を確認してタイマーを完了します。",
         actualTimeLabel: "今回の実績時間",
         minutesLabel: "{{minutes}}分として記録されます",
         nextStartLabel: "次回のスタート地点（任意）",
@@ -229,8 +228,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         rangeHelper:
           "入力した時間を現在の実績に積み上げます。関連する年間目標にも反映されます。",
         confirmTitle: "この実績で更新しますか？",
-        confirmMessage:
-          "{{added}} を加算して合計を {{total}} に更新します。",
+        confirmMessage: "{{added}} を加算して合計を {{total}} に更新します。",
         confirm: "加算する",
         cancel: "戻る",
         submit: "加算する",
@@ -487,7 +485,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
           "Ajoutez une note pour reprendre plus vite la prochaine fois.",
         confirm: "Enregistrer",
         done: "Terminer",
-        saving: "Enregistrement...",
+        saving: "Enregistrer",
         unlinkedNotice:
           "Ce minuteur n'est associé à aucune tâche hebdomadaire, donc le temps de travail ne sera pas enregistré.",
         missingTaskNotice:
@@ -508,7 +506,7 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         confirm: "Ajouter",
         cancel: "Retour",
         submit: "Ajouter",
-        saving: "Enregistrement...",
+        saving: "Enregistrer",
         successTitle: "Ajout enregistré",
         successBody: "Le temps ajouté a été enregistré.",
         errorTitle: "Échec de la mise à jour",
