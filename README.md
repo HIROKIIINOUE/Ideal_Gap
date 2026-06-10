@@ -24,9 +24,13 @@ Bridge the gap to your ideal self.
 
 <div align="center">
 <h2>Screenshots</h2>
-  <img src="./assets/for_readme/dashboard.png" width="280" alt="Dashboard screen" />
-  <img src="./assets/for_readme/tasktimer.png" width="280" alt="Task timer screen"　/>
-  <img src="./assets/for_readme/annualgoals.png" width="280" alt="Annual goals screen"/>
+  <table>
+    <tr>
+      <td><img src="./assets/for_readme/dashboard.png" width="280" alt="Dashboard screen" /></td>
+      <td><img src="./assets/for_readme/tasktimer.png" width="280" alt="Task timer screen" /></td>
+      <td><img src="./assets/for_readme/annualgoals.png" width="280" alt="Annual goals screen" /></td>
+    </tr>
+  </table>
 </div>
 
 <h2>Overview</h2>
