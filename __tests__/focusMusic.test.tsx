@@ -110,6 +110,11 @@ jest.mock("@react-navigation/native", () => {
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file://test/",
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+  getInfoAsync: jest.fn().mockImplementation(async (uri: string) => ({
+    exists: true,
+    isDirectory: false,
+    uri,
+  })),
   createDownloadResumable: jest.fn(
     (
       _url: string,

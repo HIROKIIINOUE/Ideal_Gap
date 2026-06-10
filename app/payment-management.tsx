@@ -8,20 +8,25 @@ import Footer from "../components/Footer";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
-import { getSubscriptionForUser } from "../lib/subscription";
+import { signOutCurrentSession } from "../lib/logout";
+import { getAccessStateForUser } from "../lib/subscription";
+import { getStoreName } from "../lib/subscriptionLegal";
 import { openSubscriptionManagementPortal } from "../lib/subscriptionManagement";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
 export default function PaymentManagement() {
-  const { t } = useTranslation("paymentManagement");
+  const { t, i18n } = useTranslation("paymentManagement");
   const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
+  const storeName = useMemo(() => getStoreName(Platform.OS), []);
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
   const [statusKey, setStatusKey] = useState<
-    "signupAwait" | "trial" | "active" | "canceled" | "expired" | "unknown"
+    "signupAwait" | "trial" | "active" | "friendFree" | "canceled" | "expired" | "unknown"
   >("unknown");
+  const [cancellationNoticeKey, setCancellationNoticeKey] = useState<"active" | "trial">("active");
+  const [showCancellationNotice, setShowCancellationNotice] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
 
@@ -52,8 +57,23 @@ export default function PaymentManagement() {
         return;
       }
 
-      const subscription = await getSubscriptionForUser(userId);
+      const accessState = await getAccessStateForUser(userId);
       if (!active) return;
+
+      if (accessState.accessMode === "friend_free") {
+        setCancellationNoticeKey("active");
+        setShowCancellationNotice(false);
+        setStatusKey("friendFree");
+        return;
+      }
+
+      const subscription = accessState.subscription;
+      setCancellationNoticeKey(subscription?.status === "trial" ? "trial" : "active");
+      setShowCancellationNotice(
+        (subscription?.status === "active" ||
+          subscription?.status === "trial") &&
+          subscription.cancel_at_period_end === true,
+      );
 
       const status = subscription?.status;
       if (
@@ -72,6 +92,8 @@ export default function PaymentManagement() {
     loadSubscription().catch((error) => {
       console.warn("Failed to load subscription status", error);
       if (active) {
+        setCancellationNoticeKey("active");
+        setShowCancellationNotice(false);
         showToast(t("loadError"));
         setStatusKey("unknown");
       }
@@ -101,6 +123,7 @@ export default function PaymentManagement() {
   const statusText = useMemo(() => {
     return t(`statusValue.${statusKey}`);
   }, [statusKey, t]);
+  const isFrench = i18n.resolvedLanguage === "fr";
 
 
   // ハンバーガーメニュー内の各ボタン処理
@@ -112,7 +135,12 @@ export default function PaymentManagement() {
           text: tCommon("confirmYes"),
           style: "destructive",
           onPress: async () => {
-            await supabase.auth.signOut();
+            try {
+              await signOutCurrentSession();
+            } catch (error) {
+              console.warn("Failed to sign out from payment management", error);
+              return;
+            }
             showLogoutToast();
             router.replace("/");
           },
@@ -145,12 +173,18 @@ export default function PaymentManagement() {
             style={StyleSheet.absoluteFill}
           />
           <Text style={styles.heading}>{t("heading")}</Text>
-          <Text style={styles.body}>{t("body")}</Text>
+          <Text style={styles.body}>{t("body", { storeName })}</Text>
 
           <View style={styles.statusCard}>
             <Text style={styles.statusLabel}>{t("statusLabel")}</Text>
             <Text style={styles.statusValue}>{statusText}</Text>
           </View>
+
+          {showCancellationNotice ? (
+            <View style={styles.noticeCard}>
+              <Text style={styles.noticeText}>{t(`cancellationNotice.${cancellationNoticeKey}`)}</Text>
+            </View>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"
@@ -162,10 +196,12 @@ export default function PaymentManagement() {
               isOpening && styles.buttonDisabled,
             ]}
           >
-            <Text style={styles.manageButtonLabel}>{isOpening ? t("openingButton") : t("manageButton")}</Text>
+            <Text style={[styles.manageButtonLabel, isFrench && styles.manageButtonLabelFrench]}>
+              {isOpening ? t("openingButton") : t("manageButton")}
+            </Text>
           </Pressable>
 
-          <Text style={styles.hint}>{t("manageHint")}</Text>
+          <Text style={styles.hint}>{t("manageHint", { storeName })}</Text>
         </View>
       </View>
       <Footer
@@ -226,6 +262,22 @@ const styles = StyleSheet.create({
   statusLabel: {
     color: colors.textSecondary,
     fontSize: typography.sm,
+  },
+  noticeCard: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(242,95,92,0.42)",
+    backgroundColor: "rgba(242,201,76,0.12)",
+    padding: spacing.md,
+  },
+  noticeText: {
+    color: colors.error,
+    fontSize: typography.md,
+    lineHeight: typography.md * 1.45,
+  },
+  manageButtonLabelFrench: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.3,
   },
   statusValue: {
     color: colors.textPrimary,

@@ -11,9 +11,14 @@ export type PaymentManagementTranslations = {
     signupAwait: string;
     trial: string;
     active: string;
+    friendFree: string;
     canceled: string;
     expired: string;
     unknown: string;
+  };
+  cancellationNotice: {
+    active: string;
+    trial: string;
   };
   manageButton: string;
   openingButton: string;
@@ -29,15 +34,22 @@ export const paymentManagementTranslations: Record<
   ja: {
     pageTitle: "支払い方法の変更・退会",
     heading: "支払い設定を管理",
-    body: "支払い情報の変更・退会（サブスク解約）は App Store / Google Play の管理画面で行います。",
+    body: "支払い情報の変更・退会（サブスク解約）は {{storeName}} の管理画面で行います。",
     statusLabel: "現在の契約ステータス",
     statusValue: {
       signupAwait: "支払い待ち",
       trial: "無料トライアル中",
       active: "サブスクリプション中(月額390円)",
+      friendFree: "友人向け無料アクセス",
       canceled: "キャンセル済み",
       expired: "期限切れ",
       unknown: "未確認",
+    },
+    cancellationNotice: {
+      active:
+        "キャンセル済みです。次回のお支払いは発生しません。前回支払い分の期間中は引き続きアプリを使用できます。再開する場合は以下のボタンから支払い設定を開いてください。",
+      trial:
+        "キャンセル済みです。次回のお支払いは発生しません。無料トライアル期間中は引き続きアプリを使用できます。再開する場合は以下のボタンから支払い設定を開いてください。",
     },
     manageButton: "支払い設定を開く",
     openingButton: "開いています...",
@@ -48,15 +60,22 @@ export const paymentManagementTranslations: Record<
   en: {
     pageTitle: "Manage payment",
     heading: "Manage billing settings",
-    body: "You can review your payment method, updates it, and cancel your subscription in App Store / Google Play management. You can press the Open Billing Setting button below.",
+    body: "You can review your payment method, update it, and cancel your subscription in {{storeName}} settings.",
     statusLabel: "Current subscription status",
     statusValue: {
       signupAwait: "Awaiting payment",
       trial: "Free Trial",
       active: "Active",
+      friendFree: "Friend free access",
       canceled: "Canceled",
       expired: "Expired",
       unknown: "Unknown",
+    },
+    cancellationNotice: {
+      active:
+        "Your subscription has been canceled. No further payments will be charged. You can continue using the app during the period covered by your last payment. To resume your subscription, open your billing settings with the button below.",
+      trial:
+        "Your subscription has been canceled. No further payments will be charged. You can continue using the app during your free trial period. To resume your subscription, open your billing settings with the button below.",
     },
     manageButton: "Open Billing Settings",
     openingButton: "Opening...",
@@ -68,15 +87,22 @@ export const paymentManagementTranslations: Record<
   fr: {
     pageTitle: "Gérer le paiement",
     heading: "Gérer les paramètres de facturation",
-    body: "La vérification, la modification du moyen de paiement et la résiliation s'effectuent dans App Store / Google Play.",
+    body: "La vérification, la modification du moyen de paiement et la résiliation s'effectuent dans {{storeName}}.",
     statusLabel: "Statut actuel de l'abonnement",
     statusValue: {
       signupAwait: "En attente de paiement",
       trial: "Période d'essai",
       active: "Actif",
+      friendFree: "Acces gratuit invite",
       canceled: "Annulé",
       expired: "Expiré",
       unknown: "Inconnu",
+    },
+    cancellationNotice: {
+      active:
+        "Votre abonnement a été annulé. Aucun autre paiement ne sera facturé. Vous pouvez continuer à utiliser l'application pendant la période couverte par votre dernier paiement. Pour reprendre votre abonnement, ouvrez les paramètres de paiement avec le bouton ci-dessous.",
+      trial:
+        "Votre abonnement a été annulé. Aucun autre paiement ne sera facturé. Vous pouvez continuer à utiliser l'application pendant votre période d'essai gratuite. Pour reprendre votre abonnement, ouvrez les paramètres de paiement avec le bouton ci-dessous.",
     },
     manageButton: "Ouvrir les paramètres de paiement",
     openingButton: "Ouverture...",

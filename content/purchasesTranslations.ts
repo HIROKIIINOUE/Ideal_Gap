@@ -7,9 +7,10 @@ export type PurchasesTranslations = {
   signupCompleteTitle: string;
   signupCompleteBody: string;
   planTitle: string;
+  planDuration: string;
   planDescription: string;
-  planPriceWithTrial: string;
-  planPriceNoTrial: string;
+  planRenewalPrice: string;
+  trialInfo: string;
   planUnavailable: string;
   planLoadError: string;
   trialLabelDay: string;
@@ -19,6 +20,8 @@ export type PurchasesTranslations = {
   trialCancelNotice: string;
   storeBillingNotice: string;
   cardInfoPolicy: string;
+  privacyPolicyLabel: string;
+  termsOfUseLabel: string;
   retryPricingCta: string;
   returnHomeCta: string;
   returningHomeCta: string;
@@ -42,9 +45,10 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       signupCompleteBody:
         "メール認証が完了しました。お支払いを完了して利用を開始してください。",
       planTitle: "スタンダードプラン",
-      planDescription: "アプリストアに登録済みの支払い方法を利用します。",
-      planPriceWithTrial: "14日間無料・その後 390円/月",
-      planPriceNoTrial: "390円/月",
+      planDuration: "30日ごとの自動更新",
+      planDescription: "{{storeName}} に登録済みの支払い方法を利用します。",
+      planRenewalPrice: "{{price}}/月",
+      trialInfo: "{{trial}}の後に {{price}}/月で自動更新されます。",
       planUnavailable: "プラン情報を取得できませんでした",
       planLoadError:
         "価格の取得に失敗しました。時間をおいて再度お試しください。",
@@ -52,11 +56,13 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       trialLabelWeek: "{{count}}週間無料",
       trialLabelMonth: "{{count}}か月無料",
       trialLabelYear: "{{count}}年間無料",
-      trialCancelNotice: "無料期間中にキャンセルすれば支払いは一切発生しません",
+      trialCancelNotice: "無料期間中にキャンセルすれば請求は発生しません。",
       storeBillingNotice:
-        "支払い情報は App Store / Google Play で安全に管理されます。",
+        "支払い情報は {{storeName}} で安全に管理されます。",
       cardInfoPolicy:
         "このアプリがクレジットカード番号を保存することはありません。",
+      privacyPolicyLabel: "プライバシーポリシー",
+      termsOfUseLabel: "利用規約",
       retryPricingCta: "価格を再取得",
       returnHomeCta: "ホームページへ戻る",
       returningHomeCta: "戻っています...",
@@ -64,7 +70,7 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
         "ホームへ戻れませんでした。時間をおいて再度お試しください。",
       billingLabel: "請求先メールアドレス (任意)",
       billingPlaceholder: "you@example.com",
-      completeSignupCta: "サインアップ完了",
+      completeSignupCta: "お支払いへ",
       ctaLoading: "処理中...",
       purchaseError: "購入に失敗しました。再度お試しください。",
       purchaseCancelled: "購入をキャンセルしました",
@@ -77,9 +83,10 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       signupCompleteTitle: "Account ready",
       signupCompleteBody: "Your account is confirmed. Finish payment to start.",
       planTitle: "Standard plan",
-      planDescription: "Uses your App Store/Google Play billing.",
-      planPriceWithTrial: "Freefor 14 days • then 3.99CAD/month",
-      planPriceNoTrial: "3.99CAD/month",
+      planDuration: "Auto-renews every 30 days",
+      planDescription: "Uses your {{storeName}} billing method.",
+      planRenewalPrice: "{{price}}/month",
+      trialInfo: "{{trial}}, then renews at {{price}}/month.",
       planUnavailable: "Plan info unavailable",
       planLoadError: "Could not load pricing. Please try again.",
       trialLabelDay: "Free for {{count}} day",
@@ -87,17 +94,19 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       trialLabelMonth: "Free for {{count}} month",
       trialLabelYear: "Free for {{count}} year",
       trialCancelNotice:
-        "If you cancel during the free trial, you will not be charged at all.",
+        "If you cancel during the free trial, you will not be charged.",
       storeBillingNotice:
-        "Payment details are managed securely by App Store or Google Play.",
+        "Payment details are managed securely by {{storeName}}.",
       cardInfoPolicy: "We never store your credit card number in this app.",
+      privacyPolicyLabel: "Privacy Policy",
+      termsOfUseLabel: "Terms of Use",
       retryPricingCta: "Retry pricing",
       returnHomeCta: "Return to home",
       returningHomeCta: "Returning...",
       returnHomeError: "Could not return home. Please try again.",
       billingLabel: "Billing contact email (optional)",
       billingPlaceholder: "you@example.com",
-      completeSignupCta: "Complete sign-up",
+      completeSignupCta: "Continue to payment",
       ctaLoading: "Processing...",
       purchaseError: "Purchase failed. Please try again.",
       purchaseCancelled: "Purchase cancelled",
@@ -111,10 +120,10 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       signupCompleteBody:
         "Votre compte est confirmé. Finalisez le paiement pour commencer.",
       planTitle: "Forfait standard",
-      planDescription:
-        "Utilisez votre moyen de paiement App Store/Google Play.",
-      planPriceWithTrial: "14 jours gratuits • puis 3.99CAD/mois",
-      planPriceNoTrial: "3.99CAD/mois",
+      planDuration: "Renouvellement automatique tous les 30 jours",
+      planDescription: "Utilise votre moyen de paiement {{storeName}}.",
+      planRenewalPrice: "{{price}}/mois",
+      trialInfo: "{{trial}}, puis renouvellement à {{price}}/mois.",
       planUnavailable: "Paiement indisponible",
       planLoadError: "Impossible de récupérer le paiement. Veuillez réessayer.",
       trialLabelDay: "{{count}} jour gratuit",
@@ -123,19 +132,19 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       trialLabelYear: "{{count}} an gratuit",
       trialCancelNotice:
         "Si vous annulez pendant l'essai gratuit, vous ne serez pas facturé.",
-      //マリー再チェック
       storeBillingNotice:
-        "Les informations de paiement sont gérées en sécurité par l’App Store ou Google Play.",
-      //マリー再チェック
+        "Les informations de paiement sont gérées en sécurité par {{storeName}}.",
       cardInfoPolicy:
         "Cette application ne stocke jamais votre numéro de carte bancaire.",
+      privacyPolicyLabel: "Politique de confidentialité",
+      termsOfUseLabel: "Conditions d’utilisation",
       retryPricingCta: "Réessayer le tarif", //マリー再チェック
       returnHomeCta: "Retour à l’accueil", //マリー再チェック
       returningHomeCta: "Retour en cours...", //マリー再チェック
       returnHomeError: "Impossible de revenir à l’accueil. Veuillez réessayer.", //マリー再チェック
       billingLabel: "E-mail de facturation (optionnel)",
       billingPlaceholder: "vous@exemple.com",
-      completeSignupCta: "Terminer l’inscription",
+      completeSignupCta: "Continuer vers le paiement",
       ctaLoading: "Traitement...",
       purchaseError: "Échec de l’achat. Veuillez réessayer.",
       purchaseCancelled: "Achat annulé",

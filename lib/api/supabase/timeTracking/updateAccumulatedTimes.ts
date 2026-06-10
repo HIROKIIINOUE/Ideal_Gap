@@ -2,6 +2,7 @@
 // 該当の週間タスクと紐づく年間目標の作業実績時間データを更新する機能
 
 import { Database } from "../../../../types/database";
+import { encryptNullableFieldValue } from "../../../security/fieldEncryption";
 import { supabase } from "../../../supabaseClient";
 
 type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
@@ -18,6 +19,10 @@ export type UpdateAccumulatedTimesParams = {
 };
 
 type YearlyGoalInfo = { accumulated: number } | null;
+
+// DB処理タイムアウトエラー時間。TaskTimerScreen.tsxで7秒に設定しているのでユーザの体感は7秒となる(先に7秒タイムアウトが実行されるため)。ここが15秒の理由は各DB処理全てに7秒制限をするのは攻めすぎなため。今後検討の余地はあり。
+const TIME_TRACKING_TIMEOUT_MS = 15_000;
+const TIME_TRACKING_TIMEOUT_MESSAGE = "Time tracking request timed out";
 
 export type TimeTrackingClient = {
   updateWeeklyLogged: (args: {
@@ -49,7 +54,7 @@ const supabaseTimeTrackingClient: TimeTrackingClient = {
       accumulated_time_week: newLoggedMinutes,
     };
     if (typeof nextStartPoint !== "undefined") {
-      payload.next_start_point = nextStartPoint ?? null;
+      payload.next_start_point = encryptNullableFieldValue(nextStartPoint ?? null);
     }
     const { error } = await supabase
       .from("weekly_tasks")
@@ -66,7 +71,7 @@ const supabaseTimeTrackingClient: TimeTrackingClient = {
       .from("yearly_goals")
       .select("accumulated_time_year")
       .match({ id: yearlyGoalId, user_id: userId })
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw new Error(error.message);
@@ -95,6 +100,27 @@ export type UpdateAccumulatedTimesResult = {
   newLoggedMinutes: number;
 };
 
+// 引数の非同期処理が指定の秒数で終わらなかった時にタイムアウトエラーを返す。
+const withTimeout = async <T>(promise: Promise<T>): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    // Promise.race([])で2つの非同期処理を走らせ、先に完了した処理の結果のみを返す
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(TIME_TRACKING_TIMEOUT_MESSAGE));
+        }, TIME_TRACKING_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
+
 // 手動記録やタイマー記録で発生した時間差分を週間・年間目標に反映する。
 // クライアント計算で差分だけを加算/減算する最小実装。
 export const updateAccumulatedTimes = async (
@@ -120,12 +146,14 @@ export const updateAccumulatedTimes = async (
 
   if (shouldPersistWeekly) {
     // 週間タスクの作業実績データをDB上で更新
-    await client.updateWeeklyLogged({
-      taskId,
-      userId,
-      newLoggedMinutes: safeNew,
-      nextStartPoint,
-    });
+    await withTimeout(
+      client.updateWeeklyLogged({
+        taskId,
+        userId,
+        newLoggedMinutes: safeNew,
+        nextStartPoint,
+      }),
+    );
   }
 
   if (delta === 0) {
@@ -137,18 +165,22 @@ export const updateAccumulatedTimes = async (
   }
 
   // 作業が終わった週間タスクに紐づく年間目標が存在する場合、該当年間目標の積み上げ時間をDB上で更新
-  const yearly = await client.getYearlyGoal({
-    yearlyGoalId,
-    userId,
-  });
+  const yearly = await withTimeout(
+    client.getYearlyGoal({
+      yearlyGoalId,
+      userId,
+    }),
+  );
 
   if (yearly) {
     const yearlyNew = Math.max(0, yearly.accumulated + delta);
-    await client.updateYearlyLogged({
-      yearlyGoalId,
-      userId,
-      newAccumulated: yearlyNew,
-    });
+    await withTimeout(
+      client.updateYearlyLogged({
+        yearlyGoalId,
+        userId,
+        newAccumulated: yearlyNew,
+      }),
+    );
   }
 
   return { delta, newLoggedMinutes: safeNew };

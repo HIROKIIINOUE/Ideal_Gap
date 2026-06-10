@@ -1,3 +1,4 @@
+// ⭐️ マリーフランス語チェック
 import { LanguageKey } from "../types/i18n";
 
 export type LongTermGoalsTranslations = {
@@ -5,7 +6,6 @@ export type LongTermGoalsTranslations = {
   add: string;
   delete: string;
   deleteExit: string;
-  currentPointLabel: string;
   completion: {
     complete: string;
     undo: string;
@@ -18,8 +18,6 @@ export type LongTermGoalsTranslations = {
   modal: {
     addTitle: string;
     editTitle: string;
-    currentPointLabel: string;
-    currentPointPlaceholder: string;
     untilWhenLabel: string;
     untilWhenPlaceholder: string;
     descriptionLabel: string;
@@ -54,7 +52,6 @@ export const longTermGoalsTranslations: Record<
     add: "追加",
     delete: "削除",
     deleteExit: "戻る",
-    currentPointLabel: "現在地",
     completion: {
       complete: "完了",
       undo: "未完了に戻す",
@@ -62,18 +59,16 @@ export const longTermGoalsTranslations: Record<
     },
     emptyTitle: "まだ長期目標が登録されていません",
     emptyBody:
-      "数年単位で見据える目標を並べて、理想への道筋を見える化しましょう。",
+      "数年単位で見据える目標を並べて、理想への道標を可視化しましょう。",
     emptyCta: "最初の長期目標を追加",
     updatedSuffix: "更新",
     modal: {
       addTitle: "長期目標を追加",
       editTitle: "編集",
-      currentPointLabel: "現在地",
-      currentPointPlaceholder: "例 25歳 / 2026年",
       untilWhenLabel: "いつまでに",
-      untilWhenPlaceholder: "例 32歳まで / 2035年まで",
+      untilWhenPlaceholder: "例 29歳までに / 2030年までに",
       descriptionLabel: "長期目標",
-      descriptionPlaceholder: "例 33歳までに永住権を取得する",
+      descriptionPlaceholder: "例 海外留学に挑戦",
       cancel: "キャンセル",
       save: "保存",
       errorRequired: "必須項目を入力してください",
@@ -99,7 +94,6 @@ export const longTermGoalsTranslations: Record<
     add: "Add",
     delete: "Delete",
     deleteExit: "Exit",
-    currentPointLabel: "Current point",
     completion: {
       complete: "Done",
       undo: "Mark as active",
@@ -107,18 +101,16 @@ export const longTermGoalsTranslations: Record<
     },
     emptyTitle: "No long-term goals yet",
     emptyBody:
-      "List the milestones that bridge your ideal self and your annual goals.",
+      "Set long-term goals for the next few years and visualize your path to your ideal self.",
     emptyCta: "Add your first long-term goal",
     updatedSuffix: "Updated",
     modal: {
       addTitle: "Add long-term goal",
       editTitle: "Edit",
-      currentPointLabel: "Current point",
-      currentPointPlaceholder: "e.g. Age 25 / 2026",
       untilWhenLabel: "By when",
-      untilWhenPlaceholder: "e.g. By age 32 / By 2035",
+      untilWhenPlaceholder: "e.g. By age 29 / By 2030",
       descriptionLabel: "Long-term goal",
-      descriptionPlaceholder: "e.g. Get permanent residency by age 33",
+      descriptionPlaceholder: "e.g. Get a master’s degree abroad",
       cancel: "Cancel",
       save: "Save",
       errorRequired: "Please fill the required fields",
@@ -144,7 +136,6 @@ export const longTermGoalsTranslations: Record<
     add: "Ajouter",
     delete: "Supprimer",
     deleteExit: "Quitter",
-    currentPointLabel: "Point actuel",
     completion: {
       complete: "Terminer",
       undo: "Réactiver",
@@ -152,19 +143,16 @@ export const longTermGoalsTranslations: Record<
     },
     emptyTitle: "Aucun objectif long terme pour le moment",
     emptyBody:
-      "Ajoutez les jalons qui relient votre moi idéal à vos objectifs annuels.",
+      "Ajoutez les étqpes qui relient votre moi idéal à vos objectifs annuels.",
     emptyCta: "Ajouter un objectif long terme",
     updatedSuffix: "Mis à jour",
     modal: {
       addTitle: "Ajouter un objectif long terme",
       editTitle: "Modifier",
-      currentPointLabel: "Point actuel",
-      currentPointPlaceholder: "ex. 25 ans / 2026",
       untilWhenLabel: "Pour quand",
-      untilWhenPlaceholder: "ex. Avant 32 ans / Avant 2035",
+      untilWhenPlaceholder: "ex. Avant 29 ans / Avant 2030",
       descriptionLabel: "Objectif long terme",
-      descriptionPlaceholder:
-        "ex. Obtenir la résidence permanente avant 33 ans",
+      descriptionPlaceholder: "ex. Obtenir un master à l’étranger",
       cancel: "Annuler",
       save: "Enregistrer",
       errorRequired: "Veuillez remplir les champs requis",

@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import * as Linking from "expo-linking";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
+import { Platform, ScrollView } from "react-native";
 import ResetPassword from "../app/reset-password";
 import i18n from "../i18n";
 
@@ -9,6 +10,7 @@ const mockRequestPasswordResetEmail = jest.fn();
 const mockCompletePasswordReset = jest.fn();
 const mockSetSessionFromRecoveryLink = jest.fn();
 const mockReplace = jest.fn();
+const mockGetAccessStateForUser = jest.fn();
 
 jest.mock("../components/LanguageSheet", () => () => null);
 jest.mock("../components/Footer", () => () => null);
@@ -30,6 +32,7 @@ jest.mock("expo-router", () => {
     Stack: { Screen: () => null },
     router: { push: jest.fn(), replace: mockReplace, back: jest.fn() },
     useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: jest.fn() }),
+    useFocusEffect: (callback: () => void | (() => void)) => React.useEffect(() => callback(), [callback]),
     useLocalSearchParams: () => ({}),
   };
 });
@@ -45,11 +48,31 @@ jest.mock("../lib/auth", () => ({
   setSessionFromRecoveryLink: (...args: unknown[]) => mockSetSessionFromRecoveryLink(...args),
 }));
 
+jest.mock("../lib/subscription", () => ({
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
+}));
+
 describe("ResetPassword screen", () => {
+  const originalPlatform = Platform.OS;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: false,
+      accessMode: "blocked",
+      resolution: "subscription_required",
+      subscription: null,
+      accessOverride: null,
+    });
     (Linking.getInitialURL as jest.Mock).mockResolvedValue(null);
     (Linking.addEventListener as jest.Mock).mockReturnValue({ remove: jest.fn() });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
+    });
   });
 
   const renderScreen = () =>
@@ -69,6 +92,23 @@ describe("ResetPassword screen", () => {
     fireEvent.press(getByRole("button", { name: "Send reset email" }));
 
     await waitFor(() => expect(mockRequestPasswordResetEmail).toHaveBeenCalledWith("user@example.com"));
+  });
+
+  test("renders keyboard avoiding form container on Android", () => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    const { getByTestId } = renderScreen();
+    expect(getByTestId("reset-password-form-kav")).toBeTruthy();
+  });
+
+  test("keeps CTA tappable while keyboard is open", () => {
+    mockSetSessionFromRecoveryLink.mockResolvedValue(false);
+    const { UNSAFE_getByType } = renderScreen();
+
+    expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe("handled");
   });
 
   test("shows error message when email is not found", async () => {
@@ -95,9 +135,27 @@ describe("ResetPassword screen", () => {
     expect(readinessTexts.length).toBeGreaterThan(0);
 
     fireEvent.changeText(getByPlaceholderText("New password"), "new-password");
-    fireEvent.press(getByRole("button", { name: "Update password and log in" }));
+    fireEvent.press(getByRole("button", { name: "Update password" }));
 
     await waitFor(() => expect(mockCompletePasswordReset).toHaveBeenCalledWith("new-password"));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));
+  });
+
+  test("toggles new password visibility after recovery is ready", async () => {
+    mockSetSessionFromRecoveryLink.mockResolvedValue(true);
+    (Linking.getInitialURL as jest.Mock).mockResolvedValue(
+      "idealgap://reset-password#access_token=access&refresh_token=refresh&type=recovery",
+    );
+
+    const { findByPlaceholderText, getByRole } = renderScreen();
+
+    const passwordInput = await findByPlaceholderText("New password");
+    expect(passwordInput.props.secureTextEntry).toBe(true);
+
+    fireEvent.press(getByRole("button", { name: "Show password" }));
+    expect((await findByPlaceholderText("New password")).props.secureTextEntry).toBe(false);
+
+    fireEvent.press(getByRole("button", { name: "Hide password" }));
+    expect((await findByPlaceholderText("New password")).props.secureTextEntry).toBe(true);
   });
 });

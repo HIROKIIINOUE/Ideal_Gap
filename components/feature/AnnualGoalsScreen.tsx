@@ -7,7 +7,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,15 +28,19 @@ import { getUserId } from "../../lib/api/supabase/common";
 import { deleteYearlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { encryptFieldValue, encryptNullableFieldValue } from "../../lib/security/fieldEncryption";
+import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 type AnnualGoal = {
   id: string;
   description: string;
   goalColor: string;
+  detail: string | null;
   accumulatedMinutes: number;
   order: number;
   updatedAt: string | null;
@@ -66,11 +69,16 @@ const goalSchema = z.object({
 });
 
 type GoalFormValues = z.infer<typeof goalSchema>;
+const detailSchema = z.object({
+  detail: z.string(),
+});
+type DetailFormValues = z.infer<typeof detailSchema>;
 const offlineAnnualGoalSchema = z.array(
   z.object({
     id: z.string(),
     description: z.string(),
     goalColor: z.string(),
+    detail: z.string().nullable(),
     accumulatedMinutes: z.number(),
     order: z.number(),
     updatedAt: z.string().nullable(),
@@ -81,6 +89,9 @@ const offlineAnnualGoalSchema = z.array(
 const DEFAULT_FORM_VALUES: GoalFormValues = {
   description: "",
   goalColor: COLOR_OPTIONS[0],
+};
+const DEFAULT_DETAIL_VALUES: DetailFormValues = {
+  detail: "",
 };
 
 // 更新日表示の文章を生成
@@ -122,6 +133,7 @@ const toAnnualGoal = (row: YearlyGoalRow): AnnualGoal => ({
   id: row.id,
   description: row.description,
   goalColor: row.year_goal_color,
+  detail: row.yearly_goal_detail ?? null,
   accumulatedMinutes: row.accumulated_time_year ?? 0,
   order: row.order ?? 0,
   updatedAt: row.updated_at ?? null,
@@ -136,6 +148,9 @@ export default function AnnualGoalsScreen() {
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
   const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [detailGoalId, setDetailGoalId] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailSaving, setDetailSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasOfflineCache, setHasOfflineCache] = useState(false);
@@ -144,6 +159,7 @@ export default function AnnualGoalsScreen() {
   const updatedLabel = t("updatedSuffix");
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
   const {
     control, // Controller が使う“フォーム管理本体”
     handleSubmit,
@@ -157,6 +173,15 @@ export default function AnnualGoalsScreen() {
     defaultValues: DEFAULT_FORM_VALUES,
   });
   const goalColor = watch("goalColor");
+  // ↓ useAppZodFormで返される3つの値をそれぞれわかりやすい別名に置き換えている
+  const {
+    control: detailControl, //別名処理
+    handleSubmit: handleDetailSubmit, //別名処理
+    reset: resetDetail, //別名処理
+  } = useAppZodForm({
+    schema: detailSchema,
+    defaultValues: DEFAULT_DETAIL_VALUES,
+  });
 
   // データベースからユーザの年間目標データを取得し必要なデータのみに絞った上で状態変数goalsにセットするロジック
   useEffect(() => {
@@ -278,6 +303,21 @@ export default function AnnualGoalsScreen() {
     clearErrors();
   };
 
+  // 各年間目標の詳細ボタン押下処理
+  const handleDetailPress = (goal: AnnualGoal) => {
+    if (guardOfflineAction()) return;
+    setDetailError(null);
+    resetDetail({ detail: goal.detail ?? "" });
+    setDetailGoalId(goal.id);
+  };
+
+  // 各年間目標の詳細ボタンを閉じる処理
+  const closeDetailModal = () => {
+    setDetailGoalId(null);
+    setDetailError(null);
+    resetDetail(DEFAULT_DETAIL_VALUES);
+  };
+
   // 目標完了トグルボタンロジック
   const handleToggleCompleted = async (goalId: string) => {
     const currentGoal = goals.find((goal) => goal.id === goalId);
@@ -343,13 +383,13 @@ export default function AnnualGoalsScreen() {
             }));
           setGoals(nextGoals);
 
-          let reorderError = false;
           if (nextGoals.length > 0) {
             // 定数updatesに正しい順番の年間目標をセットし、データベース更新に使用
             const updates = nextGoals.map((item, idx) => ({
               id: item.id,
-              description: item.description,
+              description: encryptFieldValue(item.description),
               year_goal_color: item.goalColor,
+              yearly_goal_detail: encryptNullableFieldValue(item.detail),
               accumulated_time_year: item.accumulatedMinutes,
               is_done: item.completed,
               order: idx,
@@ -359,12 +399,7 @@ export default function AnnualGoalsScreen() {
             const { error: upsertError } = await upsertYearlyGoals(updates);
             if (upsertError) {
               Alert.alert(t("errors.reorderSaveFailed"), upsertError.message);
-              reorderError = true;
             }
-          }
-
-          if (!reorderError) {
-            Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
           }
         },
       },
@@ -406,8 +441,9 @@ export default function AnnualGoalsScreen() {
         // ↓ 既存のgoalsのorderを＋１に更新し、新しいデータをorder0として処理する準備をする
         const shiftedExisting = goals.map((goal, idx) => ({
           id: goal.id,
-          description: goal.description,
+          description: encryptFieldValue(goal.description),
           year_goal_color: goal.goalColor,
+          yearly_goal_detail: encryptNullableFieldValue(goal.detail),
           is_done: goal.completed,
           accumulated_time_year: goal.accumulatedMinutes,
           order: idx + 1,
@@ -417,6 +453,7 @@ export default function AnnualGoalsScreen() {
           user_id: uid,
           description,
           year_goal_color: goalColor,
+          yearly_goal_detail: null,
           is_done: false,
           accumulated_time_year: 0,
           order: 0,
@@ -431,8 +468,9 @@ export default function AnnualGoalsScreen() {
           ...shiftedExisting,
           {
             id: row.id,
-            description: row.description,
+            description: encryptFieldValue(row.description),
             year_goal_color: row.year_goal_color,
+            yearly_goal_detail: encryptNullableFieldValue(row.yearly_goal_detail ?? null),
             is_done: row.is_done ?? false,
             accumulated_time_year: row.accumulated_time_year ?? 0,
             order: 0,
@@ -478,8 +516,9 @@ export default function AnnualGoalsScreen() {
 
     const updates = data.map((goal, idx) => ({
       id: goal.id,
-      description: goal.description,
+      description: encryptFieldValue(goal.description),
       year_goal_color: goal.goalColor,
+      yearly_goal_detail: encryptNullableFieldValue(goal.detail),
       is_done: goal.completed,
       accumulated_time_year: goal.accumulatedMinutes,
       order: idx,
@@ -490,6 +529,36 @@ export default function AnnualGoalsScreen() {
     const { error } = await upsertYearlyGoals(updates);
     if (error) {
       Alert.alert(t("errors.reorderSaveFailed"), error.message);
+    }
+  };
+
+  // 詳細ページの保存処理
+  const onValidDetailSubmit = async ({ detail }: DetailFormValues) => {
+    if (guardOfflineAction()) return;
+    if (!detailGoalId) return;
+
+    setDetailSaving(true);
+    setDetailError(null);
+    try {
+      const normalizedDetail = detail.trim().length > 0 ? detail.trim() : null;
+      const { data, error } = await updateYearlyGoal(detailGoalId, {
+        yearly_goal_detail: encryptNullableFieldValue(normalizedDetail),
+      });
+      if (error) {
+        setDetailError(error.message);
+        return;
+      }
+
+      const row = data as unknown as YearlyGoalRow;
+      setGoals((prev) =>
+        prev.map((goal) => (goal.id === detailGoalId ? toAnnualGoal(row) : goal)),
+      );
+      closeDetailModal();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : t("errors.saveFailed");
+      setDetailError(message);
+    } finally {
+      setDetailSaving(false);
     }
   };
 
@@ -511,10 +580,7 @@ export default function AnnualGoalsScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <Text style={[styles.goalTitle, item.completed && styles.goalTitleCompleted]}>
-        {item.description}
-      </Text>
-      <View style={styles.goalFooter}>
+      <View style={styles.goalFooter} testID={`annual-goal-card-footer-${item.id}`}>
         <View style={styles.colorRow}>
           <View style={[styles.colorDot, { backgroundColor: item.goalColor }]} />
           <Text
@@ -533,14 +599,25 @@ export default function AnnualGoalsScreen() {
           {deleteMode ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={t("delete")}
               onPress={() => handleDelete(item)}
-              style={[styles.dangerButton, styles.iconButtonRow]}
+              style={[styles.goalActionIconButton, styles.dangerButton]}
             >
               <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-              <Text style={styles.dangerButtonText}>{t("delete")}</Text>
             </Pressable>
           ) : (
             <>
+              {!item.completed ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("detail.open")}
+                  onPress={() => handleDetailPress(item)}
+                  style={[styles.goalActionIconButton, styles.memoButton]}
+                  testID={`annual-goal-card-detail-${item.id}`}
+                >
+                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color={colors.textPrimary} />
+                </Pressable>
+              ) : null}
               {!item.completed ? (
                 <Pressable
                   accessibilityRole="button"
@@ -580,12 +657,21 @@ export default function AnnualGoalsScreen() {
           )}
         </View>
       </View>
+      <Text
+        style={[styles.goalTitle, item.completed && styles.goalTitleCompleted]}
+        testID={`annual-goal-card-title-${item.id}`}
+      >
+        {item.description}
+      </Text>
     </View>
   );
 
   const hasGoals = goals.length > 0;
   const modalTitle = modalState.editingId ? t("modal.editTitle") : t("modal.addTitle");
   const modalUpdatedText = modalState.meta?.updatedAt ? formatUpdatedDate(modalState.meta.updatedAt, updatedLabel) : null;
+  const detailGoal = detailGoalId
+    ? goals.find((goal) => goal.id === detailGoalId) ?? null
+    : null;
 
   if (loading) {
     return (
@@ -618,7 +704,7 @@ export default function AnnualGoalsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.goalGrid}
         ListHeaderComponent={(
-          <View style={[styles.card, shadows.card]}>
+          <View style={[styles.card, styles.titleCardCompact, shadows.card]}>
             <LinearGradient
               colors={HEADER_CARD_GRADIENT}
               start={{ x: 0, y: 0 }}
@@ -626,7 +712,7 @@ export default function AnnualGoalsScreen() {
               style={StyleSheet.absoluteFill}
             />
             <View style={styles.headingArea}>
-              <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
+              <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
             </View>
             {hasGoals && (
               <View style={styles.chartContainer}>
@@ -730,7 +816,7 @@ export default function AnnualGoalsScreen() {
           testID="annual-goals-modal-overlay"
         >
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="annual-goals-modal-kav"
           >
@@ -836,6 +922,89 @@ export default function AnnualGoalsScreen() {
           ) : null}
         </Pressable>
       </Modal>
+
+      {/* 詳細モーダルページ */}
+      <Modal
+        visible={detailGoalId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDetailModal}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={dismissKeyboard}
+          testID="annual-goals-detail-modal-overlay"
+        >
+          <KeyboardAvoidingView
+            behavior={getKeyboardAvoidingBehavior()}
+            style={styles.modalContainer}
+          >
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Pressable
+                style={[styles.modalCard, shadows.card]}
+                onPress={(event) => event.stopPropagation()}
+              >
+                <Text style={styles.modalTitle} testID="annual-goals-detail-title">
+                  {detailGoal?.description ?? t("detail.title")}
+                </Text>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t("detail.label")}</Text>
+                  <Controller
+                    control={detailControl}
+                    name="detail"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        multiline
+                        accessibilityLabel={t("detail.label")}
+                        placeholder={t("detail.placeholder")}
+                        placeholderTextColor={colors.textSecondary}
+                        style={[styles.modalInput, styles.detailInput]}
+                        value={value}
+                        onChangeText={(text) => {
+                          onChange(text);
+                          setDetailError(null);
+                        }}
+                        onBlur={onBlur}
+                      />
+                    )}
+                  />
+                </View>
+
+                {detailError ? <Text style={styles.modalError}>{detailError}</Text> : null}
+
+                <View style={styles.modalFooterRow}>
+                  <View style={[styles.modalActions, styles.modalActionsRight]}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.secondaryButton}
+                      onPress={closeDetailModal}
+                    >
+                      <Text style={styles.secondaryButtonText}>{t("detail.cancel")}</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={[styles.primaryButton, detailSaving && styles.buttonDisabled]}
+                      onPress={handleDetailSubmit(onValidDetailSubmit)}
+                      disabled={detailSaving}
+                    >
+                      <Text style={styles.primaryButtonText}>{t("detail.save")}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </Pressable>
+            </ScrollView>
+          </KeyboardAvoidingView>
+          {keyboardVisible ? (
+            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
+          ) : null}
+        </Pressable>
+      </Modal>
     </GestureHandlerRootView>
   );
 }
@@ -853,6 +1022,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(110,168,255,0.25)",
     overflow: "hidden",
   },
+  titleCardCompact: {
+    padding: compactFeatureSpacing.titleCardPadding,
+  },
   headingArea: {
     flex: 1,
     gap: spacing.sm,
@@ -864,6 +1036,10 @@ const styles = StyleSheet.create({
     lineHeight: typography.xl * 1.3,
   },
   headingFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
+  headingAndroidJa: {
     fontSize: 24,
     lineHeight: 31,
   },
@@ -963,7 +1139,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
   },
   goalGrid: {
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl * 2,
   },
@@ -972,8 +1148,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
-    padding: spacing.lg,
-    gap: spacing.sm,
+    padding: 11,
+    gap: 7,
     overflow: "hidden",
   },
   goalCardCompleted: {
@@ -992,14 +1168,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+    gap: spacing.xs,
+    marginTop: 0,
   },
   goalActions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   colorRow: {
     flexDirection: "row",
@@ -1007,8 +1183,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   colorDot: {
-    width: 12,
-    height: 12,
+    width: 10,
+    height: 10,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
@@ -1022,18 +1198,16 @@ const styles = StyleSheet.create({
   },
   goalTitle: {
     color: colors.textPrimary,
-    fontSize: typography.lg,
+    fontSize: typography.md,
     fontWeight: "800",
-    lineHeight: typography.lg * 1.4,
-    minHeight: 40,
+    lineHeight: typography.md * 1.25,
   },
   goalTitleCompleted: {
-    color: "rgba(233,237,247,0.72)",
-    textDecorationLine: "line-through",
+    color: "rgba(233,237,247,0.78)",
   },
   goalActionIconButton: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
@@ -1042,6 +1216,10 @@ const styles = StyleSheet.create({
   completeButton: {
     backgroundColor: "rgba(255,255,255,0.06)",
     borderColor: "rgba(56,217,150,0.3)",
+  },
+  memoButton: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: colors.accentPrimary,
   },
   completeButtonActive: {
     backgroundColor: "rgba(56,217,150,0.14)",
@@ -1172,6 +1350,9 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     fontSize: typography.md,
     lineHeight: typography.md * 1.4,
+  },
+  detailInput: {
+    minHeight: 180,
   },
   swatchRow: {
     flexDirection: "row",

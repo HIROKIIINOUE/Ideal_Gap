@@ -10,6 +10,11 @@ export type WeeklyTasksTranslations = {
     delete: string;
     deleteExit: string;
   };
+  completion: {
+    complete: string;
+    undo: string;
+    badge: string;
+  };
   deleteConfirm: {
     title: string;
     body: string;
@@ -33,6 +38,8 @@ export type WeeklyTasksTranslations = {
     title: string;
     emptyTitle: string;
     emptyBody: string;
+    emptyCta: string;
+    loadError: string;
   };
   task: {
     yearlyLink: string;
@@ -94,6 +101,11 @@ export const weeklyTasksTranslations: Record<
       delete: "削除",
       deleteExit: "戻る",
     },
+    completion: {
+      complete: "完了",
+      undo: "未完了に戻す",
+      badge: "完了済み",
+    },
     deleteConfirm: {
       title: "削除してもよろしいですか？",
       body: "削除すると元に戻せません。",
@@ -117,6 +129,8 @@ export const weeklyTasksTranslations: Record<
       title: "タスクリスト",
       emptyTitle: "まだタスクがありません",
       emptyBody: "追加ボタンからタスクを作成し、年間目標と紐づけてください。",
+      emptyCta: "最初のタスクを追加",
+      loadError: "週間タスクを読み込めませんでした",
     },
     task: {
       yearlyLink: "年間目標",
@@ -174,6 +188,11 @@ export const weeklyTasksTranslations: Record<
       delete: "Delete",
       deleteExit: "Exit",
     },
+    completion: {
+      complete: "Done",
+      undo: "Mark as active",
+      badge: "Done",
+    },
     deleteConfirm: {
       title: "Delete this weekly task?",
       body: "You can’t undo this action after deleting.",
@@ -197,6 +216,8 @@ export const weeklyTasksTranslations: Record<
       title: "Task list",
       emptyTitle: "No tasks yet",
       emptyBody: "Add a task and link it to an annual goal.",
+      emptyCta: "Add your first task",
+      loadError: "Unable to load weekly tasks.",
     },
     task: {
       yearlyLink: "Annual goal",
@@ -254,6 +275,11 @@ export const weeklyTasksTranslations: Record<
       delete: "Supprimer",
       deleteExit: "Quitter",
     },
+    completion: {
+      complete: "Terminer",
+      undo: "Rendre active",
+      badge: "Terminée",
+    },
     deleteConfirm: {
       title: "Supprimer cette tâche hebdomadaire ?",
       body: "Cette action sera définitive après la suppression.",
@@ -277,6 +303,8 @@ export const weeklyTasksTranslations: Record<
       title: "Liste des tâches",
       emptyTitle: "Aucune tâche pour le moment",
       emptyBody: "Ajoutez une tâche et associez-la à un objectif annuel.",
+      emptyCta: "Ajouter une tâche",
+      loadError: "Impossible de charger les tâches hebdomadaires.",
     },
     task: {
       yearlyLink: "Objectif annuel",

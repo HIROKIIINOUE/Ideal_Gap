@@ -66,4 +66,39 @@ describe("app config bundle identifiers", () => {
     expect(config.ios?.infoPlist?.ITSAppUsesNonExemptEncryption).toBe(false);
     expect(config.ios?.infoPlist?.UIBackgroundModes).toEqual(["audio"]);
   });
+
+  test("enables Sign in with Apple capability on iOS", () => {
+    process.env.APP_ENV = "prod";
+    const configFactory = loadConfig();
+
+    const config = configFactory();
+
+    expect(config.ios?.usesAppleSignIn).toBe(true);
+    expect(config.ios?.entitlements?.["com.apple.developer.applesignin"]).toEqual([
+      "Default",
+    ]);
+  });
+
+  test("requests exact alarm permission on Android", () => {
+    process.env.APP_ENV = "dev";
+    const configFactory = loadConfig();
+
+    const config = configFactory();
+
+    expect(config.android?.permissions).toContain(
+      "android.permission.SCHEDULE_EXACT_ALARM"
+    );
+  });
+
+  test("enables expo-audio background playback in the plugin config", () => {
+    process.env.APP_ENV = "dev";
+    const configFactory = loadConfig();
+
+    const config = configFactory();
+    const audioPlugin = (config.plugins ?? []).find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === "expo-audio"
+    ) as [string, { enableBackgroundPlayback?: boolean }] | undefined;
+
+    expect(audioPlugin?.[1]?.enableBackgroundPlayback).toBe(true);
+  });
 });

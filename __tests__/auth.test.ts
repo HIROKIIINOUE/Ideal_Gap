@@ -1,6 +1,7 @@
 import { AuthError } from "@supabase/supabase-js";
 import {
   completePasswordReset,
+  continueWithOAuthProvider,
   requestPasswordResetEmail,
   setSessionFromRecoveryLink,
   signInWithEmailPassword,
@@ -22,10 +23,14 @@ jest.mock("../lib/supabaseClient", () => ({
     auth: {
       signUp: jest.fn(),
       signInWithPassword: jest.fn(),
+      resend: jest.fn(),
       resetPasswordForEmail: jest.fn(),
       updateUser: jest.fn(),
       getSession: jest.fn(),
+      getUser: jest.fn(),
       setSession: jest.fn(),
+      exchangeCodeForSession: jest.fn(),
+      signInWithOAuth: jest.fn(),
     },
     from: jest.fn(),
     rpc: jest.fn(),
@@ -35,6 +40,7 @@ jest.mock("../lib/supabaseClient", () => ({
       updateUser: jest.fn(),
       getSession: jest.fn(),
       setSession: jest.fn(),
+      signInWithPassword: jest.fn(),
       signOut: jest.fn(),
     },
   },
@@ -43,6 +49,12 @@ jest.mock("../lib/supabaseClient", () => ({
 jest.mock("expo-linking", () => ({
   createURL: jest.fn((path?: string) => `idealgap://${(path ?? "").replace(/^\//, "")}`),
 }));
+
+jest.mock("expo-web-browser", () => ({
+  openAuthSessionAsync: jest.fn(),
+}));
+
+const mockWebBrowser = jest.requireMock("expo-web-browser");
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -84,6 +96,9 @@ describe("signUpWithEmailConfirmation", () => {
       data: { user: null, session: null },
       error: { message: "User already registered", status: 400 } as AuthError,
     });
+    (supabaseRecovery.auth.signInWithPassword as jest.Mock).mockResolvedValue({
+      error: { message: "Invalid login credentials", status: 400 } as AuthError,
+    });
 
     const result = await signUpWithEmailConfirmation(baseParams);
 
@@ -91,6 +106,39 @@ describe("signUpWithEmailConfirmation", () => {
       ok: false,
       reason: "email_exists",
       message: "User already registered",
+    });
+  });
+
+  test("resends verification mail when an existing account is still unconfirmed", async () => {
+    (supabase.auth.signUp as jest.Mock).mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: "User already registered", status: 400 } as AuthError,
+    });
+    (supabaseRecovery.auth.signInWithPassword as jest.Mock).mockResolvedValue({
+      error: { message: "Email not confirmed", status: 400 } as AuthError,
+    });
+    (supabase.auth.resend as jest.Mock).mockResolvedValue({
+      data: {},
+      error: null,
+    });
+
+    const result = await signUpWithEmailConfirmation(baseParams);
+
+    expect(supabaseRecovery.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: "new-user@example.com",
+      password: "password123",
+    });
+    expect(supabase.auth.resend).toHaveBeenCalledWith({
+      type: "signup",
+      email: "new-user@example.com",
+      options: {
+        emailRedirectTo: "idealgap://purchases?signup=1",
+      },
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "email_unconfirmed",
+      message: "Email verification resent",
     });
   });
 
@@ -151,6 +199,35 @@ describe("signInWithEmailPassword", () => {
     });
   });
 
+  test("resends verification mail when login is blocked because email is unconfirmed", async () => {
+    (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
+    (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({
+      error: { status: 400, message: "Email not confirmed" } as AuthError,
+    });
+    (supabase.auth.resend as jest.Mock).mockResolvedValue({
+      data: {},
+      error: null,
+    });
+
+    const result = await signInWithEmailPassword({
+      email: "user@example.com",
+      password: "password123",
+    });
+
+    expect(supabase.auth.resend).toHaveBeenCalledWith({
+      type: "signup",
+      email: "user@example.com",
+      options: {
+        emailRedirectTo: "idealgap://purchases?signup=1",
+      },
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "email_unconfirmed",
+      message: "Email verification resent",
+    });
+  });
+
   test("returns ok true on successful sign in", async () => {
     (supabase.rpc as jest.Mock).mockResolvedValue({ data: true, error: null });
     (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({ error: null });
@@ -161,6 +238,60 @@ describe("signInWithEmailPassword", () => {
     });
 
     expect(result).toEqual({ ok: true });
+  });
+});
+
+describe("continueWithOAuthProvider", () => {
+  test("opens provider auth URL and stores returned session", async () => {
+    (supabase.auth.signInWithOAuth as jest.Mock).mockResolvedValue({
+      data: { url: "https://example.supabase.co/auth/v1/authorize" },
+      error: null,
+    });
+    mockWebBrowser.openAuthSessionAsync.mockResolvedValue({
+      type: "success",
+      url: "idealgap://auth/callback#access_token=access123&refresh_token=refresh456",
+    });
+    (supabase.auth.setSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: { id: "user-123" } } },
+      error: null,
+    });
+
+    const result = await continueWithOAuthProvider("google");
+
+    expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: "google",
+      options: {
+        redirectTo: "idealgap://auth/callback",
+        skipBrowserRedirect: true,
+      },
+    });
+    expect(mockWebBrowser.openAuthSessionAsync).toHaveBeenCalledWith(
+      "https://example.supabase.co/auth/v1/authorize",
+      "idealgap://auth/callback",
+      { preferEphemeralSession: true },
+    );
+    expect(supabase.auth.setSession).toHaveBeenCalledWith({
+      access_token: "access123",
+      refresh_token: "refresh456",
+    });
+    expect(result).toEqual({ ok: true, user: { id: "user-123" } });
+  });
+
+  test("does not show a hard error when the user cancels OAuth", async () => {
+    (supabase.auth.signInWithOAuth as jest.Mock).mockResolvedValue({
+      data: { url: "https://example.supabase.co/auth/v1/authorize" },
+      error: null,
+    });
+    mockWebBrowser.openAuthSessionAsync.mockResolvedValue({ type: "cancel" });
+
+    const result = await continueWithOAuthProvider("apple");
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "cancelled",
+      message: "OAuth sign-in was cancelled",
+    });
+    expect(supabase.auth.setSession).not.toHaveBeenCalled();
   });
 });
 

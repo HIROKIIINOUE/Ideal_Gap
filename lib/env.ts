@@ -12,6 +12,7 @@ const requiredString = (envKey: string) => z.string().min(1, envKey);
 const publicEnv = {
   supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
   supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  fieldEncryptionKey: process.env.EXPO_PUBLIC_FIELD_ENCRYPTION_KEY,
   revenueCatDevIos: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_IOS,
   revenueCatDevAndroid: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV_ANDROID,
   revenueCatDevLegacy: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_DEV,
@@ -25,6 +26,9 @@ const createEnvSchema = (revenueCatKeyName: string) =>
     appEnv: appEnvSchema,
     supabaseUrl: requiredString("EXPO_PUBLIC_SUPABASE_URL"),
     supabaseAnonKey: requiredString("EXPO_PUBLIC_SUPABASE_ANON_KEY"),
+    fieldEncryptionKey: z
+      .string()
+      .min(32, "EXPO_PUBLIC_FIELD_ENCRYPTION_KEY must be at least 32 characters"),
     revenueCatApiKey: requiredString(revenueCatKeyName),
   });
 
@@ -81,6 +85,7 @@ export const getValidatedEnv = (): AppEnv => {
   const envVarNameByField = {
     supabaseUrl: "EXPO_PUBLIC_SUPABASE_URL",
     supabaseAnonKey: "EXPO_PUBLIC_SUPABASE_ANON_KEY",
+    fieldEncryptionKey: "EXPO_PUBLIC_FIELD_ENCRYPTION_KEY",
     revenueCatApiKey: revenueCatKeyLabel,
   } as const;
 
@@ -88,6 +93,7 @@ export const getValidatedEnv = (): AppEnv => {
     appEnv,
     supabaseUrl: publicEnv.supabaseUrl,
     supabaseAnonKey: publicEnv.supabaseAnonKey,
+    fieldEncryptionKey: publicEnv.fieldEncryptionKey,
     revenueCatApiKey: resolvedRevenueCatApiKey,
   });
 

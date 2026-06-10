@@ -12,18 +12,16 @@ import BreakReminderScreen from "../../components/feature/BreakReminderScreen";
 import FocusMusicScreen from "../../components/feature/FocusMusicScreen";
 import FunPlanScreen from "../../components/feature/FunPlanScreen";
 import IdealSelfScreen from "../../components/feature/IdealSelfScreen";
-import LongTermGoalsScreen from "../../components/feature/LongTermGoalsScreen";
 import WeeklyTasksScreen from "../../components/feature/WeeklyTasksScreen";
 import Footer from "../../components/Footer";
 import LanguageSheet from "../../components/LanguageSheet";
 import MoreSheet from "../../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
-import { supabase } from "../../lib/supabaseClient";
+import { signOutCurrentSession } from "../../lib/logout";
 import { useFunPlan } from "../../providers/FunPlanProvider";
 
 type FeatureId =
   | "ideal-self"
-  | "long-term-goals"
   | "annual-goals"
   | "weekly-goals"
   | "focus-music"
@@ -32,7 +30,6 @@ type FeatureId =
 
 const featureKeys: Record<FeatureId, string> = {
   "ideal-self": "cards.idealSelf.title",
-  "long-term-goals": "cards.longTermGoals.title",
   "annual-goals": "cards.annualGoals.title",
   "weekly-goals": "cards.weeklyGoals.title",
   "focus-music": "cards.focusMusic.title",
@@ -71,7 +68,12 @@ export default function FeatureScreen() {
             text: tCommon("confirmYes"),
             style: "destructive",
             onPress: async () => {
-              await supabase.auth.signOut();
+              try {
+                await signOutCurrentSession();
+              } catch (error) {
+                console.warn("Failed to sign out from feature screen", error);
+                return;
+              }
               showLogoutToast();
               router.replace("/");
             },
@@ -108,7 +110,6 @@ export default function FeatureScreen() {
     if (!featureId) return null;
     const mapping: Partial<Record<FeatureId, ComponentType>> = {
       "ideal-self": IdealSelfScreen,
-      "long-term-goals": LongTermGoalsScreen,
       "annual-goals": AnnualGoalsScreen,
       "weekly-goals": WeeklyTasksScreen,
       "next-fun-plan": FunPlanScreen,

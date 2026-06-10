@@ -1,72 +1,53 @@
-# 環境構築手順
+<p align="center">
+  <img src="./assets/for_readme/icon.png" width="120"/>
+</p>
+<h1 align="center">Ideal Gap</h1>
+<p align="center">
+Bridge the gap to your ideal self.
+</p>
+<p align="center">
+  <a href="https://apps.apple.com/app/id6759301711">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="50" alt="Download on the App Store"/>
+  </a>
+</p>
 
-- git clone
-- リポジトリ直下で npm install
-- 環境変数設定(雛形は.env.example)
-- expo-env.d.ts
-- npm run typecheck / npm run lint / npm run test でクリーンな状態を確認
+<div align="center">
+<h2>Tech Stack</h2>
+<strong>React Native</strong> ·
+<strong>Expo</strong> ·
+<strong>TypeScript</strong> ·
+<strong>Supabase</strong> ·
+<strong>RevenueCat</strong> · 
+<strong>Sentry</strong> · 
+<strong>GitHub Actions</strong>
+</div>
 
-# Welcome to your Expo app 👋
+<div align="center">
+<h2>Screenshots</h2>
+  <img src="./assets/for_readme/dashboard.png" width="280" alt="Dashboard screen" />
+  <img src="./assets/for_readme/tasktimer.png" width="280" alt="Task timer screen"　/>
+  <img src="./assets/for_readme/annualgoals.png" width="280" alt="Annual goals screen"/>
+</div>
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+<h2>Overview</h2>
+<p>Ideal Gap is a cross-platform productivity app designed to help users bridge the gap between who they are today and who they want to become.Users can define their ideal self, set long-term and annual goals, break them down into weekly tasks, and stay focused with built-in focus music and a task timer.</p>
 
-## Get started
+<h2>Features</h2>
+ <ul>
+  <li>Set annual goals and break them into weekly tasks</li>
+  <li>Stay focused with built-in focus music</li>
+  <li>Track effort with a task timer</li>
+  <li>Manage upcoming personal plans</li>
+  <li>Support English, Japanese, and French</li>
+  <li>Cloud sync with Supabase</li>
+  <li>Subscription flow with RevenueCat</li>
+  <li>Error monitoring with Sentry</li>
+ </ul>
 
-To start the app, in your terminal run:
-
-```bash
-npm run start
-```
-
-In the output, you'll find options to open the app in:
-
-- [a development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [an Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [an iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Workflows
-
-This project is configured to use [EAS Workflows](https://docs.expo.dev/eas/workflows/get-started/) to automate some development and release processes. These commands are set up in [`package.json`](./package.json) and can be run using NPM scripts in your terminal.
-
-### Previews
-
-Run `npm run draft` to [publish a preview update](https://docs.expo.dev/eas/workflows/examples/publish-preview-update/) of your project, which can be viewed in Expo Go or in a development build.
-
-### Development Builds
-
-Run `npm run development-builds` to [create a development build](https://docs.expo.dev/eas/workflows/examples/create-development-builds/). Note - you'll need to follow the [Prerequisites](https://docs.expo.dev/eas/workflows/examples/create-development-builds/#prerequisites) to ensure you have the correct emulator setup on your machine.
-
-### Production Deployments
-
-Run `npm run deploy` to [deploy to production](https://docs.expo.dev/eas/workflows/examples/deploy-to-production/). Note - you'll need to follow the [Prerequisites](https://docs.expo.dev/eas/workflows/examples/deploy-to-production/#prerequisites) to ensure you're set up to submit to the Apple and Google stores.
-
-## Hosting
-
-Expo offers hosting for websites and API functions via EAS Hosting. See the [Getting Started](https://docs.expo.dev/eas/hosting/get-started/) guide to learn more.
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+<h2>Project Status</h2>
+<p>Available on the App Store. Android release coming soon on Google Play.</p>
+<p align="center">
+  <a href="https://apps.apple.com/app/id6759301711">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="50" alt="Download on the App Store"/>
+  </a>
+</p>

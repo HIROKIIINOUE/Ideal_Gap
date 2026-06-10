@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
+import { Platform } from "react-native";
 import ProfileUpdate from "../app/profile-update";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
@@ -55,6 +56,8 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 describe("ProfileUpdate", () => {
+  const originalPlatform = Platform.OS;
+
   beforeEach(async () => {
     jest.clearAllMocks();
     await i18n.changeLanguage("en");
@@ -90,6 +93,13 @@ describe("ProfileUpdate", () => {
     (supabase.auth.updateUser as jest.Mock).mockResolvedValue({ error: null });
   });
 
+  afterEach(() => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
+    });
+  });
+
   test("disables save button after email change request is sent", async () => {
     const screen = render(
       <I18nextProvider i18n={i18n}>
@@ -114,5 +124,127 @@ describe("ProfileUpdate", () => {
     ).toBeTruthy();
 
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  });
+
+  test("toggles password visibility", async () => {
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    const passwordInput = await screen.findByPlaceholderText("New password (optional)");
+    expect(passwordInput.props.secureTextEntry).toBe(true);
+
+    fireEvent.press(screen.getByRole("button", { name: "Show password" }));
+    expect((await screen.findByPlaceholderText("New password (optional)")).props.secureTextEntry).toBe(false);
+
+    fireEvent.press(screen.getByRole("button", { name: "Hide password" }));
+    expect((await screen.findByPlaceholderText("New password (optional)")).props.secureTextEntry).toBe(true);
+  });
+
+  test("uses the same Android CTA shadow fix as other entry buttons", async () => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    const saveButton = await screen.findByRole("button", { name: "Save changes" });
+    expect(saveButton).toHaveStyle({ elevation: 0, shadowOpacity: 0 });
+  });
+
+  test("reduces delete button horizontal padding only for French", async () => {
+    await i18n.changeLanguage("fr");
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    const deleteButton = await screen.findByRole("button", {
+      name: "Supprimer le compte",
+    });
+    expect(deleteButton).toHaveStyle({ paddingHorizontal: 20 });
+  });
+
+  test("renders Google users with only the username as read-only", async () => {
+    (supabase.auth.getUser as jest.Mock).mockReset();
+    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+      data: {
+        user: {
+          id: "user-1",
+          email: "google@example.com",
+          app_metadata: { providers: ["google"], provider: "google" },
+          identities: [{ provider: "google" }],
+          user_metadata: { name: "Google Name" },
+        },
+      },
+      error: null,
+    });
+    mockProfileMaybeSingle.mockResolvedValue({
+      data: { name: "Google Name", email: "google@example.com" },
+      error: null,
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    expect(await screen.findByDisplayValue("Google Name")).toHaveProp(
+      "editable",
+      false,
+    );
+    expect(
+      await screen.findByText(
+        "You are logged in with Google, so this app cannot change your profile.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByDisplayValue("google@example.com")).toBeNull();
+    expect(screen.queryByText("Email")).toBeNull();
+    expect(screen.queryByText("Password")).toBeNull();
+    expect(screen.queryByPlaceholderText("New password (optional)")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+  });
+
+  test("prefers Apple when both Apple and Google providers are present", async () => {
+    (supabase.auth.getUser as jest.Mock).mockReset();
+    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+      data: {
+        user: {
+          id: "user-1",
+          email: "apple@example.com",
+          app_metadata: { providers: ["google", "apple"], provider: "google" },
+          identities: [{ provider: "google" }, { provider: "apple" }],
+          user_metadata: { name: "Apple Name" },
+        },
+      },
+      error: null,
+    });
+    mockProfileMaybeSingle.mockResolvedValue({
+      data: { name: "Apple Name", email: "apple@example.com" },
+      error: null,
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <ProfileUpdate />
+      </I18nextProvider>,
+    );
+
+    expect(
+      await screen.findByText(
+        "You are logged in with Apple, so this app cannot change your profile.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
   });
 });

@@ -1,22 +1,28 @@
 import Purchases from "react-native-purchases";
 import {
   fetchTestStorePackage,
+  getRevenueCatEntitlementAccessState,
   hasActiveEntitlement,
   PREMIUM_ENTITLEMENT_ID,
   TEST_STORE_OFFERING_ID,
   TEST_STORE_PACKAGE_ID,
-} from "../revenuecatOfferings";
+} from "../lib/revenuecatOfferings";
 
 jest.mock("react-native-purchases", () => ({
+  getCustomerInfo: jest.fn(),
   getOfferings: jest.fn(),
+  isConfigured: jest.fn(),
   purchasePackage: jest.fn(),
 }));
 
 const mockGetOfferings = Purchases.getOfferings as jest.Mock;
+const mockGetCustomerInfo = Purchases.getCustomerInfo as jest.Mock;
+const mockIsConfigured = Purchases.isConfigured as jest.Mock;
 
 describe("fetchTestStorePackage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsConfigured.mockResolvedValue(true);
   });
 
   it("returns the Test Store package with trial info from intro price", async () => {
@@ -85,5 +91,35 @@ describe("hasActiveEntitlement", () => {
     } as any;
 
     expect(hasActiveEntitlement(customerInfo)).toBe(false);
+  });
+});
+
+describe("getRevenueCatEntitlementAccessState", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockIsConfigured.mockResolvedValue(true);
+  });
+
+  it("returns entitled when cached customer info has premium entitlement", async () => {
+    mockGetCustomerInfo.mockResolvedValue({
+      entitlements: {
+        active: {
+          [PREMIUM_ENTITLEMENT_ID]: { identifier: PREMIUM_ENTITLEMENT_ID },
+        },
+      },
+    });
+
+    await expect(getRevenueCatEntitlementAccessState()).resolves.toEqual(
+      expect.objectContaining({ state: "entitled" }),
+    );
+  });
+
+  it("returns unknown when Purchases is not configured yet", async () => {
+    mockIsConfigured.mockResolvedValue(false);
+
+    await expect(getRevenueCatEntitlementAccessState()).resolves.toEqual(
+      expect.objectContaining({ state: "unknown" }),
+    );
+    expect(mockGetCustomerInfo).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ import {
 const InstalledTracksSchema = z.array(InstalledTrackSchema);
 const InstalledTrackMigrationSchema = z.object({
   trackId: z.string().min(1),
+  fileName: z.string().min(1).optional(),
   localPath: z.string().min(1).optional(),
   uri: z.string().min(1).optional(),
   downloadedAt: z.string().min(1).optional(),
@@ -24,11 +25,25 @@ const DownloadQuotaSchema = z.object({
 const getDownloadQuotaKey = (userId: string) =>
   `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.${userId}`;
 
-// DL済み音楽データが壊れていた場合に、ここでpath情報を正常に戻す
-const normalizeLocalPath = (value: string | undefined) => {
+const normalizeFileName = (value: string | undefined) => {
   if (!value) return null;
-  if (value.startsWith("file://")) return value;
-  if (value.startsWith("/")) return `file://${value}`;
+  if (value.includes("/") || value.includes("\\")) return null;
+  return value;
+};
+
+// 旧形式の絶対URIから、端末コンテナに依存しないファイル名だけを取り出す
+const extractFileNameFromLocalPath = (value: string | undefined) => {
+  if (!value) return null;
+  if (!value.startsWith("file://") && !value.startsWith("/")) return null;
+  const withoutQuery = value.split("?")[0].split("#")[0];
+  const fileName = withoutQuery.split("/").filter(Boolean).pop();
+  return normalizeFileName(fileName);
+};
+
+const getFallbackFileName = (trackId: string) => {
+  if (!trackId.includes("/") && !trackId.includes("\\")) {
+    return `${trackId}.mp3`;
+  }
   return null;
 };
 
@@ -41,13 +56,20 @@ const normalizeInstalledTracks = (rawValue: unknown): InstalledTrack[] => {
     const parsed = InstalledTrackMigrationSchema.safeParse(item);
     if (!parsed.success) continue;
     if (seenTrackIds.has(parsed.data.trackId)) continue;
-    const localPath = normalizeLocalPath(
+    const explicitFileName = normalizeFileName(parsed.data.fileName);
+    const legacyFileName = extractFileNameFromLocalPath(
       parsed.data.localPath ?? parsed.data.uri,
     );
-    if (!localPath) continue;
+    const fileName =
+      explicitFileName ??
+      legacyFileName ??
+      (parsed.data.localPath || parsed.data.uri
+        ? null
+        : getFallbackFileName(parsed.data.trackId));
+    if (!fileName) continue;
     normalized.push({
       trackId: parsed.data.trackId,
-      localPath,
+      fileName,
       downloadedAt: parsed.data.downloadedAt ?? new Date(0).toISOString(),
     });
     seenTrackIds.add(parsed.data.trackId);

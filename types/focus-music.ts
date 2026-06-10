@@ -25,13 +25,16 @@ export type FocusMusicTrack = z.infer<typeof FocusMusicTrackSchema>;
 
 export const InstalledTrackSchema = z.object({
   trackId: z.string().min(1),
-  localPath: z.string().min(1),
+  fileName: z.string().min(1),
   downloadedAt: z.string().min(1),
 });
 
 export type InstalledTrack = z.infer<typeof InstalledTrackSchema>;
 
-export type InstalledFocusTrack = FocusMusicTrack & InstalledTrack;
+export type InstalledFocusTrack = FocusMusicTrack &
+  InstalledTrack & {
+    localPath: string;
+  };
 
 export type InstallProgress = {
   progress: number | null;

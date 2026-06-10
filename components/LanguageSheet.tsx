@@ -137,7 +137,9 @@ const LanguageSheet = memo(({ visible, onClose }: LanguageSheetProps) => {
                 active={option.key === activeLanguage}
                 accessibilityLabel={`${t("languageSheet.title")} ${option.label}`}
                 onPress={() => {
-                  setLanguage(option.key);
+                  void setLanguage(option.key).catch((error) => {
+                    console.warn("Failed to change language", error);
+                  });
                   onClose();
                 }}
               />

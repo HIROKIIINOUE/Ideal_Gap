@@ -24,6 +24,7 @@ const SENSITIVE_HEADER_KEYS = [
   "x-api-key",
   "x-supabase-auth",
 ] as const;
+const sentTaskTimerAnomalyKeys = new Set<string>();
 
 // 「軽微ノイズ除外」のために、散らばったSentryのイベントメッセージをeventMessageとして一箇所(一文)にまとめる
 const getEventMessage = (event: any, hint?: any) => {
@@ -119,6 +120,43 @@ export const initSentry = () => {
   });
 };
 
+export const addSentryBreadcrumb = (
+  category: string,
+  message: string,
+  data?: Record<string, unknown>,
+  level: "fatal" | "error" | "warning" | "log" | "info" | "debug" = "info",
+) => {
+  Sentry.addBreadcrumb({
+    category,
+    message,
+    data,
+    level,
+  });
+};
+
+export const captureTaskTimerAnomaly = (
+  anomaly: string,
+  context?: Record<string, unknown>,
+) => {
+  const dedupeKey = `task_timer:${anomaly}`;
+  if (sentTaskTimerAnomalyKeys.has(dedupeKey)) {
+    return;
+  }
+  sentTaskTimerAnomalyKeys.add(dedupeKey);
+
+  addSentryBreadcrumb("task_timer.anomaly", anomaly, context, "warning");
+  Sentry.withScope((scope) => {
+    scope.setLevel("warning");
+    scope.setTag("area", "task_timer");
+    scope.setTag("anomaly", anomaly);
+    scope.setFingerprint(["task_timer", anomaly]);
+    if (context) {
+      scope.setContext("task_timer", context);
+    }
+    Sentry.captureMessage(`Task timer anomaly: ${anomaly}`);
+  });
+};
+
 // RevenueCat 購入処理でのエラーをキャッチ
 export const captureRevenueCatPurchaseError = (error: unknown) => {
   Sentry.captureException(error, {
@@ -136,6 +174,7 @@ export const captureSupabaseAuthUnexpectedError = (
   operation:
     | "sign_up"
     | "sign_in"
+    | "oauth"
     | "request_password_reset"
     | "complete_password_reset",
 ) => {

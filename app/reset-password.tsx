@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -19,6 +20,7 @@ import { z } from "zod";
 import Footer from "../components/Footer";
 import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
+import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
@@ -27,6 +29,7 @@ import {
   requestPasswordResetEmail,
   setSessionFromRecoveryLink,
 } from "../lib/auth";
+import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 
 const resetEmailSchema = z.object({
   email: z.string().trim().check(z.email()),
@@ -153,15 +156,24 @@ export default function ResetPassword() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommon("back") }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <Text style={styles.label}>{t("pageLabel")}</Text>
-          <Link href="/login" style={styles.link}>
-            {t("backToLogin")}
-          </Link>
-        </View>
+      <KeyboardAvoidingView
+        style={styles.formContainer}
+        behavior={getKeyboardAvoidingBehavior()}
+        testID="reset-password-form-kav"
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.headerRow}>
+            <Text style={styles.label}>{t("pageLabel")}</Text>
+            <Link href="/login" style={styles.link}>
+              {t("backToLogin")}
+            </Link>
+          </View>
 
-        <View style={[styles.card, shadows.card]}>
+          <View style={[styles.card, shadows.card]}>
           <LinearGradient
             colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
             start={{ x: 0, y: 0 }}
@@ -194,6 +206,7 @@ export default function ResetPassword() {
               styles.ctaButton,
               styles.primaryButton,
               styles.buttonShadow,
+              Platform.OS === "android" && styles.buttonShadowAndroidFix,
               pressed && styles.buttonPressed,
               sendDisabled && styles.buttonDisabled,
             ]}
@@ -217,10 +230,10 @@ export default function ResetPassword() {
               <Text style={styles.alertBody}>{sendError}</Text>
             </View>
           )}
-        </View>
+          </View>
 
-        {recoveryReady && (
-          <View style={[styles.card, shadows.card]}>
+          {recoveryReady && (
+            <View style={[styles.card, shadows.card]}>
             <LinearGradient
               colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
               start={{ x: 0, y: 0 }}
@@ -232,14 +245,15 @@ export default function ResetPassword() {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>{t("newPasswordLabel")}</Text>
-              <TextInput
+              <PasswordField
                 placeholder={t("newPasswordPlaceholder")}
                 placeholderTextColor={colors.textSecondary}
                 style={styles.input}
-                secureTextEntry
                 keyboardAppearance="dark"
                 value={newPassword}
                 onChangeText={setNewPassword}
+                showPasswordLabel={t("showPassword")}
+                hidePasswordLabel={t("hidePassword")}
               />
             </View>
 
@@ -258,6 +272,7 @@ export default function ResetPassword() {
                 styles.ctaButton,
                 styles.secondaryButton,
                 styles.buttonShadow,
+                Platform.OS === "android" && styles.buttonShadowAndroidFix,
                 pressed && styles.buttonPressed,
                 updateDisabled && styles.buttonDisabled,
               ]}
@@ -272,9 +287,10 @@ export default function ResetPassword() {
                 {isUpdating ? t("updating") : t("updateCta")}
               </Text>
             </Pressable>
-          </View>
-        )}
-      </ScrollView>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
       <Footer
         isAuthenticated={false}
         onLanguagePress={() => setLanguageSheetVisible(true)}
@@ -301,6 +317,9 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     gap: spacing.lg,
     paddingBottom: spacing.xl * 2,
+  },
+  formContainer: {
+    flex: 1,
   },
   headerRow: {
     flexDirection: "row",
@@ -368,6 +387,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
     position: "relative",
+    overflow: "hidden",
   },
   primaryButton: {
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -392,6 +412,10 @@ const styles = StyleSheet.create({
   },
   buttonShadow: {
     ...shadows.button,
+  },
+  buttonShadowAndroidFix: {
+    elevation: 0,
+    shadowOpacity: 0,
   },
   buttonPressed: {
     transform: [{ translateY: 1 }],

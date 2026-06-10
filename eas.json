@@ -70,6 +70,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "bundleIdentifier": "com.idealgap.app",
+        "appleTeamId": "GJK4K96ZFW",
+        "appName": "Ideal Gap"
+      }
+    }
   }
 }

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -20,10 +21,19 @@ import Footer from "../components/Footer";
 import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
+import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
+import { deleteCurrentAccount } from "../lib/accountDeletion";
 import { buildRedirectUrl } from "../lib/auth";
+import type { ExternalAuthProvider } from "../lib/authProviders";
+import {
+  getPreferredExternalAuthProvider,
+  hasAppleOrGoogleProvider,
+} from "../lib/authProviders";
+import { signOutCurrentSession } from "../lib/logout";
 import { supabase } from "../lib/supabaseClient";
+import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
 const profileSchema = z.object({
@@ -33,7 +43,7 @@ const profileSchema = z.object({
 });
 
 export default function ProfileUpdate() {
-  const { t } = useTranslation("profileUpdate");
+  const { t, i18n } = useTranslation("profileUpdate");
   const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const { t: tCommon } = useTranslation("common", { keyPrefix: "moreSheet" });
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
@@ -44,6 +54,7 @@ export default function ProfileUpdate() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [usernameTouched, setUsernameTouched] = useState(false);
@@ -51,7 +62,12 @@ export default function ProfileUpdate() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [initialEmail, setInitialEmail] = useState<string | null>(null);
   const [emailChangeRequested, setEmailChangeRequested] = useState(false);
+  const [isExternalProviderProfile, setIsExternalProviderProfile] = useState(false);
+  const [externalAuthProvider, setExternalAuthProvider] =
+    useState<ExternalAuthProvider | null>(null);
+  const [deleteConfirmModalVisible, setDeleteConfirmModalVisible] = useState(false);
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
+  const isFrench = i18n.language === "fr";
 
   const validation = useMemo(() => profileSchema.safeParse({ username, email, password }), [email, password, username]);
   const fieldErrors = validation.success ? {} : z.flattenError(validation.error).fieldErrors;
@@ -90,6 +106,9 @@ export default function ProfileUpdate() {
       }
       const user = data.user;
       const userId = user.id;
+      // Google/Apple経由のログインかどうか判定する
+      const isExternalProvider = hasAppleOrGoogleProvider(user);
+      const preferredProvider = getPreferredExternalAuthProvider(user);
 
       const { data: profile } = await supabase
         .from("users")
@@ -113,6 +132,8 @@ export default function ProfileUpdate() {
       setUsername(resolvedName);
       setEmail(authEmail);
       setInitialEmail(authEmail);
+      setIsExternalProviderProfile(isExternalProvider);
+      setExternalAuthProvider(preferredProvider);
       setLoading(false);
     };
 
@@ -134,7 +155,7 @@ export default function ProfileUpdate() {
     setError(null);
     setInfo(null);
 
-    if (!isFormValid || submitting) return;
+    if (isExternalProviderProfile || !isFormValid || submitting) return;
     setSubmitting(true);
 
     try {
@@ -212,6 +233,48 @@ export default function ProfileUpdate() {
     }
   };
 
+  // アカウント完全削除処理
+  const runAccountDeletion = async () => {
+    if (deletingAccount) return;
+    setError(null);
+    setInfo(null);
+    setDeletingAccount(true);
+
+    try {
+      await deleteCurrentAccount();
+      showToast(t("deleteSuccessTitle"));
+      router.replace("/");
+    } catch (deleteError) {
+      console.warn("Failed to delete account", deleteError);
+      setError(t("deleteError"));
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  // アカウント削除ボタン押下後の処理(２度のポップアップ警告)
+  // 「サブスクは自動解除されない警告」と「undoできない警告」
+  const handleDeleteAccount = () => {
+    if (deletingAccount || loading || submitting) return;
+    setDeleteConfirmModalVisible(true);
+  };
+
+  const handleConfirmDeleteWarning = () => {
+    setDeleteConfirmModalVisible(false);
+    Alert.alert(t("deleteConfirmFinalTitle"), t("deleteConfirmFinalBody"), [
+      { text: t("deleteConfirmNo"), style: "cancel" },
+      {
+        text: t("deleteConfirmYes"),
+        style: "destructive",
+        onPress: () => {
+          runAccountDeletion().catch((deleteError) => {
+            console.warn("Unexpected account deletion failure", deleteError);
+          });
+        },
+      },
+    ]);
+  };
+
   //  画面に表示するエラーメッセージ1件を決定するロジック
   const errorLabel = useMemo(() => {
     if (error) return error;
@@ -220,6 +283,13 @@ export default function ProfileUpdate() {
     if (!isPasswordValid && passwordTouched) return t("validation.password");
     return null;
   }, [emailTouched, error, isEmailValid, isPasswordValid, isUsernameValid, passwordTouched, t, usernameTouched]);
+
+  // ユーザが使用しているプロバイダー(Apple or Google)に応じて表示文章を変更させる。
+  const externalProviderNotice = useMemo(() => {
+    if (externalAuthProvider === "apple") return t("externalProviderNoticeApple");
+    if (externalAuthProvider === "google") return t("externalProviderNoticeGoogle");
+    return t("externalProviderNotice");
+  }, [externalAuthProvider, t]);
 
 
   // その他のメニュー機能
@@ -231,7 +301,12 @@ export default function ProfileUpdate() {
           text: tCommon("confirmYes"),
           style: "destructive",
           onPress: async () => {
-            await supabase.auth.signOut();
+            try {
+              await signOutCurrentSession();
+            } catch (error) {
+              console.warn("Failed to sign out from profile update", error);
+              return;
+            }
             showLogoutToast();
             router.replace("/");
           },
@@ -255,7 +330,7 @@ export default function ProfileUpdate() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommonNav("back") }} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: "padding", android: undefined })}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={getKeyboardAvoidingBehavior()}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={[styles.card, shadows.card]}>
             <LinearGradient
@@ -272,46 +347,57 @@ export default function ProfileUpdate() {
               <TextInput
                 placeholder={t("usernamePlaceholder")}
                 placeholderTextColor={colors.textSecondary}
-                style={styles.input}
+                style={[styles.input, isExternalProviderProfile && styles.inputReadonly]}
                 value={username}
                 onChangeText={setUsername}
                 onBlur={() => setUsernameTouched(true)}
                 autoCapitalize="none"
                 keyboardAppearance="dark"
-                editable={!loading}
+                editable={!loading && !isExternalProviderProfile}
               />
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
-              <TextInput
-                placeholder={t("emailPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                onBlur={() => setEmailTouched(true)}
-                autoCapitalize="none"
-                keyboardAppearance="dark"
-                keyboardType="email-address"
-                editable={!loading}
-              />
-            </View>
+            {!isExternalProviderProfile && (
+              <>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
+                  <TextInput
+                    placeholder={t("emailPlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    onBlur={() => setEmailTouched(true)}
+                    autoCapitalize="none"
+                    keyboardAppearance="dark"
+                    keyboardType="email-address"
+                    editable={!loading}
+                  />
+                </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
-              <TextInput
-                placeholder={t("passwordPlaceholder")}
-                placeholderTextColor={colors.textSecondary}
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                onBlur={() => setPasswordTouched(true)}
-                secureTextEntry
-                keyboardAppearance="dark"
-                editable={!loading}
-              />
-            </View>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
+                  <PasswordField
+                    placeholder={t("passwordPlaceholder")}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    onBlur={() => setPasswordTouched(true)}
+                    keyboardAppearance="dark"
+                    editable={!loading}
+                    showPasswordLabel={t("showPassword")}
+                    hidePasswordLabel={t("hidePassword")}
+                  />
+                </View>
+              </>
+            )}
+
+            {isExternalProviderProfile && (
+              <View style={[styles.alertBox, styles.infoBox]}>
+                <Text style={styles.alertText}>{externalProviderNotice}</Text>
+              </View>
+            )}
 
             {errorLabel && (
               <View style={[styles.alertBox, styles.errorBox]}>
@@ -325,26 +411,52 @@ export default function ProfileUpdate() {
               </View>
             )}
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleSubmit}
-              disabled={!isFormValid || submitting || loading || emailChangeRequested}
-              style={({ pressed }) => [
-                styles.ctaButton,
-                styles.primaryButton,
-                styles.buttonShadow,
-                (!isFormValid || submitting || loading || emailChangeRequested) && styles.buttonDisabled,
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <LinearGradient
-                colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.buttonGlass}
-              />
-              <Text style={styles.primaryLabel}>{submitting ? t("saving") : t("save")}</Text>
-            </Pressable>
+            {!isExternalProviderProfile && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleSubmit}
+                disabled={!isFormValid || submitting || loading || emailChangeRequested}
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  styles.primaryButton,
+                  styles.buttonShadow,
+                  Platform.OS === "android" && styles.buttonShadowAndroidFix,
+                  (!isFormValid || submitting || loading || emailChangeRequested) && styles.buttonDisabled,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <LinearGradient
+                  colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.buttonGlass}
+                />
+                <Text style={styles.primaryLabel}>{submitting ? t("saving") : t("save")}</Text>
+              </Pressable>
+            )}
+
+            <View style={[styles.deleteSection, styles.deleteBox]}>
+              <Text style={styles.deleteTitle}>{t("deleteSectionTitle")}</Text>
+              <Text style={styles.deleteBody}>{t("deleteSectionBody")}</Text>
+              <Pressable
+                testID="account-delete-button"
+                accessibilityRole="button"
+                onPress={handleDeleteAccount}
+                disabled={deletingAccount || loading || submitting}
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  styles.deleteButton,
+                  isFrench && styles.deleteButtonFrench,
+                  Platform.OS === "android" && styles.buttonShadowAndroidFix,
+                  (deletingAccount || loading || submitting) && styles.buttonDisabled,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Text style={styles.deleteButtonLabel}>
+                  {deletingAccount ? t("deleting") : t("deleteButton")}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -361,6 +473,43 @@ export default function ProfileUpdate() {
         onToggleFunPlan={toggleFunPlan}
         onSelect={handleMoreSelect}
       />
+      <Modal
+        visible={deleteConfirmModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteConfirmModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setDeleteConfirmModalVisible(false)}
+          testID="profile-delete-confirm-overlay"
+        >
+          <Pressable
+            style={[styles.modalCard, shadows.card]}
+            onPress={(event) => event.stopPropagation()}
+            testID="profile-delete-confirm-card"
+          >
+            <Text style={styles.modalTitle}>{t("deleteConfirmTitle")}</Text>
+            <Text style={styles.deleteConfirmBodyText}>{t("deleteConfirmBody")}</Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.modalSecondaryButton}
+                onPress={() => setDeleteConfirmModalVisible(false)}
+              >
+                <Text style={styles.modalSecondaryButtonText}>{t("deleteConfirmNo")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.modalPrimaryButton}
+                onPress={handleConfirmDeleteWarning}
+              >
+                <Text style={styles.modalPrimaryButtonText}>{t("deleteConfirmYes")}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
       {keyboardVisible ? (
         <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
       ) : null}
@@ -416,6 +565,9 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     fontSize: typography.md,
   },
+  inputReadonly: {
+    opacity: 0.72,
+  },
   ctaButton: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl * 1.35,
@@ -438,6 +590,10 @@ const styles = StyleSheet.create({
   },
   buttonShadow: {
     ...shadows.button,
+  },
+  buttonShadowAndroidFix: {
+    elevation: 0,
+    shadowOpacity: 0,
   },
   buttonPressed: {
     transform: [{ translateY: 1 }],
@@ -469,7 +625,92 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
   },
-  heroFooter: {
-    gap: spacing.xs,
+  deleteSection: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  deleteBox: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(242,95,92,0.4)",
+    backgroundColor: "rgba(242,95,92,0.08)",
+    padding: spacing.md,
+  },
+  deleteTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+  },
+  deleteBody: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.45,
+  },
+  deleteButton: {
+    backgroundColor: "rgba(242,95,92,0.14)",
+    borderColor: "rgba(242,95,92,0.75)",
+  },
+  deleteButtonFrench: {
+    paddingHorizontal: spacing.lg,
+  },
+  deleteButtonLabel: {
+    color: colors.textPrimary,
+    fontWeight: "700",
+    fontSize: typography.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(7,10,18,0.72)",
+    justifyContent: "center",
+    padding: spacing.xl,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    padding: spacing.xl,
+    gap: spacing.md,
+  },
+  modalTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.lg,
+    fontWeight: "800",
+  },
+  deleteConfirmBodyText: {
+    color: colors.error,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.5,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+  },
+  modalSecondaryButton: {
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  modalSecondaryButtonText: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+  },
+  modalPrimaryButton: {
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(242,95,92,0.7)",
+    backgroundColor: colors.warning,
+  },
+  modalPrimaryButtonText: {
+    color: colors.background,
+    fontSize: typography.md,
+    fontWeight: "800",
   },
 });

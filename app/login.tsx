@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -18,17 +19,21 @@ import { z } from "zod";
 import Footer from "../components/Footer";
 import KeyboardDismissButton from "../components/KeyboardDismissButton";
 import LanguageSheet from "../components/LanguageSheet";
+import OAuthContinueButtons, { OAuthProviderId } from "../components/OAuthContinueButtons";
+import PasswordField from "../components/PasswordField";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
-import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { useLoginLockout } from "../hooks/useLoginLockout";
-import { signInWithEmailPassword } from "../lib/auth";
+import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
+import { isSupportedLanguage } from "../i18n";
+import { continueWithOAuthProvider, signInWithEmailPassword } from "../lib/auth";
+import { resolveAuthenticatedEntryDestination } from "../lib/authEntry";
 import {
-  canAccessDashboardWithSubscriptionStatus,
   ensureSignupAwaitSubscription,
-  getSubscriptionForUser,
+  getAccessStateForUser,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
+import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 
 const loginSchema = z.object({
   email: z.string().trim().min(1),
@@ -41,8 +46,10 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthProvider, setOauthProvider] = useState<OAuthProviderId | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { t } = useTranslation("login");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { t, i18n } = useTranslation("login");
   const { t: tCommon } = useTranslation("common", { keyPrefix: "navigation" });
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const { isLocked, remainingText, checkLockout, recordFailure, clearLockout } = useLoginLockout({
@@ -56,7 +63,15 @@ export default function Login() {
     }
     return { isValid: false };
   }, [email, password]);
-  const disabled = !loginValidation.isValid || isSubmitting || isLocked;
+  const disabled = !loginValidation.isValid || isSubmitting || isLocked || Boolean(oauthProvider);
+  const oauthProviders = useMemo<OAuthProviderId[]>(
+    () => (Platform.OS === "ios" ? ["apple", "google"] : ["google"]),
+    [],
+  );
+  const oauthLanguage = useMemo(
+    () => (isSupportedLanguage(i18n.language) ? i18n.language : "en"),
+    [i18n.language],
+  );
 
   const showToast = useCallback((message: string) => {
     if (Platform.OS === "android") {
@@ -70,6 +85,7 @@ export default function Login() {
     if (disabled) return;
     setIsSubmitting(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
     try {
       const parsed = loginSchema.parse({ email, password });
       const lockoutStatus = await checkLockout(parsed.email);
@@ -84,6 +100,10 @@ export default function Login() {
 
       //　打ち込んだEmailのユーザが存在するか、パスワードは正しいかを検証
       if (!result.ok) {
+        if (result.reason === "email_unconfirmed") {
+          setSuccessMessage(t("errorEmailUnconfirmed"));
+          return;
+        }
         const lockout = await recordFailure(parsed.email);
         const message =
           lockout.locked
@@ -98,22 +118,23 @@ export default function Login() {
       }
 
       setErrorMessage(null);
+      setSuccessMessage(null);
       await clearLockout(parsed.email);
 
       // ログイン情報が正しい時、Authのユーザ情報からSubscriptionデータを取得し、それに応じてユーザを各ページに遷移させる
       const { data } = await supabase.auth.getSession();
       const userId = data.session?.user?.id;
       if (userId) {
-        const subscription = await getSubscriptionForUser(userId);
-        if (!canAccessDashboardWithSubscriptionStatus(subscription?.status)) {
+        const accessState = await getAccessStateForUser(userId);
+        if (accessState.canAccessApp) {
+          router.replace("/dashboard");
+        } else {
           try {
             await ensureSignupAwaitSubscription(userId);
           } catch (error) {
             console.warn("failed to ensure signupAwait subscription", error);
           }
           router.replace("/purchases?from=login");
-        } else {
-          router.replace("/dashboard");
         }
       }
 
@@ -123,126 +144,188 @@ export default function Login() {
     }
   }, [checkLockout, clearLockout, disabled, email, password, recordFailure, showToast, t]);
 
+  // Google/Apple認証処理
+  const handleOAuthContinue = useCallback(
+    async (provider: OAuthProviderId) => {
+      if (oauthProvider || isSubmitting) return;
+
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      setOauthProvider(provider);
+
+      try {
+        // google/apple認証の結果と該当ユーザのセッション情報を受け取る
+        const result = await continueWithOAuthProvider(provider);
+        if (!result.ok) {
+          if (result.reason !== "cancelled") {
+            setErrorMessage(t("oauthError"));
+          }
+          return;
+        }
+
+        // Google/Apple認証完了ユーザと紐づくDBデータを参照(必要データがなければ作成)し
+        // 認証処理完了後の遷移先(ダッシュボードor支払い画面)を確定する
+        const destination = await resolveAuthenticatedEntryDestination({
+          source: "login",
+          user: result.user,
+          language: oauthLanguage,
+        });
+        router.replace(destination);
+        showToast(t("loginSuccess"));
+      } catch (error) {
+        console.warn("OAuth login flow failed", error);
+        setErrorMessage(t("oauthError"));
+      } finally {
+        setOauthProvider(null);
+      }
+    },
+    [isSubmitting, oauthLanguage, oauthProvider, showToast, t],
+  );
+
   const errorLabel = useMemo(() => errorMessage, [errorMessage]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "bottom"]}>
       <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommon("back") }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <Text style={styles.label}>{t("pageLabel")}</Text>
-          <Link href="/" style={styles.link}>
-            {t("backToHome")}
-          </Link>
-        </View>
-
-        <View style={[styles.card, shadows.card]}>
-          <LinearGradient
-            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.title}>{t("welcomeTitle")}</Text>
-          <Text style={styles.body}>{t("welcomeBody")}</Text>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
-            <TextInput
-              placeholder={t("emailPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              keyboardAppearance="dark"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
+      <KeyboardAvoidingView style={styles.formContainer} behavior={getKeyboardAvoidingBehavior()} testID="login-form-kav">
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.headerRow}>
+            <Text style={styles.label}>{t("pageLabel")}</Text>
+            <Link href="/" style={styles.link}>
+              {t("backToHome")}
+            </Link>
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
-            <TextInput
-              placeholder={t("passwordPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              secureTextEntry
-              keyboardAppearance="dark"
-              value={password}
-              onChangeText={setPassword}
-            />
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleLogin}
-            accessibilityState={{ disabled }}
-            disabled={disabled}
-            style={({ pressed }) => [
-              styles.ctaButton,
-              styles.primaryButton,
-              styles.buttonShadow,
-              pressed && styles.buttonPressed,
-              disabled && styles.buttonDisabled,
-            ]}
-          >
+          <View style={[styles.card, shadows.card]}>
             <LinearGradient
-              colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
+              colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.buttonGlass}
+              style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.primaryLabel}>{isSubmitting ? t("loggingIn") : t("loginCta")}</Text>
-          </Pressable>
+            <Text style={styles.title}>{t("welcomeTitle")}</Text>
+            <Text style={styles.body}>{t("welcomeBody")}</Text>
 
-          {!!errorLabel && (
-            <View style={[styles.alertBox, styles.errorBox]}>
-              <Text style={styles.alertBody}>{errorLabel}</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t("emailLabel")}</Text>
+              <TextInput
+                placeholder={t("emailPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                keyboardAppearance="dark"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
             </View>
-          )}
-          {!!remainingText && (
-            <View style={[styles.alertBox, styles.infoBox]}>
-              <Text style={styles.alertBody}>{remainingText}</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t("passwordLabel")}</Text>
+              <PasswordField
+                placeholder={t("passwordPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                keyboardAppearance="dark"
+                value={password}
+                onChangeText={setPassword}
+                showPasswordLabel={t("showPassword")}
+                hidePasswordLabel={t("hidePassword")}
+              />
             </View>
-          )}
 
-          <Link href="/reset-password" asChild>
-            <Pressable accessibilityRole="button" style={styles.subtleButton}>
-              <Text style={styles.subtleLabel}>{t("forgotPassword")}</Text>
-            </Pressable>
-          </Link>
-        </View>
+            <OAuthContinueButtons
+              providers={oauthProviders}
+              googleLabel={t("continueWithGoogle")}
+              appleLabel={t("continueWithApple")}
+              loadingLabel={t("oauthLoading")}
+              loadingProvider={oauthProvider}
+              disabled={isSubmitting || isLocked}
+              onPress={handleOAuthContinue}
+            />
 
-        <View style={[styles.card, shadows.card]}>
-          <LinearGradient
-            colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={styles.cardHeading}>{t("firstTimeHeading")}</Text>
-          <Text style={styles.body}>{t("firstTimeBody")}</Text>
-          <Link href="/signup" asChild>
             <Pressable
               accessibilityRole="button"
+              onPress={handleLogin}
+              accessibilityState={{ disabled }}
+              disabled={disabled}
               style={({ pressed }) => [
+                styles.ctaButton,
+                styles.primaryButton,
+                styles.buttonShadow,
+                Platform.OS === "android" && styles.buttonShadowAndroidFix,
                 pressed && styles.buttonPressed,
+                disabled && styles.buttonDisabled,
               ]}
             >
               <LinearGradient
-                colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
+                colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.04)"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.buttonGlass, styles.ctaButton,
-                styles.secondaryButton,
-                styles.buttonShadow]}
-              >
-                <Text style={styles.secondaryLabel}>{t("signupCta")}</Text>
-              </LinearGradient>
+                style={styles.buttonGlass}
+              />
+              <Text style={styles.primaryLabel}>{isSubmitting ? t("loggingIn") : t("loginCta")}</Text>
             </Pressable>
-          </Link>
-        </View>
-      </ScrollView>
+
+            {!!errorLabel && (
+              <View style={[styles.alertBox, styles.errorBox]}>
+                <Text style={styles.alertBody}>{errorLabel}</Text>
+              </View>
+            )}
+            {!!successMessage && (
+              <View style={[styles.alertBox, styles.successBox]}>
+                <Text style={styles.alertBody}>{successMessage}</Text>
+              </View>
+            )}
+            {!!remainingText && (
+              <View style={[styles.alertBox, styles.infoBox]}>
+                <Text style={styles.alertBody}>{remainingText}</Text>
+              </View>
+            )}
+
+            <Link href="/reset-password" asChild>
+              <Pressable accessibilityRole="button" style={styles.subtleButton}>
+                <Text style={styles.subtleLabel}>{t("forgotPassword")}</Text>
+              </Pressable>
+            </Link>
+          </View>
+
+          <View style={[styles.card, shadows.card]}>
+            <LinearGradient
+              colors={["rgba(30,94,255,0.25)", "rgba(15,28,47,0.9)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={styles.cardHeading}>{t("firstTimeHeading")}</Text>
+            <Text style={styles.body}>{t("firstTimeBody")}</Text>
+            <Link href="/signup" asChild>
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <LinearGradient
+                  colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.03)"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.buttonGlass, styles.ctaButton,
+                  styles.secondaryButton,
+                  styles.buttonShadow,
+                  Platform.OS === "android" && styles.buttonShadowAndroidFix]}
+                >
+                  <Text style={styles.secondaryLabel}>{t("signupCta")}</Text>
+                </LinearGradient>
+              </Pressable>
+            </Link>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
       <Footer
         isAuthenticated={false}
         onLanguagePress={() => setLanguageSheetVisible(true)}
@@ -269,6 +352,9 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     gap: spacing.lg,
     paddingBottom: spacing.xl * 2,
+  },
+  formContainer: {
+    flex: 1,
   },
   headerRow: {
     flexDirection: "row",
@@ -336,6 +422,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
     position: "relative",
+    overflow: "hidden",
   },
   primaryButton: {
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -361,6 +448,10 @@ const styles = StyleSheet.create({
   buttonShadow: {
     ...shadows.button,
   },
+  buttonShadowAndroidFix: {
+    elevation: 0,
+    shadowOpacity: 0,
+  },
   buttonPressed: {
     transform: [{ translateY: 1 }],
     opacity: 0.9,
@@ -374,8 +465,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     gap: spacing.xs,
-    backgroundColor: "rgba(255,138,138,0.08)",
-    borderColor: "#ff8a8a",
   },
   alertBody: {
     color: colors.textSecondary,
@@ -383,7 +472,12 @@ const styles = StyleSheet.create({
     lineHeight: typography.sm * 1.4,
   },
   errorBox: {
+    backgroundColor: "rgba(255,138,138,0.08)",
     borderColor: "#ff8a8a",
+  },
+  successBox: {
+    borderColor: "rgba(56,217,150,0.9)",
+    backgroundColor: "rgba(56,217,150,0.12)",
   },
   infoBox: {
     backgroundColor: "rgba(110,168,255,0.12)",

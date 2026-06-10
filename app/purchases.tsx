@@ -1,11 +1,11 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
-  Alert,
   Platform,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,20 +14,26 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import SubscriptionLegalLinks from "../components/SubscriptionLegalLinks";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
-import { getPlanPriceCopy, getTrialLabel } from "../lib/planCopy";
+import { signOutCurrentSession } from "../lib/logout";
+import {
+  getPlanBillingCopy,
+  getPlanTrialCopy,
+} from "../lib/planCopy";
 import {
   fetchTestStorePackage,
   hasActiveEntitlement,
   purchaseSelectedPackage,
   TestStorePlan,
 } from "../lib/revenuecatOfferings";
+import { captureRevenueCatPurchaseError } from "../lib/sentry";
 import {
-  canAccessDashboardWithSubscriptionStatus,
   ensureSignupAwaitSubscription,
+  getAccessStateForUser,
   waitForActiveSubscription,
 } from "../lib/subscription";
-import { captureRevenueCatPurchaseError } from "../lib/sentry";
+import { getStoreName } from "../lib/subscriptionLegal";
 import { supabase } from "../lib/supabaseClient";
 
 export default function Purchases() {
@@ -98,8 +104,15 @@ export default function Purchases() {
       if (!mounted) return;
       setUserId(uid);
       try {
+        const accessState = await getAccessStateForUser(uid);
+        if (accessState.canAccessApp) {
+          if (mounted) setIsLoadingPlan(false);
+          router.replace("/dashboard");
+          return;
+        }
+
         const subscription = await ensureSignupAwaitSubscription(uid);
-        if (canAccessDashboardWithSubscriptionStatus(subscription.status)) {
+        if (subscription.status === "active" || subscription.status === "trial") {
           if (mounted) setIsLoadingPlan(false);
           router.replace("/dashboard");
           return;
@@ -119,8 +132,9 @@ export default function Purchases() {
     };
   }, [loadPlan, t]);
 
-  const planPriceCopy = useMemo(() => getPlanPriceCopy(plan, t), [plan, t]);
-  const trialLabel = useMemo(() => getTrialLabel(plan, t), [plan, t]);
+  const storeName = useMemo(() => getStoreName(Platform.OS), []);
+  const billedPriceLine = useMemo(() => getPlanBillingCopy(plan, t), [plan, t]);
+  const trialInfoLine = useMemo(() => getPlanTrialCopy(plan, t), [plan, t]);
 
   //　ボタン押下時の購入処理
   const handlePurchase = useCallback(async () => {
@@ -155,14 +169,11 @@ export default function Purchases() {
     if (isReturningHome) return;
     setIsReturningHome(true);
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        showToast(t("returnHomeError"));
-        return;
-      }
+      await signOutCurrentSession();
       router.replace("/");
     } catch (error) {
-      console.warn("Failed to return home from purchases", error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("Failed to return home from purchases", message);
       showToast(t("returnHomeError"));
     } finally {
       setIsReturningHome(false);
@@ -192,7 +203,11 @@ export default function Purchases() {
               ]}
             >
               <View style={styles.headerBackContent}>
-                <MaterialCommunityIcons name="chevron-left" size={22} color="#111111" />
+                <MaterialCommunityIcons
+                  name="chevron-left"
+                  size={22}
+                  color={colors.textPrimary}
+                />
                 <Text style={styles.headerBackLabel}>{tCommonNav("back")}</Text>
               </View>
             </Pressable>
@@ -204,17 +219,24 @@ export default function Purchases() {
           <Text style={styles.title}>{t("headerTitle")}</Text>
           <Text style={styles.body}>{t("signupCompleteBody")}</Text>
 
-          <View style={[styles.planCard, shadows.card]}>
-            <View style={styles.planHeader}>
-              <Text style={styles.planTitle}>{t("planTitle")}</Text>
-              {!isLoadingPlan && plan && (
-                <Text style={styles.planPrice}>{planPriceCopy}</Text>
-              )}
-            </View>
-            {isLoadingPlan && <Text style={styles.body}>{t("planDescription")}</Text>}
-            {trialLabel && <Text style={styles.trialText}>{trialLabel}</Text>}
+          <View
+            style={[
+              styles.planCard,
+              Platform.OS === "ios" ? shadows.card : styles.planCardAndroid,
+            ]}
+          >
+            {!isLoadingPlan && plan && (
+              <>
+                <Text style={styles.planTitle}>{t("planTitle")}</Text>
+                <Text style={styles.planDuration}>{t("planDuration")}</Text>
+                <Text style={styles.planPrice}>{billedPriceLine}</Text>
+                {trialInfoLine ? (
+                  <Text style={styles.trialPrice}>{trialInfoLine}</Text>
+                ) : null}
+                <Text style={styles.planDescription}>{t("planDescription", { storeName })}</Text>
+              </>
+            )}
             <Text style={styles.trialNotice}>{t("trialCancelNotice")}</Text>
-            <Text style={styles.helperText}>{t("planDescription")}</Text>
             {!isLoadingPlan && !plan && !planError && (
               <Text style={styles.errorText}>{t("planUnavailable")}</Text>
             )}
@@ -240,9 +262,13 @@ export default function Purchases() {
 
           <View style={styles.noticeCard}>
             <Text style={styles.noticeText}>
-              {`${t("storeBillingNotice")} ${t("cardInfoPolicy")}`}
+              {`${t("storeBillingNotice", { storeName })} ${t("cardInfoPolicy")}`}
             </Text>
           </View>
+          <SubscriptionLegalLinks
+            privacyPolicyLabel={t("privacyPolicyLabel")}
+            termsOfUseLabel={t("termsOfUseLabel")}
+          />
 
           <Pressable
             accessibilityRole="button"
@@ -250,6 +276,7 @@ export default function Purchases() {
               styles.ctaButton,
               styles.primaryButton,
               styles.buttonShadow,
+              Platform.OS === "android" && styles.buttonShadowAndroidFix,
               (isProcessing || !plan || isLoadingPlan) && styles.buttonDisabled,
               pressed && !(isProcessing || isLoadingPlan) && styles.buttonPressed,
             ]}
@@ -310,7 +337,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   headerBackLabel: {
-    color: "#111111",
+    color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "600",
   },
@@ -340,27 +367,39 @@ const styles = StyleSheet.create({
     borderColor: "rgba(192,222,255,0.4)",
     gap: spacing.sm,
   },
-  planHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.sm,
+  planCardAndroid: {
+    elevation: 0,
   },
   planTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  planDuration: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
   },
   planPrice: {
     color: colors.textPrimary,
-    fontSize: typography.md,
-    fontWeight: "700",
+    fontSize: typography.xl,
+    fontWeight: "800",
     flexShrink: 1,
-    textAlign: "right",
+    lineHeight: typography.xl * 1.2,
   },
-  trialText: {
-    color: colors.accentPrimary,
+  trialPrice: {
+    color: colors.textSecondary,
     fontSize: typography.sm,
+    fontWeight: "600",
+    flexShrink: 1,
+    lineHeight: typography.sm * 1.5,
+  },
+  planDescription: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
   },
   trialNotice: {
     color: "#FFD56A",
@@ -373,24 +412,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-  },
-  fieldGroup: {
-    gap: spacing.xs,
-  },
-  fieldLabel: {
-    color: colors.textPrimary,
-    fontSize: typography.sm,
-    fontWeight: "600",
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    color: colors.textPrimary,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    fontSize: typography.md,
   },
   noticeCard: {
     borderRadius: radius.md,
@@ -405,11 +426,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
-  },
-  helperText: {
-    color: colors.textSecondary,
-    fontSize: typography.sm,
-    marginTop: spacing.xs / 2,
   },
   errorText: {
     color: "#FFB0B0",
@@ -431,8 +447,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   primaryButton: {
-    backgroundColor: "rgba(56,116,255,0.35)",
-    borderColor: "rgba(190,216,255,0.95)",
+    backgroundColor: colors.accentPrimary,
+    borderColor: colors.accentSubtle,
   },
   secondaryButton: {
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -446,6 +462,10 @@ const styles = StyleSheet.create({
   },
   buttonShadow: {
     ...shadows.button,
+  },
+  buttonShadowAndroidFix: {
+    elevation: 0,
+    shadowOpacity: 0,
   },
   primaryLabel: {
     color: colors.textPrimary,
@@ -464,7 +484,6 @@ const styles = StyleSheet.create({
   buttonGlass: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: radius.lg,
-    opacity: 0.7,
   },
   retryButton: {
     borderRadius: radius.md,

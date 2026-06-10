@@ -1,14 +1,14 @@
 import React from "react";
 import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
-import { Keyboard } from "react-native";
+import { Alert, Keyboard } from "react-native";
 import LongTermGoalsScreen from "../components/feature/LongTermGoalsScreen";
+import { colors, radius, spacing, typography } from "../constants/theme";
 import i18n from "../i18n";
 import {
-  fetchCurrentPoint,
+  deleteLongTermGoal,
   fetchLongTermGoals,
   insertLongTermGoal,
-  updateCurrentPoint,
   updateLongTermGoal,
   upsertLongTermGoals,
 } from "../lib/api/supabase/longTermGoals";
@@ -27,51 +27,11 @@ jest.mock("expo-linear-gradient", () => {
 });
 
 jest.mock("react-native-draggable-flatlist", () => {
-  const React = require("react");
-  const MockFlatList = ({
-    data,
-    renderItem,
-    onDragEnd,
-    ListHeaderComponent,
-    ListEmptyComponent,
-  }: {
-    data: unknown[];
-    renderItem: (params: { item: unknown; index: number; drag: () => void; isActive: boolean; getIndex: () => number }) => React.ReactNode;
-    onDragEnd: (params: { data: unknown[] }) => void;
-    ListHeaderComponent?: React.ReactNode | (() => React.ReactNode);
-    ListEmptyComponent?: React.ReactNode | (() => React.ReactNode);
-  }) => {
-    const firedRef = React.useRef(false);
-    const renderSlot = (slot?: React.ReactNode | (() => React.ReactNode)) => {
-      if (!slot) return null;
-      return typeof slot === "function" ? slot() : slot;
-    };
-
-    React.useEffect(() => {
-      if (!firedRef.current && data.length > 0) {
-        firedRef.current = true;
-        onDragEnd({ data: [...data].reverse() });
-      }
-    }, [data, onDragEnd]);
-
-    return (
-      <>
-        {renderSlot(ListHeaderComponent)}
-        {data.length === 0 && renderSlot(ListEmptyComponent)}
-        {data.map((item, index) =>
-          renderItem({
-            item,
-            index,
-            drag: () => {},
-            isActive: false,
-            getIndex: () => index,
-          }),
-        )}
-      </>
-    );
-  };
-  MockFlatList.displayName = "MockDraggableFlatList";
-  return MockFlatList;
+  const { createMockDraggableFlatList } = require("./helpers/mockDraggableFlatList");
+  return createMockDraggableFlatList({
+    testID: "long-term-goals-list-content",
+    autoDragOnMount: true,
+  });
 });
 
 jest.mock("../lib/api/supabase/common", () => ({
@@ -80,12 +40,10 @@ jest.mock("../lib/api/supabase/common", () => ({
 
 jest.mock("../lib/api/supabase/longTermGoals", () => ({
   fetchLongTermGoals: jest.fn(),
-  fetchCurrentPoint: jest.fn(),
   insertLongTermGoal: jest.fn(),
   updateLongTermGoal: jest.fn(),
   deleteLongTermGoal: jest.fn(),
   upsertLongTermGoals: jest.fn(),
-  updateCurrentPoint: jest.fn(),
 }));
 
 describe("LongTermGoalsScreen", () => {
@@ -100,10 +58,6 @@ describe("LongTermGoalsScreen", () => {
     jest.clearAllMocks();
     await i18n.changeLanguage("en");
     (getUserId as jest.Mock).mockResolvedValue("user-123");
-    (fetchCurrentPoint as jest.Mock).mockResolvedValue({
-      data: { current_point: "Age 29" },
-      error: null,
-    });
     (fetchLongTermGoals as jest.Mock).mockResolvedValue({
       data: [
         {
@@ -126,7 +80,7 @@ describe("LongTermGoalsScreen", () => {
       error: null,
     });
     (upsertLongTermGoals as jest.Mock).mockResolvedValue({ error: null });
-    (updateCurrentPoint as jest.Mock).mockResolvedValue({ error: null });
+    (deleteLongTermGoal as jest.Mock).mockResolvedValue({ error: null });
     (insertLongTermGoal as jest.Mock).mockResolvedValue({
       data: {
         id: "goal-3",
@@ -151,11 +105,10 @@ describe("LongTermGoalsScreen", () => {
     });
   });
 
-  test("renders current point and persists reordered goals with user id", async () => {
+  test("renders long-term goals and persists reordered goals with user id", async () => {
     const { findByText } = renderScreen();
 
     expect(await findByText("Long-Term Goals")).toBeTruthy();
-    expect(await findByText("Current point: Age 29")).toBeTruthy();
     expect(await findByText("Get permanent residency")).toBeTruthy();
 
     await waitFor(() => expect(upsertLongTermGoals).toHaveBeenCalled());
@@ -179,21 +132,41 @@ describe("LongTermGoalsScreen", () => {
     ]);
   });
 
-  test("adds a new long-term goal and updates current point", async () => {
+  test("matches the empty state typography used by the ideal and annual goal cards", async () => {
+    (fetchLongTermGoals as jest.Mock).mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+
+    const { findByText } = renderScreen();
+
+    expect(await findByText("No long-term goals yet")).toHaveStyle({
+      fontSize: typography.lg,
+    });
+    expect(
+      await findByText("Set long-term goals for the next few years and visualize your path to your ideal self."),
+    ).toHaveStyle({
+      fontSize: typography.md,
+      lineHeight: typography.md * 1.5,
+    });
+    expect(await findByText("Add your first long-term goal")).toHaveStyle({
+      fontSize: typography.md,
+    });
+  });
+
+  test("adds a new long-term goal", async () => {
     const { getByRole, getByPlaceholderText } = renderScreen();
 
     await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
 
     fireEvent.press(getByRole("button", { name: "Add" }));
-    fireEvent.changeText(getByPlaceholderText("e.g. Age 25 / 2026"), "Age 30");
-    fireEvent.changeText(getByPlaceholderText("e.g. By age 32 / By 2035"), "By 35");
+    fireEvent.changeText(getByPlaceholderText("e.g. By age 29 / By 2030"), "By 35");
     fireEvent.changeText(
-      getByPlaceholderText("e.g. Get permanent residency by age 33"),
+      getByPlaceholderText("e.g. Get a master’s degree abroad"),
       "Build stable remote income",
     );
     fireEvent.press(getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(updateCurrentPoint).toHaveBeenCalledWith("user-123", "Age 30"));
     await waitFor(() => expect(insertLongTermGoal).toHaveBeenCalledWith({
       user_id: "user-123",
       until_when: "By 35",
@@ -203,12 +176,132 @@ describe("LongTermGoalsScreen", () => {
     }));
   });
 
+  test("matches the ideal self header title and button sizing", async () => {
+    const { findByText, findByRole } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+
+    expect(await findByText("Long-Term Goals")).toHaveStyle({
+      fontSize: typography.xl,
+      lineHeight: typography.xl * 1.3,
+    });
+    expect(await findByRole("button", { name: "Add" })).toHaveStyle({
+      paddingVertical: spacing.sm + 2,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.md,
+    });
+    expect(await findByRole("button", { name: "Delete" })).toHaveStyle({
+      paddingVertical: spacing.sm + 2,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.md,
+    });
+  });
+
   test("shows completion and edit controls together in the card footer", async () => {
     const { findByTestId } = renderScreen();
 
     const actions = await findByTestId("long-term-goal-card-actions-goal-1");
     expect(within(actions).getByTestId("long-term-goal-complete-goal-1")).toBeTruthy();
     expect(within(actions).getByTestId("long-term-goal-edit-goal-1")).toBeTruthy();
+  });
+
+  test("matches the compact annual goal card sizing", async () => {
+    const { findByTestId, findByText } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+
+    expect(await findByTestId("long-term-goal-card-goal-1")).toHaveStyle({
+      padding: 12,
+      gap: 8,
+    });
+    expect(await findByTestId("long-term-goal-complete-goal-1")).toHaveStyle({
+      width: 34,
+      height: 34,
+    });
+    expect(await findByText("Reach IELTS 8")).toHaveStyle({
+      fontSize: typography.md,
+      lineHeight: typography.md * 1.3,
+    });
+  });
+
+  test("uses a tighter gap between long-term goal cards", async () => {
+    const { findByTestId } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+
+    expect(await findByTestId("long-term-goals-list-content")).toHaveStyle({
+      gap: spacing.sm,
+    });
+  });
+
+  test("uses an icon-only delete button in delete mode while keeping accessibility text", async () => {
+    const { getByRole, findByTestId } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+
+    const actions = await findByTestId("long-term-goal-card-actions-goal-1");
+    expect(within(actions).queryByText("Delete")).toBeNull();
+    expect(within(actions).getByRole("button", { name: "Delete" })).toBeTruthy();
+  });
+
+  test("does not show a success alert after deleting a goal", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    const { getByRole, findByTestId } = renderScreen();
+
+    await waitFor(() => expect(fetchLongTermGoals).toHaveBeenCalled());
+    fireEvent.press(getByRole("button", { name: "Delete" }));
+
+    const actions = await findByTestId("long-term-goal-card-actions-goal-1");
+    fireEvent.press(within(actions).getByRole("button", { name: "Delete" }));
+
+    const confirmCall = alertSpy.mock.calls[0];
+    const confirmButtons = confirmCall?.[2] as Array<{ text?: string; onPress?: () => void | Promise<void> }>;
+    const confirmDeleteButton = confirmButtons.find((button) => button.text === "Delete");
+
+    await confirmDeleteButton?.onPress?.();
+
+    expect(deleteLongTermGoal).toHaveBeenCalledWith("goal-1");
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+
+    alertSpy.mockRestore();
+  });
+
+  test("shows until-when text in footer for incomplete goals and completed badge in the same area for completed goals", async () => {
+    (fetchLongTermGoals as jest.Mock).mockResolvedValueOnce({
+      data: [
+        {
+          id: "goal-1",
+          until_when: "By 32",
+          description: "Reach IELTS 8",
+          is_done: false,
+          order: 0,
+          updated_at: "2025-01-01T00:00:00Z",
+        },
+        {
+          id: "goal-2",
+          until_when: "By 33",
+          description: "Get permanent residency",
+          is_done: true,
+          order: 1,
+          updated_at: "2025-01-02T00:00:00Z",
+        },
+      ],
+      error: null,
+    });
+
+    const { findByTestId } = renderScreen();
+
+    const incompleteFooter = await findByTestId("long-term-goal-card-footer-goal-1");
+    expect(within(incompleteFooter).getByTestId("long-term-goal-card-until-when-goal-1")).toHaveStyle({
+      borderBottomColor: colors.accentSubtle,
+      borderBottomWidth: 2,
+    });
+    expect(within(incompleteFooter).queryByTestId("long-term-goal-card-completed-badge-goal-1")).toBeNull();
+
+    const completedFooter = await findByTestId("long-term-goal-card-footer-goal-2");
+    expect(within(completedFooter).getByTestId("long-term-goal-card-completed-badge-goal-2")).toBeTruthy();
+    expect(within(completedFooter).queryByTestId("long-term-goal-card-until-when-goal-2")).toBeNull();
   });
 
   test("toggles completed state", async () => {

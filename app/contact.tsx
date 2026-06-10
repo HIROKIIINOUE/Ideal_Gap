@@ -25,6 +25,8 @@ import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
+import { signOutCurrentSession } from "../lib/logout";
+import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
 
@@ -177,7 +179,12 @@ export default function Contact() {
           text: tCommon("confirmYes"),
           style: "destructive",
           onPress: async () => {
-            await supabase.auth.signOut();
+            try {
+              await signOutCurrentSession();
+            } catch (error) {
+              console.warn("Failed to sign out from contact", error);
+              return;
+            }
             showLogoutToast();
             router.replace("/");
           },
@@ -203,7 +210,7 @@ export default function Contact() {
       <Stack.Screen options={{ title: "Ideal Gap", headerBackTitle: tCommonNav("back") }} />
       <Pressable style={styles.formOverlay} onPress={dismissKeyboard} testID="contact-form-overlay">
         <KeyboardAvoidingView
-          behavior={Platform.select({ ios: "padding", android: undefined })}
+          behavior={getKeyboardAvoidingBehavior()}
           keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
           style={styles.formContainer}
           testID="contact-form-kav"

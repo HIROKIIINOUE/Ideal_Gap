@@ -1,3 +1,6 @@
+// ⭐️⭐️⭐️現在の仕様では「長期目標機能」を取り除いたため、本コードは一切使用されていない。
+// ⭐️⭐️⭐️今後長期目標機能復活の可能性が0ではないので残している
+// ⭐️⭐️⭐️テストなどの関連コードと紐づくため、エラーが起きないように月間目標のようにコメントアウトはしていない。
 // 「理想の自分ページ」「年間目標ページ」のハイブリッドのようなコードになっている。
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -9,7 +12,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,20 +30,20 @@ import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { getUserId } from "../../lib/api/supabase/common";
 import {
   deleteLongTermGoal,
-  fetchCurrentPoint,
   fetchLongTermGoals,
   insertLongTermGoal,
   LongTermGoalRow,
-  updateCurrentPoint,
   updateLongTermGoal,
   upsertLongTermGoals,
 } from "../../lib/api/supabase/longTermGoals";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 type LongTermGoal = {
   id: string;
@@ -57,7 +59,6 @@ const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as cons
 const COMPLETED_CARD_GRADIENT = ["rgba(56,217,150,0.2)", "rgba(10,28,24,0.96)"] as const;
 
 const longTermGoalSchema = z.object({
-  currentPoint: z.string().trim(),
   untilWhen: z.string().trim().min(1),
   description: z.string().trim().min(1),
 });
@@ -65,7 +66,6 @@ const longTermGoalSchema = z.object({
 type LongTermFormValues = z.infer<typeof longTermGoalSchema>;
 
 const offlineLongTermSchema = z.object({
-  currentPoint: z.string().nullable(),
   goals: z.array(
     z.object({
       id: z.string(),
@@ -79,7 +79,6 @@ const offlineLongTermSchema = z.object({
 });
 
 const DEFAULT_FORM_VALUES: LongTermFormValues = {
-  currentPoint: "",
   untilWhen: "",
   description: "",
 };
@@ -109,7 +108,6 @@ export default function LongTermGoalsScreen() {
   const { offlineBlocked } = useOffline();
   const guardOfflineAction = useOfflineActionGuard();
   const [goals, setGoals] = useState<LongTermGoal[]>([]);
-  const [currentPoint, setCurrentPoint] = useState<string | null>(null);
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
   const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -119,6 +117,7 @@ export default function LongTermGoalsScreen() {
   const updatedLabel = t("updatedSuffix");
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
   const {
     control,
     handleSubmit,
@@ -151,7 +150,6 @@ export default function LongTermGoalsScreen() {
         if (active) {
           if (cached) {
             setGoals(cached.goals);
-            setCurrentPoint(cached.currentPoint);
             setHasOfflineCache(true);
           } else {
             setHasOfflineCache(false);
@@ -161,14 +159,11 @@ export default function LongTermGoalsScreen() {
         return;
       }
 
-      const [{ data: goalData, error: goalError }, { data: userData, error: userError }] = await Promise.all([
-        fetchLongTermGoals(uid),
-        fetchCurrentPoint(uid),
-      ]);
+      const { data: goalData, error: goalError } = await fetchLongTermGoals(uid);
 
-      if (goalError || userError) {
+      if (goalError) {
         if (active) {
-          setErrorMessage(goalError?.message ?? userError?.message ?? t("errors.fetchFailed"));
+          setErrorMessage(goalError?.message ?? t("errors.fetchFailed"));
           setLoading(false);
         }
         return;
@@ -177,12 +172,9 @@ export default function LongTermGoalsScreen() {
       if (!active) return;
 
       const mappedGoals = ((goalData as LongTermGoalRow[]) ?? []).map(toLongTermGoal);
-      const nextCurrentPoint = userData?.current_point ?? null;
       setGoals(mappedGoals);
-      setCurrentPoint(nextCurrentPoint);
       setHasOfflineCache(true);
       await writeOfflineCache(cacheKey, offlineLongTermSchema, {
-        currentPoint: nextCurrentPoint,
         goals: mappedGoals,
       });
       setLoading(false);
@@ -196,10 +188,9 @@ export default function LongTermGoalsScreen() {
 
 
   // 長期目標データが更新された時に最新のデータをローカルに保存してオフライン時に表示できるように準備
-  const syncOfflineCache = async (uid: string, nextGoals: LongTermGoal[], nextCurrentPoint: string | null) => {
+  const syncOfflineCache = async (uid: string, nextGoals: LongTermGoal[]) => {
     const cacheKey = buildOfflineCacheKey("long-term-goals", uid);
     await writeOfflineCache(cacheKey, offlineLongTermSchema, {
-      currentPoint: nextCurrentPoint,
       goals: nextGoals,
     });
   };
@@ -209,7 +200,6 @@ export default function LongTermGoalsScreen() {
     if (guardOfflineAction()) return;
     setModalError(null);
     reset({
-      currentPoint: currentPoint ?? "",
       untilWhen: "",
       description: "",
     });
@@ -221,7 +211,6 @@ export default function LongTermGoalsScreen() {
   const handleEditPress = (goal: LongTermGoal) => {
     if (guardOfflineAction()) return;
     reset({
-      currentPoint: currentPoint ?? "",
       untilWhen: goal.untilWhen,
       description: goal.description,
     });
@@ -271,8 +260,7 @@ export default function LongTermGoalsScreen() {
                 throw upsertError;
               }
             }
-            await syncOfflineCache(uid, nextGoals, currentPoint);
-            Alert.alert(t("deleteSuccess.title"), t("deleteSuccess.body"));
+            await syncOfflineCache(uid, nextGoals);
           } catch (error) {
             const message = error instanceof Error ? error.message : t("errors.deleteFailed");
             setGoals(previousGoals);
@@ -304,7 +292,7 @@ export default function LongTermGoalsScreen() {
       const nextGoals = goals.map((goal) => (goal.id === goalId ? toLongTermGoal(row) : goal));
       setGoals(nextGoals);
       if (uid) {
-        await syncOfflineCache(uid, nextGoals, currentPoint);
+        await syncOfflineCache(uid, nextGoals);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : t("errors.saveFailed");
@@ -314,7 +302,7 @@ export default function LongTermGoalsScreen() {
   };
 
   // 保存・更新ボタン両方を管理するロジック
-  const onValidSubmit = async ({ currentPoint: draftCurrentPoint, untilWhen, description }: LongTermFormValues) => {
+  const onValidSubmit = async ({ untilWhen, description }: LongTermFormValues) => {
     if (guardOfflineAction()) return;
     setSaving(true);
     setModalError(null);
@@ -327,16 +315,8 @@ export default function LongTermGoalsScreen() {
         return;
       }
 
-      const normalizedCurrentPoint = draftCurrentPoint.trim() ? draftCurrentPoint.trim() : null;
       const normalizedUntilWhen = untilWhen.trim();
       const normalizedDescription = description.trim();
-
-      const { error: currentPointError } = await updateCurrentPoint(uid, normalizedCurrentPoint);
-      if (currentPointError) {
-        setModalError(currentPointError.message);
-        setSaving(false);
-        return;
-      }
 
       let nextGoals = goals;
       if (modalState.editingId) {
@@ -396,8 +376,7 @@ export default function LongTermGoalsScreen() {
         setGoals(nextGoals);
       }
 
-      setCurrentPoint(normalizedCurrentPoint);
-      await syncOfflineCache(uid, nextGoals, normalizedCurrentPoint);
+      await syncOfflineCache(uid, nextGoals);
       setModalState(closedModalState);
       reset(DEFAULT_FORM_VALUES);
     } catch (error: unknown) {
@@ -443,7 +422,7 @@ export default function LongTermGoalsScreen() {
       return;
     }
 
-    await syncOfflineCache(uid, nextGoals, currentPoint);
+    await syncOfflineCache(uid, nextGoals);
   };
 
   // 指定のPressable要素の長押しドラッグを可能にするロジック
@@ -464,22 +443,19 @@ export default function LongTermGoalsScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.goalRow}>
-        <View style={styles.untilWhenWrap}>
-          <Text
-            style={styles.untilWhenText}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {item.untilWhen}
-          </Text>
-          <View style={[styles.untilWhenUnderline, item.completed && styles.untilWhenUnderlineCompleted]} />
-        </View>
-      </View>
-      <Text style={[styles.goalDescription, item.completed && styles.goalTextCompleted]}>{item.description}</Text>
-
-      <View style={styles.goalFooter}>
-        <View>
+      <View style={styles.goalHeaderRow} testID={`long-term-goal-card-footer-${item.id}`}>
+        <View style={styles.goalFooterStatus}>
+          {!item.completed ? (
+            <View style={styles.untilWhenWrap} testID={`long-term-goal-card-until-when-${item.id}`}>
+              <Text
+                style={styles.untilWhenText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {item.untilWhen}
+              </Text>
+            </View>
+          ) : null}
           {item.completed ? (
             <View style={styles.completedBadge} testID={`long-term-goal-card-completed-badge-${item.id}`}>
               <Text style={styles.completedBadgeText}>{t("completion.badge")}</Text>
@@ -490,11 +466,11 @@ export default function LongTermGoalsScreen() {
           {deleteMode ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={t("delete")}
               onPress={() => handleDeletePress(item)}
-              style={[styles.dangerButton, styles.iconButtonRow]}
+              style={[styles.goalActionIconButton, styles.dangerButton]}
             >
               <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-              <Text style={styles.dangerButtonText}>{t("delete")}</Text>
             </Pressable>
           ) : (
             <>
@@ -537,6 +513,7 @@ export default function LongTermGoalsScreen() {
           )}
         </View>
       </View>
+      <Text style={[styles.goalDescription, item.completed && styles.goalTextCompleted]}>{item.description}</Text>
     </View>
   );
 
@@ -572,17 +549,14 @@ export default function LongTermGoalsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.goalGrid}
         ListHeaderComponent={(
-          <View style={[styles.card, shadows.card]}>
+          <View style={[styles.card, styles.titleCardCompact, shadows.card]}>
             <LinearGradient
               colors={HEADER_CARD_GRADIENT}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
-            <Text style={[styles.heading, isFrench && styles.headingFrench]}>{t("pageTitle")}</Text>
-            {currentPoint ? (
-              <Text style={styles.currentPoint}>{t("currentPointLabel")}: {currentPoint}</Text>
-            ) : null}
+            <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
 
             <View style={styles.actionRow}>
               <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading || offlineBlocked}>
@@ -642,7 +616,7 @@ export default function LongTermGoalsScreen() {
           testID="long-term-goals-modal-overlay"
         >
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="long-term-goals-modal-kav"
           >
@@ -659,30 +633,11 @@ export default function LongTermGoalsScreen() {
               >
                 <Text style={styles.modalTitle}>{modalTitle}</Text>
 
-                <View style={styles.formGroup}>
-                  {modalUpdatedText ? (
-                    <View style={styles.modalMeta}>
-                      <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.labelRow}>
-                    <Text style={styles.label}>{t("modal.currentPointLabel")}</Text>
+                {modalUpdatedText ? (
+                  <View style={styles.modalMeta}>
+                    <Text style={styles.modalMetaText}>{modalUpdatedText}</Text>
                   </View>
-                  <Controller
-                    control={control}
-                    name="currentPoint"
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <TextInput
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={onBlur}
-                        placeholder={t("modal.currentPointPlaceholder")}
-                        placeholderTextColor={colors.textSecondary}
-                        style={styles.modalInput}
-                      />
-                    )}
-                  />
-                </View>
+                ) : null}
 
                 <View style={styles.formGroup}>
                   <View style={styles.labelRow}>
@@ -778,7 +733,7 @@ const styles = StyleSheet.create({
   goalGrid: {
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl * 2,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   listHeader: {
     marginBottom: spacing.lg,
@@ -792,23 +747,27 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     backgroundColor: colors.surface,
   },
+  titleCardCompact: {
+    padding: compactFeatureSpacing.titleCardPadding,
+  },
   heading: {
     color: colors.textPrimary,
     fontSize: typography.xl,
     fontWeight: "800",
+    lineHeight: typography.xl * 1.3,
   },
   headingFrench: {
     fontSize: 24,
+    lineHeight: 31,
+  },
+  headingAndroidJa: {
+    fontSize: 24,
+    lineHeight: 31,
   },
   subtitle: {
     color: colors.textSecondary,
     fontSize: typography.md,
     lineHeight: typography.md * 1.5,
-  },
-  currentPoint: {
-    color: colors.accentSubtle,
-    fontSize: typography.md,
-    fontWeight: "700",
   },
   reorderHint: {
     color: colors.textSecondary,
@@ -817,30 +776,29 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: "row",
     gap: spacing.sm,
+    flexWrap: "wrap",
   },
   primaryButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: spacing.xs,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
     backgroundColor: "rgba(30,94,255,0.2)",
     borderWidth: 1,
-    borderColor: "#1E5EFF",
+    borderColor: colors.accentPrimary,
   },
   secondaryButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: spacing.xs,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.03)",
   },
   secondaryButtonActive: {
     backgroundColor: "rgba(239,83,80,0.12)",
@@ -850,6 +808,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.md,
     fontWeight: "700",
+    letterSpacing: 0.2,
   },
   secondaryButtonText: {
     color: colors.textPrimary,
@@ -861,11 +820,11 @@ const styles = StyleSheet.create({
   },
   goalCard: {
     overflow: "hidden",
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    gap: spacing.sm,
+    borderRadius: radius.lg,
+    padding: 12,
+    gap: 8,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: colors.surface,
   },
   goalCardCompleted: {
@@ -877,64 +836,49 @@ const styles = StyleSheet.create({
   goalCardDeleteMode: {
     borderColor: "rgba(239,83,80,0.4)",
   },
-  goalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
   untilWhenWrap: {
     alignSelf: "flex-start",
-    gap: spacing.xs / 1.5,
+    paddingBottom: 3,
     maxWidth: "100%",
+    borderBottomWidth: 2,
+    borderBottomColor: colors.accentSubtle,
   },
   untilWhenText: {
     color: colors.accentSubtle,
-    fontSize: typography.md,
+    fontSize: typography.sm,
     fontWeight: "800",
-  },
-  untilWhenUnderline: {
-    height: 2,
-    borderRadius: radius.full,
-    backgroundColor: "rgba(110,168,255,0.65)",
-    width: "100%",
-  },
-  untilWhenUnderlineCompleted: {
-    backgroundColor: "rgba(110,168,255,0.35)",
   },
   goalDescription: {
     color: colors.textPrimary,
-    fontSize: typography.lg,
-    lineHeight: typography.lg * 1.45,
+    fontSize: typography.md,
+    lineHeight: typography.md * 1.3,
     fontWeight: "700",
   },
   goalTextCompleted: {
     color: "rgba(255,255,255,0.78)",
   },
-  goalFooter: {
+  goalHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: spacing.sm,
-    marginTop: 0,
+    gap: spacing.xs,
+  },
+  goalFooterStatus: {
+    flex: 1,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    minHeight: 34,
+    paddingRight: spacing.xs,
   },
   goalActions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: spacing.sm,
-  },
-  iconButtonRow: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: spacing.xs,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
   },
   goalActionIconButton: {
-    width: 40,
-    height: 40,
+    width: 34,
+    height: 34,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
@@ -960,17 +904,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(239,83,80,0.4)",
     backgroundColor: "rgba(239,83,80,0.12)",
   },
-  dangerButtonText: {
-    color: colors.error,
-    fontSize: typography.sm,
-    fontWeight: "700",
-  },
   completedBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs / 1.5,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 1.5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: "rgba(56,217,150,0.45)",
@@ -983,10 +922,11 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     alignItems: "flex-start",
+    gap: spacing.sm,
   },
   emptyTitle: {
     color: colors.textPrimary,
-    fontSize: typography.xl,
+    fontSize: typography.lg,
     fontWeight: "800",
   },
   emptyBody: {

@@ -1,5 +1,9 @@
 // 呼び出し側からZod schema を渡すだけで「resolver: zodResolver(schema)」を差し込んだuseForm()を返す
-
+// React hook formとZodのハイブリッドのようなもの
+// 各ページで毎回以下のようにuseFormの引数を書く必要がなくなる
+// ====
+//   const {xxx, xxxxxx} = useForm({resolver: zodResolver(schema),defaultValues: ... });
+// ====
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Resolver,
@@ -19,7 +23,7 @@ type UseAppZodFormParams<TSchema extends AnyZodObject> = {
 
 // 呼び出し側から引数として渡されたschemaの値(型)がTSchemaに当てはめられ、UseAppZodFormParamsのTSchemaへ飛ばされる
 export function useAppZodForm<TSchema extends AnyZodObject>(
-  params: UseAppZodFormParams<TSchema>
+  params: UseAppZodFormParams<TSchema>,
 ): UseFormReturn<z.infer<TSchema>> {
   // ...rest を残すことで共通フックとして各ページから異なる引数が追加で渡されても対応できる。※schemaはどのページからでも必須。
   const { schema, ...rest } = params;

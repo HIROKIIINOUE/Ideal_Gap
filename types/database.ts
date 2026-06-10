@@ -9,10 +9,79 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      access_overrides: {
+        Row: {
+          access_type: string;
+          created_at: string | null;
+          ends_at: string | null;
+          id: string;
+          is_active: boolean;
+          note: string | null;
+          starts_at: string;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          access_type: string;
+          created_at?: string | null;
+          ends_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          note?: string | null;
+          starts_at?: string;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          access_type?: string;
+          created_at?: string | null;
+          ends_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          note?: string | null;
+          starts_at?: string;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "access_overrides_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      deleted_accounts: {
+        Row: {
+          created_at: string;
+          deleted_at: string;
+          email_hash: string;
+          had_account_before: boolean;
+          id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          deleted_at?: string;
+          email_hash: string;
+          had_account_before?: boolean;
+          id?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string;
+          email_hash?: string;
+          had_account_before?: boolean;
+          id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       users: {
         Row: {
           created_at: string | null;
-          current_point: string | null;
           email: string;
           had_account_before: boolean | null;
           id: string;
@@ -23,7 +92,6 @@ export type Database = {
         };
         Insert: {
           created_at?: string | null;
-          current_point?: string | null;
           email: string;
           had_account_before?: boolean | null;
           id: string;
@@ -34,7 +102,6 @@ export type Database = {
         };
         Update: {
           created_at?: string | null;
-          current_point?: string | null;
           email?: string;
           had_account_before?: boolean | null;
           id?: string;
@@ -270,6 +337,7 @@ export type Database = {
           order: number | null;
           updated_at: string | null;
           user_id: string;
+          yearly_goal_detail: string | null;
         };
         Insert: {
           accumulated_time_year?: number | null;
@@ -281,6 +349,7 @@ export type Database = {
           order?: number | null;
           updated_at?: string | null;
           user_id: string;
+          yearly_goal_detail?: string | null;
         };
         Update: {
           accumulated_time_year?: number | null;
@@ -292,6 +361,7 @@ export type Database = {
           order?: number | null;
           updated_at?: string | null;
           user_id?: string;
+          yearly_goal_detail?: string | null;
         };
         Relationships: [
           {
@@ -360,6 +430,7 @@ export type Database = {
           created_at: string | null;
           description: string;
           id: string;
+          is_done: boolean | null;
           next_start_point: string | null;
           order: number | null;
           updated_at: string | null;
@@ -371,6 +442,7 @@ export type Database = {
           created_at?: string | null;
           description: string;
           id?: string;
+          is_done?: boolean | null;
           next_start_point?: string | null;
           order?: number | null;
           updated_at?: string | null;
@@ -382,6 +454,7 @@ export type Database = {
           created_at?: string | null;
           description?: string;
           id?: string;
+          is_done?: boolean | null;
           next_start_point?: string | null;
           order?: number | null;
           updated_at?: string | null;
@@ -407,27 +480,27 @@ export type Database = {
         Row: {
           created_at: string | null;
           description: string;
+          event_date: string | null;
           id: string;
           order: number | null;
-          scheduled_at: string | null;
           updated_at: string | null;
           user_id: string;
         };
         Insert: {
           created_at?: string | null;
           description: string;
+          event_date?: string | null;
           id?: string;
           order?: number | null;
-          scheduled_at?: string | null;
           updated_at?: string | null;
           user_id: string;
         };
         Update: {
           created_at?: string | null;
           description?: string;
+          event_date?: string | null;
           id?: string;
           order?: number | null;
-          scheduled_at?: string | null;
           updated_at?: string | null;
           user_id?: string;
         };

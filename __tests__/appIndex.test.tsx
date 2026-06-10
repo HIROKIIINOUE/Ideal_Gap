@@ -7,6 +7,8 @@ import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 import { LanguageProvider } from "../providers/LanguageProvider";
 
+const mockGetAccessStateForUser = jest.fn();
+
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
@@ -17,7 +19,13 @@ jest.mock("../lib/supabaseClient", () => ({
   },
 }));
 
+jest.mock("../lib/subscription", () => ({
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
+}));
+
 describe("Index screen", () => {
+  const originalPlatform = ReactNative.Platform.OS;
+
   beforeEach(async () => {
     await AsyncStorage.clear();
     await i18n.changeLanguage("ja");
@@ -31,12 +39,23 @@ describe("Index screen", () => {
       data: { session: null },
       error: null,
     });
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: false,
+      accessMode: "blocked",
+      resolution: "subscription_required",
+      subscription: null,
+      accessOverride: null,
+    });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
       data: { subscription: { unsubscribe: jest.fn() } },
     });
   });
 
   afterEach(() => {
+    Object.defineProperty(ReactNative.Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
+    });
     jest.restoreAllMocks();
   });
 
@@ -103,12 +122,41 @@ describe("Index screen", () => {
       </I18nextProvider>,
     );
 
-    const title = await screen.findByText("Votre premier pas vers votre moi idéal");
-    const membership = await screen.findByText("Forfait fixe (essai gratuit disponible)");
+    const title = await screen.findByText("Premier pas vers votre idéal");
+    const membershipLabels = await screen.findAllByText("Abonnement");
     const ctaLabels = await screen.findAllByText("Essai gratuit");
 
     expect(title).toHaveStyle({ fontSize: 22.08 });
-    expect(membership).toHaveStyle({ fontSize: 16 });
+    expect(membershipLabels[1]).toHaveStyle({ fontSize: 16 });
     expect(ctaLabels[0]).toHaveStyle({ fontSize: 13 });
+  });
+
+  it("shrinks Japanese landing typography on Android and aligns list bullets", async () => {
+    Object.defineProperty(ReactNative.Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <LanguageProvider>
+          <Index />
+        </LanguageProvider>
+      </I18nextProvider>,
+    );
+
+    const title = await screen.findByText("理想の自分への第一歩");
+    const overviewBullet = await screen.findByTestId("landing-overview-bullet-0");
+    const membershipBullet = await screen.findByTestId("landing-membership-bullet-0");
+    const overviewBulletMarker = await screen.findByTestId("landing-overview-bullet-marker-0");
+    const membershipBulletMarker = await screen.findByTestId("landing-membership-bullet-marker-0");
+    const shimmerMasks = await screen.findAllByTestId("landing-cta-shimmer-mask");
+
+    expect(title).toHaveStyle({ fontSize: 25.76 });
+    expect(overviewBullet).toHaveStyle({ backgroundColor: "#6EA8FF" });
+    expect(membershipBullet).toHaveStyle({ backgroundColor: "#6EA8FF" });
+    expect(overviewBulletMarker).toHaveStyle({ width: 12, alignItems: "center" });
+    expect(membershipBulletMarker).toHaveStyle({ width: 12, alignItems: "center" });
+    expect(shimmerMasks).toHaveLength(4);
   });
 });

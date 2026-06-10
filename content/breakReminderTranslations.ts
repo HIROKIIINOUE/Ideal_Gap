@@ -4,6 +4,10 @@ export type BreakReminderTranslations = {
   title: string;
   description: string;
   inputLabel: string;
+  inputDateLabel: string;
+  inputTimeLabel: string;
+  pickDate: string;
+  pickTime: string;
   schedule: string;
   cancel: string;
   scheduledLabel: string;
@@ -25,6 +29,10 @@ export const breakReminderTranslations: Record<
     description:
       "休憩終了の時刻を決めて通知を受け取ります。1件だけ設定できます。",
     inputLabel: "終了予定時刻",
+    inputDateLabel: "終了予定日",
+    inputTimeLabel: "終了予定時刻",
+    pickDate: "日付を選ぶ",
+    pickTime: "時刻を選ぶ",
     schedule: "通知を予約",
     cancel: "通知をキャンセル",
     scheduledLabel: "{{time}}に通知を送ります",
@@ -41,6 +49,10 @@ export const breakReminderTranslations: Record<
     description:
       "Set when to end your break and we’ll notify you. Only one reminder can be active.",
     inputLabel: "Break end time",
+    inputDateLabel: "Break end date",
+    inputTimeLabel: "Break end time",
+    pickDate: "Choose date",
+    pickTime: "Choose time",
     schedule: "Schedule reminder",
     cancel: "Cancel reminder",
     scheduledLabel: "Reminder set for {{time}}",
@@ -58,6 +70,10 @@ export const breakReminderTranslations: Record<
     description:
       "Choisissez l’heure de reprise et nous vous alerterons. Un seul rappel peut être actif.",
     inputLabel: "Heure de reprise",
+    inputDateLabel: "Date de reprise",
+    inputTimeLabel: "Heure de reprise",
+    pickDate: "Choisir la date",
+    pickTime: "Choisir l’heure",
     schedule: "Programmer le rappel",
     cancel: "Annuler le rappel",
     scheduledLabel: "Rappel prévu à {{time}}",

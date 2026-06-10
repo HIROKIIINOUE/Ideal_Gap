@@ -5,7 +5,7 @@ import Dashboard from "../app/dashboard";
 import i18n from "../i18n";
 
 const mockReplace = jest.fn();
-const mockGetSubscriptionForUser = jest.fn();
+const mockGetAccessStateForUser = jest.fn();
 
 jest.mock("expo-router", () => {
   const React = require("react");
@@ -48,9 +48,7 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 jest.mock("../lib/subscription", () => ({
-  getSubscriptionForUser: (...args: unknown[]) => mockGetSubscriptionForUser(...args),
-  canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
-    status === "active" || status === "trial",
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
 }));
 
 describe("Dashboard access guard", () => {
@@ -60,7 +58,12 @@ describe("Dashboard access guard", () => {
   });
 
   test("redirects to purchases when subscription status is canceled", async () => {
-    mockGetSubscriptionForUser.mockResolvedValue({ status: "canceled" });
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: false,
+      accessMode: "none",
+      subscription: { status: "canceled" },
+      accessOverride: null,
+    });
 
     render(
       <I18nextProvider i18n={i18n}>
@@ -71,5 +74,51 @@ describe("Dashboard access guard", () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith("/purchases");
     });
+  });
+
+  test("stays on dashboard when friend free override is active", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "friend_free",
+      resolution: "entitled",
+      subscription: { status: "signupAwait" },
+      accessOverride: { access_type: "friend_free", is_active: true },
+    });
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Dashboard />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockGetAccessStateForUser).toHaveBeenCalledWith("user-123");
+    });
+
+    expect(mockReplace).not.toHaveBeenCalledWith("/purchases");
+  });
+
+  test("does not redirect to purchases while access cannot be verified", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      resolution: "unknown",
+      unknownReason: "subscription_fetch_failed",
+      subscription: null,
+      accessOverride: null,
+      source: "last_known_cache",
+    });
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Dashboard />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockGetAccessStateForUser).toHaveBeenCalledWith("user-123");
+    });
+
+    expect(mockReplace).not.toHaveBeenCalledWith("/purchases");
   });
 });

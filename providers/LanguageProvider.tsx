@@ -61,7 +61,11 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     const nextLanguage = SUPPORTED_LANGUAGES.includes(lang) ? lang : "en";
     await i18n.changeLanguage(nextLanguage);
     setLanguageState(nextLanguage);
-    await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+    try {
+      await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+    } catch (error) {
+      console.warn("Failed to persist language", error);
+    }
   }, []);
 
   const value = useMemo(

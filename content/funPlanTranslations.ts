@@ -3,6 +3,7 @@ import { LanguageKey } from "../types/i18n";
 export type FunPlanTranslations = {
   pageTitle: string;
   pageSubtitle: string;
+  titleCardNote: string;
   add: string;
   delete: string;
   deleteExit: string;
@@ -17,6 +18,12 @@ export type FunPlanTranslations = {
     addTitle: string;
     editTitle: string;
     placeholder: string;
+    optionalDateLabel: string;
+    optionalDateHelper: string;
+    selectedDate: string;
+    pickDate: string;
+    changeDate: string;
+    clearDate: string;
     cancel: string;
     save: string;
     errorRequired: string;
@@ -38,12 +45,14 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     pageTitle: "次回の楽しい予定",
     pageSubtitle:
       "直近の楽しみを可視化して、毎日のモチベーションを高めましょう。(1番上のリストのみダッシュボードに表示されます)",
+    titleCardNote: "(一番上のリストのみダッシュボードに表示されます)",
     add: "追加",
     delete: "削除",
     deleteExit: "戻る",
     loading: "読み込み中...",
     emptyTitle: "まだ楽しい予定がありません",
-    emptyBody: "",
+    emptyBody:
+      "直近の楽しみを可視化して、毎日のモチベーションを高めましょう。(1番上のリストのみダッシュボードに表示されます)",
     emptyCta: "最初の予定を追加",
     updatedSuffix: "更新",
     limitHelper: "追加できるのは最大5件までです",
@@ -51,7 +60,13 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     modal: {
       addTitle: "追加",
       editTitle: "編集",
-      placeholder: "例 金曜の友人とのディナー",
+      placeholder: "例 金曜日：友人とディナー",
+      optionalDateLabel: "イベント日(任意)",
+      optionalDateHelper: "日付は任意です",
+      selectedDate: "選択中の日付: {{date}}",
+      pickDate: "日付を選択",
+      changeDate: "日付を変更",
+      clearDate: "クリア",
       cancel: "キャンセル",
       save: "保存",
       errorRequired: "1文字以上入力してください",
@@ -71,12 +86,14 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     pageTitle: "Next Exciting Plans",
     pageSubtitle:
       "Keep your next exciting events in sight and stay motivated. (Only the top item appears on the dashboard)",
+    titleCardNote: "(Only the top item appears on the dashboard)",
     add: "Add",
     delete: "Delete",
     deleteExit: "Exit",
     loading: "Loading...",
     emptyTitle: "No fun plans yet",
-    emptyBody: "",
+    emptyBody:
+      "Keep your next exciting events in sight and stay motivated. (Only the top item appears on the dashboard)",
     emptyCta: "Add your first plan",
     updatedSuffix: "Updated",
     limitHelper: "Up to 5 plans can be added",
@@ -85,6 +102,12 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
       addTitle: "Add",
       editTitle: "Edit",
       placeholder: "e.g. Dinner with friends on Friday",
+      optionalDateLabel: "Event day(optional)",
+      optionalDateHelper: "Date is optional",
+      selectedDate: "Selected date: {{date}}",
+      pickDate: "Select date",
+      changeDate: "Change date",
+      clearDate: "Clear",
       cancel: "Cancel",
       save: "Save",
       errorRequired: "Please enter at least 1 character",
@@ -104,13 +127,15 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
     pageTitle: "Plans sympas à venir",
     pageSubtitle:
       "Gardez vos prochains évènements sympas en vue pour rester motivé-e au quotidien. (Seul le premier élément s’affiche sur le tableau de bord)",
+    titleCardNote: "(Seul le premier élément s’affiche sur le tableau de bord)",
     add: "Ajouter",
     delete: "Supprimer",
     deleteExit: "Quitter",
     loading: "Chargement...",
     emptyTitle: "Aucun plan sympa à venir pour l’instant",
-    emptyBody: "",
-    emptyCta: "Ajouter un premier évènement",
+    emptyBody:
+      "Gardez vos prochains événements sympas en vue pour rester motivé-e au quotidien. (Seul le premier élément s’affiche sur le tableau de bord)",
+    emptyCta: "Ajouter un événement",
     updatedSuffix: "Mise à jour",
     limitHelper: "Vous pouvez en ajouter jusqu’à 5",
     limitReached: "Limite atteinte. Supprimez-en un pour en ajouter un autre.",
@@ -118,6 +143,12 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
       addTitle: "Ajouter",
       editTitle: "Modifier",
       placeholder: "ex. Dîner avec mes amis vendredi",
+      optionalDateLabel: "Jour de l'événement (optionnel)",
+      optionalDateHelper: "La date est facultative",
+      selectedDate: "Date sélectionnée : {{date}}",
+      pickDate: "Choisir une date",
+      changeDate: "Changer la date",
+      clearDate: "Clear",
       cancel: "Annuler",
       save: "Enregistrer",
       errorRequired: "Saisissez au moins 1 caractère",

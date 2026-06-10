@@ -1,12 +1,11 @@
 import { Database } from "../types/database";
 
 describe("Database types", () => {
-  test("includes users current_point field", () => {
+  test("includes users base profile fields without deprecated fields", () => {
     const row: Database["public"]["Tables"]["users"]["Row"] = {
       id: "user-1",
       email: "hiroki@example.com",
       name: "Hiroki",
-      current_point: "25歳",
       language: "ja",
       had_account_before: false,
       is_canceled: false,
@@ -14,7 +13,7 @@ describe("Database types", () => {
       updated_at: null,
     };
 
-    expect(row.current_point).toBe("25歳");
+    expect(row.email).toBe("hiroki@example.com");
   });
 
   test("includes long_term_goals table types", () => {
@@ -38,6 +37,7 @@ describe("Database types", () => {
       user_id: "user-1",
       yearly_goal_id: "yearly-1",
       description: "Ship UX fixes",
+      is_done: false,
       next_start_point: "Resume from checklist",
       accumulated_time_week: 90,
       order: 0,
@@ -46,5 +46,21 @@ describe("Database types", () => {
     };
 
     expect(row.description).toBe("Ship UX fixes");
+  });
+
+  test("includes access_overrides table types", () => {
+    const row: Database["public"]["Tables"]["access_overrides"]["Row"] = {
+      id: "override-1",
+      user_id: "user-1",
+      access_type: "friend_free",
+      starts_at: "2026-04-24T00:00:00.000Z",
+      ends_at: null,
+      is_active: true,
+      note: "friend beta access",
+      created_at: null,
+      updated_at: null,
+    };
+
+    expect(row.access_type).toBe("friend_free");
   });
 });

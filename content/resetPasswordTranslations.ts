@@ -13,6 +13,8 @@ export type ResetPasswordTranslations = {
   newPasswordTitle: string;
   newPasswordLabel: string;
   newPasswordPlaceholder: string;
+  showPassword: string;
+  hidePassword: string;
   updateCta: string;
   updating: string;
   sessionReady: string;
@@ -41,7 +43,9 @@ export const resetPasswordTranslations: Record<
     newPasswordTitle: "新しいパスワードを設定",
     newPasswordLabel: "新しいパスワード",
     newPasswordPlaceholder: "New password",
-    updateCta: "パスワードを更新してログインへ",
+    showPassword: "パスワードを表示",
+    hidePassword: "パスワードを非表示",
+    updateCta: "パスワードを更新",
     updating: "更新中...",
     sessionReady: "認証リンクを確認しました。新しいパスワードを設定できます。",
     sessionNotReady: "メールのリンクをこの端末で開いてから続行してください。",
@@ -66,7 +70,9 @@ export const resetPasswordTranslations: Record<
     newPasswordTitle: "Set a new password",
     newPasswordLabel: "New password",
     newPasswordPlaceholder: "New password",
-    updateCta: "Update password and log in",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    updateCta: "Update password",
     updating: "Updating...",
     sessionReady: "Recovery link confirmed. You can set a new password now.",
     sessionNotReady: "Open the email link on this device to continue.",
@@ -91,7 +97,9 @@ export const resetPasswordTranslations: Record<
     newPasswordTitle: "Définir un nouveau mot de passe",
     newPasswordLabel: "Nouveau mot de passe",
     newPasswordPlaceholder: "Nouveau mot de passe",
-    updateCta: "Mettre à jour et revenir à la connexion",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
+    updateCta: "Mettre à jour",
     updating: "Mise à jour...",
     sessionReady:
       "Lien de récupération confirmé. Vous pouvez définir un nouveau mot de passe.",

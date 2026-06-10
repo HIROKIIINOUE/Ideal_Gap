@@ -94,8 +94,8 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           subtitle: "支払い方法を更新します",
         },
         profile: {
-          title: "プロフィール変更",
-          subtitle: "名前やメールを更新します",
+          title: "プロフィール変更/削除",
+          subtitle: "プロフィールを更新、削除します",
         },
         contact: {
           title: "お問い合わせ",
@@ -161,7 +161,10 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           title: "Manage payment",
           subtitle: "update or cancel subscription",
         },
-        profile: { title: "Edit profile", subtitle: "Update name or email" },
+        profile: {
+          title: "Edit/delete profile",
+          subtitle: "Update or delete your profile",
+        },
         contact: { title: "Contact us", subtitle: "Send feedback or issues" },
       },
     },
@@ -227,8 +230,8 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           subtitle: "Ouvrir les réglages de la boutique", // マリー再チェック
         },
         profile: {
-          title: "Modifier le profil",
-          subtitle: "Mettre à jour mon nom ou mon e-mail",
+          title: "Modifier/supprimer le profil",
+          subtitle: "Mettre à jour ou supprimer votre profil",
         },
         contact: {
           title: "Contactez-nous",

@@ -3,13 +3,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,14 +23,16 @@ import { colors, radius, shadows, spacing, typography } from "../../constants/th
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
-import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { decryptFieldValue, encryptFieldValue } from "../../lib/security/fieldEncryption";
 import { supabase } from "../../lib/supabaseClient";
+import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
 import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 // 画面表示用データの型
 type WeeklyTask = {
@@ -40,6 +41,7 @@ type WeeklyTask = {
   yearlyGoalLabel: string;
   yearlyGoalId: string | null;
   loggedMinutes: number;
+  completed: boolean;
   order: number;
 };
 
@@ -49,17 +51,9 @@ type WeeklyTaskInsert = Database["public"]["Tables"]["weekly_tasks"]["Insert"];
 type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
 type WeeklyTaskListRow = Pick<
   WeeklyTaskRow,
-  "id" | "description" | "yearly_goal_id" | "accumulated_time_week" | "order"
+  "id" | "description" | "yearly_goal_id" | "accumulated_time_week" | "order" | "is_done"
 >;
 type YearlyGoalRow = Database["public"]["Tables"]["yearly_goals"]["Row"];
-
-type ManualLogState = {
-  visible: boolean;
-  task: WeeklyTask | null;
-  hours: string;
-  minutes: string;
-  defaultMinutes: number;
-};
 
 type WeeklyTaskDraft = {
   title: string;
@@ -76,15 +70,8 @@ const formatMinutes = (minutes: number) => {
   return `${hours}h ${mins}m`;
 };
 
-// 分を時間へ変換し、小数第1位まで表示する
-const formatCompactHours = (minutes: number) => {
-  const safeMinutes = Math.max(0, minutes);
-  const roundedHours = Math.round((safeMinutes / 60) * 10) / 10;
-  const displayValue = Number.isInteger(roundedHours) ? String(roundedHours) : roundedHours.toFixed(1);
-  return `${displayValue}h`;
-};
-
 const HEADER_CARD_GRADIENT = ["rgba(30,94,255,0.22)", "rgba(12,18,32,0.9)"] as const;
+const COMPLETED_CARD_GRADIENT = ["rgba(56,217,150,0.2)", "rgba(10,28,24,0.96)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(20,46,86,0.9)", "rgba(10,16,28,0.95)"] as const;
 const LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY = "weekly_tasks_last_selected_yearly_goal_id";
 const offlineWeeklyTasksSchema = z.array(
@@ -94,6 +81,7 @@ const offlineWeeklyTasksSchema = z.array(
     yearlyGoalLabel: z.string(),
     yearlyGoalId: z.string().nullable(),
     loggedMinutes: z.number(),
+    completed: z.boolean().optional().default(false),
     order: z.number(),
   }),
 );
@@ -114,27 +102,6 @@ export default function WeeklyTasksScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasOfflineCache, setHasOfflineCache] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [manualLog, setManualLog] = useState<ManualLogState>({
-    visible: false,
-    task: null,
-    hours: "0",
-    minutes: "0",
-    defaultMinutes: 0,
-  });
-
-  const manualHoursNumber = useMemo(() => Number(manualLog.hours || "0"), [manualLog.hours]);
-  const manualMinutesNumber = useMemo(() => Math.min(59, Number(manualLog.minutes || "0")), [manualLog.minutes]);
-  const manualAddedMinutes = useMemo(
-    () => manualHoursNumber * 60 + manualMinutesNumber,
-    [manualHoursNumber, manualMinutesNumber],
-  );
-  const manualFinalMinutes = useMemo(
-    () => manualLog.defaultMinutes + manualAddedMinutes,
-    [manualAddedMinutes, manualLog.defaultMinutes],
-  );
-  const manualHasInput = manualAddedMinutes > 0;
-  const manualChanged = manualLog.task !== null && manualHasInput;
-  const manualInRange = manualHasInput;
 
   const [yearlyGoalOptions, setYearlyGoalOptions] = useState<
     { id: string; label: string; color: string }[]
@@ -144,6 +111,7 @@ export default function WeeklyTasksScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isGoalDropdownOpen, setGoalDropdownOpen] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const weeklyTaskSchema = z.object({
     title: z.string().trim().min(1),
@@ -159,8 +127,8 @@ export default function WeeklyTasksScreen() {
   const guardOfflineAction = useOfflineActionGuard();
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
+  const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
 
-  const initializedDefaultGoal = useRef(false);
   const hasLoadedRef = useRef(false);
   const hasYearlyGoals = yearlyGoalOptions.length > 0;
 
@@ -170,6 +138,9 @@ export default function WeeklyTasksScreen() {
     const savedId = await AsyncStorage.getItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY);
     if (savedId && yearlyGoalOptions.some((opt) => opt.id === savedId)) {
       return savedId;
+    }
+    if (savedId) {
+      await AsyncStorage.removeItem(LAST_SELECTED_YEARLY_GOAL_ID_STORAGE_KEY);
     }
     return yearlyGoalOptions[0]?.id ?? null;
   }, [yearlyGoalOptions]);
@@ -253,10 +224,11 @@ export default function WeeklyTasksScreen() {
   const toWeeklyTask = React.useCallback(
     (row: WeeklyTaskListRow, goalLookup: Record<string, { label: string; color: string }>): WeeklyTask => ({
       id: row.id,
-      title: row.description,
+      title: decryptFieldValue(row.description),
       yearlyGoalId: row.yearly_goal_id ?? null,
       yearlyGoalLabel: goalLookup[row.yearly_goal_id ?? ""]?.label ?? t("modal.unlinkedYearlyGoal"),
       loggedMinutes: row.accumulated_time_week ?? 0,
+      completed: row.is_done ?? false,
       order: row.order ?? 0,
     }),
     [t],
@@ -267,9 +239,10 @@ export default function WeeklyTasksScreen() {
     (task: WeeklyTask, uid: string): WeeklyTaskInsert => ({
       id: task.id,
       user_id: uid,
-      description: task.title,
+      description: encryptFieldValue(task.title),
       yearly_goal_id: task.yearlyGoalId ?? null,
       accumulated_time_week: task.loggedMinutes,
+      is_done: task.completed,
       order: task.order,
     }),
     [],
@@ -289,7 +262,7 @@ export default function WeeklyTasksScreen() {
     setErrorMessage(null);
     const uid = await fetchUserId();
     if (!uid) {
-      setErrorMessage(t("modal.errorRequired"));
+      setErrorMessage(t("list.loadError"));
       setLoading(false);
       return;
     }
@@ -323,7 +296,7 @@ export default function WeeklyTasksScreen() {
         .order("order", { ascending: true }),
       supabase
         .from("weekly_tasks")
-        .select("id, description, yearly_goal_id, accumulated_time_week, order")
+        .select("id, description, yearly_goal_id, accumulated_time_week, order, is_done")
         .eq("user_id", uid)
         .order("order", { ascending: true }),
     ]);
@@ -338,7 +311,7 @@ export default function WeeklyTasksScreen() {
     const yearlyOptions = ((yearlyData as YearlyGoalRow[] | null) ?? []).map((goalRow) => {
       return {
         id: goalRow.id,
-        label: goalRow.description,
+        label: decryptFieldValue(goalRow.description),
         color: goalRow.year_goal_color ?? colors.accentPrimary,
       };
     });
@@ -362,12 +335,8 @@ export default function WeeklyTasksScreen() {
       writeOfflineCache(taskCacheKey, offlineWeeklyTasksSchema, weekly),
       writeOfflineCache(goalCacheKey, offlineYearlyGoalOptionsSchema, yearlyOptions),
     ]);
-    if (yearlyOptions[0] && !initializedDefaultGoal.current) {
-      initializedDefaultGoal.current = true;
-      setDraft((prev) => ({ ...prev, yearlyGoalId: yearlyOptions[0].id }));
-    }
     setLoading(false);
-  }, [fetchUserId, initializedDefaultGoal, offlineBlocked, reorderTasks, t, toWeeklyTask]);
+  }, [fetchUserId, offlineBlocked, reorderTasks, t, toWeeklyTask]);
 
   // 初回マウント時にもデータを1回だけ取得し、以降はフォーカス時に再取得する
   useEffect(() => {
@@ -385,20 +354,47 @@ export default function WeeklyTasksScreen() {
       loadData();
     }, [loadData]),
   );
+
   // draftは追加・編集モーダルで「まだ確定していない入力中の値」
-  // draft.yearlyGoalId が常に現在のyearlyGoalOptions と矛盾しないように補正する
+  // yearlyGoalOptionsはDBをもとにした正確なデータ
+  // draft.yearlyGoalIdが常に現在のyearlyGoalOptionsと矛盾しないように補正する
   useEffect(() => {
-    if (
-      draft.yearlyGoalId &&
-      yearlyGoalOptions.length > 0 &&
-      !yearlyGoalOptions.some((opt) => opt.id === draft.yearlyGoalId)
-    ) {
-      setDraft((prev) => ({ ...prev, yearlyGoalId: yearlyGoalOptions[0].id }));
-    }
-    if (yearlyGoalOptions.length === 0 && draft.yearlyGoalId) {
-      setDraft((prev) => ({ ...prev, yearlyGoalId: null }));
-    }
-  }, [draft.yearlyGoalId, yearlyGoalOptions]);
+    let cancelled = false;
+
+    const syncDraftYearlyGoal = async () => {
+      // DB上に年間目標データがないのに下書きdraftに以前の年間データが残ってしまっている場合は紐づく年間目標をnullにする
+      if (yearlyGoalOptions.length === 0) {
+        if (draft.yearlyGoalId) {
+          setDraft((prev) => ({ ...prev, yearlyGoalId: null }));
+        }
+        return;
+      }
+
+      if (draft.yearlyGoalId === null) {
+        return;
+      }
+
+      // 下書きdraftにすでに紐づく年間情報(DBの正しい情報)が存在する場合はその情報をそのまま使用
+      if (yearlyGoalOptions.some((opt) => opt.id === draft.yearlyGoalId)) {
+        return;
+      }
+
+      // 下書きdraftに紐づく年間情報が存在しない場合は直近のデータ(preferredYearlyGoalId)をデフォルトとする
+      const preferredYearlyGoalId = await getPreferredYearlyGoalId();
+      if (cancelled) return;
+
+      setDraft((prev) => ({
+        ...prev,
+        yearlyGoalId: preferredYearlyGoalId,
+      }));
+    };
+
+    syncDraftYearlyGoal();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.yearlyGoalId, getPreferredYearlyGoalId, yearlyGoalOptions]);
 
   // 「追加ボタン」からモーダルを開いた時のロジック
   const handleOpenAdd = async () => {
@@ -457,97 +453,9 @@ export default function WeeklyTasksScreen() {
     setModalVisible(true);
   };
 
-  // 手動で作業時間積み上げモーダルをオープンする処理
-  const handleOpenManualLog = (task: WeeklyTask) => {
-    if (guardOfflineAction()) return;
-    setManualLog({
-      visible: true,
-      task,
-      hours: "0",
-      minutes: "0",
-      defaultMinutes: Math.max(0, task.loggedMinutes),
-    });
-  };
-
-  const handleManualHoursChange = (value: string) => {
-    const sanitized = value.replace(/[^0-9]/g, "").slice(0, 4);
-    setManualLog((prev) => ({ ...prev, hours: sanitized }));
-  };
-
-  const handleManualMinutesChange = (value: string) => {
-    //奇数から数字以外を全てから文字に変換し、文字列内を数字だけにする。先頭から２桁までの数値を切り取ることで、値を必ず2桁までの数値に制御できる。
-    const sanitized = value.replace(/[^0-9]/g, "").slice(0, 2);
-    if (sanitized === "") {
-      setManualLog((prev) => ({ ...prev, minutes: "" }));
-      return;
-    }
-    const numeric = Math.min(59, Number(sanitized));
-    setManualLog((prev) => ({ ...prev, minutes: String(numeric) }));
-  };
-
-  const closeManualLog = () => {
-    setManualLog({
-      visible: false,
-      task: null,
-      hours: "0",
-      minutes: "0",
-      defaultMinutes: 0,
-    });
-  };
-
-  const handleSubmitManualLog = () => {
-    if (guardOfflineAction()) return;
-    if (!manualLog.task || !manualInRange || !manualChanged) return;
-    const safeTotal = Math.max(0, manualFinalMinutes);
-    Alert.alert(
-      t("manualModal.confirmTitle"),
-      t("manualModal.confirmMessage", {
-        total: formatMinutes(safeTotal),
-        added: formatMinutes(manualAddedMinutes),
-      }),
-      [
-        { text: t("manualModal.cancel"), style: "cancel" },
-        {
-          text: t("manualModal.confirm"),
-          style: "default",
-          onPress: async () => {
-            const uid = userId ?? (await fetchUserId());
-            if (!uid || !manualLog.task) {
-              Alert.alert(t("manualModal.errorTitle"), t("modal.errorRequired"));
-              closeManualLog();
-              return;
-            }
-            try {
-              const result = await updateAccumulatedTimes({
-                userId: uid,
-                taskId: manualLog.task.id,
-                yearlyGoalId: manualLog.task.yearlyGoalId,
-                newLoggedMinutes: safeTotal,
-                previousLoggedMinutes: manualLog.defaultMinutes,
-              });
-
-              setTasks((prev) =>
-                prev.map((task) =>
-                  task.id === manualLog.task?.id ? { ...task, loggedMinutes: result.newLoggedMinutes } : task,
-                ),
-              );
-
-              Alert.alert(t("manualModal.successTitle"), t("manualModal.successBody"));
-            } catch (error) {
-              const message = error instanceof Error ? error.message : t("modal.errorRequired");
-              Alert.alert(t("manualModal.errorTitle"), message);
-            } finally {
-              closeManualLog();
-            }
-          },
-        },
-      ]);
-  };
-
-
-
   const handleSave = async () => {
     if (guardOfflineAction()) return;
+    if (saving) return;
 
     const parse = weeklyTaskSchema.safeParse(draft);
     if (!parse.success) {
@@ -562,42 +470,64 @@ export default function WeeklyTasksScreen() {
       return;
     }
 
-    // 編集保存処理
-    if (editingId) {
-      const existing = tasks.find((task) => task.id === editingId);
-      const payload: WeeklyTaskUpdate = {
-        description: parse.data.title,
-        yearly_goal_id: parse.data.yearlyGoalId ?? null,
-        accumulated_time_week: existing?.loggedMinutes ?? 0,
-      };
-      const { error } = await supabase
-        .from("weekly_tasks")
-        .update(payload)
-        .eq("id", editingId);
-      if (error) {
-        Alert.alert("更新に失敗しました", error.message);
-        return;
-      }
-    } else {
-      // 追加保存処理
-      // 新規タスクを一番上に持ってくるために既存のタスクのorderを+1する
-      const orderedExisting = reorderTasks(tasks).map((task, idx) => ({ ...task, order: idx + 1 }));
-      const { data: inserted, error } = await supabase
-        .from("weekly_tasks")
-        .insert({
-          description: parse.data.title,
+    setSaving(true);
+    try {
+      // 編集保存処理
+      if (editingId) {
+        const existing = tasks.find((task) => task.id === editingId);
+        const payload: WeeklyTaskUpdate = {
+          description: encryptFieldValue(parse.data.title),
           yearly_goal_id: parse.data.yearlyGoalId ?? null,
-          accumulated_time_week: 0,
-          user_id: uid,
-          order: 0,
-        })
-        .select("id, description, yearly_goal_id, accumulated_time_week, order")
-        .single();
-      if (error || !inserted) {
-        Alert.alert("追加に失敗しました", error?.message ?? "Failed to add");
-        return;
+          accumulated_time_week: existing?.loggedMinutes ?? 0,
+        };
+        const { error } = await supabase
+          .from("weekly_tasks")
+          .update(payload)
+          .eq("id", editingId);
+        if (error) {
+          Alert.alert("更新に失敗しました", error.message);
+          return;
+        }
+      } else {
+        // 追加保存処理
+        // 新規タスクを一番上に持ってくるために既存のタスクのorderを+1する
+        const orderedExisting = reorderTasks(tasks).map((task, idx) => ({ ...task, order: idx + 1 }));
+        const { data: inserted, error } = await supabase
+          .from("weekly_tasks")
+          .insert({
+            description: encryptFieldValue(parse.data.title),
+            yearly_goal_id: parse.data.yearlyGoalId ?? null,
+            accumulated_time_week: 0,
+            is_done: false,
+            user_id: uid,
+            order: 0,
+          })
+          .select("id, description, yearly_goal_id, accumulated_time_week, order, is_done")
+          .single();
+        if (error || !inserted) {
+          Alert.alert("追加に失敗しました", error?.message ?? "Failed to add");
+          return;
+        }
+
+        const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>(
+          (acc, item) => {
+            acc[item.id] = { label: item.label, color: item.color };
+            return acc;
+          },
+          {},
+        );
+        const newTask = toWeeklyTask(inserted as WeeklyTaskListRow, goalLookup);
+        const reordered = reorderTasks([...orderedExisting, newTask]);
+        const updates = reordered.map((task) => toWeeklyRow(task, uid));
+        const { error: reorderError } = await supabase.from("weekly_tasks").upsert(updates, { onConflict: "id" });
+        if (reorderError) {
+          Alert.alert("追加に失敗しました", reorderError.message ?? "Failed to reorder");
+          return;
+        }
+        setTasks(reordered);
       }
 
+      setModalVisible(false);
       const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>(
         (acc, item) => {
           acc[item.id] = { label: item.label, color: item.color };
@@ -605,36 +535,21 @@ export default function WeeklyTasksScreen() {
         },
         {},
       );
-      const newTask = toWeeklyTask(inserted, goalLookup);
-      const reordered = reorderTasks([...orderedExisting, newTask]);
-      const updates = reordered.map((task) => toWeeklyRow(task, uid));
-      const { error: reorderError } = await supabase.from("weekly_tasks").upsert(updates, { onConflict: "id" });
-      if (reorderError) {
-        Alert.alert("追加に失敗しました", reorderError.message ?? "Failed to reorder");
-        return;
+      // ↓ 追加・更新後に再度Supabase DBから週間タスクを取得する
+      const { data: weeklyData, error: weeklyError } = await supabase
+        .from("weekly_tasks")
+        .select("id, description, yearly_goal_id, accumulated_time_week, order, is_done")
+        .eq("user_id", uid)
+        .order("order", { ascending: true });
+      if (!weeklyError && weeklyData) {
+        setTasks(
+          reorderTasks(((weeklyData as WeeklyTaskListRow[] | null) ?? []).map((row) => toWeeklyTask(row, goalLookup))),
+        );
       }
-      setTasks(reordered);
+      setLoading(false);
+    } finally {
+      setSaving(false);
     }
-
-    setModalVisible(false);
-    // 年間目標リスト配列から{ [id]: { label, color} }　の辞書のようなものを作る
-    // コードがシンプルになり、パフォーマンスが安定する
-    const goalLookup = yearlyGoalOptions.reduce<Record<string, { label: string; color: string }>>((acc, item) => {
-      acc[item.id] = { label: item.label, color: item.color };
-      return acc;
-    }, {});
-    // ↓ 追加・更新後に再度Supabase DBから週間タスクを取得する
-    const { data: weeklyData, error: weeklyError } = await supabase
-      .from("weekly_tasks")
-      .select("id, description, yearly_goal_id, accumulated_time_week, order")
-      .eq("user_id", uid)
-      .order("order", { ascending: true });
-    if (!weeklyError && weeklyData) {
-      setTasks(
-        reorderTasks(((weeklyData as WeeklyTaskListRow[] | null) ?? []).map((row) => toWeeklyTask(row, goalLookup))),
-      );
-    }
-    setLoading(false);
   };
 
   // ドラッグの順番並び替えが終わった時に発火
@@ -656,39 +571,71 @@ export default function WeeklyTasksScreen() {
     }
   };
 
+  const handleToggleCompleted = async (taskId: string) => {
+    const currentTask = tasks.find((task) => task.id === taskId);
+    if (!currentTask) return;
+
+    const nextCompleted = !currentTask.completed;
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId ? { ...task, completed: nextCompleted } : task,
+      ),
+    );
+
+    try {
+      const { error } = await supabase
+        .from("weekly_tasks")
+        .update({ is_done: nextCompleted })
+        .eq("id", taskId);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("modal.errorRequired");
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId ? { ...task, completed: currentTask.completed } : task,
+        ),
+      );
+      Alert.alert(t("deleteConfirm.title"), message);
+    }
+  };
+
   // 指定のPressable要素の長押しドラッグを可能にするロジック
   const renderTaskCard = ({ item, drag, isActive }: RenderItemParams<WeeklyTask>) => {
     return (
       <View
         style={[
           styles.taskCard,
+          item.completed && styles.taskCardCompleted,
           shadows.card,
           isActive && styles.taskCardDragging,
           deleteMode && styles.taskCardDeleteMode,
         ]}
+        testID={`weekly-task-card-${item.id}`}
       >
         <LinearGradient
-          colors={LIST_CARD_GRADIENT}
+          colors={item.completed ? COMPLETED_CARD_GRADIENT : LIST_CARD_GRADIENT}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
         <View pointerEvents="none" style={styles.cardBorderOverlay} />
-        <View style={styles.taskHeader}>
-          <Text style={styles.taskTitle} numberOfLines={1} ellipsizeMode="tail">
-            {item.title}
-          </Text>
-        </View>
-
-        <View style={styles.taskControlRow}>
+        <View style={styles.taskControlRow} testID={`weekly-task-controls-${item.id}`}>
           <Text
             testID={`weekly-task-total-${item.id}`}
-            style={styles.totalInlineText}
+            style={[styles.totalInlineText, item.completed && styles.goalTimeCompleted]}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {formatCompactHours(item.loggedMinutes)}
+            {formatMinutes(item.loggedMinutes)}
           </Text>
+          {item.completed ? (
+            <View style={styles.completedBadge} testID={`weekly-task-completed-badge-${item.id}`}>
+              <Text style={styles.completedBadgeText}>{t("completion.badge")}</Text>
+            </View>
+          ) : null}
           <View style={styles.taskActionGroup}>
             {deleteMode ? (
               <Pressable
@@ -696,8 +643,8 @@ export default function WeeklyTasksScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t("actions.delete")}
                 style={({ pressed }) => [
+                  styles.goalActionIconButton,
                   styles.dangerButton,
-                  styles.iconButtonRow,
                   pressed && styles.secondaryPressed,
                   offlineBlocked && styles.buttonDisabled,
                 ]}
@@ -705,54 +652,62 @@ export default function WeeklyTasksScreen() {
                 disabled={offlineBlocked}
               >
                 <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
-                <Text style={styles.dangerButtonText}>{t("actions.delete")}</Text>
               </Pressable>
             ) : (
               <>
+                {!item.completed ? (
+                  <Pressable
+                    testID={`weekly-task-timer-${item.id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("task.openTimer")}
+                    disabled={offlineBlocked}
+                    onPress={() => handleOpenTimer(item)}
+                    style={({ pressed }) => [
+                      styles.goalActionIconButton,
+                      styles.timerActionButton,
+                      pressed && styles.secondaryPressed,
+                      offlineBlocked && styles.buttonDisabled,
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="timer-outline" size={20} color={colors.textPrimary} />
+                  </Pressable>
+                ) : null}
+                {!item.completed ? (
+                  <Pressable
+                    testID={`weekly-task-edit-${item.id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("modal.editTitle")}
+                    style={({ pressed }) => [
+                      styles.goalActionIconButton,
+                      styles.dragHandleButton,
+                      pressed && styles.secondaryPressed,
+                      offlineBlocked && styles.buttonDisabled,
+                    ]}
+                    onPress={() => handleOpenEdit(item)}
+                    disabled={offlineBlocked}
+                  >
+                    <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textPrimary} />
+                  </Pressable>
+                ) : null}
                 <Pressable
-                  testID={`weekly-task-timer-${item.id}`}
+                  testID={`weekly-task-complete-${item.id}`}
                   accessibilityRole="button"
-                  accessibilityLabel={t("task.openTimer")}
+                  accessibilityLabel={item.completed ? t("completion.undo") : t("completion.complete")}
                   disabled={offlineBlocked}
-                  onPress={() => handleOpenTimer(item)}
+                  onPress={() => handleToggleCompleted(item.id)}
                   style={({ pressed }) => [
                     styles.goalActionIconButton,
-                    styles.timerActionButton,
+                    styles.completeButton,
+                    item.completed && styles.completeButtonActive,
                     pressed && styles.secondaryPressed,
                     offlineBlocked && styles.buttonDisabled,
                   ]}
                 >
-                  <MaterialCommunityIcons name="timer-outline" size={20} color={colors.textPrimary} />
-                </Pressable>
-                <Pressable
-                  testID={`weekly-task-manual-${item.id}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("task.manualLog")}
-                  disabled={offlineBlocked}
-                  onPress={() => handleOpenManualLog(item)}
-                  style={({ pressed }) => [
-                    styles.goalActionIconButton,
-                    styles.dragHandleButton,
-                    pressed && styles.secondaryPressed,
-                    offlineBlocked && styles.buttonDisabled,
-                  ]}
-                >
-                  <MaterialCommunityIcons name="playlist-edit" size={20} color={colors.textPrimary} />
-                </Pressable>
-                <Pressable
-                  testID={`weekly-task-edit-${item.id}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("modal.editTitle")}
-                  style={({ pressed }) => [
-                    styles.goalActionIconButton,
-                    styles.dragHandleButton,
-                    pressed && styles.secondaryPressed,
-                    offlineBlocked && styles.buttonDisabled,
-                  ]}
-                  onPress={() => handleOpenEdit(item)}
-                  disabled={offlineBlocked}
-                >
-                  <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textPrimary} />
+                  <MaterialCommunityIcons
+                    name={item.completed ? "check-circle" : "check-circle-outline"}
+                    size={20}
+                    color={item.completed ? colors.success : colors.textPrimary}
+                  />
                 </Pressable>
                 <Pressable
                   testID={`weekly-task-reorder-${item.id}`}
@@ -768,6 +723,11 @@ export default function WeeklyTasksScreen() {
               </>
             )}
           </View>
+        </View>
+        <View style={styles.taskHeader}>
+          <Text style={[styles.taskTitle, item.completed && styles.goalTitleCompleted]} testID={`weekly-task-title-${item.id}`}>
+            {item.title}
+          </Text>
         </View>
       </View>
     );
@@ -811,7 +771,7 @@ export default function WeeklyTasksScreen() {
               />
 
               <View style={styles.headerTop}>
-                <Text style={[styles.pageTitle, isFrench && styles.pageTitleFrench]}>{t("pageTitle")}</Text>
+                <Text style={[styles.pageTitle, isFrench && styles.pageTitleFrench, isAndroidJapanese && styles.pageTitleAndroidJa]}>{t("pageTitle")}</Text>
 
                 <View style={styles.actionsRow}>
                   {!deleteMode && (
@@ -880,6 +840,15 @@ export default function WeeklyTasksScreen() {
             />
             <Text style={styles.emptyTitle}>{t("list.emptyTitle")}</Text>
             <Text style={styles.emptyBody}>{t("list.emptyBody")}</Text>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.primaryButton}
+              onPress={handleOpenAdd}
+              disabled={offlineBlocked}
+            >
+              <MaterialCommunityIcons name="plus" size={18} color={colors.textPrimary} />
+              <Text style={styles.primaryButtonText}>{t("list.emptyCta")}</Text>
+            </Pressable>
           </View>
         )}
       />
@@ -891,7 +860,7 @@ export default function WeeklyTasksScreen() {
           testID="weekly-tasks-modal-overlay"
         >
           <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
+            behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="weekly-tasks-modal-kav"
           >
@@ -1036,8 +1005,10 @@ export default function WeeklyTasksScreen() {
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
-                      style={styles.primaryButton}
+                      testID="weekly-tasks-modal-save"
+                      style={[styles.primaryButton, saving && styles.buttonDisabled]}
                       onPress={handleSave}
+                      disabled={saving}
                     >
                       <Text style={styles.primaryButtonText}>{t("modal.save")}</Text>
                     </Pressable>
@@ -1052,98 +1023,6 @@ export default function WeeklyTasksScreen() {
         </Pressable>
       </Modal>
 
-      <Modal visible={manualLog.visible} transparent animationType="fade" onRequestClose={closeManualLog}>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.select({ ios: "padding", android: undefined })}
-            style={styles.modalContainer}
-            testID="manual-log-modal-kav"
-          >
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              testID="manual-log-modal-scroll"
-            >
-              <View style={[styles.manualCard, shadows.card]}>
-                <Text style={styles.modalTitle}>{t("manualModal.title")}</Text>
-
-                <View style={styles.manualTaskBox}>
-                  <Text style={styles.manualTaskTitle} numberOfLines={2} ellipsizeMode="tail">
-                    {manualLog.task?.title ?? "-"}
-                  </Text>
-                  <View style={styles.manualSummaryBox}>
-                    <View style={styles.manualSummaryRow}>
-                      <Text style={styles.manualSummaryLabel}>{t("manualModal.currentLabel")}</Text>
-                      <Text style={styles.manualSummaryValue}>{formatMinutes(manualLog.defaultMinutes)}</Text>
-                    </View>
-                    <View style={styles.manualSummaryRow}>
-                      <Text style={styles.manualSummaryLabel}>{t("manualModal.addedLabel")}</Text>
-                      <Text style={styles.manualSummaryValue}>{formatMinutes(manualAddedMinutes)}</Text>
-                    </View>
-                    <View style={styles.manualSummaryDivider} />
-                    <View style={styles.manualSummaryRow}>
-                      <Text style={styles.manualSummaryLabel}>{t("manualModal.finalLabel")}</Text>
-                      <Text style={styles.manualSummaryTotal}>{formatMinutes(manualFinalMinutes)}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.manualInputsRow}>
-                  <View style={styles.manualInputGroup}>
-                    <Text style={styles.label}>{t("manualModal.hoursLabel")}</Text>
-                    <TextInput
-                      placeholder="0"
-                      placeholderTextColor={colors.textSecondary}
-                      keyboardType="number-pad"
-                      value={manualLog.hours}
-                      onChangeText={handleManualHoursChange}
-                      style={styles.manualNumberInput}
-                    />
-                  </View>
-                  <View style={styles.manualInputGroup}>
-                    <Text style={styles.label}>{t("manualModal.minutesLabel")}</Text>
-                    <TextInput
-                      placeholder="0"
-                      placeholderTextColor={colors.textSecondary}
-                      keyboardType="number-pad"
-                      value={manualLog.minutes}
-                      onChangeText={handleManualMinutesChange}
-                      style={styles.manualNumberInput}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.manualHelperRow}>
-                  <Text style={styles.helperText}>{t("manualModal.rangeHelper")}</Text>
-                </View>
-
-                <View style={styles.modalActions}>
-                  <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={closeManualLog}>
-                    <Text style={styles.secondaryButtonText}>{t("manualModal.cancel")}</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={!manualLog.task || !manualInRange || !manualChanged}
-                    onPress={handleSubmitManualLog}
-                    style={({ pressed }) => [
-                      styles.primaryButton,
-                      pressed && styles.primaryPressed,
-                      (!manualLog.task || !manualInRange || !manualChanged) && styles.primaryButtonDisabled,
-                    ]}
-                  >
-                    <Text style={styles.primaryButtonText}>{t("manualModal.submit")}</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-          {keyboardVisible ? (
-            <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
-          ) : null}
-        </View>
-      </Modal>
     </GestureHandlerRootView>
   );
 }
@@ -1159,7 +1038,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1c3358",
     borderRadius: radius.lg,
     overflow: "hidden",
-    padding: spacing.xl,
+    padding: compactFeatureSpacing.titleCardPadding,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     gap: spacing.md,
@@ -1174,6 +1053,10 @@ const styles = StyleSheet.create({
     lineHeight: typography.xl * 1.3,
   },
   pageTitleFrench: {
+    fontSize: 24,
+    lineHeight: 31,
+  },
+  pageTitleAndroidJa: {
     fontSize: 24,
     lineHeight: 31,
   },
@@ -1248,6 +1131,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: "#1c3358",
+    alignItems: "flex-start",
     gap: spacing.sm,
     overflow: "hidden",
   },
@@ -1272,14 +1156,19 @@ const styles = StyleSheet.create({
     lineHeight: typography.md * 1.5,
   },
   taskCard: {
-    padding: spacing.lg,
+    padding: 9,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "rgba(110,168,255,0.25)",
     backgroundColor: "#1c3358",
-    gap: spacing.md,
+    gap: 4,
     overflow: "hidden",
     marginBottom: spacing.sm,
+  },
+  taskCardCompleted: {
+    borderColor: "rgba(56,217,150,0.55)",
+    shadowColor: colors.success,
+    shadowOpacity: 0.22,
   },
   taskCardDragging: {
     borderColor: "rgba(110,168,255,0.6)",
@@ -1290,14 +1179,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(242,95,92,0.08)",
   },
   taskHeader: {
-    minHeight: 32,
+    minHeight: 24,
     justifyContent: "center",
   },
   taskTitle: {
+    marginHorizontal: spacing.xs,
     color: colors.textPrimary,
-    fontSize: typography.md + 1,
+    fontSize: typography.md,
     fontWeight: "800",
-    lineHeight: (typography.md + 1) * 1.45,
+    lineHeight: typography.md * 1.15,
+  },
+  goalTitleCompleted: {
+    color: "rgba(233,237,247,0.78)",
   },
   categoryDot: {
     width: 10,
@@ -1312,42 +1205,32 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(242,95,92,0.14)",
     borderColor: colors.error,
   },
-  dangerButtonText: {
-    color: colors.error,
-    fontWeight: "700",
-    fontSize: typography.sm,
-  },
-  iconButtonRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
   taskControlRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: spacing.sm,
+    gap: spacing.xs / 2,
   },
   totalInlineText: {
     flex: 1,
     minWidth: 0,
+    marginHorizontal: spacing.xs,
     color: colors.accentSubtle,
-    fontSize: typography.md,
+    fontSize: typography.sm,
     fontWeight: "800",
+  },
+  goalTimeCompleted: {
+    color: "rgba(56,217,150,0.92)",
   },
   taskActionGroup: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: spacing.sm,
+    gap: spacing.xs / 1.5,
   },
   goalActionIconButton: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
@@ -1360,6 +1243,30 @@ const styles = StyleSheet.create({
   timerActionButton: {
     backgroundColor: "rgba(30,94,255,0.2)",
     borderColor: colors.accentPrimary,
+  },
+  completeButton: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(56,217,150,0.3)",
+  },
+  completeButtonActive: {
+    backgroundColor: "rgba(56,217,150,0.14)",
+    borderColor: "rgba(56,217,150,0.65)",
+  },
+  completedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs / 1.5,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 1.5,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: "rgba(56,217,150,0.45)",
+    backgroundColor: "rgba(56,217,150,0.12)",
+  },
+  completedBadgeText: {
+    color: colors.success,
+    fontSize: typography.sm,
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,

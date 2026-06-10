@@ -1,3 +1,4 @@
+// ⭐️ マリーフランス語チェック(月間detail目標の例文のみ)
 import { LanguageKey } from "../types/i18n";
 
 export type AnnualGoalsTranslations = {
@@ -19,6 +20,14 @@ export type AnnualGoalsTranslations = {
   chart: {
     title: string;
     totalLabel: string;
+  };
+  detail: {
+    open: string;
+    title: string;
+    label: string;
+    placeholder: string;
+    save: string;
+    cancel: string;
   };
   modal: {
     addTitle: string;
@@ -83,6 +92,15 @@ export const annualGoalsTranslations: Record<
       title: "タスクの内訳",
       totalLabel: "総作業時間",
     },
+    detail: {
+      open: "詳細メモ",
+      title: "詳細メモ",
+      label: "詳細メモ(任意)",
+      placeholder:
+        "例) Ielts8達成の道のり\n \n4月: 参考書終わらせる\n5月: 過去問スタート\n8月: 模擬試験受験\n10月:  1回目の試験\n12月:  未達成なら2回目の試験",
+      save: "保存",
+      cancel: "キャンセル",
+    },
     modal: {
       addTitle: "年間目標を追加",
       editTitle: "編集",
@@ -110,8 +128,7 @@ export const annualGoalsTranslations: Record<
     bulkDelete: {
       button: "全削除",
       title: "年間目標を全て削除しますか？",
-      message:
-        "この操作は元に戻せません。\n紐づく週間タスクも削除されます。",
+      message: "この操作は元に戻せません。\n紐づく週間タスクも削除されます。",
       all: "すべて削除",
       cancel: "キャンセル",
     },
@@ -142,6 +159,15 @@ export const annualGoalsTranslations: Record<
     chart: {
       title: "Task Breakdown",
       totalLabel: "Total Focus Time",
+    },
+    detail: {
+      open: "Detail memo",
+      title: "Detail memo",
+      label: "Detail memo (optional)",
+      placeholder:
+        "e.g.) Path to IELTS 8\n \nApr : finish the textbook\nMay : start past exam practice\nAug : take a mock exam\nOct : first official exam\nDec : second exam if needed",
+      save: "Save",
+      cancel: "Cancel",
     },
     modal: {
       addTitle: "Add annual goal",
@@ -198,11 +224,20 @@ export const annualGoalsTranslations: Record<
     },
     emptyTitle: "Aucun objectif annuel pour le moment",
     emptyBody: "Visualisez vos priorités annuelles.",
-    emptyCta: "Ajouter un objectif annuel",
+    emptyCta: "Ajouter un objectif",
     updatedSuffix: "Mis à jour",
     chart: {
       title: "Répartition des tâches",
       totalLabel: "Temps total",
+    },
+    detail: {
+      open: "Mémo détaillé",
+      title: "Mémo détaillé",
+      label: "Mémo détaillé (optionnel)",
+      placeholder:
+        "ex) Parcours vers l'IELTS 8\n \nAvr : terminer le manuel\nMai : commencer les annales\nAoût : passer un examen blanc\nOct : premier examen officiel\nDéc : deuxième examen si nécessaire",
+      save: "Enregistrer",
+      cancel: "Annuler",
     },
     modal: {
       addTitle: "Ajouter un objectif annuel",

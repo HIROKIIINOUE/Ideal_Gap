@@ -45,7 +45,7 @@ const androidPackage = isProd
 export default (): ExpoConfig => ({
   name,
   slug: "Ideal_Gap",
-  version: "1.0.0",
+  version: "1.1.2",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: schemes,
@@ -54,12 +54,17 @@ export default (): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: iosBundleIdentifier,
+    usesAppleSignIn: true,
+    entitlements: {
+      "com.apple.developer.applesignin": ["Default"],
+    },
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ["audio"],
     },
   },
   android: {
+    permissions: ["android.permission.SCHEDULE_EXACT_ALARM"],
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -105,6 +110,7 @@ export default (): ExpoConfig => ({
     [
       "expo-audio",
       {
+        enableBackgroundPlayback: true,
         recordAudioAndroid: false,
         microphonePermission: false,
       },
