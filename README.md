@@ -5,6 +5,11 @@
 <p align="center">
 Bridge the gap to your ideal self.
 </p>
+<p align="center">
+  <a href="https://apps.apple.com/app/id6759301711">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="50" alt="Download on the App Store"/>
+  </a>
+</p>
 
 <div align="center">
 <h2>Tech Stack</h2>
@@ -40,13 +45,9 @@ Bridge the gap to your ideal self.
  </ul>
 
 <h2>Project Status</h2>
-<p>Available on the App Store and Google Play.</p>
-<!-- リリースしたら以下にApple StoreとGoogleストアのリンクを添付 -->
+<p>Available on the App Store. Android release coming soon on Google Play.</p>
 <p align="center">
-  <a href="APP_STORE_LINK">
-    <img src="./assets/app-store-badge.png" height="50"/>
-  </a>
-  <a href="GOOGLE_PLAY_LINK">
-    <img src="./assets/google-play-badge.png" height="50"/>
+  <a href="https://apps.apple.com/app/id6759301711">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="50" alt="Download on the App Store"/>
   </a>
 </p>
