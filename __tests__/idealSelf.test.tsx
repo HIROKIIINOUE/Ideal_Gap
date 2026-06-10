@@ -30,55 +30,11 @@ jest.mock("../lib/supabaseClient", () => ({
 }));
 
 jest.mock("react-native-draggable-flatlist", () => {
-  const React = require("react");
-  const { View } = require("react-native");
-  const MockFlatList = ({
-    data,
-    renderItem,
-    onDragEnd,
-    ListHeaderComponent,
-    ListEmptyComponent,
-    contentContainerStyle,
-  }: {
-    data: unknown[];
-    renderItem: (params: { item: unknown; index: number; drag: () => void; isActive: boolean; getIndex: () => number }) => React.ReactNode;
-    onDragEnd: (params: { data: unknown[] }) => void;
-    ListHeaderComponent?: React.ReactNode | (() => React.ReactNode);
-    ListEmptyComponent?: React.ReactNode | (() => React.ReactNode);
-    contentContainerStyle?: unknown;
-  }) => {
-    const firedRef = React.useRef(false);
-    const renderSlot = (slot?: React.ReactNode | (() => React.ReactNode)) => {
-      if (!slot) return null;
-      return typeof slot === "function" ? slot() : slot;
-    };
-    React.useEffect(() => {
-      if (!firedRef.current && data.length > 0) {
-        firedRef.current = true;
-        onDragEnd({ data: [...data].reverse() });
-      }
-    }, [data, onDragEnd]);
-
-    return (
-      <View testID="ideal-self-list-content" style={contentContainerStyle}>
-        {renderSlot(ListHeaderComponent)}
-        {data.length === 0 && renderSlot(ListEmptyComponent)}
-        {data.map((item, index) => (
-          <React.Fragment key={String((item as { id?: string }).id ?? index)}>
-            {renderItem({
-              item,
-              index,
-              drag: () => {},
-              isActive: false,
-              getIndex: () => index,
-            })}
-          </React.Fragment>
-        ))}
-      </View>
-    );
-  };
-  MockFlatList.displayName = "MockDraggableFlatList";
-  return MockFlatList;
+  const { createMockDraggableFlatList } = require("./helpers/mockDraggableFlatList");
+  return createMockDraggableFlatList({
+    testID: "ideal-self-list-content",
+    autoDragOnMount: true,
+  });
 });
 
 describe("IdealSelfScreen reordering", () => {

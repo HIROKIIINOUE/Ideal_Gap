@@ -4,12 +4,12 @@ import {
   PRIVACY_POLICY_URL,
   getStoreName,
   getTermsOfUseUrl,
-} from "../subscriptionLegal";
+} from "../lib/subscriptionLegal";
 import {
   getPlanBillingCopy,
   getPlanTrialCopy,
   getTrialLabel,
-} from "../planCopy";
+} from "../lib/planCopy";
 
 const createTranslator = () =>
   ((key: string, options?: Record<string, unknown>) => {

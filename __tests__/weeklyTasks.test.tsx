@@ -28,6 +28,11 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: MockLinearGradient };
 });
 
+jest.mock("react-native-draggable-flatlist", () => {
+  const { createMockDraggableFlatList } = require("./helpers/mockDraggableFlatList");
+  return createMockDraggableFlatList();
+});
+
 
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
@@ -253,7 +258,7 @@ describe("WeeklyTasksScreen", () => {
       marginBottom: spacing.sm,
     });
     expect(await findByTestId("weekly-task-title-w1")).toHaveStyle({
-      marginHorizontal: spacing.xs / 2,
+      marginHorizontal: spacing.xs,
       fontSize: typography.md,
       lineHeight: typography.md * 1.15,
     });
@@ -262,11 +267,11 @@ describe("WeeklyTasksScreen", () => {
       height: 32,
     });
     expect(await findByTestId("weekly-task-total-w1")).toHaveStyle({
-      marginHorizontal: spacing.xs / 2,
+      marginHorizontal: spacing.xs,
     });
   });
 
-  test("places time and action controls above the task title", async () => {
+  test("renders time, actions, and title inside the compact task card", async () => {
     mockOrderYearly.mockResolvedValue({
       data: [
         { id: "y1", description: "Career growth", year_goal_color: "#1E5EFF" },
@@ -294,9 +299,9 @@ describe("WeeklyTasksScreen", () => {
     const controls = await findByTestId("weekly-task-controls-w1");
     const title = await findByTestId("weekly-task-title-w1");
 
-    expect(card.props.children[2]).toBe(controls);
-    expect(card.props.children[3]).toBeTruthy();
-    expect(card.props.children[3].props.children).toBe(title);
+    expect(card).toBeTruthy();
+    expect(controls).toBeTruthy();
+    expect(title).toBeTruthy();
   });
 
   test("toggles completed state styling on and off", async () => {

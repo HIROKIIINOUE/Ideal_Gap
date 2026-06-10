@@ -7,6 +7,8 @@ import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 import { LanguageProvider } from "../providers/LanguageProvider";
 
+const mockGetAccessStateForUser = jest.fn();
+
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
@@ -15,6 +17,10 @@ jest.mock("../lib/supabaseClient", () => ({
       onAuthStateChange: jest.fn(),
     },
   },
+}));
+
+jest.mock("../lib/subscription", () => ({
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
 }));
 
 describe("Index screen", () => {
@@ -32,6 +38,13 @@ describe("Index screen", () => {
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: null },
       error: null,
+    });
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: false,
+      accessMode: "blocked",
+      resolution: "subscription_required",
+      subscription: null,
+      accessOverride: null,
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
       data: { subscription: { unsubscribe: jest.fn() } },
@@ -109,7 +122,7 @@ describe("Index screen", () => {
       </I18nextProvider>,
     );
 
-    const title = await screen.findByText("Votre premier pas vers votre moi idéal");
+    const title = await screen.findByText("Premier pas vers votre idéal");
     const membershipLabels = await screen.findAllByText("Abonnement");
     const ctaLabels = await screen.findAllByText("Essai gratuit");
 

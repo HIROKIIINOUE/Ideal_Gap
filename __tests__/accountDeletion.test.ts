@@ -1,7 +1,7 @@
 const mockInvoke = jest.fn();
 const mockSignOutCurrentSession = jest.fn();
 
-jest.mock("../supabaseClient", () => ({
+jest.mock("../lib/supabaseClient", () => ({
   __esModule: true,
   supabase: {
     functions: {
@@ -10,13 +10,13 @@ jest.mock("../supabaseClient", () => ({
   },
 }));
 
-jest.mock("../logout", () => ({
+jest.mock("../lib/logout", () => ({
   __esModule: true,
   signOutCurrentSession: (...args: unknown[]) =>
     mockSignOutCurrentSession(...args),
 }));
 
-const { deleteCurrentAccount } = require("../accountDeletion");
+const { deleteCurrentAccount } = require("../lib/accountDeletion");
 
 describe("deleteCurrentAccount", () => {
   beforeEach(() => {

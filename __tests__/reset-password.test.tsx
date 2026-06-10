@@ -10,6 +10,7 @@ const mockRequestPasswordResetEmail = jest.fn();
 const mockCompletePasswordReset = jest.fn();
 const mockSetSessionFromRecoveryLink = jest.fn();
 const mockReplace = jest.fn();
+const mockGetAccessStateForUser = jest.fn();
 
 jest.mock("../components/LanguageSheet", () => () => null);
 jest.mock("../components/Footer", () => () => null);
@@ -47,11 +48,22 @@ jest.mock("../lib/auth", () => ({
   setSessionFromRecoveryLink: (...args: unknown[]) => mockSetSessionFromRecoveryLink(...args),
 }));
 
+jest.mock("../lib/subscription", () => ({
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
+}));
+
 describe("ResetPassword screen", () => {
   const originalPlatform = Platform.OS;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: false,
+      accessMode: "blocked",
+      resolution: "subscription_required",
+      subscription: null,
+      accessOverride: null,
+    });
     (Linking.getInitialURL as jest.Mock).mockResolvedValue(null);
     (Linking.addEventListener as jest.Mock).mockReturnValue({ remove: jest.fn() });
   });
@@ -123,7 +135,7 @@ describe("ResetPassword screen", () => {
     expect(readinessTexts.length).toBeGreaterThan(0);
 
     fireEvent.changeText(getByPlaceholderText("New password"), "new-password");
-    fireEvent.press(getByRole("button", { name: "Update password and log in" }));
+    fireEvent.press(getByRole("button", { name: "Update password" }));
 
     await waitFor(() => expect(mockCompletePasswordReset).toHaveBeenCalledWith("new-password"));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));

@@ -6,7 +6,7 @@ import {
   PREMIUM_ENTITLEMENT_ID,
   TEST_STORE_OFFERING_ID,
   TEST_STORE_PACKAGE_ID,
-} from "../revenuecatOfferings";
+} from "../lib/revenuecatOfferings";
 
 jest.mock("react-native-purchases", () => ({
   getCustomerInfo: jest.fn(),

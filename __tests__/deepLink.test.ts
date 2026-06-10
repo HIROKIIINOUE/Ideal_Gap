@@ -1,4 +1,4 @@
-import { parseAuthTokensFromUrl } from "../deepLink";
+import { parseAuthTokensFromUrl } from "../lib/deepLink";
 
 describe("deepLink helpers", () => {
   it("returns null when recovery type is disallowed", () => {

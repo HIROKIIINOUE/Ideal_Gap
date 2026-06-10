@@ -5,7 +5,7 @@
 module.exports = {
   preset: 'jest-expo',
   testMatch: [
-    '**/__tests__/**/*.[jt]s?(x)',
+    '**/__tests__/**/*.test.[jt]s?(x)',
     '**/?(*.)+(spec|test).[tj]s?(x)'
   ],
   setupFiles: ['<rootDir>/jest.env.js'],
