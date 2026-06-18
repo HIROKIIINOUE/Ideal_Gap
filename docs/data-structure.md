@@ -51,9 +51,9 @@
   Table subscriptions {
     id uuid [pk]
     user_id uuid [not null, ref: > users.id]
-    plan varchar  // 現段階ではスタンダードプランのみ
+    plan varchar  // 有料商品IDのみを保持。free判定は subscriptions行なし または status=expired で行う
     status status
-    trial_ends_at timestamptz
+    trial_ends_at timestamptz  // 将来の機能別トライアル用に保持
     current_period_end timestamptz
     cancel_at_period_end boolean
     created_at timestamptz
@@ -68,7 +68,6 @@
     "active"
     "canceled"
     "expired"
-    "signupAwait"
   }
 
   Table user_ideal {
@@ -178,6 +177,20 @@
     updated_at  timestamptz
   }
 
+  Table focus_music_download_quotas {
+    user_id uuid [pk, not null, ref: > users.id]
+    download_count int [not null, default: 0]
+    plan_snapshot varchar [not null] // "free" | "paid" | "friend_free"
+    window_started_at timestamptz [not null] // 現在のDLカウント窓の開始時刻(UTC)
+    reset_at timestamptz [not null] // 現在のDLカウント窓のリセット時刻(UTC)
+    created_at timestamptz
+    updated_at timestamptz
+
+    Indexes {
+      (reset_at)
+    }
+  }
+
   Table feedbacks {
     id uuid [pk]
     user_id uuid [ref: > users.id] // ログイン済みユーザの場合のみ紐づく（未ログインなら null）
@@ -207,3 +220,47 @@
   }
 
 ```
+
+## 3. マネタイズ仕様変更後のアクセス判定
+
+- `guest`
+  - 未ログイン
+- `free`
+  - ログイン済み
+  - `subscriptions` 行がない、または `status` が `expired`
+- `paid`
+  - ログイン済み
+  - `subscriptions.status` が `trial` または `active` または `canceled`
+- `friend_free`
+  - `access_overrides.access_type = 'friend_free'` かつ `is_active = true`
+  - アプリ内では paid 相当として扱う
+
+## 4. 補足方針
+
+- 無料ユーザーを表現するための RevenueCat 商品や `subscriptions` 行は作成しない
+- `subscriptions` 行が存在していても、`status` が `expired` の場合は free として扱う
+- `subscriptions.status = 'canceled'` は「解約予約済みだが利用期限内」として paid 扱いにする
+- `subscriptions.plan` は有料商品のみを保持し、値は `pro_monthly` を基準に統一する
+- `trial_ends_at` は将来の機能別トライアル再導入に備えて保持する
+- 既存の `signupAwait` は旧課金導線向けの暫定状態として扱い、新仕様実装時に廃止する
+- 機能ごとの作成上限や月間DL上限は、この後の追加テーブル設計で管理する
+
+## 5. 音楽DL数の管理方針
+
+- `focus_music_download_quotas` は「ユーザーごとの現在のDLカウント窓」を保持する
+- 1ユーザーにつき常に1行のみ保持する
+- `window_started_at` と `reset_at` により、ユーザーごとに異なる30日窓を表現する
+- `plan_snapshot` は、その行の最終更新時点で `free` / `paid` / `friend_free` のどれだったかを保持する
+- 無料ユーザーの月間上限は 5 件、有料ユーザーの月間上限は 30 件を想定する
+- 上限判定と加算はクライアントの read -> write で行わず、DB関数(RPC)で原子的に処理する
+
+## 6. DB関数(RPC)方針
+
+- `increment_focus_music_download_quota(...)` を追加し、音楽DL成功直前に呼び出す
+- この関数は以下を1回で実行する
+  - 行がなければ新しいDL窓を作成
+  - `reset_at` を過ぎていたら `download_count` をリセットし、新しい窓を開始する
+  - 窓の有効期間中なら `download_count` を加算する
+  - `plan_snapshot` と `updated_at` を更新する
+  - 上限超過時は更新せずエラーにする
+- 月間DL制限のような改ざん耐性が必要な値は、今後もこのようなRPC経由で更新する
