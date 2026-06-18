@@ -69,9 +69,9 @@ describe("useRedirectAuthenticated", () => {
     });
     (getAccessStateForUser as jest.Mock).mockResolvedValue({
       canAccessApp: true,
-      accessMode: "paid",
+      accessMode: "free",
       resolution: "entitled",
-      subscription: { status: "active" },
+      subscription: null,
       accessOverride: null,
     });
     (loadPersistedTaskTimerSession as jest.Mock).mockResolvedValue(null);

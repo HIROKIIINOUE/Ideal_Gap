@@ -11,7 +11,6 @@ let mockLanguage: "ja" | "en" | "fr" = "en";
 
 const mockFetchTestStorePackage = jest.fn();
 const mockGetAccessStateForUser = jest.fn();
-const mockEnsureSignupAwaitSubscription = jest.fn();
 
 jest.mock("expo-router", () => {
   const React = require("react");
@@ -35,8 +34,6 @@ jest.mock("../lib/revenuecatOfferings", () => ({
 
 jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
-  ensureSignupAwaitSubscription: (...args: unknown[]) =>
-    mockEnsureSignupAwaitSubscription(...args),
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
@@ -80,14 +77,10 @@ describe("Signup screen", () => {
       data: { subscription: { unsubscribe: jest.fn() } },
     });
     mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: false,
-      accessMode: "none",
+      canAccessApp: true,
+      accessMode: "free",
       subscription: null,
       accessOverride: null,
-    });
-    mockEnsureSignupAwaitSubscription.mockResolvedValue({
-      user_id: "user-123",
-      status: "signupAwait",
     });
     mockFetchTestStorePackage.mockResolvedValue({
       package: {
@@ -110,7 +103,7 @@ describe("Signup screen", () => {
       ok: true,
       user: { id: "user-123" },
     });
-    mockResolveAuthenticatedEntryDestination.mockResolvedValue("/purchases?from=signup");
+    mockResolveAuthenticatedEntryDestination.mockResolvedValue("/dashboard");
   });
 
   afterEach(() => {
@@ -238,7 +231,7 @@ describe("Signup screen", () => {
       }),
     );
     expect(require("expo-router").router.replace).toHaveBeenCalledWith(
-      "/purchases?from=signup",
+      "/dashboard",
     );
   });
 

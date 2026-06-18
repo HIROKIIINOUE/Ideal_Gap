@@ -4,8 +4,8 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Platform,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,7 +29,6 @@ import {
 } from "../lib/revenuecatOfferings";
 import { captureRevenueCatPurchaseError } from "../lib/sentry";
 import {
-  ensureSignupAwaitSubscription,
   getAccessStateForUser,
   waitForActiveSubscription,
 } from "../lib/subscription";
@@ -105,14 +104,13 @@ export default function Purchases() {
       setUserId(uid);
       try {
         const accessState = await getAccessStateForUser(uid);
-        if (accessState.canAccessApp) {
-          if (mounted) setIsLoadingPlan(false);
-          router.replace("/dashboard");
-          return;
-        }
-
-        const subscription = await ensureSignupAwaitSubscription(uid);
-        if (subscription.status === "active" || subscription.status === "trial") {
+        // サインアップから来た場合はこの画面を表示せず、ユーザが意図的に支払いページに来る時のみ表示できるようにサインアップから来たかどうかを判定する
+        const openedFromSignup = Boolean(params?.signup || params?.from);
+        if (
+          accessState.accessMode === "paid" ||
+          accessState.accessMode === "friend_free" ||
+          (openedFromSignup && accessState.accessMode === "free")
+        ) {
           if (mounted) setIsLoadingPlan(false);
           router.replace("/dashboard");
           return;
@@ -130,7 +128,7 @@ export default function Purchases() {
     return () => {
       mounted = false;
     };
-  }, [loadPlan, t]);
+  }, [loadPlan, params?.from, params?.signup, t]);
 
   const storeName = useMemo(() => getStoreName(Platform.OS), []);
   const billedPriceLine = useMemo(() => getPlanBillingCopy(plan, t), [plan, t]);

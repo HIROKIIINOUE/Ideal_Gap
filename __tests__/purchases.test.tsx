@@ -10,7 +10,6 @@ import { supabase } from "../lib/supabaseClient";
 
 const mockFetchTestStorePackage = jest.fn();
 const mockPurchaseSelectedPackage = jest.fn();
-const mockEnsureSignupAwaitSubscription = jest.fn();
 const mockGetAccessStateForUser = jest.fn();
 const mockWaitForActiveSubscription = jest.fn();
 
@@ -38,13 +37,11 @@ jest.mock("../lib/revenuecatOfferings", () => ({
 }));
 
 jest.mock("../lib/subscription", () => ({
-  ensureSignupAwaitSubscription: (...args: unknown[]) =>
-    mockEnsureSignupAwaitSubscription(...args),
   getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
   waitForActiveSubscription: (...args: unknown[]) =>
     mockWaitForActiveSubscription(...args),
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
-    status === "active" || status === "trial",
+    status === "trial" || status === "active" || status === "canceled",
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
@@ -88,17 +85,16 @@ beforeEach(() => {
     trialLabel: "Free for 1 month",
     hasTrial: true,
   });
-  mockEnsureSignupAwaitSubscription.mockResolvedValue({ status: "signupAwait" });
   mockGetAccessStateForUser.mockResolvedValue({
-    canAccessApp: false,
-    accessMode: "none",
-    subscription: { status: "signupAwait" },
+    canAccessApp: true,
+    accessMode: "free",
+    subscription: null,
     accessOverride: null,
   });
   mockPurchaseSelectedPackage.mockResolvedValue({
     customerInfo: { entitlements: { active: { premium: { identifier: "premium" } } } },
   });
-  mockWaitForActiveSubscription.mockResolvedValue({ status: "trial" });
+  mockWaitForActiveSubscription.mockResolvedValue({ status: "active" });
 });
 
 describe("Purchases screen", () => {
@@ -120,6 +116,7 @@ describe("Purchases screen", () => {
     renderScreen();
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalled());
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard"));
 
     alertSpy.mockRestore();
   });
@@ -225,7 +222,13 @@ describe("Purchases screen", () => {
       expect(router.replace).toHaveBeenCalledWith("/dashboard");
     });
 
-    expect(mockEnsureSignupAwaitSubscription).not.toHaveBeenCalled();
     expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
+  });
+
+  test("shows pricing when a free user opens purchases manually", async () => {
+    renderScreen();
+
+    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
   });
 });

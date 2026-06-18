@@ -1,7 +1,6 @@
 import { User } from "@supabase/supabase-js";
 import { LanguageKey } from "../types/i18n";
 import {
-  ensureSignupAwaitSubscription,
   ensureUserProfileForAuthUser,
   getAccessStateForUser,
 } from "./subscription";
@@ -15,7 +14,7 @@ type ResolveAuthenticatedEntryDestinationParams = {
 };
 
 // Google/Apple認証完了後、紐づくユーザのDB情報を確認し、データの作成and遷移先を決める
-// ＜流れ＞Supabase session 確定 → users ensure → subscriptions ensure → status に応じて遷移
+// ＜流れ＞Supabase session 確定 → users ensure → access判定 → 遷移
 export const resolveAuthenticatedEntryDestination = async ({
   source,
   user,
@@ -31,10 +30,5 @@ export const resolveAuthenticatedEntryDestination = async ({
     return "/dashboard" as const;
   }
 
-  // Google/Apple認証完了後に該当ユーザに紐づくsubscriptionテーブルが存在するか確認、しなければ作成する(status: "signupAwait")
-  await ensureSignupAwaitSubscription(user.id, {
-    authUser: user,
-    language,
-  });
   return `/purchases?from=${source}` as const;
 };

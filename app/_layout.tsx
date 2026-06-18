@@ -22,7 +22,6 @@ import {
   SentryErrorBoundary,
 } from "../lib/sentry";
 import {
-  ensureSignupAwaitSubscription,
   getAccessStateForUser,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
@@ -188,16 +187,6 @@ export default function RootLayout() {
         if (error) {
           console.warn("Failed to set Supabase session from deep link", error.message);
           return false;
-        }
-        // ディープリンク経由でのサインアップ完了時に subscription行を確実に作成
-        const session = await supabase.auth.getSession();
-        const uid = session.data.session?.user?.id;
-        if (uid) {
-          try {
-            await ensureSignupAwaitSubscription(uid);
-          } catch (err) {
-            console.warn("Failed to ensure subscription after deep link", err);
-          }
         }
       }
 

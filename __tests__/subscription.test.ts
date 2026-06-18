@@ -129,8 +129,8 @@ describe("subscription helpers", () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        canAccessApp: false,
-        accessMode: "none",
+        canAccessApp: true,
+        accessMode: "free",
         resolution: "unknown",
         unknownReason: "subscription_fetch_failed",
       }),
@@ -200,5 +200,67 @@ describe("subscription helpers", () => {
     );
 
     warnSpy.mockRestore();
+  });
+
+  it("treats expired subscriptions as free access", async () => {
+    const maybeSingle = jest.fn().mockResolvedValue({
+      data: {
+        user_id: "user-123",
+        status: "expired",
+      },
+      error: null,
+    });
+    const limit = jest.fn(() => ({ maybeSingle }));
+    const order = jest.fn(() => ({ limit }));
+    const eq = jest.fn(() => ({ order }));
+    const select = jest.fn(() => ({ eq }));
+    const overrideMaybeSingle = jest.fn().mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    const overrideEq = jest.fn(() => ({ maybeSingle: overrideMaybeSingle }));
+    const overrideSelect = jest.fn(() => ({ eq: overrideEq }));
+
+    mockFrom
+      .mockReturnValueOnce({ select })
+      .mockReturnValueOnce({ select: overrideSelect });
+
+    const result = await getAccessStateForUser("user-123");
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        canAccessApp: true,
+        accessMode: "free",
+        resolution: "entitled",
+        source: "none",
+      }),
+    );
+  });
+
+  it("treats trial subscriptions as paid access", async () => {
+    const maybeSingle = jest.fn().mockResolvedValue({
+      data: {
+        user_id: "user-123",
+        status: "trial",
+      },
+      error: null,
+    });
+    const limit = jest.fn(() => ({ maybeSingle }));
+    const order = jest.fn(() => ({ limit }));
+    const eq = jest.fn(() => ({ order }));
+    const select = jest.fn(() => ({ eq }));
+
+    mockFrom.mockReturnValueOnce({ select });
+
+    const result = await getAccessStateForUser("user-123");
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        canAccessApp: true,
+        accessMode: "paid",
+        resolution: "entitled",
+        source: "subscription",
+      }),
+    );
   });
 });

@@ -2,13 +2,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { z } from "zod";
 import type { AccessMode } from "./subscription";
 
-const entitledAccessModeSchema = z.union([
+const cachedAccessModeSchema = z.union([
   z.literal("paid"),
+  z.literal("free"),
   z.literal("friend_free"),
 ]);
 
 const LastKnownAccessStateSchema = z.object({
-  accessMode: entitledAccessModeSchema,
+  accessMode: cachedAccessModeSchema,
   updatedAt: z.string().min(1),
 });
 
@@ -33,7 +34,7 @@ export const readLastKnownAccessState = async (
 
 export const writeLastKnownAccessState = async (
   userId: string,
-  accessMode: Extract<AccessMode, "paid" | "friend_free">,
+  accessMode: Extract<AccessMode, "paid" | "free" | "friend_free">,
 ): Promise<void> => {
   const payload = {
     accessMode,

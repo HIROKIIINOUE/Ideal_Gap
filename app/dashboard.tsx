@@ -322,7 +322,7 @@ export default function Dashboard() {
     }, [fetchNextFunPlan]),
   );
 
-  // ダッシュボード到達はsubscriptions.statusがactive or trial の時だけ
+  // ログイン済みユーザは free でも到達可能。paid相当は trial / active / canceled。
   // それ以外の場合はダッシュボードに辿り着けないようにここで制御
   useFocusEffect(
     useCallback(() => {

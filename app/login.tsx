@@ -29,7 +29,6 @@ import { isSupportedLanguage } from "../i18n";
 import { continueWithOAuthProvider, signInWithEmailPassword } from "../lib/auth";
 import { resolveAuthenticatedEntryDestination } from "../lib/authEntry";
 import {
-  ensureSignupAwaitSubscription,
   getAccessStateForUser,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
@@ -129,11 +128,6 @@ export default function Login() {
         if (accessState.canAccessApp) {
           router.replace("/dashboard");
         } else {
-          try {
-            await ensureSignupAwaitSubscription(userId);
-          } catch (error) {
-            console.warn("failed to ensure signupAwait subscription", error);
-          }
           router.replace("/purchases?from=login");
         }
       }

@@ -17,7 +17,7 @@ import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessor
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { continueWithOAuthProvider, signUpWithEmailConfirmation } from "../lib/auth";
 import { resolveAuthenticatedEntryDestination } from "../lib/authEntry";
-import { ensureSignupAwaitSubscription, getAccessStateForUser } from "../lib/subscription";
+import { getAccessStateForUser } from "../lib/subscription";
 import { getStoreName } from "../lib/subscriptionLegal";
 import { supabase } from "../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
@@ -95,15 +95,6 @@ export default function Signup() {
       const accessState = await getAccessStateForUser(userId);
       if (accessState.canAccessApp) {
         router.replace("/dashboard");
-        return;
-      }
-      if (!accessState.subscription || accessState.subscription.status === "signupAwait") {
-        try {
-          await ensureSignupAwaitSubscription(userId);
-        } catch (error) {
-          console.warn("failed to ensure signupAwait subscription", error);
-        }
-        router.replace("/purchases?from=signup");
         return;
       }
       router.replace("/purchases?from=signup");
