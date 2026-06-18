@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,13 +24,16 @@ import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAcces
 import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { decryptFieldValue, encryptFieldValue } from "../../lib/security/fieldEncryption";
+import { AccessMode, getAccessStateForUser } from "../../lib/subscription";
 import { supabase } from "../../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
+import { hasReachedUsageLimit } from "../../lib/usageLimits";
 import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import UsageLimitUpgradeModal from "../UsageLimitUpgradeModal";
 import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 type FunPlanCard = {
@@ -57,8 +61,6 @@ const offlineFunPlanSchema = z.array(
 
 const HEADER_CARD_GRADIENT = ["rgba(110,168,255,0.32)", "rgba(20,34,60,0.95)"] as const;
 const LIST_CARD_GRADIENT = ["rgba(104,195,255,0.26)", "rgba(17,38,70,0.96)"] as const;
-// 楽しい予定の制限数を指定
-const MAX_PLANS = 5;
 
 // 編集インプットモーダルに表示する更新日の表示フォーマット
 const formatUpdated = (iso?: string | null, updatedLabel?: string) => {
@@ -117,6 +119,8 @@ export default function FunPlanScreen() {
   const { t, i18n } = useTranslation("funPlan");
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [plans, setPlans] = useState<FunPlanCard[]>([]);
+  const [accessMode, setAccessMode] = useState<AccessMode>("free");
+  const [limitModalVisible, setLimitModalVisible] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalDraft, setModalDraft] = useState("");
@@ -137,7 +141,12 @@ export default function FunPlanScreen() {
   const isFrench = currentLanguage.startsWith("fr");
   const isAndroidJapanese = shouldUseAndroidJapaneseTypography(currentLanguage);
   const isAndroid = Platform.OS === "android";
-  const limitReached = plans.length >= MAX_PLANS;
+  // 無料ユーザならここでデータ数上限に達してるかどうかをbooleanで判定
+  const limitReached = hasReachedUsageLimit({
+    feature: "funPlans",
+    accessMode,
+    currentCount: plans.length,
+  });
 
   const getUserId = useMemo(
     () => async () => {
@@ -158,6 +167,13 @@ export default function FunPlanScreen() {
         if (active) setErrorMessage(t("errors.loginMissing"));
         setLoading(false);
         return;
+      }
+
+      if (!offlineBlocked) {
+        const accessState = await getAccessStateForUser(uid);
+        if (active) {
+          setAccessMode(accessState.accessMode);
+        }
       }
 
       // ローカルキャッシュのキー名を生成
@@ -210,7 +226,10 @@ export default function FunPlanScreen() {
   // 追加ボタン押下時の処理、インプットに必要な全ての状態変数がリセットされる
   const handleAddPress = () => {
     if (guardOfflineAction()) return;
-    if (limitReached) return;
+    if (limitReached) {
+      setLimitModalVisible(true);
+      return;
+    }
     setEditingId(null);
     setModalDraft("");
     setModalEventDate(null);
@@ -277,7 +296,7 @@ export default function FunPlanScreen() {
       return;
     }
     if (!editingId && limitReached) {
-      setModalError(t("limitReached"));
+      setLimitModalVisible(true);
       return;
     }
 
@@ -465,10 +484,10 @@ export default function FunPlanScreen() {
   const modalUpdatedText = editingMeta?.updatedAt ? formatUpdated(editingMeta.updatedAt, updatedLabel) : null;
   const modalDateLabel = modalEventDate
     ? modalEventDate.toLocaleDateString(pickerLocale, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
     : null;
   const modalSelectedDateText = modalDateLabel ? t("modal.selectedDate", { date: modalDateLabel }) : null;
 
@@ -519,10 +538,10 @@ export default function FunPlanScreen() {
             <View style={styles.actionRow}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityState={{ disabled: limitReached }}
-                style={[styles.primaryButton, limitReached && styles.buttonDisabled]}
+                accessibilityState={{ disabled: false }}
+                style={styles.primaryButton}
                 onPress={handleAddPress}
-                disabled={limitReached || offlineBlocked}
+                disabled={offlineBlocked}
               >
                 <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
                 <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>{t("add")}</Text>
@@ -543,7 +562,6 @@ export default function FunPlanScreen() {
                 </Text>
               </Pressable>
             </View>
-            {limitReached && <Text style={styles.limitText}>{t("limitHelper")}</Text>}
             {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
           </View>
         )}
@@ -722,6 +740,18 @@ export default function FunPlanScreen() {
           ) : null}
         </Pressable>
       </Modal>
+      <UsageLimitUpgradeModal
+        visible={limitModalVisible}
+        title={t("limitAlert.title")}
+        message={t("limitAlert.body")}
+        backLabel={t("limitAlert.back")}
+        upgradeLabel={t("limitAlert.upgrade")}
+        onClose={() => setLimitModalVisible(false)}
+        onUpgrade={() => {
+          setLimitModalVisible(false);
+          router.push("/purchases");
+        }}
+      />
     </GestureHandlerRootView>
   );
 }

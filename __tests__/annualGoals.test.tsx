@@ -8,6 +8,7 @@ import i18n from "../i18n";
 import { decryptFieldValue, decryptNullableFieldValue, isEncryptedFieldValue } from "../lib/security/fieldEncryption";
 import { supabase } from "../lib/supabaseClient";
 import { deleteYearlyGoals } from "../lib/api/supabase/goals/allItemDelete";
+import { getAccessStateForUser } from "../lib/subscription";
 
 let lastPieData: Array<{ value: number; color: string }> | null = null;
 
@@ -23,6 +24,12 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: MockLinearGradient };
 });
 
+jest.mock("expo-router", () => ({
+  router: {
+    push: jest.fn(),
+  },
+}));
+
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
@@ -30,6 +37,10 @@ jest.mock("../lib/supabaseClient", () => ({
     },
     from: jest.fn(),
   },
+}));
+
+jest.mock("../lib/subscription", () => ({
+  getAccessStateForUser: jest.fn(),
 }));
 
 jest.mock("react-native-gifted-charts", () => {
@@ -86,6 +97,12 @@ describe("AnnualGoalsScreen", () => {
     lastPieData = null;
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
+    });
+    (getAccessStateForUser as jest.Mock).mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active" },
+      accessOverride: null,
     });
     (supabase.from as jest.Mock).mockReturnValue({
       select: mockSelect,
@@ -273,6 +290,43 @@ describe("AnnualGoalsScreen", () => {
       null,
     ]);
     expect(isEncryptedFieldValue(updates[1].yearly_goal_detail)).toBe(true);
+  });
+
+  test("shows upgrade alert for free users when 10 annual goals already exist", async () => {
+    mockOrder.mockResolvedValueOnce({
+      data: Array.from({ length: 10 }, (_, index) => ({
+        id: `goal-${index + 1}`,
+        description: `Goal ${index + 1}`,
+        year_goal_color: "#1E5EFF",
+        yearly_goal_detail: null,
+        is_done: false,
+        accumulated_time_year: 0,
+        order: index,
+        updated_at: "2025-01-06T09:30:00Z",
+      })),
+      error: null,
+    });
+    (getAccessStateForUser as jest.Mock).mockResolvedValueOnce({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: null,
+      accessOverride: null,
+    });
+
+    const { findByRole, findByTestId, findByText } = renderScreen();
+
+    const addButton = await findByRole("button", { name: "Add" });
+    fireEvent.press(addButton);
+
+    expect(await findByText("Limit reached")).toBeTruthy();
+    expect(
+      await findByText(
+        "The free plan allows up to 10 items. Upgrade your plan to go beyond 10.",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.press(await findByTestId("usage-limit-upgrade-modal-upgrade"));
+    expect(require("expo-router").router.push).toHaveBeenCalledWith("/purchases");
   });
 
   test("uses smaller header typography for French title and buttons", async () => {

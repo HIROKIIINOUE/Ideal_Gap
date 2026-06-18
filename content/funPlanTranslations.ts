@@ -14,6 +14,12 @@ export type FunPlanTranslations = {
   updatedSuffix: string;
   limitHelper: string;
   limitReached: string;
+  limitAlert: {
+    title: string;
+    body: string;
+    back: string;
+    upgrade: string;
+  };
   modal: {
     addTitle: string;
     editTitle: string;
@@ -55,8 +61,14 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
       "直近の楽しみを可視化して、毎日のモチベーションを高めましょう。(1番上のリストのみダッシュボードに表示されます)",
     emptyCta: "最初の予定を追加",
     updatedSuffix: "更新",
-    limitHelper: "追加できるのは最大5件までです",
+    limitHelper: "無料プランでは最大5件まで追加できます",
     limitReached: "上限に達しました。削除してから追加してください。",
+    limitAlert: {
+      title: "上限に達しました",
+      body: "無料プランは最大5件までです。5件を超える場合はプランをアップグレードしてください。",
+      back: "戻る",
+      upgrade: "Pro Planへアップグレード",
+    },
     modal: {
       addTitle: "追加",
       editTitle: "編集",
@@ -96,8 +108,14 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
       "Keep your next exciting events in sight and stay motivated. (Only the top item appears on the dashboard)",
     emptyCta: "Add your first plan",
     updatedSuffix: "Updated",
-    limitHelper: "Up to 5 plans can be added",
+    limitHelper: "Free users can add up to 5 items",
     limitReached: "You’ve reached the limit. Remove one to add another.",
+    limitAlert: {
+      title: "Limit reached",
+      body: "The free plan allows up to 5 items. Upgrade your plan to go beyond 5.",
+      back: "Back",
+      upgrade: "Upgrade to Pro Plan",
+    },
     modal: {
       addTitle: "Add",
       editTitle: "Edit",
@@ -137,8 +155,14 @@ export const funPlanTranslations: Record<LanguageKey, FunPlanTranslations> = {
       "Gardez vos prochains événements sympas en vue pour rester motivé-e au quotidien. (Seul le premier élément s’affiche sur le tableau de bord)",
     emptyCta: "Ajouter un événement",
     updatedSuffix: "Mise à jour",
-    limitHelper: "Vous pouvez en ajouter jusqu’à 5",
+    limitHelper: "Les utilisateurs gratuits peuvent en ajouter jusqu’à 5",
     limitReached: "Limite atteinte. Supprimez-en un pour en ajouter un autre.",
+    limitAlert: {
+      title: "Limite atteinte",
+      body: "Le forfait gratuit permet jusqu’à 5 éléments. Passez au forfait Pro pour dépasser 5.",
+      back: "Retour",
+      upgrade: "Passer au forfait Pro",
+    },
     modal: {
       addTitle: "Ajouter",
       editTitle: "Modifier",

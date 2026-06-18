@@ -7,6 +7,7 @@ import { spacing } from "../constants/theme";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 import { decryptFieldValue, isEncryptedFieldValue } from "../lib/security/fieldEncryption";
+import { getAccessStateForUser } from "../lib/subscription";
 
 jest.mock("@expo/vector-icons", () => {
   const MockIcon = () => null;
@@ -20,6 +21,12 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: MockLinearGradient };
 });
 
+jest.mock("expo-router", () => ({
+  router: {
+    push: jest.fn(),
+  },
+}));
+
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
     auth: {
@@ -27,6 +34,10 @@ jest.mock("../lib/supabaseClient", () => ({
     },
     from: jest.fn(),
   },
+}));
+
+jest.mock("../lib/subscription", () => ({
+  getAccessStateForUser: jest.fn(),
 }));
 
 jest.mock("react-native-draggable-flatlist", () => {
@@ -60,6 +71,12 @@ describe("IdealSelfScreen reordering", () => {
     await i18n.changeLanguage("en");
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
+    });
+    (getAccessStateForUser as jest.Mock).mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active" },
+      accessOverride: null,
     });
     (supabase.from as jest.Mock).mockReturnValue({
       select: mockSelect,
@@ -230,6 +247,39 @@ describe("IdealSelfScreen reordering", () => {
 
     expect(queryByText("Invalid input")).toBeNull();
     expect(await findByText("Please enter at least 1 character")).toBeTruthy();
+  });
+
+  test("shows upgrade alert for free users when 10 ideals already exist", async () => {
+    mockOrder.mockResolvedValueOnce({
+      data: Array.from({ length: 10 }, (_, index) => ({
+        id: `ideal-${index + 1}`,
+        description: `Ideal ${index + 1}`,
+        order: index,
+        updated_at: "2024-01-01T00:00:00Z",
+      })),
+      error: null,
+    });
+    (getAccessStateForUser as jest.Mock).mockResolvedValueOnce({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: null,
+      accessOverride: null,
+    });
+
+    const { findByRole, findByTestId, findByText } = renderScreen();
+
+    const addButton = await findByRole("button", { name: "Add" });
+    fireEvent.press(addButton);
+
+    expect(await findByText("Limit reached")).toBeTruthy();
+    expect(
+      await findByText(
+        "The free plan allows up to 10 items. Upgrade your plan to go beyond 10.",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.press(await findByTestId("usage-limit-upgrade-modal-upgrade"));
+    expect(require("expo-router").router.push).toHaveBeenCalledWith("/purchases");
   });
 
   test("dismisses keyboard when tapping modal overlay", async () => {

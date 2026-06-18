@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Controller, FieldErrors } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -29,11 +30,14 @@ import { deleteYearlyGoals } from "../../lib/api/supabase/goals/allItemDelete";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { encryptFieldValue, encryptNullableFieldValue } from "../../lib/security/fieldEncryption";
+import { AccessMode, getAccessStateForUser } from "../../lib/subscription";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
+import { hasReachedUsageLimit } from "../../lib/usageLimits";
 import { useOffline } from "../../providers/OfflineProvider";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import UsageLimitUpgradeModal from "../UsageLimitUpgradeModal";
 import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 type AnnualGoal = {
@@ -144,10 +148,12 @@ export default function AnnualGoalsScreen() {
   const { t, i18n } = useTranslation("annualGoals");
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [goals, setGoals] = useState<AnnualGoal[]>([]);
+  const [accessMode, setAccessMode] = useState<AccessMode>("free");
   const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
   const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [limitModalVisible, setLimitModalVisible] = useState(false);
   const [detailGoalId, setDetailGoalId] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
@@ -198,6 +204,14 @@ export default function AnnualGoalsScreen() {
 
       // ローカルキャッシュのキー名を生成
       const cacheKey = buildOfflineCacheKey("annual-goals", uid);
+
+      if (!offlineBlocked) {
+        // ユーザのアクセス権限情報を取得
+        const accessState = await getAccessStateForUser(uid);
+        if (active) {
+          setAccessMode(accessState.accessMode);
+        }
+      }
       // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
       if (offlineBlocked) {
         const cached = await readOfflineCache(cacheKey, offlineAnnualGoalSchema);
@@ -238,6 +252,12 @@ export default function AnnualGoalsScreen() {
     () => goals.reduce((sum, goal) => sum + Math.max(goal.accumulatedMinutes, 0), 0),
     [goals],
   );
+  // 無料ユーザならここでデータ数上限に達してるかどうかをbooleanで判定
+  const limitReached = hasReachedUsageLimit({
+    feature: "annualGoals",
+    accessMode,
+    currentCount: goals.length,
+  });
 
   // ドーナツ型円グラフ作成のためのデータ取得
   const chartData = useMemo(() => {
@@ -253,6 +273,10 @@ export default function AnnualGoalsScreen() {
 
   const handleAddPress = () => {
     if (guardOfflineAction()) return;
+    if (limitReached) {
+      setLimitModalVisible(true);
+      return;
+    }
     setModalError(null);
     reset(DEFAULT_FORM_VALUES);
     setModalState(createAddModalState());
@@ -744,7 +768,12 @@ export default function AnnualGoalsScreen() {
 
             <View style={styles.actionRow}>
               {!deleteMode && (
-                <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={offlineBlocked}>
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.primaryButton}
+                  onPress={handleAddPress}
+                  disabled={offlineBlocked}
+                >
                   <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
                   <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>{t("add")}</Text>
                 </Pressable>
@@ -1005,6 +1034,19 @@ export default function AnnualGoalsScreen() {
           ) : null}
         </Pressable>
       </Modal>
+
+      <UsageLimitUpgradeModal
+        visible={limitModalVisible}
+        title={t("limitAlert.title")}
+        message={t("limitAlert.body")}
+        backLabel={t("limitAlert.back")}
+        upgradeLabel={t("limitAlert.upgrade")}
+        onClose={() => setLimitModalVisible(false)}
+        onUpgrade={() => {
+          setLimitModalVisible(false);
+          router.push("/purchases");
+        }}
+      />
     </GestureHandlerRootView>
   );
 }
