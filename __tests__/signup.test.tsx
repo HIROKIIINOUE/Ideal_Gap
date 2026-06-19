@@ -9,7 +9,7 @@ import { supabase } from "../lib/supabaseClient";
 
 let mockLanguage: "ja" | "en" | "fr" = "en";
 
-const mockFetchTestStorePackage = jest.fn();
+const mockFetchRevenueCatPackage = jest.fn();
 const mockGetAccessStateForUser = jest.fn();
 
 jest.mock("expo-router", () => {
@@ -29,7 +29,7 @@ const mockContinueWithOAuthProvider = jest.fn();
 const mockResolveAuthenticatedEntryDestination = jest.fn();
 
 jest.mock("../lib/revenuecatOfferings", () => ({
-  fetchTestStorePackage: (...args: unknown[]) => mockFetchTestStorePackage(...args),
+  fetchRevenueCatPackage: (...args: unknown[]) => mockFetchRevenueCatPackage(...args),
 }));
 
 jest.mock("../lib/subscription", () => ({
@@ -82,7 +82,7 @@ describe("Signup screen", () => {
       subscription: null,
       accessOverride: null,
     });
-    mockFetchTestStorePackage.mockResolvedValue({
+    mockFetchRevenueCatPackage.mockResolvedValue({
       package: {
         identifier: "monthly",
         product: {

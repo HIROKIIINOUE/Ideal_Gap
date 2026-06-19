@@ -6,8 +6,8 @@ import Purchases, {
 } from "react-native-purchases";
 
 // ここで取得対象のオファリング/パッケージを指定する
-export const TEST_STORE_OFFERING_ID = "standard_monthly";
-export const TEST_STORE_PACKAGE_ID = "monthly";
+export const REVENUECAT_OFFERING_ID = "default";
+export const REVENUECAT_PACKAGE_ID = "monthly";
 export const PREMIUM_ENTITLEMENT_ID = "premium";
 
 type PackageIntroPrice = NonNullable<PurchasesPackage["product"]["introPrice"]>;
@@ -43,7 +43,7 @@ const resolveTrialDuration = (
 };
 
 // UI用のパッケージ情報の型
-export type TestStorePlan = {
+export type RevenueCatPlan = {
   package: PurchasesPackage;
   priceString: string;
   trialLabel?: string;
@@ -51,17 +51,17 @@ export type TestStorePlan = {
 };
 
 // RevenueCatから全オファリングを取得。該当パッケージ(今回はmonthly)が無ければNullを返す
-// 同時にトライアル期間があればTestStorePlanの形式でそれも返す
-export const fetchTestStorePackage =
-  async (): Promise<TestStorePlan | null> => {
+// 同時にトライアル期間があればRevenueCatPlanの形式でそれも返す
+export const fetchRevenueCatPackage =
+  async (): Promise<RevenueCatPlan | null> => {
     const offerings = await Purchases.getOfferings();
     const offering =
-      offerings.all?.[TEST_STORE_OFFERING_ID] ?? offerings.current ?? null;
+      offerings.all?.[REVENUECAT_OFFERING_ID] ?? offerings.current ?? null;
     if (!offering) return null;
 
     const selectedPackage =
       offering.availablePackages.find(
-        (pkg) => pkg.identifier === TEST_STORE_PACKAGE_ID,
+        (pkg) => pkg.identifier === REVENUECAT_PACKAGE_ID,
       ) ??
       offering.availablePackages[0] ??
       null;

@@ -207,7 +207,7 @@ serve(async (req: Request) => {
     {
       id: subscriptionId,
       user_id: appUserId,
-      plan: "standard",
+      plan: "pro_monthly",
       status: subscriptionState.status as
         | "trial"
         | "active"

@@ -8,12 +8,11 @@ import i18n from "../i18n";
 import { colors } from "../constants/theme";
 import { LanguageProvider } from "../providers/LanguageProvider";
 import {
-  fetchTestStorePackage,
+  fetchRevenueCatPackage,
   purchaseSelectedPackage,
 } from "../lib/revenuecatOfferings";
 import {
   getAccessStateForUser,
-  ensureSignupAwaitSubscription,
   waitForActiveSubscription,
 } from "../lib/subscription";
 import { supabase } from "../lib/supabaseClient";
@@ -36,14 +35,13 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("../lib/revenuecatOfferings", () => ({
-  fetchTestStorePackage: jest.fn(),
+  fetchRevenueCatPackage: jest.fn(),
   purchaseSelectedPackage: jest.fn(),
   hasActiveEntitlement: (customerInfo: any, entitlementId = "premium") =>
     Boolean(customerInfo?.entitlements?.active?.[entitlementId]),
 }));
 jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: jest.fn(),
-  ensureSignupAwaitSubscription: jest.fn(),
   waitForActiveSubscription: jest.fn(),
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
     status === "active" || status === "trial",
@@ -57,10 +55,9 @@ jest.mock("../lib/supabaseClient", () => ({
   },
 }));
 
-const mockFetchTestStorePackage = fetchTestStorePackage as jest.Mock;
+const mockFetchRevenueCatPackage = fetchRevenueCatPackage as jest.Mock;
 const mockPurchaseSelectedPackage = purchaseSelectedPackage as jest.Mock;
 const mockGetAccessStateForUser = getAccessStateForUser as jest.Mock;
-const mockEnsureSignupAwaitSubscription = ensureSignupAwaitSubscription as jest.Mock;
 const mockWaitForActiveSubscription = waitForActiveSubscription as jest.Mock;
 const mockGetSession = supabase.auth.getSession as jest.Mock;
 const mockSignOut = supabase.auth.signOut as jest.Mock;
@@ -85,17 +82,13 @@ describe("Purchases screen", () => {
       error: null,
     });
     mockSignOut.mockResolvedValue({ error: null });
-    mockEnsureSignupAwaitSubscription.mockResolvedValue({
-      user_id: "user-123",
-      status: "signupAwait",
-    });
     mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: false,
-      accessMode: "none",
-      subscription: { status: "signupAwait" },
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: null,
       accessOverride: null,
     });
-    mockFetchTestStorePackage.mockResolvedValue({
+    mockFetchRevenueCatPackage.mockResolvedValue({
       package: { identifier: "monthly" },
       priceString: "$9.99",
       trialDuration: { unit: "MONTH", value: 1 },
@@ -107,11 +100,11 @@ describe("Purchases screen", () => {
     (router.replace as jest.Mock).mockClear();
   });
 
-  it("shows Test Store pricing and completes purchase", async () => {
+  it("shows RevenueCat pricing and completes purchase", async () => {
     const screen = renderWithProviders();
 
     await waitFor(() =>
-      expect(mockFetchTestStorePackage).toHaveBeenCalled(),
+      expect(mockFetchRevenueCatPackage).toHaveBeenCalled(),
     );
 
     await screen.findByText("Standard plan");
@@ -147,7 +140,7 @@ describe("Purchases screen", () => {
   });
 
   it("retries loading pricing when retry button is pressed", async () => {
-    mockFetchTestStorePackage
+    mockFetchRevenueCatPackage
       .mockRejectedValueOnce(new Error("load failed"))
       .mockResolvedValueOnce({
         package: { identifier: "monthly" },
@@ -162,7 +155,7 @@ describe("Purchases screen", () => {
     fireEvent.press(retryButton);
 
     await waitFor(() => {
-      expect(mockFetchTestStorePackage).toHaveBeenCalledTimes(2);
+      expect(mockFetchRevenueCatPackage).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -170,7 +163,7 @@ describe("Purchases screen", () => {
     const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
     const screen = renderWithProviders();
 
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
     const returnButton = await screen.findByRole("button", { name: "Return to home" });
     fireEvent.press(returnButton);
@@ -190,7 +183,7 @@ describe("Purchases screen", () => {
 
     const screen = renderWithProviders();
 
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
     const returnButton = await screen.findByRole("button", { name: "Return to home" });
     fireEvent.press(returnButton);
@@ -216,7 +209,7 @@ describe("Purchases screen", () => {
       expect(router.replace).toHaveBeenCalledWith("/dashboard");
     });
 
-    expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
+    expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
   });
 
   it("stays on purchases when subscription is canceled", async () => {
@@ -231,7 +224,7 @@ describe("Purchases screen", () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(mockFetchTestStorePackage).toHaveBeenCalled();
+        expect(mockFetchRevenueCatPackage).toHaveBeenCalled();
     });
 
     expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
@@ -254,7 +247,7 @@ describe("Purchases screen", () => {
       expect(router.replace).toHaveBeenCalledWith("/dashboard");
     });
 
-    expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
+    expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
   });
 
   it("redirects to dashboard when friend free override is active", async () => {
@@ -271,7 +264,7 @@ describe("Purchases screen", () => {
       expect(router.replace).toHaveBeenCalledWith("/dashboard");
     });
 
-    expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
+    expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
   });
 
   it("localizes page label and trial notice in Japanese", async () => {
@@ -279,7 +272,7 @@ describe("Purchases screen", () => {
     await i18n.changeLanguage("ja");
     const screen = renderWithProviders();
 
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
     const labels = await screen.findAllByText(/購入|お支払い/);
     expect(labels.length).toBeGreaterThan(0);
@@ -291,7 +284,7 @@ describe("Purchases screen", () => {
     await i18n.changeLanguage("fr");
     const screen = renderWithProviders();
 
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
     await screen.findByText("Ajouter un moyen de paiement");
     await screen.findByText(

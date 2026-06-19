@@ -65,15 +65,9 @@ type AuthUserProfileInput = Pick<
   User,
   "id" | "email" | "user_metadata" | "app_metadata"
 >;
-type EnsureSignupAwaitSubscriptionOptions = {
-  authUser?: AuthUserProfileInput | null;
-  language?: LanguageKey | null;
-};
 const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = ["trial", "active"];
 
 const nowIso = () => new Date().toISOString();
-// 同じuserIdで複数回同時にensureSignupAwaitSubscription が呼ばれたとき、DBに重複行を挿入しないためのデータ構造。進行中のプロミス処理も一つにまとめてくれる。
-const ensureInFlight = new Map<string, Promise<SubscriptionRow>>();
 
 type QueryResult<T> = {
   data: T | null;
@@ -444,65 +438,6 @@ export const waitForActiveSubscription = async (
   }
 
   return null;
-};
-
-// 旧有料導線向けに残している暫定subscription作成ロジック（今後廃止予定）
-export const ensureSignupAwaitSubscription = async (
-  userId: string,
-  options?: EnsureSignupAwaitSubscriptionOptions,
-): Promise<SubscriptionRow> => {
-  // 既に同じuserIdの非同期処理が進行中ならそれに相乗りする新しい処理を発生させないためのロジック。複数非同期処理の制御
-  const inFlight = ensureInFlight.get(userId);
-  if (inFlight) return inFlight;
-
-  // ユーザ情報からそのユーザのサブスクリプション情報を取得、取得できた場合は新規作成はさせないためのロジック。
-  // １ユーザにつき複数サブスクリプションデータが生成されるのを防止。
-  const existing = await getSubscriptionForUser(userId);
-  if (existing) return existing;
-
-  const promise = (async () => {
-    // ユーザ情報がDBに存在するか確認し、なければsubscriptionデータ処理の前に作成
-    const authUser =
-      options?.authUser ?? (await getCurrentAuthUserForId(userId));
-    if (authUser) {
-      await ensureUserProfileForAuthUser(authUser, options?.language);
-    }
-    const timestamp = nowIso();
-
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .insert({
-        user_id: userId,
-        status: "signupAwait",
-        plan: "standard",
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .select("*")
-      .single();
-
-    // Supabase側から一意制約エラーが返ってきたら、userIdで既存のデータを再取得しにいく
-    if (error?.code === "23505") {
-      const fallback = await getSubscriptionForUser(userId);
-      if (fallback) return fallback;
-    }
-
-    if (error || !data) {
-      throw new Error(
-        error?.message ?? "Failed to ensure signupAwait subscription",
-      );
-    }
-
-    return data as SubscriptionRow;
-  })();
-
-  // 非同期処理promise()を走らせる前にensureFlightに値をセットすることでisFlightがtrueになり、現行のensureSignupAwaitSubscriptionが走り切るまで重複したensureSignupAwaitSubscriptionが走ることのないように制御。
-  ensureInFlight.set(userId, promise);
-
-  // 非同期処理が終わったら成功・失敗関係なく非同期処理制御を停止する
-  // これがないと一度終わった前回の非同期処理がMapに残り続けて次回以降の呼び出しをブロックしてしまう
-  const result = await promise.finally(() => ensureInFlight.delete(userId));
-  return result;
 };
 
 // 購入処理後にサブスクstatusをactiveに更新・挿入

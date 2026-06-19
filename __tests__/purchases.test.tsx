@@ -8,7 +8,7 @@ import PurchasesScreen from "../app/purchases";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
-const mockFetchTestStorePackage = jest.fn();
+const mockFetchRevenueCatPackage = jest.fn();
 const mockPurchaseSelectedPackage = jest.fn();
 const mockGetAccessStateForUser = jest.fn();
 const mockWaitForActiveSubscription = jest.fn();
@@ -30,7 +30,7 @@ jest.mock("../components/LanguageSheet", () => () => null);
 jest.mock("../components/Footer", () => () => null);
 
 jest.mock("../lib/revenuecatOfferings", () => ({
-  fetchTestStorePackage: (...args: unknown[]) => mockFetchTestStorePackage(...args),
+  fetchRevenueCatPackage: (...args: unknown[]) => mockFetchRevenueCatPackage(...args),
   purchaseSelectedPackage: (...args: unknown[]) => mockPurchaseSelectedPackage(...args),
   hasActiveEntitlement: (customerInfo: any, entitlementId = "premium") =>
     Boolean(customerInfo?.entitlements?.active?.[entitlementId]),
@@ -68,7 +68,7 @@ beforeEach(() => {
     error: null,
   });
   (supabase.auth.signOut as jest.Mock).mockResolvedValue({ error: null });
-  mockFetchTestStorePackage.mockResolvedValue({
+  mockFetchRevenueCatPackage.mockResolvedValue({
     package: {
       identifier: "monthly",
       product: {
@@ -124,7 +124,7 @@ describe("Purchases screen", () => {
   test("purchases package and redirects after webhook sync", async () => {
     const { getByText } = renderScreen();
 
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
     fireEvent.press(getByText("Continue to payment"));
 
@@ -139,7 +139,7 @@ describe("Purchases screen", () => {
     });
 
     const { getByText } = renderScreen();
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
     fireEvent.press(getByText("Continue to payment"));
 
@@ -149,7 +149,7 @@ describe("Purchases screen", () => {
   });
 
   test("shows load error and retries when RevenueCat pricing cannot be loaded", async () => {
-    mockFetchTestStorePackage
+    mockFetchRevenueCatPackage
       .mockRejectedValueOnce(new Error("load failed"))
       .mockResolvedValueOnce({
         package: {
@@ -173,13 +173,13 @@ describe("Purchases screen", () => {
     expect(await findByText("Could not load pricing. Please try again.")).toBeTruthy();
     fireEvent.press(getByRole("button", { name: "Retry pricing" }));
 
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalledTimes(2));
   });
 
   test("returns to home after sign out when return-home button is pressed", async () => {
     const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
     const { getByRole } = renderScreen();
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
     fireEvent.press(getByRole("button", { name: "Return to home" }));
 
@@ -197,7 +197,7 @@ describe("Purchases screen", () => {
     });
 
     const { getByRole } = renderScreen();
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
     fireEvent.press(getByRole("button", { name: "Return to home" }));
 
@@ -222,13 +222,13 @@ describe("Purchases screen", () => {
       expect(router.replace).toHaveBeenCalledWith("/dashboard");
     });
 
-    expect(mockFetchTestStorePackage).not.toHaveBeenCalled();
+    expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
   });
 
   test("shows pricing when a free user opens purchases manually", async () => {
     renderScreen();
 
-    await waitFor(() => expect(mockFetchTestStorePackage).toHaveBeenCalled());
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
     expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
   });
 });

@@ -22,10 +22,10 @@ import {
   getPlanTrialCopy,
 } from "../lib/planCopy";
 import {
-  fetchTestStorePackage,
+  fetchRevenueCatPackage,
   hasActiveEntitlement,
   purchaseSelectedPackage,
-  TestStorePlan,
+  RevenueCatPlan,
 } from "../lib/revenuecatOfferings";
 import { captureRevenueCatPurchaseError } from "../lib/sentry";
 import {
@@ -39,7 +39,7 @@ export default function Purchases() {
   const { t } = useTranslation("purchases");
   const { t: tCommonNav } = useTranslation("common", { keyPrefix: "navigation" });
   const params = useLocalSearchParams();
-  const [plan, setPlan] = useState<TestStorePlan | null>(null);
+  const [plan, setPlan] = useState<RevenueCatPlan | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -69,7 +69,7 @@ export default function Purchases() {
     setIsLoadingPlan(true);
     setPlanError(null);
     try {
-      const fetchedPlan = await fetchTestStorePackage();
+      const fetchedPlan = await fetchRevenueCatPackage();
       setPlan(fetchedPlan);
     } catch (error) {
       console.warn("Failed to load offering", error);

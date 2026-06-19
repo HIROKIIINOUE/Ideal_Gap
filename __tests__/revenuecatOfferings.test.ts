@@ -1,11 +1,11 @@
 import Purchases from "react-native-purchases";
 import {
-  fetchTestStorePackage,
+  fetchRevenueCatPackage,
   getRevenueCatEntitlementAccessState,
   hasActiveEntitlement,
   PREMIUM_ENTITLEMENT_ID,
-  TEST_STORE_OFFERING_ID,
-  TEST_STORE_PACKAGE_ID,
+  REVENUECAT_OFFERING_ID,
+  REVENUECAT_PACKAGE_ID,
 } from "../lib/revenuecatOfferings";
 
 jest.mock("react-native-purchases", () => ({
@@ -19,15 +19,15 @@ const mockGetOfferings = Purchases.getOfferings as jest.Mock;
 const mockGetCustomerInfo = Purchases.getCustomerInfo as jest.Mock;
 const mockIsConfigured = Purchases.isConfigured as jest.Mock;
 
-describe("fetchTestStorePackage", () => {
+describe("fetchRevenueCatPackage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsConfigured.mockResolvedValue(true);
   });
 
-  it("returns the Test Store package with trial info from intro price", async () => {
+  it("returns the RevenueCat package with trial info from intro price", async () => {
     const mockPackage = {
-      identifier: TEST_STORE_PACKAGE_ID,
+      identifier: REVENUECAT_PACKAGE_ID,
       product: {
         priceString: "$8.50",
         introPrice: {
@@ -40,14 +40,14 @@ describe("fetchTestStorePackage", () => {
 
     mockGetOfferings.mockResolvedValue({
       all: {
-        [TEST_STORE_OFFERING_ID]: {
+        [REVENUECAT_OFFERING_ID]: {
           availablePackages: [mockPackage],
         },
       },
       current: null,
     });
 
-    const plan = await fetchTestStorePackage();
+    const plan = await fetchRevenueCatPackage();
 
     expect(mockGetOfferings).toHaveBeenCalled();
     expect(plan?.package).toBe(mockPackage);
@@ -56,13 +56,13 @@ describe("fetchTestStorePackage", () => {
     expect(plan?.trialLabel).toBe("Free for 1 month");
   });
 
-  it("returns null when the Test Store offering is missing", async () => {
+  it("returns null when the RevenueCat offering is missing", async () => {
     mockGetOfferings.mockResolvedValue({
       all: {},
       current: null,
     });
 
-    const plan = await fetchTestStorePackage();
+    const plan = await fetchRevenueCatPackage();
     expect(plan).toBeNull();
   });
 });
