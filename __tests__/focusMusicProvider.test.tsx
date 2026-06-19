@@ -3,10 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { FocusMusicProvider, useFocusMusic } from "../providers/FocusMusicProvider";
-import {
-  FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX,
-  FOCUS_MUSIC_INSTALLED_KEY,
-} from "../lib/focus-music/constants";
+import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
 import { FocusMusicTrack, InstallResult } from "../types/focus-music";
 import * as FileSystem from "expo-file-system/legacy";
 
@@ -57,6 +54,8 @@ const mockFetchCatalog = jest.fn(async () => mockCatalog);
 const mockSignedUrl = jest.fn(
   async (_trackId: string) => "https://example.com/focus.mp3",
 );
+const mockLoadFocusMusicDownloadQuota = jest.fn();
+const mockConsumeFocusMusicDownloadQuota = jest.fn();
 const mockNetInfoFetch = jest.fn();
 const mockDownloadResumableDownloadAsync = jest.fn().mockResolvedValue({
   uri: "file://test/focus-music/track-1.mp3",
@@ -92,6 +91,13 @@ jest.mock("../lib/focus-music/catalog", () => ({
 
 jest.mock("../lib/focus-music/signedUrl", () => ({
   createFocusMusicSignedUrl: (trackId: string) => mockSignedUrl(trackId),
+}));
+
+jest.mock("../lib/focus-music/quota", () => ({
+  loadFocusMusicDownloadQuota: (...args: unknown[]) =>
+    mockLoadFocusMusicDownloadQuota(...args),
+  consumeFocusMusicDownloadQuota: (...args: unknown[]) =>
+    mockConsumeFocusMusicDownloadQuota(...args),
 }));
 
 const mockGetUserId = jest.fn(async () => "user-1");
@@ -144,6 +150,27 @@ describe("FocusMusicProvider", () => {
     jest.useRealTimers();
     mockFetchCatalog.mockClear();
     mockSignedUrl.mockClear();
+    mockLoadFocusMusicDownloadQuota.mockReset();
+    mockLoadFocusMusicDownloadQuota.mockResolvedValue({
+      accessMode: "free",
+      limit: 5,
+      count: 0,
+      remaining: 5,
+      resetAt: null,
+      windowStartedAt: null,
+    });
+    mockConsumeFocusMusicDownloadQuota.mockReset();
+    mockConsumeFocusMusicDownloadQuota.mockResolvedValue({
+      ok: true,
+      quota: {
+        accessMode: "free",
+        limit: 5,
+        count: 1,
+        remaining: 4,
+        resetAt: "2026-07-18T00:00:00.000Z",
+        windowStartedAt: "2026-06-18T00:00:00.000Z",
+      },
+    });
     mockNetInfoFetch.mockReset();
     mockDownloadResumableDownloadAsync.mockReset();
     mockDownloadResumableDownloadAsync.mockResolvedValue({
@@ -611,14 +638,14 @@ describe("FocusMusicProvider", () => {
       isConnected: true,
       isInternetReachable: true,
     });
-
-    await AsyncStorage.setItem(
-      `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.user-1`,
-      JSON.stringify({
-        resetAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-        count: 100,
-      }),
-    );
+    mockLoadFocusMusicDownloadQuota.mockResolvedValue({
+      accessMode: "free",
+      limit: 5,
+      count: 5,
+      remaining: 0,
+      resetAt: "2026-06-23T00:00:00.000Z",
+      windowStartedAt: "2026-05-24T00:00:00.000Z",
+    });
 
     const { result } = renderHook(() => useFocusMusic(), {
       wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
@@ -638,13 +665,23 @@ describe("FocusMusicProvider", () => {
   });
 
   test("reloads monthly download quota when app returns to foreground", async () => {
-    await AsyncStorage.setItem(
-      `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.user-1`,
-      JSON.stringify({
-        resetAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-        count: 18,
-      }),
-    );
+    mockLoadFocusMusicDownloadQuota
+      .mockResolvedValueOnce({
+        accessMode: "free",
+        limit: 5,
+        count: 3,
+        remaining: 2,
+        resetAt: "2026-06-23T00:00:00.000Z",
+        windowStartedAt: "2026-05-24T00:00:00.000Z",
+      })
+      .mockResolvedValueOnce({
+        accessMode: "paid",
+        limit: 30,
+        count: 4,
+        remaining: 26,
+        resetAt: "2026-06-21T00:00:00.000Z",
+        windowStartedAt: "2026-05-22T00:00:00.000Z",
+      });
 
     const { result } = renderHook(() => useFocusMusic(), {
       wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
@@ -652,32 +689,35 @@ describe("FocusMusicProvider", () => {
 
     await waitFor(() => expect(result.current.monthlyDownloadRemaining).toBe(2));
 
-    await AsyncStorage.setItem(
-      `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.user-1`,
-      JSON.stringify({
-        resetAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-        count: 4,
-      }),
-    );
-
     await act(async () => {
       appStateChangeListener?.("background");
       appStateChangeListener?.("active");
     });
 
-    await waitFor(() => expect(result.current.monthlyDownloadRemaining).toBe(16));
+    await waitFor(() => expect(result.current.monthlyDownloadRemaining).toBe(26));
+    expect(result.current.monthlyDownloadLimit).toBe(30);
   });
 
   test("automatically resets monthly download quota when resetAt passes", async () => {
     jest.useFakeTimers();
-
-    await AsyncStorage.setItem(
-      `${FOCUS_MUSIC_DOWNLOAD_QUOTA_KEY_PREFIX}.user-1`,
-      JSON.stringify({
-        resetAt: new Date(Date.now() + 1000).toISOString(),
-        count: 20,
-      }),
-    );
+    const initialResetAt = new Date(Date.now() + 1000).toISOString();
+    mockLoadFocusMusicDownloadQuota
+      .mockResolvedValueOnce({
+        accessMode: "free",
+        limit: 5,
+        count: 5,
+        remaining: 0,
+        resetAt: initialResetAt,
+        windowStartedAt: "2026-05-19T00:00:00.000Z",
+      })
+      .mockResolvedValueOnce({
+        accessMode: "free",
+        limit: 5,
+        count: 0,
+        remaining: 5,
+        resetAt: "2026-07-18T00:00:01.000Z",
+        windowStartedAt: "2026-06-18T00:00:01.000Z",
+      });
 
     const { result } = renderHook(() => useFocusMusic(), {
       wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
@@ -690,6 +730,36 @@ describe("FocusMusicProvider", () => {
       await Promise.resolve();
     });
 
-    await waitFor(() => expect(result.current.monthlyDownloadRemaining).toBe(20));
+    await waitFor(() => expect(result.current.monthlyDownloadRemaining).toBe(5));
+  });
+
+  test("reverts downloaded file when quota consumption fails after download", async () => {
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+    });
+    mockConsumeFocusMusicDownloadQuota.mockResolvedValue({
+      ok: false,
+      reason: "monthly_limit",
+    });
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    let installResult: InstallResult | undefined;
+    await act(async () => {
+      installResult = await result.current.installTrack("track-1");
+    });
+
+    expect(installResult).toEqual({ ok: false, reason: "monthly_limit" });
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
+      "file://test/focus-music/track-1.mp3",
+      { idempotent: true },
+    );
+    expect(result.current.installedTracks).toHaveLength(0);
   });
 });

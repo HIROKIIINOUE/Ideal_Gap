@@ -64,7 +64,7 @@ export const focusMusicTranslations: Record<
     title: "タスク集中音楽",
     description: "集中を途切れさせないための音楽を5曲まで管理できます。",
     subDescription:
-      "最大ダウンロード数は30日につき20回までです。{{resetAt}}にリセットされます。(残り{{count}}回)",
+      "現在のプランでは30日につき最大{{max}}回ダウンロードできます。{{resetAt}}にリセットされます。(残り{{count}}回)",
     installedTitle: "手持ちのタスク集中音楽",
     installedTitleWithCount: "手持ちのタスク集中音楽 ({{count}} / {{max}})",
     installedSubtitle: "タスクタイマーで使う曲を選択できます。",
@@ -122,7 +122,7 @@ export const focusMusicTranslations: Record<
     title: "Focus Music",
     description: "Manage up to five tracks that keep you in flow.",
     subDescription:
-      "You can download up to 20 tracks every 30 days. Resets on {{resetAt}}. (Remaining {{count}})",
+      "Your current plan allows up to {{max}} downloads every 30 days. Resets on {{resetAt}}. (Remaining {{count}})",
     installedTitle: "downloaded focus music",
     installedTitleWithCount: "downloaded focus music ({{count}} / {{max}})",
     installedSubtitle: "Choose which track to use in the timer.",
@@ -181,7 +181,7 @@ export const focusMusicTranslations: Record<
     title: "Musique de Concentration",
     description: "Gérez jusqu’à cinq morceaux pour rester concentré-e.",
     subDescription:
-      "La limite est de 20 téléchargements tous les 30 jours. Réinitialisation le {{resetAt}}. ({{count}} restants)",
+      "Votre formule actuelle permet jusqu’à {{max}} téléchargements tous les 30 jours. Réinitialisation le {{resetAt}}. ({{count}} restants)",
     installedTitle: "Musiques installées",
     installedTitleWithCount: "Musiques installées ({{count}} / {{max}})",
     installedSubtitle: "Sélectionnez le morceau utilisé durant le minuteur.",

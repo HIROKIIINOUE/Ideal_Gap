@@ -191,6 +191,43 @@ export type Database = {
         };
         Relationships: [];
       };
+      focus_music_download_quotas: {
+        Row: {
+          created_at: string;
+          download_count: number;
+          plan_snapshot: "free" | "paid" | "friend_free";
+          reset_at: string;
+          updated_at: string;
+          user_id: string;
+          window_started_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          download_count?: number;
+          plan_snapshot: "free" | "paid" | "friend_free";
+          reset_at: string;
+          updated_at?: string;
+          user_id: string;
+          window_started_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          download_count?: number;
+          plan_snapshot?: "free" | "paid" | "friend_free";
+          reset_at?: string;
+          updated_at?: string;
+          user_id?: string;
+          window_started_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "focus_music_download_quotas_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null;
@@ -521,6 +558,24 @@ export type Database = {
           p_email: string;
         };
         Returns: boolean;
+      };
+      increment_focus_music_download_quota: {
+        Args: {
+          p_increment?: number;
+          p_max_downloads?: number | null;
+          p_plan_snapshot: "free" | "paid" | "friend_free";
+          p_reset_interval_days?: number;
+          p_user_id: string;
+        };
+        Returns: {
+          created_at: string;
+          download_count: number;
+          plan_snapshot: "free" | "paid" | "friend_free";
+          reset_at: string;
+          updated_at: string;
+          user_id: string;
+          window_started_at: string;
+        }[];
       };
     };
     Enums: {
