@@ -446,7 +446,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
           fileName: getFocusMusicFileName(track),
           downloadedAt: new Date().toISOString(),
         };
-        // ダウンロード直後focus_music_download_quotasをチェックし。DLが正常に行われたか(ユーザDL数が+1されたか)を確認。エラーが発生していればDLされた音楽をdeleteTrackFileで削除し、refreshDownloadQuota()で画面表示用の quota 状態を再読込する
+        // ダウンロード後に quota 消費を確定し、上限超過なら保存済みファイルを削除してロールバックする
         const quotaConsumeResult = await consumeFocusMusicDownloadQuota(userId);
         if (!quotaConsumeResult.ok) {
           await deleteTrackFile(nextEntry.fileName).catch((error) => {

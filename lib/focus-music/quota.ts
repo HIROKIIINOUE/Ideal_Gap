@@ -97,6 +97,43 @@ const isMonthlyLimitError = (message: string | undefined) =>
   typeof message === "string" &&
   message.toLowerCase().includes("monthly download limit reached");
 
+// ユーザのfocus_music_download_quotas.plan_snapshotとsubscription.statusが異なる場合はDL残数を同期するべきとしてtrueを返す。
+const shouldSyncQuotaAccessMode = (
+  row: FocusMusicDownloadQuotaRow,
+  accessMode: FocusMusicDownloadQuotaAccessMode,
+) => row.plan_snapshot !== accessMode;
+
+// アクセスモード(paid or free)の変更に際してquotaの「ユーザDL数」を同期する。(Free -> Paidの時はDL数が0になり、Paid->FREEの場合は既存のDL数が持ち越される)
+// ※ 実際のfree or paid判定やデータの同期処理はrpcでDB側で行われる
+const syncFocusMusicDownloadQuotaAccess = async ({
+  userId,
+  accessMode,
+}: {
+  userId: string;
+  accessMode: FocusMusicDownloadQuotaAccessMode;
+}) => {
+  const { data, error } = await supabase.rpc(
+    "sync_focus_music_download_quota_access",
+    {
+      p_user_id: userId,
+      p_plan_snapshot: accessMode,
+      p_reset_interval_days: FOCUS_MUSIC_RESET_INTERVAL_DAYS,
+    },
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rawRow = Array.isArray(data) ? data[0] : data;
+  const parsed = FocusMusicDownloadQuotaRowSchema.safeParse(rawRow);
+  if (!parsed.success) {
+    throw new Error("Invalid focus music quota row");
+  }
+
+  return parsed.data;
+};
+
 // userIDと現在時刻を受け取り、そのユーザに紐付くfocus_music_download_quotasが存在するかどうかを確かめ、存在する場合はそのデータを用いて表示・事前判定用の現在状態を用意して返す。focus_music_download_quotasが存在しない場合は「DLをまだしていないもの」として表示・事前判定用の状態を返す
 export const loadFocusMusicDownloadQuota = async (
   userId: string,
@@ -119,10 +156,18 @@ export const loadFocusMusicDownloadQuota = async (
     throw new Error("Invalid focus music quota row");
   }
 
+  // ユーザのsubscription.status と focus_music_download_quotas.plan_snapshotの値が異なる時はquotaを正しいDL数に更新する(Free -> Paidの場合はリセット、Paid -> Freeの場合はDL数を持ち越し)
+  const syncedRow =
+    parsed?.success && shouldSyncQuotaAccessMode(parsed.data, accessMode)
+      ? await syncFocusMusicDownloadQuotaAccess({ userId, accessMode })
+      : parsed?.success
+        ? parsed.data
+        : null;
+
   return buildQuotaState({
     accessMode,
     limit,
-    row: parsed?.success ? parsed.data : null,
+    row: syncedRow,
     now,
   });
 };

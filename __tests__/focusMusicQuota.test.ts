@@ -81,6 +81,103 @@ describe("focus music quota helpers", () => {
     });
   });
 
+  test("resets quota window when a free user upgrades to paid", async () => {
+    const now = new Date("2026-06-18T12:00:00.000Z");
+    mockGetAccessStateForUser.mockResolvedValue({
+      accessMode: "paid",
+      canAccessApp: true,
+    });
+
+    const maybeSingle = jest.fn().mockResolvedValue({
+      data: {
+        download_count: 4,
+        reset_at: "2026-07-01T00:00:00.000Z",
+        window_started_at: "2026-06-01T00:00:00.000Z",
+        plan_snapshot: "free",
+      },
+      error: null,
+    });
+    const eq = jest.fn(() => ({ maybeSingle }));
+    const select = jest.fn(() => ({ eq }));
+    mockFrom.mockReturnValue({ select });
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          user_id: "user-1",
+          download_count: 0,
+          plan_snapshot: "paid",
+          window_started_at: "2026-06-18T12:00:00.000Z",
+          reset_at: "2026-07-18T12:00:00.000Z",
+        },
+      ],
+      error: null,
+    });
+
+    const quota = await loadFocusMusicDownloadQuota("user-1", now);
+
+    expect(mockRpc).toHaveBeenCalledWith("sync_focus_music_download_quota_access", {
+      p_user_id: "user-1",
+      p_plan_snapshot: "paid",
+      p_reset_interval_days: 30,
+    });
+    expect(quota).toEqual({
+      accessMode: "paid",
+      limit: 30,
+      count: 0,
+      remaining: 30,
+      resetAt: "2026-07-18T12:00:00.000Z",
+      windowStartedAt: "2026-06-18T12:00:00.000Z",
+    });
+  });
+
+  test("preserves quota count when a paid user downgrades to free", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      accessMode: "free",
+      canAccessApp: true,
+    });
+
+    const maybeSingle = jest.fn().mockResolvedValue({
+      data: {
+        download_count: 8,
+        reset_at: "2026-07-10T00:00:00.000Z",
+        window_started_at: "2026-06-10T00:00:00.000Z",
+        plan_snapshot: "paid",
+      },
+      error: null,
+    });
+    const eq = jest.fn(() => ({ maybeSingle }));
+    const select = jest.fn(() => ({ eq }));
+    mockFrom.mockReturnValue({ select });
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          user_id: "user-1",
+          download_count: 8,
+          plan_snapshot: "free",
+          window_started_at: "2026-06-10T00:00:00.000Z",
+          reset_at: "2026-07-10T00:00:00.000Z",
+        },
+      ],
+      error: null,
+    });
+
+    const quota = await loadFocusMusicDownloadQuota("user-1");
+
+    expect(mockRpc).toHaveBeenCalledWith("sync_focus_music_download_quota_access", {
+      p_user_id: "user-1",
+      p_plan_snapshot: "free",
+      p_reset_interval_days: 30,
+    });
+    expect(quota).toEqual({
+      accessMode: "free",
+      limit: 5,
+      count: 8,
+      remaining: 0,
+      resetAt: "2026-07-10T00:00:00.000Z",
+      windowStartedAt: "2026-06-10T00:00:00.000Z",
+    });
+  });
+
   test("treats expired quota window as a fresh window on read", async () => {
     const now = new Date("2026-06-18T12:00:00.000Z");
     const maybeSingle = jest.fn().mockResolvedValue({

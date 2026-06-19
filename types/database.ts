@@ -577,6 +577,22 @@ export type Database = {
           window_started_at: string;
         }[];
       };
+      sync_focus_music_download_quota_access: {
+        Args: {
+          p_plan_snapshot: "free" | "paid" | "friend_free";
+          p_reset_interval_days?: number;
+          p_user_id: string;
+        };
+        Returns: {
+          created_at: string;
+          download_count: number;
+          plan_snapshot: "free" | "paid" | "friend_free";
+          reset_at: string;
+          updated_at: string;
+          user_id: string;
+          window_started_at: string;
+        }[];
+      };
     };
     Enums: {
       language: "ja" | "en" | "fr";

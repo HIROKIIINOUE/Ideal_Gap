@@ -63,6 +63,8 @@ const mockFetchCatalog = jest.fn(async () => mockCatalog);
 const mockSignedUrl = jest.fn(
   async (_trackId: string) => "https://example.com/focus.mp3",
 );
+const mockLoadFocusMusicDownloadQuota = jest.fn();
+const mockConsumeFocusMusicDownloadQuota = jest.fn();
 const mockNetInfoFetch = jest.fn();
 const mockGetUserId = jest.fn(async () => "user-1");
 const mockDownloadResumableDownloadAsync = jest.fn().mockResolvedValue({
@@ -90,6 +92,13 @@ jest.mock("../lib/focus-music/catalog", () => ({
 
 jest.mock("../lib/focus-music/signedUrl", () => ({
   createFocusMusicSignedUrl: (trackId: string) => mockSignedUrl(trackId),
+}));
+
+jest.mock("../lib/focus-music/quota", () => ({
+  loadFocusMusicDownloadQuota: (...args: unknown[]) =>
+    mockLoadFocusMusicDownloadQuota(...args),
+  consumeFocusMusicDownloadQuota: (...args: unknown[]) =>
+    mockConsumeFocusMusicDownloadQuota(...args),
 }));
 
 jest.mock("../lib/api/supabase/common", () => ({
@@ -178,6 +187,27 @@ describe("FocusMusicScreen", () => {
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockFetchCatalog.mockClear();
     mockSignedUrl.mockClear();
+    mockLoadFocusMusicDownloadQuota.mockReset();
+    mockLoadFocusMusicDownloadQuota.mockResolvedValue({
+      accessMode: "free",
+      limit: 5,
+      count: 0,
+      remaining: 5,
+      resetAt: null,
+      windowStartedAt: null,
+    });
+    mockConsumeFocusMusicDownloadQuota.mockReset();
+    mockConsumeFocusMusicDownloadQuota.mockResolvedValue({
+      ok: true,
+      quota: {
+        accessMode: "free",
+        limit: 5,
+        count: 1,
+        remaining: 4,
+        resetAt: "2026-07-18T00:00:00.000Z",
+        windowStartedAt: "2026-06-18T00:00:00.000Z",
+      },
+    });
     mockNetInfoFetch.mockReset();
     mockDownloadResumableDownloadAsync.mockReset();
     mockDownloadResumableDownloadAsync.mockResolvedValue({
