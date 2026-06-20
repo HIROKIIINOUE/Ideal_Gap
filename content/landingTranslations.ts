@@ -19,11 +19,13 @@ export type LandingSections = {
   membership: {
     label: string;
     title: string;
-    price: string;
-    period: string;
-    trialBadge: string;
-    description: string;
-    bulletPoints: string[];
+    fallbackPrice: string;
+    freeTitle: string;
+    freeDescription: string;
+    freePoints: string[];
+    paidTitle: string;
+    paidDescription: string;
+    paidPoints: string[];
   };
   getStarted: {
     label: string;
@@ -64,24 +66,28 @@ export const landingTranslations: LandingTranslations = {
     },
     membership: {
       label: "Membership",
-      title: "定額プラン",
-      price: "390 円",
-      period: "/月",
-      trialBadge: "14日間無料トライアル付き",
-      description:
-        "支払い情報は{{storeName}}で安全に管理されます。無料期間中にキャンセルすれば請求は発生しません。",
-      bulletPoints: [
-        "390円/月で30日ごとに自動更新",
-        "14日間の無料トライアルあり",
-        "いつでもキャンセル予約可能",
-        "再サインアップ時は無料プラン適用なし",
+      title: "料金体系(無料プランあり)",
+      fallbackPrice: "390円",
+      freeTitle: "無料プラン",
+      freeDescription: "基本的な機能は使用可能です。",
+      freePoints: [
+        "一部データ保存数に制限あり",
+        "音楽ダウンロードは月5曲まで",
+        "サインアップ後にプラン変更可能",
+      ],
+      paidTitle: "有料プラン",
+      paidDescription: "Pro Planは月額{{price}}です。",
+      paidPoints: [
+        "全機能を無制限で利用可能",
+        "音楽ダウンロードは月30曲まで",
+        "ダッシュボードから簡単にキャンセル可能",
       ],
     },
     getStarted: {
       label: "Get Started",
       title: "まずはサインアップから",
       description:
-        "無料期間中も全ての機能使用可能です。無料期間中にキャンセルすれば支払いは一切発生しません。",
+        "まずは無料プランからお試しください。以下からユーザ登録、ログインが可能です。",
       ctaPrimary: "無料で始める",
       ctaSecondary: "ログイン",
     },
@@ -113,24 +119,27 @@ export const landingTranslations: LandingTranslations = {
     },
     membership: {
       label: "Membership",
-      title: "Subscription",
-      price: "3.99 CAD",
-      period: "/month",
-      trialBadge: "Includes 14-day free trial",
-      description:
-        "Payments are securely processed through {{storeName}}. Cancel during the free trial and you won’t be charged.",
-      bulletPoints: [
-        "3.99 CAD/month, billed every 30 days",
-        "14-day free trial available",
-        "Cancel anytime",
-        "No free plan when re-signing up",
+      title: "Pricing (Free Plan Available)",
+      fallbackPrice: "3.99 CAD",
+      freeTitle: "Free Plan",
+      freeDescription: "Basic features are available.",
+      freePoints: [
+        "Some data limits apply",
+        "Music downloads up to 5 per month",
+        "Plan changes available after sign-up",
+      ],
+      paidTitle: "Paid Plan",
+      paidDescription: "Pro Plan is {{price}} per month.",
+      paidPoints: [
+        "Unlimited access to all features",
+        "Music downloads up to 30 per month",
+        "Easy cancellation from the dashboard",
       ],
     },
     getStarted: {
       label: "Get Started",
       title: "Start with sign up",
-      description:
-        "All features are available during the trial. Cancel during the trial and you will not be charged.",
+      description: "Start with the free plan. You can sign up or log in below.",
       ctaPrimary: "Start free",
       ctaSecondary: "Log in",
     },
@@ -162,24 +171,28 @@ export const landingTranslations: LandingTranslations = {
     },
     membership: {
       label: "Abonnement",
-      title: "Abonnement",
-      price: "3.99 CAD",
-      period: "/mois",
-      trialBadge: "Essai gratuit de 14 jours inclus",
-      description:
-        "Les paiements sont traités en sécurité via {{storeName}}. Annulez pendant l’essai gratuit et vous ne serez pas facturé.",
-      bulletPoints: [
-        "3.99 CAD/mois, facturé tous les 30 jours",
-        "Essai gratuit de 14 jours disponible",
-        "Annulation possible à tout moment",
-        "Pas d’offre gratuite lors d’une réinscription",
+      title: "Tarification (forfait gratuit disponible)",
+      fallbackPrice: "3.99 CAD",
+      freeTitle: "Forfait gratuit",
+      freeDescription: "Les fonctions de base sont disponibles.",
+      freePoints: [
+        "Certaines limites de données s'appliquent",
+        "Musique : jusqu’à 5 téléchargements par mois",
+        "Changement de formule après inscription",
+      ],
+      paidTitle: "Forfait payant",
+      paidDescription: "Le Pro Plan coûte {{price}} par mois.",
+      paidPoints: [
+        "Toutes les fonctions sans limite",
+        "Musique : jusqu’à 30 téléchargements par mois",
+        "Annulation facile depuis le tableau de bord",
       ],
     },
     getStarted: {
       label: "Commencer",
       title: "Commencez l’inscription",
       description:
-        "Toutes les fonctionnalités sont disponibles pendant l’essai. Annulez durant l’essai et aucun paiement ne sera facturé.",
+        "Commencez avec le forfait gratuit. Vous pouvez vous inscrire ou vous connecter ci-dessous.",
       ctaPrimary: "Essai gratuit",
       ctaSecondary: "Connexion",
     },

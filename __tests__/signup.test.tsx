@@ -3,7 +3,6 @@ import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { Platform, ScrollView } from "react-native";
 import Signup from "../app/signup";
-import { typography } from "../constants/theme";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
@@ -279,36 +278,40 @@ describe("Signup screen", () => {
     expect(queryByText("Continue to sign up")).toBeTruthy();
   });
 
-  test("renders plan price and trial copy from RevenueCat offering", async () => {
-    const { findAllByText } = renderScreen();
+  test("shows the free-plan guidance copy in English", async () => {
+    const { findByText } = renderScreen();
 
-    const trialTexts = await findAllByText(/Free for 14 day/i);
-    expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/^3\.99CAD\/month$/i);
-    expect(priceTexts.length).toBeGreaterThan(0);
-    expect(priceTexts[0]).toHaveStyle({ fontSize: typography.xl });
-    expect(trialTexts[0]).toHaveStyle({ color: "#F2C94C" });
+    expect(await findByText("Start free")).toBeTruthy();
+    expect(
+      await findByText(
+        "You are signing up as a free user. If you want to upgrade to Pro Plan, change your plan from the More Options button in the dashboard.",
+      ),
+    ).toBeTruthy();
   });
 
-  test("shows fixed Japanese subscription copy", async () => {
+  test("shows fixed Japanese free-plan copy", async () => {
     mockLanguage = "ja";
     await i18n.changeLanguage("ja");
-    const { findAllByText } = renderScreen();
+    const { findByText } = renderScreen();
 
-    const trialTexts = await findAllByText(/14日間無料/);
-    expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/^390円\/月$/);
-    expect(priceTexts.length).toBeGreaterThan(0);
+    expect(await findByText("無料で始める")).toBeTruthy();
+    expect(
+      await findByText(
+        "無料ユーザーとしてサインアップします。Proプランへアップデートする場合はダッシュボード内のその他オプションボタンより料金プランを変更してください。",
+      ),
+    ).toBeTruthy();
   });
 
-  test("shows fixed French subscription copy", async () => {
+  test("shows fixed French free-plan copy", async () => {
     mockLanguage = "fr";
     await i18n.changeLanguage("fr");
-    const { findAllByText } = renderScreen();
+    const { findByText } = renderScreen();
 
-    const trialTexts = await findAllByText(/14 jours? gratuit/i);
-    expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/^3\.99CAD\/mois$/i);
-    expect(priceTexts.length).toBeGreaterThan(0);
+    expect(await findByText("Commencer gratuitement")).toBeTruthy();
+    expect(
+      await findByText(
+        "Vous vous inscrivez en tant qu’utilisateur gratuit. Si vous souhaitez passer au Pro Plan, modifiez votre formule depuis le bouton Autres options du tableau de bord.",
+      ),
+    ).toBeTruthy();
   });
 });

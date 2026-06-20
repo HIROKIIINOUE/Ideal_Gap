@@ -25,7 +25,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { LandingSections } from "../content/landingTranslations";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { signOutCurrentSession } from "../lib/logout";
-import { getStoreName } from "../lib/subscriptionLegal";
+import { fetchRevenueCatPackage } from "../lib/revenuecatOfferings";
 import {
   LANDING_SECTION_REVEAL_OFFSET,
   shouldRevealLandingSection,
@@ -231,7 +231,7 @@ export default function Index() {
   // ユーザ端末からアプリの表示領域(width)、OSの文字サイズ設定(fontScale)を取得する
   const { width, height, fontScale } = useWindowDimensions();
   const compact = isCompactScreen(width, fontScale);
-  const storeName = useMemo(() => getStoreName(Platform.OS), []);
+  const [membershipPrice, setMembershipPrice] = useState<string | null>(null);
   // i18n より現在の設定言語を取得
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
   const isFrench = currentLanguage.startsWith("fr");
@@ -242,17 +242,41 @@ export default function Index() {
     ? LANDING_SECTION_REVEAL_OFFSET + spacing.lg
     : LANDING_SECTION_REVEAL_OFFSET;
 
+  // 表示用の金額をRevenueCatから取得
+  useEffect(() => {
+    let active = true;
+
+    const loadPrice = async () => {
+      try {
+        const plan = await fetchRevenueCatPackage();
+        if (!active) return;
+        setMembershipPrice(plan?.priceString ?? null);
+      } catch (error) {
+        console.warn("Failed to load landing membership price", error);
+        if (active) setMembershipPrice(null);
+      }
+    };
+
+    loadPrice().catch((error) => {
+      console.warn("Unexpected landing membership price failure", error);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const translations: LandingSections = useMemo(
     () => ({
       hero: t("hero", { returnObjects: true }) as LandingSections["hero"],
       overview: t("overview", { returnObjects: true }) as LandingSections["overview"],
       membership: t("membership", {
         returnObjects: true,
-        storeName,
+        price: membershipPrice ?? t("membership.fallbackPrice"),
       }) as LandingSections["membership"],
       getStarted: t("getStarted", { returnObjects: true }) as LandingSections["getStarted"],
     }),
-    [storeName, t],
+    [membershipPrice, t],
   );
 
   // ヒーロー画面CTAボタンの光沢アニメーション【Animated from ReactNative】
@@ -429,11 +453,11 @@ export default function Index() {
       ...(Platform.OS === "android"
         ? null
         : {
-            opacity: scrollHintAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.7, 1],
-            }),
+          opacity: scrollHintAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.7, 1],
           }),
+        }),
     }),
     [scrollHintAnim],
   );
@@ -676,57 +700,99 @@ export default function Index() {
           </Text>
           <View style={styles.cardRow}>
             <Card shellStyle={styles.planCard} contentStyle={compact ? styles.cardCompact : undefined}>
-              <View style={styles.planPriceRow}>
+              <View style={styles.membershipBlock}>
                 <Text
                   style={[
-                    styles.planPrice,
-                    isFrench ? styles.planPriceFr : styles.planPriceJaEn,
-                    compact && (isFrench ? styles.planPriceCompactFr : styles.planPriceCompactJaEn),
-                    isAndroidJapanese && styles.planPriceAndroidJa,
+                    styles.membershipHeading,
+                    compact && styles.membershipHeadingCompact,
+                    isAndroidJapanese && styles.membershipHeadingAndroidJa,
                   ]}
                 >
-                  {translations.membership.price}
-                  {translations.membership.period}
+                  {translations.membership.freeTitle}
                 </Text>
-              </View>
-              <Text
-                style={[
-                  styles.planTrialBadge,
-                  isFrench ? styles.planTrialBadgeFr : styles.planTrialBadgeJaEn,
-                  compact && (isFrench ? styles.planTrialBadgeCompactFr : styles.planTrialBadgeCompactJaEn),
-                  isAndroidJapanese && styles.planTrialBadgeAndroidJa,
-                ]}
-              >
-                {translations.membership.trialBadge}
-              </Text>
-              <Text
-                style={[
-                  styles.cardBody,
-                  isFrench ? styles.cardBodyFr : styles.cardBodyJaEn,
-                  compact && (isFrench ? styles.cardBodyCompactFr : styles.cardBodyCompactJaEn),
-                  isAndroidJapanese && styles.cardBodyAndroidJa,
-                ]}
-              >
-                {translations.membership.description}
-              </Text>
-              <View style={styles.bulletList}>
-                {translations.membership.bulletPoints.map((item, index) => (
-                  <View key={item} style={styles.bulletRow}>
-                    <View style={styles.bulletMarker} testID={`landing-membership-bullet-marker-${index}`}>
-                      <View style={styles.bulletDot} testID={`landing-membership-bullet-${index}`} />
+                <View style={styles.membershipHeadingDivider} />
+                <Text
+                  style={[
+                    styles.cardBody,
+                    isFrench ? styles.cardBodyFr : styles.cardBodyJaEn,
+                    compact && (isFrench ? styles.cardBodyCompactFr : styles.cardBodyCompactJaEn),
+                    isAndroidJapanese && styles.cardBodyAndroidJa,
+                  ]}
+                >
+                  {translations.membership.freeDescription}
+                </Text>
+                <View style={styles.membershipList}>
+                  {translations.membership.freePoints.map((item) => (
+                    <View key={item} style={styles.membershipListRow}>
+                      <MaterialCommunityIcons
+                        name="check-circle"
+                        size={18}
+                        color="#8FD3FF"
+                        style={styles.membershipListIcon}
+                      />
+                      <Text
+                        style={[
+                          styles.membershipListText,
+                          isFrench ? styles.membershipListTextFr : styles.membershipListTextJaEn,
+                          compact &&
+                          (isFrench
+                            ? styles.membershipListTextCompactFr
+                            : styles.membershipListTextCompactJaEn),
+                          isAndroidJapanese && styles.membershipListTextAndroidJa,
+                        ]}
+                      >
+                        {item}
+                      </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.bulletText,
-                        isFrench ? styles.bulletTextFr : styles.bulletTextJaEn,
-                        compact && (isFrench ? styles.bulletTextCompactFr : styles.bulletTextCompactJaEn),
-                        isAndroidJapanese && styles.bulletTextAndroidJa,
-                      ]}
-                    >
-                      {item}
-                    </Text>
-                  </View>
-                ))}
+                  ))}
+                </View>
+              </View>
+              <View style={styles.membershipBlock}>
+                <Text
+                  style={[
+                    styles.membershipHeading,
+                    compact && styles.membershipHeadingCompact,
+                    isAndroidJapanese && styles.membershipHeadingAndroidJa,
+                  ]}
+                >
+                  {translations.membership.paidTitle}
+                </Text>
+                <View style={styles.membershipHeadingDivider} />
+                <Text
+                  style={[
+                    styles.cardBody,
+                    isFrench ? styles.cardBodyFr : styles.cardBodyJaEn,
+                    compact && (isFrench ? styles.cardBodyCompactFr : styles.cardBodyCompactJaEn),
+                    isAndroidJapanese && styles.cardBodyAndroidJa,
+                  ]}
+                >
+                  {translations.membership.paidDescription}
+                </Text>
+                <View style={styles.membershipList}>
+                  {translations.membership.paidPoints.map((item) => (
+                    <View key={item} style={styles.membershipListRow}>
+                      <MaterialCommunityIcons
+                        name="check-circle"
+                        size={18}
+                        color="#8FD3FF"
+                        style={styles.membershipListIcon}
+                      />
+                      <Text
+                        style={[
+                          styles.membershipListText,
+                          isFrench ? styles.membershipListTextFr : styles.membershipListTextJaEn,
+                          compact &&
+                          (isFrench
+                            ? styles.membershipListTextCompactFr
+                            : styles.membershipListTextCompactJaEn),
+                          isAndroidJapanese && styles.membershipListTextAndroidJa,
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             </Card>
           </View>
@@ -1137,53 +1203,62 @@ const styles = StyleSheet.create({
   planCard: {
     flex: 1,
   },
-  planPriceRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: spacing.sm,
+  membershipBlock: {
+    gap: spacing.xs,
   },
-  planPrice: {
+  membershipHeading: {
     color: colors.textPrimary,
+    fontSize: typography.md,
     fontWeight: "800",
+    letterSpacing: 0.3,
   },
-  planPriceJaEn: {
-    fontSize: typography.xl,
+  membershipHeadingCompact: {
+    fontSize: typography.sm * 1.06,
   },
-  planPriceAndroidJa: {
-    fontSize: typography.xl * 0.92,
+  membershipHeadingAndroidJa: {
+    fontSize: typography.md * 0.94,
   },
-  planPriceFr: {
-    fontSize: typography.lg * 1.08,
-    lineHeight: typography.lg * 1.28,
-  },
-  planPriceCompactJaEn: {
-    fontSize: typography.lg,
-  },
-  planPriceCompactFr: {
-    fontSize: typography.md * 1.2,
-    lineHeight: typography.md * 1.35,
-  },
-  planTrialBadge: {
-    color: colors.error,
+  membershipHeadingDivider: {
+    height: 1,
+    backgroundColor: "rgba(194,224,255,0.24)",
+    marginTop: spacing.xs,
     marginBottom: spacing.sm,
-    fontWeight: "700",
   },
-  planTrialBadgeJaEn: {
-    fontSize: typography.lg,
+  membershipList: {
+    gap: spacing.xs,
   },
-  planTrialBadgeAndroidJa: {
-    fontSize: typography.lg * 0.92,
+  membershipListRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.xs,
   },
-  planTrialBadgeFr: {
-    fontSize: typography.md * 1.05,
-    lineHeight: typography.md * 1.35,
+  membershipListIcon: {
+    marginTop: 1,
   },
-  planTrialBadgeCompactJaEn: {
-    fontSize: typography.md * 1.05,
+  membershipListText: {
+    color: colors.textPrimary,
+    flex: 1,
+    fontWeight: "600",
   },
-  planTrialBadgeCompactFr: {
-    fontSize: typography.sm * 1.08,
+  membershipListTextJaEn: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.45,
+  },
+  membershipListTextAndroidJa: {
+    fontSize: typography.sm * 0.94,
+    lineHeight: typography.sm * 1.38,
+  },
+  membershipListTextFr: {
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.5,
+  },
+  membershipListTextCompactJaEn: {
+    fontSize: typography.sm * 0.95,
     lineHeight: typography.sm * 1.4,
+  },
+  membershipListTextCompactFr: {
+    fontSize: typography.sm * 0.94,
+    lineHeight: typography.sm * 1.42,
   },
   scrollHint: {
     alignItems: "center",
