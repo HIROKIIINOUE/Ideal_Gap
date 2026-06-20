@@ -37,4 +37,19 @@ describe("MoreSheet", () => {
       expect(await AsyncStorage.getItem(TIMER_ALARM_ENABLED_STORAGE_KEY)).toBe("false");
     });
   });
+
+  test("fires payment action when plan change item is pressed", () => {
+    const onSelect = jest.fn();
+    const { getByText } = render(
+      <I18nextProvider i18n={i18n}>
+        <TimerAlarmPreferenceProvider>
+          <MoreSheet visible onClose={jest.fn()} onSelect={onSelect} />
+        </TimerAlarmPreferenceProvider>
+      </I18nextProvider>,
+    );
+
+    fireEvent.press(getByText("Manage plan"));
+
+    expect(onSelect).toHaveBeenCalledWith("payment");
+  });
 });

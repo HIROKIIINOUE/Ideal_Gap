@@ -26,6 +26,7 @@ import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { signOutCurrentSession } from "../lib/logout";
+import { navigateToPaymentScreen } from "../lib/paymentNavigation";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
@@ -201,7 +202,7 @@ export default function Contact() {
       router.push("/contact");
     }
     if (key === "payment") {
-      router.push("/payment-management");
+      await navigateToPaymentScreen(router);
     }
   };
 

@@ -1,5 +1,4 @@
 import React from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { I18nextProvider } from "react-i18next";
 import { Alert } from "react-native";
@@ -40,6 +39,7 @@ jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
   waitForActiveSubscription: (...args: unknown[]) =>
     mockWaitForActiveSubscription(...args),
+  PAID_SUBSCRIPTION_STATUSES: ["trial", "active", "canceled"],
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
     status === "trial" || status === "active" || status === "canceled",
 }));
@@ -73,17 +73,10 @@ beforeEach(() => {
       identifier: "monthly",
       product: {
         priceString: "$8.50",
-        introPrice: {
-          price: 0,
-          period: "P1M",
-          periodUnit: "MONTH",
-          periodNumberOfUnits: 1,
-        },
+        introPrice: null,
       },
     },
     priceString: "$8.50",
-    trialLabel: "Free for 1 month",
-    hasTrial: true,
   });
   mockGetAccessStateForUser.mockResolvedValue({
     canAccessApp: true,
@@ -101,10 +94,10 @@ describe("Purchases screen", () => {
   test("shows billed price, subscription details, and legal links", async () => {
     const { findByText } = renderScreen();
 
-    expect(await findByText("Standard plan")).toBeTruthy();
+    expect(await findByText("Pro Plan")).toBeTruthy();
     expect(await findByText("Auto-renews every 30 days")).toBeTruthy();
     expect(await findByText("$8.50/month")).toBeTruthy();
-    expect(await findByText("Free for 1 month, then renews at $8.50/month.")).toBeTruthy();
+    expect(await findByText("Unlimited Ideal Self cards")).toBeTruthy();
     expect(await findByText("Privacy Policy")).toBeTruthy();
     expect(await findByText("Terms of Use")).toBeTruthy();
   });
@@ -116,7 +109,7 @@ describe("Purchases screen", () => {
     renderScreen();
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalled());
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/purchases"));
 
     alertSpy.mockRestore();
   });
@@ -156,17 +149,10 @@ describe("Purchases screen", () => {
           identifier: "monthly",
           product: {
             priceString: "$8.50",
-            introPrice: {
-              price: 0,
-              period: "P1M",
-              periodUnit: "MONTH",
-              periodNumberOfUnits: 1,
-            },
+            introPrice: null,
           },
         },
         priceString: "$8.50",
-        trialLabel: "Free for 1 month",
-        hasTrial: true,
       });
     const { findByText, getByRole } = renderScreen();
 
@@ -176,39 +162,18 @@ describe("Purchases screen", () => {
     await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalledTimes(2));
   });
 
-  test("returns to home after sign out when return-home button is pressed", async () => {
-    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
+  test("returns to dashboard when return button is pressed", async () => {
     const { getByRole } = renderScreen();
     await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
-    fireEvent.press(getByRole("button", { name: "Return to home" }));
+    fireEvent.press(getByRole("button", { name: "Return to dashboard" }));
 
     await waitFor(() => {
-      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
-      expect(multiRemoveSpy).toHaveBeenCalled();
-      expect(router.replace).toHaveBeenCalledWith("/");
+      expect(router.replace).toHaveBeenCalledWith("/dashboard");
     });
   });
 
-  test("returns home after clearing persisted auth data when session is already missing", async () => {
-    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
-    (supabase.auth.signOut as jest.Mock).mockResolvedValueOnce({
-      error: { message: "Auth session missing!" },
-    });
-
-    const { getByRole } = renderScreen();
-    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
-
-    fireEvent.press(getByRole("button", { name: "Return to home" }));
-
-    await waitFor(() => {
-      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
-      expect(multiRemoveSpy).toHaveBeenCalled();
-      expect(router.replace).toHaveBeenCalledWith("/");
-    });
-  });
-
-  test("redirects friend free users to dashboard without loading pricing", async () => {
+  test("redirects friend free users to payment management", async () => {
     mockGetAccessStateForUser.mockResolvedValue({
       canAccessApp: true,
       accessMode: "friend_free",
@@ -217,11 +182,9 @@ describe("Purchases screen", () => {
     });
 
     renderScreen();
-
     await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith("/dashboard");
+      expect(router.replace).toHaveBeenCalledWith("/payment-management");
     });
-
     expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
   });
 
@@ -230,5 +193,34 @@ describe("Purchases screen", () => {
 
     await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
     expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
+  });
+
+  test("redirects active users to payment management", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active" },
+      accessOverride: null,
+    });
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/payment-management");
+    });
+    expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
+  });
+
+  test("keeps free users on purchases even when cached subscription exists", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: { status: "active" },
+      accessOverride: null,
+    });
+
+    renderScreen();
+    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
+    expect(router.replace).not.toHaveBeenCalledWith("/payment-management");
   });
 });

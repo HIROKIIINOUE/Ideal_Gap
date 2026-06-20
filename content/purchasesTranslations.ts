@@ -6,9 +6,18 @@ export type PurchasesTranslations = {
   backToHome: string;
   signupCompleteTitle: string;
   signupCompleteBody: string;
+  freePlanBody: string;
   planTitle: string;
   planDuration: string;
   planDescription: string;
+    planBenefits: {
+      idealSelfUnlimited: string;
+      annualGoalsUnlimited: string;
+      weeklyTasksUnlimited: string;
+      focusMusicMonthly30: string;
+      funPlanUnlimited: string;
+      prioritySupport: string;
+    };
   planRenewalPrice: string;
   trialInfo: string;
   planUnavailable: string;
@@ -39,14 +48,24 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
   {
     ja: {
       pageLabel: "お支払い",
-      headerTitle: "お支払い方法の入力",
+      headerTitle: "料金プラン変更",
       backToHome: "ホームへ戻る",
       signupCompleteTitle: "ユーザー作成が完了しました",
       signupCompleteBody:
         "メール認証が完了しました。お支払いを完了して利用を開始してください。",
-      planTitle: "スタンダードプラン",
+      freePlanBody:
+        "無料枠の上限に達した時や有料プランへ切り替えたい時は、この画面から変更できます。",
+      planTitle: "Pro Plan",
       planDuration: "30日ごとの自動更新",
       planDescription: "{{storeName}} に登録済みの支払い方法を利用します。",
+      planBenefits: {
+        idealSelfUnlimited: "理想の自分カード追加無制限",
+        annualGoalsUnlimited: "年間目標カード追加無制限",
+        weeklyTasksUnlimited: "週間タスクカード追加無制限",
+        focusMusicMonthly30: "音楽月間ダウンロード数最大30曲",
+        funPlanUnlimited: "次回の楽しい予定リスト追加無制限",
+        prioritySupport: "お問い合わせ優先対応",
+      },
       planRenewalPrice: "{{price}}/月",
       trialInfo: "{{trial}}の後に {{price}}/月で自動更新されます。",
       planUnavailable: "プラン情報を取得できませんでした",
@@ -64,7 +83,7 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       privacyPolicyLabel: "プライバシーポリシー",
       termsOfUseLabel: "利用規約",
       retryPricingCta: "価格を再取得",
-      returnHomeCta: "ホームページへ戻る",
+      returnHomeCta: "ダッシュボードへ戻る",
       returningHomeCta: "戻っています...",
       returnHomeError:
         "ホームへ戻れませんでした。時間をおいて再度お試しください。",
@@ -78,13 +97,23 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
     },
     en: {
       pageLabel: "Purchase",
-      headerTitle: "Add payment method",
+      headerTitle: "Change plan",
       backToHome: "Back to Home",
       signupCompleteTitle: "Account ready",
       signupCompleteBody: "Your account is confirmed. Finish payment to start.",
-      planTitle: "Standard plan",
+      freePlanBody:
+        "Upgrade here whenever you hit a free-tier limit or want to switch to the paid plan.",
+      planTitle: "Pro Plan",
       planDuration: "Auto-renews every 30 days",
       planDescription: "Uses your {{storeName}} billing method.",
+      planBenefits: {
+        idealSelfUnlimited: "Unlimited Ideal Self cards",
+        annualGoalsUnlimited: "Unlimited Annual Goal cards",
+        weeklyTasksUnlimited: "Unlimited Weekly Task cards",
+        focusMusicMonthly30: "Up to 30 music downloads per month",
+        funPlanUnlimited: "Unlimited Next Fun Plan items",
+        prioritySupport: "Priority support",
+      },
       planRenewalPrice: "{{price}}/month",
       trialInfo: "{{trial}}, then renews at {{price}}/month.",
       planUnavailable: "Plan info unavailable",
@@ -101,7 +130,7 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       privacyPolicyLabel: "Privacy Policy",
       termsOfUseLabel: "Terms of Use",
       retryPricingCta: "Retry pricing",
-      returnHomeCta: "Return to home",
+      returnHomeCta: "Return to dashboard",
       returningHomeCta: "Returning...",
       returnHomeError: "Could not return home. Please try again.",
       billingLabel: "Billing contact email (optional)",
@@ -114,14 +143,24 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
     },
     fr: {
       pageLabel: "Achat",
-      headerTitle: "Ajouter un moyen de paiement",
+      headerTitle: "Changer de forfait",
       backToHome: "Retour à l’accueil",
       signupCompleteTitle: "Compte prêt",
       signupCompleteBody:
         "Votre compte est confirmé. Finalisez le paiement pour commencer.",
-      planTitle: "Forfait standard",
+      freePlanBody:
+        "Passez au forfait payant ici lorsque vous atteignez une limite gratuite ou souhaitez changer de formule.",
+      planTitle: "Pro Plan",
       planDuration: "Renouvellement automatique tous les 30 jours",
       planDescription: "Utilise votre moyen de paiement {{storeName}}.",
+      planBenefits: {
+        idealSelfUnlimited: "Cartes Ideal Self illimitées",
+        annualGoalsUnlimited: "Cartes objectifs annuels illimitées",
+        weeklyTasksUnlimited: "Cartes tâches hebdomadaires illimitées",
+        focusMusicMonthly30: "Jusqu’à 30 téléchargements audio par mois",
+        funPlanUnlimited: "Éléments Next Fun Plan illimités",
+        prioritySupport: "Assistance prioritaire",
+      },
       planRenewalPrice: "{{price}}/mois",
       trialInfo: "{{trial}}, puis renouvellement à {{price}}/mois.",
       planUnavailable: "Paiement indisponible",
@@ -139,7 +178,7 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       privacyPolicyLabel: "Politique de confidentialité",
       termsOfUseLabel: "Conditions d’utilisation",
       retryPricingCta: "Réessayer le tarif", //マリー再チェック
-      returnHomeCta: "Retour à l’accueil", //マリー再チェック
+      returnHomeCta: "Retour au tableau de bord", //マリー再チェック
       returningHomeCta: "Retour en cours...", //マリー再チェック
       returnHomeError: "Impossible de revenir à l’accueil. Veuillez réessayer.", //マリー再チェック
       billingLabel: "E-mail de facturation (optionnel)",

@@ -9,6 +9,7 @@ import LanguageSheet from "../components/LanguageSheet";
 import MoreSheet from "../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signOutCurrentSession } from "../lib/logout";
+import { navigateToPaymentScreen } from "../lib/paymentNavigation";
 import { getAccessStateForUser } from "../lib/subscription";
 import { getStoreName } from "../lib/subscriptionLegal";
 import { openSubscriptionManagementPortal } from "../lib/subscriptionManagement";
@@ -28,6 +29,8 @@ export default function PaymentManagement() {
   const [cancellationNoticeKey, setCancellationNoticeKey] = useState<"active" | "trial">("active");
   const [showCancellationNotice, setShowCancellationNotice] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const [isRoutingToPurchases, setIsRoutingToPurchases] = useState(false);
   const { funPlanVisible, toggleFunPlan } = useFunPlan();
 
   // トーストメッセージの雛形
@@ -53,6 +56,7 @@ export default function PaymentManagement() {
       const { data, error } = await supabase.auth.getSession();
       const userId = data.session?.user?.id;
       if (error || !userId) {
+        if (active) setIsCheckingAccess(false);
         if (active) router.replace("/login");
         return;
       }
@@ -60,14 +64,25 @@ export default function PaymentManagement() {
       const accessState = await getAccessStateForUser(userId);
       if (!active) return;
 
-      if (accessState.accessMode === "friend_free") {
-        setCancellationNoticeKey("active");
-        setShowCancellationNotice(false);
-        setStatusKey("friendFree");
+      if (
+        accessState.accessMode !== "paid" &&
+        accessState.accessMode !== "friend_free"
+      ) {
+        setIsCheckingAccess(false);
+        setIsRoutingToPurchases(true);
+        router.replace("/purchases");
         return;
       }
 
       const subscription = accessState.subscription;
+      if (accessState.accessMode === "friend_free") {
+        setCancellationNoticeKey("active");
+        setShowCancellationNotice(false);
+        setStatusKey("friendFree");
+        setIsCheckingAccess(false);
+        return;
+      }
+
       setCancellationNoticeKey(subscription?.status === "trial" ? "trial" : "active");
       setShowCancellationNotice(
         (subscription?.status === "active" ||
@@ -87,6 +102,7 @@ export default function PaymentManagement() {
       } else {
         setStatusKey("unknown");
       }
+      setIsCheckingAccess(false);
     };
 
     loadSubscription().catch((error) => {
@@ -94,6 +110,7 @@ export default function PaymentManagement() {
       if (active) {
         setCancellationNoticeKey("active");
         setShowCancellationNotice(false);
+        setIsCheckingAccess(false);
         showToast(t("loadError"));
         setStatusKey("unknown");
       }
@@ -125,6 +142,14 @@ export default function PaymentManagement() {
   }, [statusKey, t]);
   const isFrench = i18n.resolvedLanguage === "fr";
 
+  if (isRoutingToPurchases) {
+    return null;
+  }
+
+  if (isCheckingAccess) {
+    return null;
+  }
+
 
   // ハンバーガーメニュー内の各ボタン処理
   const handleMoreSelect = async (key: string) => {
@@ -151,7 +176,7 @@ export default function PaymentManagement() {
       toggleFunPlan();
     }
     if (key === "payment") {
-      router.push("/payment-management");
+      await navigateToPaymentScreen(router);
     }
     if (key === "profile") {
       router.push("/profile-update");

@@ -90,8 +90,8 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           subtitle: "完了時に音とバイブを鳴らします",
         },
         payment: {
-          title: "支払い方法の変更・退会",
-          subtitle: "支払い方法を更新します",
+          title: "料金プラン変更",
+          subtitle: "無料枠の確認や課金設定を開きます",
         },
         profile: {
           title: "プロフィール変更/削除",
@@ -158,8 +158,8 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           subtitle: "Make alarm sound and vibration",
         },
         payment: {
-          title: "Manage payment",
-          subtitle: "update or cancel subscription",
+          title: "Manage plan",
+          subtitle: "Review free limits or open billing settings",
         },
         profile: {
           title: "Edit/delete profile",
@@ -226,8 +226,8 @@ export const commonTranslations: Record<LanguageKey, CommonTranslations> = {
           subtitle: "Lire un son et une vibration",
         },
         payment: {
-          title: "Gérer le paiement",
-          subtitle: "Ouvrir les réglages de la boutique", // マリー再チェック
+          title: "Changer de forfait",
+          subtitle: "Voir les limites gratuites ou ouvrir la facturation", // マリー再チェック
         },
         profile: {
           title: "Modifier/supprimer le profil",

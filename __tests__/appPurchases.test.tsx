@@ -43,6 +43,7 @@ jest.mock("../lib/revenuecatOfferings", () => ({
 jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: jest.fn(),
   waitForActiveSubscription: jest.fn(),
+  PAID_SUBSCRIPTION_STATUSES: ["trial", "active", "canceled"],
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
     status === "active" || status === "trial",
 }));
@@ -60,7 +61,6 @@ const mockPurchaseSelectedPackage = purchaseSelectedPackage as jest.Mock;
 const mockGetAccessStateForUser = getAccessStateForUser as jest.Mock;
 const mockWaitForActiveSubscription = waitForActiveSubscription as jest.Mock;
 const mockGetSession = supabase.auth.getSession as jest.Mock;
-const mockSignOut = supabase.auth.signOut as jest.Mock;
 
 const renderWithProviders = () =>
   render(
@@ -81,7 +81,6 @@ describe("Purchases screen", () => {
       data: { session: { user: { id: "user-123" } } },
       error: null,
     });
-    mockSignOut.mockResolvedValue({ error: null });
     mockGetAccessStateForUser.mockResolvedValue({
       canAccessApp: true,
       accessMode: "free",
@@ -91,7 +90,7 @@ describe("Purchases screen", () => {
     mockFetchRevenueCatPackage.mockResolvedValue({
       package: { identifier: "monthly" },
       priceString: "$9.99",
-      trialDuration: { unit: "MONTH", value: 1 },
+      trialDuration: undefined,
     });
     mockWaitForActiveSubscription.mockResolvedValue({ status: "trial" });
     mockPurchaseSelectedPackage.mockResolvedValue({
@@ -107,9 +106,11 @@ describe("Purchases screen", () => {
       expect(mockFetchRevenueCatPackage).toHaveBeenCalled(),
     );
 
-    await screen.findByText("Standard plan");
-    await screen.findByText("Free for 1 month, then renews at $9.99/month.");
-    await screen.findByText("If you cancel during the free trial, you will not be charged.");
+    await screen.findByText("Pro Plan");
+    await screen.findByText("Unlimited Ideal Self cards");
+    expect(
+      screen.queryByText("If you cancel during the free trial, you will not be charged."),
+    ).toBeNull();
     await screen.findByText(
       "Payment details are managed securely by App Store. We never store your credit card number in this app."
     );
@@ -145,7 +146,7 @@ describe("Purchases screen", () => {
       .mockResolvedValueOnce({
         package: { identifier: "monthly" },
         priceString: "$9.99",
-        trialDuration: { unit: "MONTH", value: 1 },
+        trialDuration: undefined,
       });
 
     const screen = renderWithProviders();
@@ -159,43 +160,20 @@ describe("Purchases screen", () => {
     });
   });
 
-  it("signs out and returns to home when return-home button is pressed", async () => {
-    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
+  it("returns to dashboard when return button is pressed", async () => {
     const screen = renderWithProviders();
 
     await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
-    const returnButton = await screen.findByRole("button", { name: "Return to home" });
+    const returnButton = await screen.findByRole("button", { name: "Return to dashboard" });
     fireEvent.press(returnButton);
 
     await waitFor(() => {
-      expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
-      expect(multiRemoveSpy).toHaveBeenCalled();
-      expect(router.replace).toHaveBeenCalledWith("/");
+      expect(router.replace).toHaveBeenCalledWith("/dashboard");
     });
   });
 
-  it("clears persisted auth data and returns home when local session is already missing", async () => {
-    const multiRemoveSpy = jest.spyOn(AsyncStorage, "multiRemove").mockResolvedValue();
-    mockSignOut.mockResolvedValueOnce({
-      error: { message: "Auth session missing!" },
-    });
-
-    const screen = renderWithProviders();
-
-    await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
-
-    const returnButton = await screen.findByRole("button", { name: "Return to home" });
-    fireEvent.press(returnButton);
-
-    await waitFor(() => {
-      expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
-      expect(multiRemoveSpy).toHaveBeenCalled();
-      expect(router.replace).toHaveBeenCalledWith("/");
-    });
-  });
-
-  it("redirects to dashboard when subscription is already active", async () => {
+  it("redirects subscription holders to payment management", async () => {
     mockGetAccessStateForUser.mockResolvedValue({
       canAccessApp: true,
       accessMode: "paid",
@@ -206,51 +184,12 @@ describe("Purchases screen", () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith("/dashboard");
+      expect(router.replace).toHaveBeenCalledWith("/payment-management");
     });
-
     expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
   });
 
-  it("stays on purchases when subscription is canceled", async () => {
-    mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: false,
-      accessMode: "none",
-      resolution: "not_entitled",
-      subscription: { status: "canceled" },
-      accessOverride: null,
-    });
-
-    renderWithProviders();
-
-    await waitFor(() => {
-        expect(mockFetchRevenueCatPackage).toHaveBeenCalled();
-    });
-
-    expect(router.replace).not.toHaveBeenCalledWith("/dashboard");
-  });
-
-  it("returns to dashboard when access cannot be verified", async () => {
-    mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: true,
-      accessMode: "paid",
-      resolution: "unknown",
-      unknownReason: "subscription_fetch_failed",
-      subscription: null,
-      accessOverride: null,
-      source: "last_known_cache",
-    });
-
-    renderWithProviders();
-
-    await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith("/dashboard");
-    });
-
-    expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
-  });
-
-  it("redirects to dashboard when friend free override is active", async () => {
+  it("redirects friend free users to payment management", async () => {
     mockGetAccessStateForUser.mockResolvedValue({
       canAccessApp: true,
       accessMode: "friend_free",
@@ -261,10 +200,28 @@ describe("Purchases screen", () => {
     renderWithProviders();
 
     await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith("/dashboard");
+      expect(router.replace).toHaveBeenCalledWith("/payment-management");
+    });
+    expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
+  });
+
+  it("keeps free access users on purchases even when cached subscription exists", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "free",
+      resolution: "unknown",
+      unknownReason: "subscription_fetch_failed",
+      subscription: { status: "active" },
+      accessOverride: null,
+      source: "last_known_cache",
     });
 
-    expect(mockFetchRevenueCatPackage).not.toHaveBeenCalled();
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(mockFetchRevenueCatPackage).toHaveBeenCalled();
+    });
+    expect(router.replace).not.toHaveBeenCalledWith("/payment-management");
   });
 
   it("localizes page label and trial notice in Japanese", async () => {
@@ -276,7 +233,7 @@ describe("Purchases screen", () => {
 
     const labels = await screen.findAllByText(/購入|お支払い/);
     expect(labels.length).toBeGreaterThan(0);
-    await screen.findByText("無料期間中にキャンセルすれば請求は発生しません。");
+    await screen.findByText("理想の自分カード追加無制限");
   });
 
   it("localizes purchase copy and trial notice in French", async () => {
@@ -286,9 +243,8 @@ describe("Purchases screen", () => {
 
     await waitFor(() => expect(mockFetchRevenueCatPackage).toHaveBeenCalled());
 
-    await screen.findByText("Ajouter un moyen de paiement");
-    await screen.findByText(
-      /Si vous annulez pendant l'essai gratuit/i
-    );
+    await screen.findByText("Changer de forfait");
+    await screen.findByText("Pro Plan");
   });
+
 });

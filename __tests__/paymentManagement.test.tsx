@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { Alert } from "react-native";
+import { router } from "expo-router";
 import PaymentManagement from "../app/payment-management";
 import i18n from "../i18n";
 
@@ -79,6 +80,44 @@ describe("PaymentManagement", () => {
     expect(await screen.findByText(/有効|サブスクリプション中/)).toBeTruthy();
   });
 
+  it("redirects free users to purchases", async () => {
+    mockGetAccessState.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: null,
+      accessOverride: null,
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <PaymentManagement />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/purchases");
+    });
+  });
+
+  it("redirects expired free users to purchases", async () => {
+    mockGetAccessState.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: { status: "expired" },
+      accessOverride: null,
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <PaymentManagement />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/purchases");
+    });
+  });
+
   it("opens management portal when tapping button", async () => {
     const screen = render(
       <I18nextProvider i18n={i18n}>
@@ -114,7 +153,7 @@ describe("PaymentManagement", () => {
     alertSpy.mockRestore();
   });
 
-  it("shows friend free status when override access is active", async () => {
+  it("allows friend free users to stay on payment management", async () => {
     mockGetAccessState.mockResolvedValue({
       canAccessApp: true,
       accessMode: "friend_free",
@@ -129,6 +168,7 @@ describe("PaymentManagement", () => {
     );
 
     expect(await screen.findByText("友人向け無料アクセス")).toBeTruthy();
+    expect(router.replace).not.toHaveBeenCalledWith("/purchases");
   });
 
   it("shows a cancellation notice when an active subscription is set to cancel at period end", async () => {

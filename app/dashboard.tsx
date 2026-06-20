@@ -22,6 +22,7 @@ import MoreSheet from "../components/MoreSheet";
 import OfflineRequiredScreen from "../components/OfflineRequiredScreen";
 import { colors, radius, shadows, spacing, typography } from "../constants/theme";
 import { signOutCurrentSession } from "../lib/logout";
+import { navigateToPaymentScreen } from "../lib/paymentNavigation";
 import { getAccessStateForUser } from "../lib/subscription";
 import { decryptFieldValue } from "../lib/security/fieldEncryption";
 import { supabase } from "../lib/supabaseClient";
@@ -162,7 +163,7 @@ export default function Dashboard() {
       router.push("/contact");
     }
     if (key === "payment") {
-      router.push("/payment-management");
+      await navigateToPaymentScreen(router);
     }
   };
 
