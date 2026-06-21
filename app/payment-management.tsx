@@ -24,7 +24,7 @@ export default function PaymentManagement() {
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
   const [statusKey, setStatusKey] = useState<
-    "signupAwait" | "trial" | "active" | "friendFree" | "canceled" | "expired" | "unknown"
+    "trial" | "active" | "friendFree" | "canceled" | "expired" | "unknown"
   >("unknown");
   const [cancellationNoticeKey, setCancellationNoticeKey] = useState<"active" | "trial">("active");
   const [showCancellationNotice, setShowCancellationNotice] = useState(false);
@@ -92,7 +92,6 @@ export default function PaymentManagement() {
 
       const status = subscription?.status;
       if (
-        status === "signupAwait" ||
         status === "trial" ||
         status === "active" ||
         status === "canceled" ||

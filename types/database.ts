@@ -240,7 +240,6 @@ export type Database = {
             | "active"
             | "canceled"
             | "expired"
-            | "signupAwait"
             | null;
           trial_ends_at: string | null;
           updated_at: string | null;
@@ -257,7 +256,6 @@ export type Database = {
             | "active"
             | "canceled"
             | "expired"
-            | "signupAwait"
             | null;
           trial_ends_at?: string | null;
           updated_at?: string | null;
@@ -274,7 +272,6 @@ export type Database = {
             | "active"
             | "canceled"
             | "expired"
-            | "signupAwait"
             | null;
           trial_ends_at?: string | null;
           updated_at?: string | null;
@@ -596,7 +593,7 @@ export type Database = {
     };
     Enums: {
       language: "ja" | "en" | "fr";
-      status: "trial" | "active" | "canceled" | "expired" | "signupAwait";
+      status: "trial" | "active" | "canceled" | "expired";
       category: "bug" | "request" | "feedback" | "other";
       os_type: "ios" | "android";
     };

@@ -34,6 +34,12 @@ export type FocusMusicTranslations = {
   downloadBusyBody: string;
   monthlyLimitTitle: string;
   monthlyLimitBody: string;
+  monthlyLimitAlert: {
+    title: string;
+    body: string;
+    back: string;
+    upgrade: string;
+  };
   catalogTitle: string;
   catalogSubtitle: string;
   categoryFilterTitle: string;
@@ -91,12 +97,20 @@ export const focusMusicTranslations: Record<
     cellularConfirmYes: "ダウンロードする",
     cellularConfirmNo: "キャンセル",
     downloadFailedTitle: "ダウンロードに失敗しました",
-    downloadFailedBody: "回線状況を確認して、もう一度お試しください。",
+    downloadFailedBody:
+      "ダウンロード処理を完了できませんでした。通信環境または設定を確認して、もう一度お試しください。",
     downloadBusyTitle: "ダウンロード中です",
     downloadBusyBody: "他の曲のダウンロードが完了するまでお待ちください。",
     monthlyLimitTitle: "月間ダウンロード上限",
     monthlyLimitBody:
       "今月のダウンロード上限に達しました。翌月に再度お試しください。",
+    monthlyLimitAlert: {
+      title: "月間ダウンロード上限に達しました",
+      body:
+        "無料プランでは30日ごとに最大5曲までです。さらにダウンロードする場合はプランをアップグレードしてください。",
+      back: "戻る",
+      upgrade: "Pro Planへアップグレード",
+    },
     catalogTitle: "タスク集中音楽カタログ",
     catalogSubtitle: "試聴、追加できます。",
     categoryFilterTitle: "カテゴリで絞り込み",
@@ -150,12 +164,20 @@ export const focusMusicTranslations: Record<
     cellularConfirmYes: "Download",
     cellularConfirmNo: "Cancel",
     downloadFailedTitle: "Download failed",
-    downloadFailedBody: "Check your connection and try again.",
+    downloadFailedBody:
+      "The download could not be completed. Check your connection or app setup and try again.",
     downloadBusyTitle: "Download in progress",
     downloadBusyBody: "Please wait until the current download finishes.",
     monthlyLimitTitle: "Monthly download limit",
     monthlyLimitBody:
       "You've reached this month's download limit. Please try again next month.",
+    monthlyLimitAlert: {
+      title: "Monthly download limit reached",
+      body:
+        "The free plan allows up to 5 music downloads every 30 days. Upgrade your plan to download more.",
+      back: "Back",
+      upgrade: "Upgrade to Pro Plan",
+    },
     catalogTitle: "Focus music catalog",
     catalogSubtitle: "Preview and add your favorites.",
     categoryFilterTitle: "Filter by category",
@@ -209,12 +231,20 @@ export const focusMusicTranslations: Record<
     cellularConfirmYes: "Télécharger",
     cellularConfirmNo: "Annuler",
     downloadFailedTitle: "Échec du téléchargement",
-    downloadFailedBody: "Vérifiez la connexion et réessayez.",
+    downloadFailedBody:
+      "Le téléchargement n’a pas pu être finalisé. Vérifiez la connexion ou la configuration, puis réessayez.",
     downloadBusyTitle: "Téléchargement en cours",
     downloadBusyBody: "Veuillez attendre la fin du téléchargement en cours.",
     monthlyLimitTitle: "Limite mensuelle",
     monthlyLimitBody:
       "Vous avez atteint la limite mensuelle. Réessayez le mois prochain.",
+    monthlyLimitAlert: {
+      title: "Limite mensuelle atteinte",
+      body:
+        "Le forfait gratuit permet jusqu’à 5 téléchargements audio tous les 30 jours. Passez au forfait Pro pour en télécharger davantage.",
+      back: "Retour",
+      upgrade: "Passer au forfait Pro",
+    },
     catalogTitle: "Catalogue de musiques",
     catalogSubtitle: "Écoutez un extrait et ajoutez vos favoris.",
     categoryFilterTitle: "Filtrer par catégorie",

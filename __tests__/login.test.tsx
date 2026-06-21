@@ -348,7 +348,7 @@ describe("Login screen", () => {
     mockGetAccessStateForUser.mockResolvedValue({
       canAccessApp: true,
       accessMode: "friend_free",
-      subscription: { status: "signupAwait" },
+      subscription: null,
       accessOverride: { access_type: "friend_free", is_active: true },
     });
     const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});

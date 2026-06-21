@@ -229,6 +229,7 @@ const buildFocusMusicStub = (
   monthlyDownloadLimit: 0,
   monthlyDownloadRemaining: null,
   downloadResetAt: null,
+  monthlyDownloadAccessMode: "free" as const,
   canInstall: false,
   isInstalling: jest.fn(() => false),
   isDownloadInProgress: false,

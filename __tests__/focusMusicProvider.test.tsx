@@ -57,6 +57,11 @@ const mockSignedUrl = jest.fn(
 const mockLoadFocusMusicDownloadQuota = jest.fn();
 const mockConsumeFocusMusicDownloadQuota = jest.fn();
 const mockNetInfoFetch = jest.fn();
+const mockEnsureUserProfileForAuthUser = jest.fn();
+const mockSupabaseAuthGetUser = jest.fn(async () => ({
+  data: { user: { id: "user-1", email: "user@example.com" } },
+  error: null,
+}));
 const mockDownloadResumableDownloadAsync = jest.fn().mockResolvedValue({
   uri: "file://test/focus-music/track-1.mp3",
 });
@@ -98,6 +103,19 @@ jest.mock("../lib/focus-music/quota", () => ({
     mockLoadFocusMusicDownloadQuota(...args),
   consumeFocusMusicDownloadQuota: (...args: unknown[]) =>
     mockConsumeFocusMusicDownloadQuota(...args),
+}));
+
+jest.mock("../lib/subscription", () => ({
+  ensureUserProfileForAuthUser: (...args: unknown[]) =>
+    mockEnsureUserProfileForAuthUser(...args),
+}));
+
+jest.mock("../lib/supabaseClient", () => ({
+  supabase: {
+    auth: {
+      getUser: () => mockSupabaseAuthGetUser(),
+    },
+  },
 }));
 
 const mockGetUserId = jest.fn(async () => "user-1");
@@ -170,6 +188,13 @@ describe("FocusMusicProvider", () => {
         resetAt: "2026-07-18T00:00:00.000Z",
         windowStartedAt: "2026-06-18T00:00:00.000Z",
       },
+    });
+    mockEnsureUserProfileForAuthUser.mockReset();
+    mockEnsureUserProfileForAuthUser.mockResolvedValue(undefined);
+    mockSupabaseAuthGetUser.mockReset();
+    mockSupabaseAuthGetUser.mockResolvedValue({
+      data: { user: { id: "user-1", email: "user@example.com" } },
+      error: null,
     });
     mockNetInfoFetch.mockReset();
     mockDownloadResumableDownloadAsync.mockReset();
@@ -761,5 +786,102 @@ describe("FocusMusicProvider", () => {
       { idempotent: true },
     );
     expect(result.current.installedTracks).toHaveLength(0);
+  });
+
+  test("reverts downloaded file when quota consumption throws after download", async () => {
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+    });
+    mockConsumeFocusMusicDownloadQuota.mockRejectedValue(
+      new Error("rpc unavailable"),
+    );
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    let installResult: InstallResult | undefined;
+    await act(async () => {
+      installResult = await result.current.installTrack("track-1");
+    });
+
+    expect(installResult).toEqual({ ok: false, reason: "download_failed" });
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
+      "file://test/focus-music/track-1.mp3",
+      { idempotent: true },
+    );
+    expect(result.current.installedTracks).toHaveLength(0);
+  });
+
+  test("retries quota consumption after ensuring user profile when first rpc fails", async () => {
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+    });
+    mockConsumeFocusMusicDownloadQuota
+      .mockRejectedValueOnce(
+        new Error(
+          'insert or update on table "focus_music_download_quotas" violates foreign key constraint',
+        ),
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        quota: {
+          accessMode: "free",
+          limit: 5,
+          count: 1,
+          remaining: 4,
+          resetAt: "2026-07-18T00:00:00.000Z",
+          windowStartedAt: "2026-06-18T00:00:00.000Z",
+        },
+      });
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    let installResult: InstallResult | undefined;
+    await act(async () => {
+      installResult = await result.current.installTrack("track-1");
+    });
+
+    expect(mockEnsureUserProfileForAuthUser).toHaveBeenCalledTimes(1);
+    expect(mockConsumeFocusMusicDownloadQuota).toHaveBeenCalledTimes(2);
+    expect(installResult?.ok).toBe(true);
+    expect(result.current.installedTracks).toHaveLength(1);
+  });
+
+  test("keeps install successful when metadata persistence fails after download", async () => {
+    mockNetInfoFetch.mockResolvedValue({
+      type: "wifi",
+      isConnected: true,
+      isInternetReachable: true,
+    });
+
+    const { result } = renderHook(() => useFocusMusic(), {
+      wrapper: ({ children }) => <FocusMusicProvider>{children}</FocusMusicProvider>,
+    });
+
+    await waitFor(() => expect(result.current.catalog.length).toBe(5));
+
+    jest
+      .spyOn(AsyncStorage, "setItem")
+      .mockRejectedValueOnce(new Error("storage unavailable"));
+
+    let installResult: InstallResult | undefined;
+    await act(async () => {
+      installResult = await result.current.installTrack("track-1");
+    });
+
+    expect(installResult?.ok).toBe(true);
+    expect(result.current.installedTracks).toHaveLength(1);
+    expect(result.current.installedTracks[0]?.trackId).toBe("track-1");
   });
 });

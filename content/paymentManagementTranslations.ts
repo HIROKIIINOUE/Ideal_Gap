@@ -8,7 +8,6 @@ export type PaymentManagementTranslations = {
   body: string;
   statusLabel: string;
   statusValue: {
-    signupAwait: string;
     trial: string;
     active: string;
     friendFree: string;
@@ -37,7 +36,6 @@ export const paymentManagementTranslations: Record<
     body: "支払い情報の変更・退会（サブスク解約）は {{storeName}} の管理画面で行います。",
     statusLabel: "現在の契約ステータス",
     statusValue: {
-      signupAwait: "支払い待ち",
       trial: "無料トライアル中",
       active: "サブスクリプション中(月額390円)",
       friendFree: "友人向け無料アクセス",
@@ -63,7 +61,6 @@ export const paymentManagementTranslations: Record<
     body: "You can review your payment method, update it, and cancel your subscription in {{storeName}} settings.",
     statusLabel: "Current subscription status",
     statusValue: {
-      signupAwait: "Awaiting payment",
       trial: "Free Trial",
       active: "Active",
       friendFree: "Friend free access",
@@ -90,7 +87,6 @@ export const paymentManagementTranslations: Record<
     body: "La vérification, la modification du moyen de paiement et la résiliation s'effectuent dans {{storeName}}.",
     statusLabel: "Statut actuel de l'abonnement",
     statusValue: {
-      signupAwait: "En attente de paiement",
       trial: "Période d'essai",
       active: "Actif",
       friendFree: "Acces gratuit invite",

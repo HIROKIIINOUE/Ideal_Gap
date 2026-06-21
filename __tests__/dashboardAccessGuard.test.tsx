@@ -104,7 +104,7 @@ describe("Dashboard access guard", () => {
       canAccessApp: true,
       accessMode: "friend_free",
       resolution: "entitled",
-      subscription: { status: "signupAwait" },
+      subscription: null,
       accessOverride: { access_type: "friend_free", is_active: true },
     });
 

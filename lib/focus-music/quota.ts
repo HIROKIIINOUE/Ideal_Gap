@@ -12,7 +12,7 @@ const FocusMusicDownloadQuotaRowSchema = z.object({
   plan_snapshot: z.enum(["free", "paid", "friend_free"]),
 });
 
-type FocusMusicDownloadQuotaAccessMode = z.infer<
+export type FocusMusicDownloadQuotaAccessMode = z.infer<
   typeof FocusMusicDownloadQuotaRowSchema
 >["plan_snapshot"];
 
