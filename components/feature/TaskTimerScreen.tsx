@@ -924,7 +924,6 @@ export default function TaskTimerScreen() {
   // 全ての条件を満たしている時アラームとバイブを予約する
   const scheduleForegroundAlarm = useCallback(
     (endAt: number) => {
-      if (!timerAlarmEnabled) return;
       if (!isForegroundAppState(appStateRef.current)) return;
       if (statusRef.current !== "running") return;
       if (endAt <= Date.now()) return;
@@ -945,7 +944,7 @@ export default function TaskTimerScreen() {
         triggerForegroundAlarm(endAt);
       }, delayMs);
     },
-    [clearForegroundAlarmSchedule, timerAlarmEnabled, triggerForegroundAlarm],
+    [clearForegroundAlarmSchedule, triggerForegroundAlarm],
   );
 
   // 「カウントダウン終了モーダル」「手動でタイマー終了モーダル」の両方を開く時に実行される処理
@@ -962,6 +961,9 @@ export default function TaskTimerScreen() {
       // setTimeoutで既に予約済みだが、取りこぼし防止のための保険としてここでも発火
       // triggerForegroundAlarm()内で発火条件を敷いてるためアラームの重複は防止されている
       if (completed) {
+        if (!timerAlarmEnabled) {
+          Vibration.vibrate(FOREGROUND_VIBRATION_PATTERN);
+        }
         triggerForegroundAlarm(expectedEndAtRef.current);
       } else {
         stopForegroundAlarmOutput();
@@ -1001,6 +1003,7 @@ export default function TaskTimerScreen() {
       stopForegroundAlarmOutput,
       taskId,
       taskTitle,
+      timerAlarmEnabled,
       triggerForegroundAlarm,
       yearlyGoalIdSafe,
     ],
@@ -1418,11 +1421,14 @@ export default function TaskTimerScreen() {
       if (nextRemaining <= 0) {
         clearTick();
         if (!completionFiredRef.current) {
+          if (!timerAlarmEnabled) {
+            Vibration.vibrate(FOREGROUND_VIBRATION_PATTERN);
+          }
           openCompletionModal(Math.max(0, inputSecondsRef.current));
         }
       }
     }, 1000);
-  }, [clearTick, openCompletionModal, syncRemainingSecondsFromEndAt]);
+  }, [clearTick, openCompletionModal, syncRemainingSecondsFromEndAt, timerAlarmEnabled]);
 
   // カウントダウンが「idle」「paused」の各条件下でプリセットボタンで設定作業時間を追加するロジック
   const handlePreset = (minutes: number) => {
@@ -1763,6 +1769,9 @@ export default function TaskTimerScreen() {
       const remaining = syncRemainingSecondsFromEndAt(expectedEndAtRef.current);
       if (remaining <= 0) {
         if (!completionFiredRef.current) {
+          if (!timerAlarmEnabled) {
+            Vibration.vibrate(FOREGROUND_VIBRATION_PATTERN);
+          }
           openCompletionModal(Math.max(0, inputSecondsRef.current));
         }
         return;
@@ -1778,6 +1787,7 @@ export default function TaskTimerScreen() {
     scheduleForegroundAlarm,
     startTicking,
     syncRemainingSecondsFromEndAt,
+    timerAlarmEnabled,
   ]);
 
   // 作業完了ボタン押下時の処理

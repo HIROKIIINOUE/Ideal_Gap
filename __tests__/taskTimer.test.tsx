@@ -838,7 +838,7 @@ describe("TaskTimerScreen", () => {
     expect(mockVibrationVibrate).toHaveBeenCalled();
   });
 
-  test("does not play foreground alarm when alarm preference is disabled", async () => {
+  test("does not play foreground alarm sound when alarm preference is disabled", async () => {
     await AsyncStorage.setItem(TIMER_ALARM_ENABLED_STORAGE_KEY, "false");
     const { getByText, getByTestId } = renderScreen();
 
@@ -850,7 +850,6 @@ describe("TaskTimerScreen", () => {
     });
 
     expect(mockAnyAudioPlay).not.toHaveBeenCalled();
-    expect(mockVibrationVibrate).not.toHaveBeenCalled();
   });
 
   test("cancels foreground alarm when timer is paused", async () => {
