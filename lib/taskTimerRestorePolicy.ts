@@ -18,8 +18,8 @@ type RestorePolicyResult = {
  *
  * 要件:
  * - タスク紐づきで入った場合: taskId が一致する時だけ復元
- * - 「紐づかないタイマー」で入った場合: unlinked(session.taskId===null) の時だけ復元
- * - 「紐づかないタイマー」で入ったのに persisted がタスク紐づきなら、初期化して開始できるよう persisted を破棄
+ * - ダッシュボード直通で入った場合: 既存セッションがあればそのまま復元
+ * - ダッシュボード直通で既存セッションがなければ、未紐づきタイマーとして新規開始できる
  */
 export const getTaskTimerRestorePolicy = (
   params: TaskTimerEntryParams,
@@ -29,15 +29,11 @@ export const getTaskTimerRestorePolicy = (
     return { shouldRestore: false, shouldClearPersisted: false };
   }
 
-  const isUnlinkedEntry =
-    params.source === "dashboard" && !params.taskId;
-
-  // 「紐づかないタイマー」から入った場合は、unlinked の persisted だけ復元する
-  if (isUnlinkedEntry) {
-    const isPersistedUnlinked = persisted.taskId === null;
+  // ダッシュボード直通時は、既存セッションがあれば紐づき有無を問わずそのまま復元する
+  if (params.source === "dashboard" && !params.taskId) {
     return {
-      shouldRestore: isPersistedUnlinked,
-      shouldClearPersisted: !isPersistedUnlinked,
+      shouldRestore: true,
+      shouldClearPersisted: false,
     };
   }
 
@@ -52,4 +48,3 @@ export const getTaskTimerRestorePolicy = (
   // source も taskId も指定がない時は、従来どおり復元する
   return { shouldRestore: true, shouldClearPersisted: false };
 };
-

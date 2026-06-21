@@ -29,6 +29,13 @@ jest.mock("@react-navigation/native", () => ({
   useIsFocused: jest.fn(() => mockIsFocused),
 }));
 
+jest.mock("react-native-purchases", () => ({
+  __esModule: true,
+  default: {},
+}));
+
+jest.mock("@revenuecat/purchases-js-hybrid-mappings", () => ({}));
+
 jest.mock("@expo/vector-icons", () => {
   const React = require("react");
   const { Text } = require("react-native");
@@ -1248,6 +1255,167 @@ describe("TaskTimerScreen", () => {
       );
       expect(updateAccumulatedTimes).not.toHaveBeenCalled();
       expect(replaceSpy).toHaveBeenCalledWith("/dashboard");
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
+  test("shows an unlinked weekly-task card for a dashboard timer before it starts", () => {
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({ source: "dashboard" });
+
+    try {
+      const { getByTestId, getByText, queryByTestId } = renderScreen();
+
+      expect(getByTestId("task-timer-link-card")).toBeTruthy();
+      expect(getByText("Not linked to a weekly task")).toBeTruthy();
+      expect(getByText("Skip")).toBeTruthy();
+      expect(getByTestId("task-timer-link-select")).toBeTruthy();
+      expect(queryByTestId("task-timer-manual-log-card")).toBeNull();
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
+  test("can dismiss the unlinked weekly-task card", () => {
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({ source: "dashboard" });
+
+    try {
+      const { getByTestId, queryByTestId } = renderScreen();
+
+      fireEvent.press(getByTestId("task-timer-link-dismiss"));
+
+      expect(queryByTestId("task-timer-link-card")).toBeNull();
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
+  test("links a weekly task from the timer screen modal", async () => {
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({ source: "dashboard" });
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: "user-1",
+          },
+        },
+      },
+    } as any);
+    mockSupabaseFrom.mockImplementation((table: string) => {
+      if (table === "weekly_tasks") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: [
+                  {
+                    id: "task-1",
+                    description: "Write report",
+                    yearly_goal_id: "year-1",
+                    accumulated_time_week: 25,
+                    order: 0,
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        } as any;
+      }
+      if (table === "yearly_goals") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: [{ id: "year-1", year_goal_color: "#5f9cff" }],
+                error: null,
+              }),
+            }),
+          }),
+        } as any;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    try {
+      const { findByText, getByTestId, queryByTestId } = renderScreen();
+
+      fireEvent.press(getByTestId("task-timer-link-select"));
+
+      expect(await findByText("Choose a weekly task")).toBeTruthy();
+      fireEvent.press(getByTestId("task-timer-link-option-task-1"));
+
+      await waitFor(() => expect(queryByTestId("task-timer-link-card")).toBeNull());
+      expect(await findByText("Write report")).toBeTruthy();
+      expect(getByTestId("task-timer-manual-log-card")).toBeTruthy();
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
+  test("shows a weekly-tasks action only when the modal has no weekly tasks", async () => {
+    const router = require("expo-router").router;
+    const pushSpy = jest.spyOn(router, "push");
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({ source: "dashboard" });
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: "user-1",
+          },
+        },
+      },
+    } as any);
+    mockSupabaseFrom.mockImplementation((table: string) => {
+      if (table === "weekly_tasks") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
+        } as any;
+      }
+      if (table === "yearly_goals") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
+        } as any;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    try {
+      const { findByTestId, findByText, getByTestId, queryByTestId } = renderScreen();
+
+      fireEvent.press(getByTestId("task-timer-link-select"));
+
+      expect(await findByTestId("task-timer-link-empty")).toBeTruthy();
+      expect(await findByText("Go to weekly tasks")).toBeTruthy();
+      fireEvent.press(getByTestId("task-timer-link-empty-action"));
+
+      expect(pushSpy).toHaveBeenCalledWith({
+        pathname: "/feature/[feature]",
+        params: { feature: "weekly-goals" },
+      });
+      expect(queryByTestId("task-timer-link-modal")).toBeNull();
     } finally {
       paramsSpy.mockRestore();
     }

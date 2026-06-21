@@ -45,10 +45,13 @@ import {
 import { useKeyboardDismissAccessory } from "../../hooks/useKeyboardDismissAccessory";
 import { updateAccumulatedTimes } from "../../lib/api/supabase/timeTracking/updateAccumulatedTimes";
 import {
+  decryptFieldValue,
+  decryptNullableFieldValue,
+} from "../../lib/security/fieldEncryption";
+import {
   addSentryBreadcrumb,
   captureTaskTimerAnomaly,
 } from "../../lib/sentry";
-import { decryptNullableFieldValue } from "../../lib/security/fieldEncryption";
 import { supabase } from "../../lib/supabaseClient";
 import { getTaskTimerRestorePolicy } from "../../lib/taskTimerRestorePolicy";
 import {
@@ -83,6 +86,14 @@ type ManualLogState = {
   minutes: string;
   defaultMinutes: number;
   saving: boolean;
+};
+
+type TaskTimerLinkOption = {
+  id: string;
+  title: string;
+  yearlyGoalId: string | null;
+  loggedMinutes: number;
+  color: string;
 };
 
 const WEEKLY_TASKS_ROUTE = {
@@ -218,6 +229,13 @@ export default function TaskTimerScreen() {
   const [completionMissingLinkedTask, setCompletionMissingLinkedTask] = useState(false);
   const [viewStartModalVisible, setViewStartModalVisible] = useState(false);
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
+  const [taskLinkCardDismissed, setTaskLinkCardDismissed] = useState(false);
+  const [taskLinkModalVisible, setTaskLinkModalVisible] = useState(false);
+  const [taskLinkOptions, setTaskLinkOptions] = useState<TaskTimerLinkOption[]>([]);
+  const [taskLinkOptionsLoading, setTaskLinkOptionsLoading] = useState(false);
+  const [taskLinkOptionsError, setTaskLinkOptionsError] = useState<string | null>(null);
+  const [linkedTaskOverride, setLinkedTaskOverride] =
+    useState<TaskTimerLinkOption | null>(null);
   const [manualLog, setManualLog] = useState<ManualLogState>({
     visible: false,
     hours: "0",
@@ -246,6 +264,8 @@ export default function TaskTimerScreen() {
   const yearlyGoalIdRef = useRef<string | null>(null);
   const timerEntrySourceRef = useRef<TimerEntrySource>("weekly_tasks");
   const selectedTrackIdRef = useRef<string | null>(null);
+  const taskLinkFetchPromiseRef = useRef<Promise<void> | null>(null);
+  const taskLinkFetchedUserIdRef = useRef<string | null>(null);
   const discardTimerSessionOnUnmountRef = useRef(false);
   // 画面がアンマウントされる瞬間に実行したい最新の後片付け関数セットを保持する ref
   const unmountCleanupRef = useRef<{
@@ -256,9 +276,21 @@ export default function TaskTimerScreen() {
     persistCurrentTimerSessionOnUnmount: () => Promise<void>;
   } | null>(null);
 
-  const taskTitle = params.title || restoredTimerSession?.title || t("pageTitle");
-  const taskId = params.taskId ?? restoredTimerSession?.taskId ?? null;
-  const yearlyGoalId = params.yearlyGoalId ?? restoredTimerSession?.yearlyGoalId ?? null;
+  const taskTitle =
+    linkedTaskOverride?.title ??
+    params.title ??
+    restoredTimerSession?.title ??
+    t("pageTitle");
+  const taskId =
+    linkedTaskOverride?.id ??
+    params.taskId ??
+    restoredTimerSession?.taskId ??
+    null;
+  const yearlyGoalId =
+    linkedTaskOverride?.yearlyGoalId ??
+    params.yearlyGoalId ??
+    restoredTimerSession?.yearlyGoalId ??
+    null;
   const yearlyGoalIdSafe = yearlyGoalId || null;
   const timerEntrySource: TimerEntrySource =
     params.source === "dashboard" || restoredTimerSession?.source === "dashboard"
@@ -268,8 +300,8 @@ export default function TaskTimerScreen() {
   const isUnlinkedDashboardTimer = timerEntrySource === "dashboard" && !taskId;
   const canSaveCompletionToTask = !isUnlinkedDashboardTimer && !completionMissingLinkedTask;
   const previousLoggedMinutes = useMemo(
-    () => Math.max(0, Math.round(Number(params.logged ?? 0))),
-    [params.logged],
+    () => Math.max(0, Math.round(Number(linkedTaskOverride?.loggedMinutes ?? params.logged ?? 0))),
+    [linkedTaskOverride?.loggedMinutes, params.logged],
   );
   const [loggedBaseline, setLoggedBaseline] = useState(previousLoggedMinutes);
   const hasDuration = inputSeconds > 0;
@@ -317,6 +349,12 @@ export default function TaskTimerScreen() {
   useEffect(() => {
     selectedTrackIdRef.current = activeTrack?.id ?? null;
   }, [activeTrack?.id]);
+
+  useEffect(() => {
+    if (taskId) {
+      setTaskLinkCardDismissed(false);
+    }
+  }, [taskId]);
 
 
   // 以下はスクリーン常時点灯モードのON/OFFを切り替えている。catch文の中身を空にすることでエラーが起きても他機能の実行を止めないようにしてる
@@ -396,6 +434,16 @@ export default function TaskTimerScreen() {
     setUserId(uid);
     return uid;
   }, [userId]);
+
+  const shouldShowTaskLinkCard =
+    timerEntrySource === "dashboard" &&
+    !taskId &&
+    status !== "running" &&
+    !taskLinkCardDismissed;
+
+  const handleDismissTaskLinkCard = useCallback(() => {
+    setTaskLinkCardDismissed(true);
+  }, []);
 
   const persistTimerSession = useCallback(
     async (
@@ -651,6 +699,125 @@ export default function TaskTimerScreen() {
     },
     [],
   );
+
+  // 週間タスク紐付けモーダル画面用に週間タスクデータを取得
+  const fetchTaskLinkOptions = useCallback(
+    async (uid: string, options?: { force?: boolean }) => {
+      const force = options?.force ?? false;
+      if (!force && taskLinkFetchedUserIdRef.current === uid) {
+        return;
+      }
+      if (taskLinkFetchPromiseRef.current) {
+        await taskLinkFetchPromiseRef.current;
+        if (!force && taskLinkFetchedUserIdRef.current === uid) {
+          return;
+        }
+      }
+
+      const fetchPromise = (async () => {
+        setTaskLinkOptionsLoading(true);
+        setTaskLinkOptionsError(null);
+
+        const [{ data: yearlyData, error: yearlyError }, { data, error }] =
+          await Promise.all([
+            supabase
+              .from("yearly_goals")
+              .select("id, year_goal_color")
+              .eq("user_id", uid)
+              .order("order", { ascending: true }),
+            supabase
+              .from("weekly_tasks")
+              .select("id, description, yearly_goal_id, accumulated_time_week, order")
+              .eq("user_id", uid)
+              .order("order", { ascending: true }),
+          ]);
+
+        if (yearlyError || error) {
+          setTaskLinkOptions([]);
+          setTaskLinkOptionsError(t("taskLinkCard.error"));
+          taskLinkFetchedUserIdRef.current = null;
+          return;
+        }
+
+        const goalColorLookup = ((yearlyData as any[]) ?? []).reduce<Record<string, string>>(
+          (acc, row) => {
+            acc[row.id] = row.year_goal_color ?? colors.accentPrimary;
+            return acc;
+          },
+          {},
+        );
+        const nextOptions = ((data as any[]) ?? []).map(
+          (row): TaskTimerLinkOption => ({
+            id: row.id,
+            title: decryptFieldValue(row.description),
+            yearlyGoalId: row.yearly_goal_id ?? null,
+            loggedMinutes: Math.max(0, Math.round(row.accumulated_time_week ?? 0)),
+            color: row.yearly_goal_id
+              ? (goalColorLookup[row.yearly_goal_id] ?? colors.accentPrimary)
+              : colors.divider,
+          }),
+        );
+
+        setTaskLinkOptions(nextOptions);
+        taskLinkFetchedUserIdRef.current = uid;
+      })();
+
+      taskLinkFetchPromiseRef.current = fetchPromise;
+      try {
+        await fetchPromise;
+      } finally {
+        taskLinkFetchPromiseRef.current = null;
+        setTaskLinkOptionsLoading(false);
+      }
+    },
+    [t],
+  );
+
+  const handleOpenTaskLinkModal = useCallback(async () => {
+    const uid = userId ?? (await fetchUserId());
+    if (!uid) {
+      setTaskLinkOptions([]);
+      setTaskLinkOptionsError(t("taskLinkCard.error"));
+      taskLinkFetchedUserIdRef.current = null;
+      setTaskLinkModalVisible(true);
+      return;
+    }
+    await fetchTaskLinkOptions(uid, { force: Boolean(taskLinkOptionsError) });
+    setTaskLinkModalVisible(true);
+  }, [fetchTaskLinkOptions, fetchUserId, t, taskLinkOptionsError, userId]);
+
+  const handleCloseTaskLinkModal = useCallback(() => {
+    setTaskLinkModalVisible(false);
+  }, []);
+
+  const handleOpenWeeklyTasksFromTaskLinkModal = useCallback(() => {
+    setTaskLinkModalVisible(false);
+    router.push(WEEKLY_TASKS_ROUTE);
+  }, []);
+
+  const handleSelectTaskLink = useCallback((option: TaskTimerLinkOption) => {
+    setLinkedTaskOverride(option);
+    setTaskLinkCardDismissed(false);
+    setTaskLinkModalVisible(false);
+    setTaskLinkOptionsError(null);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const prefetchTaskLinkOptions = async () => {
+      if (!shouldShowTaskLinkCard) return;
+      const uid = userId ?? (await fetchUserId());
+      if (!active || !uid) return;
+      await fetchTaskLinkOptions(uid);
+    };
+
+    void prefetchTaskLinkOptions();
+
+    return () => {
+      active = false;
+    };
+  }, [fetchTaskLinkOptions, fetchUserId, shouldShowTaskLinkCard, userId]);
 
   // 1秒ごとにカウントする役割を持つtickRef.currentをリセットする
   const clearTick = useCallback(() => {
@@ -1801,6 +1968,48 @@ export default function TaskTimerScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
+        {shouldShowTaskLinkCard ? (
+          <View
+            style={[styles.card, styles.taskLinkCard, shadows.card]}
+            testID="task-timer-link-card"
+          >
+            <Text style={styles.taskLinkTitle}>{t("taskLinkCard.title")}</Text>
+            <View style={styles.taskLinkActions}>
+              <Pressable
+                testID="task-timer-link-dismiss"
+                accessibilityRole="button"
+                onPress={handleDismissTaskLinkCard}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  styles.taskLinkActionButton,
+                  pressed && styles.secondaryPressed,
+                ]}
+              >
+                <Text style={styles.taskLinkActionText}>
+                  {t("taskLinkCard.dismiss")}
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="task-timer-link-select"
+                accessibilityRole="button"
+                disabled={taskLinkOptionsLoading}
+                onPress={() => void handleOpenTaskLinkModal()}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  styles.taskLinkActionButton,
+                  styles.taskLinkPrimaryButton,
+                  taskLinkOptionsLoading && styles.buttonDisabled,
+                  pressed && styles.secondaryPressed,
+                ]}
+              >
+                <Text style={styles.taskLinkActionText}>
+                  {t("taskLinkCard.select")}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
         <View style={[styles.card, styles.timerCard, shadows.card]}>
           <LinearGradient
             colors={gradientCard}
@@ -2145,6 +2354,97 @@ export default function TaskTimerScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <Modal
+        visible={taskLinkModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseTaskLinkModal}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={handleCloseTaskLinkModal}
+          testID="task-timer-link-modal"
+        >
+          <Pressable
+            style={[styles.modalCard, shadows.card]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Text style={styles.modalTitle}>{t("taskLinkCard.modalTitle")}</Text>
+            <Text style={styles.modalDescription}>
+              {t("taskLinkCard.modalDescription")}
+            </Text>
+            {taskLinkOptionsError ? (
+              <Text style={styles.modalError}>{taskLinkOptionsError}</Text>
+            ) : null}
+            <ScrollView
+              style={styles.taskLinkList}
+              contentContainerStyle={styles.taskLinkListContent}
+              showsVerticalScrollIndicator={false}
+              testID="task-timer-link-modal-scroll"
+            >
+              {taskLinkOptionsLoading ? (
+                <Text style={styles.modalHelper}>{t("taskLinkCard.loading")}</Text>
+              ) : taskLinkOptions.length === 0 ? (
+                <Text
+                  style={styles.modalWarning}
+                  testID="task-timer-link-empty"
+                >
+                  {t("taskLinkCard.empty")}
+                </Text>
+              ) : (
+                taskLinkOptions.map((option) => (
+                  <Pressable
+                    key={option.id}
+                    testID={`task-timer-link-option-${option.id}`}
+                    accessibilityRole="button"
+                    onPress={() => handleSelectTaskLink(option)}
+                    style={({ pressed }) => [
+                      styles.taskLinkOption,
+                      pressed && styles.secondaryPressed,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.taskLinkOptionDot,
+                        { backgroundColor: option.color },
+                      ]}
+                    />
+                    <Text style={styles.taskLinkOptionText}>{option.title}</Text>
+                  </Pressable>
+                ))
+              )}
+            </ScrollView>
+            <View style={styles.modalActions}>
+              {!taskLinkOptionsLoading && taskLinkOptions.length === 0 ? (
+                <Pressable
+                  testID="task-timer-link-empty-action"
+                  accessibilityRole="button"
+                  onPress={handleOpenWeeklyTasksFromTaskLinkModal}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    pressed && styles.secondaryPressed,
+                  ]}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {t("taskLinkCard.emptyAction")}
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleCloseTaskLinkModal}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.secondaryPressed,
+                ]}
+              >
+                <Text style={styles.secondaryButtonText}>{t("controls.cancel")}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={manualLog.visible}
@@ -2824,6 +3124,70 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     lineHeight: typography.sm * 1.4,
   },
+  taskLinkCard: {
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  taskLinkTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.md * 1.05,
+    fontWeight: "800",
+  },
+  taskLinkActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+    alignSelf: "flex-start",
+  },
+  taskLinkActionButton: {
+    minHeight: 40,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  taskLinkPrimaryButton: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: "rgba(30,94,255,0.12)",
+  },
+  taskLinkActionText: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  taskLinkList: {
+    maxHeight: 320,
+  },
+  taskLinkListContent: {
+    gap: spacing.sm,
+  },
+  taskLinkOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  taskLinkOptionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: radius.full,
+    flexShrink: 0,
+  },
+  taskLinkOptionText: {
+    color: colors.textPrimary,
+    fontSize: typography.md,
+    fontWeight: "700",
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+  },
   exitActions: {
     flexDirection: "row",
     gap: spacing.sm,
@@ -2873,9 +3237,29 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: "800",
   },
+  modalDescription: {
+    color: colors.textPrimary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.45,
+  },
   modalSubtitle: {
     color: colors.textSecondary,
     fontSize: typography.sm,
+  },
+  modalHelper: {
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  modalWarning: {
+    color: colors.error,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
+  },
+  modalError: {
+    color: colors.error,
+    fontSize: typography.sm,
+    lineHeight: typography.sm * 1.4,
   },
   completionCard: {
     gap: spacing.md,

@@ -31,11 +31,11 @@ describe("getTaskTimerRestorePolicy", () => {
     ).toEqual({ shouldRestore: false, shouldClearPersisted: true });
   });
 
-  test("unlinked dashboard entry restores only when persisted is unlinked", () => {
+  test("dashboard entry restores any persisted timer session", () => {
     const linkedPersisted = makePersisted({ source: "weekly_tasks", taskId: "task-1" });
     expect(
       getTaskTimerRestorePolicy({ source: "dashboard" }, linkedPersisted),
-    ).toEqual({ shouldRestore: false, shouldClearPersisted: true });
+    ).toEqual({ shouldRestore: true, shouldClearPersisted: false });
 
     const unlinkedPersisted = makePersisted({
       source: "dashboard",
@@ -55,4 +55,3 @@ describe("getTaskTimerRestorePolicy", () => {
     });
   });
 });
-

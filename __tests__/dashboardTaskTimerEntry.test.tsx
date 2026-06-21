@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import Dashboard from "../app/dashboard";
@@ -61,49 +61,15 @@ describe("Dashboard task timer entry", () => {
       subscription: { status: "active" },
       accessOverride: null,
     });
-    (supabase.from as jest.Mock).mockImplementation((table: string) => {
-      if (table === "yearly_goals") {
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              order: jest.fn().mockResolvedValue({
-                data: [{ id: "year-1", year_goal_color: "#5f9cff" }],
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-      if (table === "weekly_tasks") {
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              order: jest.fn().mockResolvedValue({
-                data: [
-                  {
-                    id: "task-1",
-                    description: "Write report",
-                    yearly_goal_id: "year-1",
-                    accumulated_time_week: 25,
-                    order: 0,
-                  },
-                ],
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-      return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            order: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue({ data: [], error: null }),
-            }),
+    (supabase.from as jest.Mock).mockImplementation(() => ({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          order: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue({ data: [], error: null }),
           }),
         }),
-      };
-    });
+      }),
+    }));
   });
 
   test("replaces the long-term goal card with a task timer card", () => {
@@ -117,133 +83,18 @@ describe("Dashboard task timer entry", () => {
     expect(queryByText("Life Goals")).toBeNull();
   });
 
-  test("opens the task timer selector and can continue without linking a weekly task", async () => {
-    const { findByTestId, findByText, getByTestId } = render(
+  test("navigates directly to the task timer from dashboard", () => {
+    const { getByTestId } = render(
       <I18nextProvider i18n={i18n}>
         <Dashboard />
       </I18nextProvider>,
     );
 
     fireEvent.press(getByTestId("dashboard-card-taskTimer"));
-
-    expect(await findByText("Start Task Timer")).toBeTruthy();
-    expect(
-      await findByText(
-        "Link a weekly task to save this session toward your annual goal.",
-      ),
-    ).toBeTruthy();
-    expect(await findByText("No weekly task linked")).toBeTruthy();
-    fireEvent.press(getByTestId("dashboard-task-timer-task-select"));
-    expect(await findByText("Write report")).toBeTruthy();
-
-    fireEvent.press(await findByTestId("dashboard-task-timer-next"));
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/task-timer",
       params: { source: "dashboard" },
     });
-  });
-
-  test("shows weekly task loading inside the opened dropdown only", async () => {
-    (supabase.from as jest.Mock).mockImplementation((table: string) => {
-      if (table === "yearly_goals") {
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              order: jest.fn().mockResolvedValue({
-                data: [{ id: "year-1", year_goal_color: "#5f9cff" }],
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-      if (table === "weekly_tasks") {
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              order: jest.fn(() => new Promise(() => undefined)),
-            }),
-          }),
-        };
-      }
-      return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            order: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue({ data: [], error: null }),
-            }),
-          }),
-        }),
-      };
-    });
-
-    const { findByText, getAllByText, getByTestId, getByText, queryByText } = render(
-      <I18nextProvider i18n={i18n}>
-        <Dashboard />
-      </I18nextProvider>,
-    );
-
-    fireEvent.press(getByTestId("dashboard-card-taskTimer"));
-
-    expect(await findByText("Start Task Timer")).toBeTruthy();
-    expect(queryByText("Loading weekly tasks...")).toBeNull();
-
-    fireEvent.press(getByTestId("dashboard-task-timer-task-select"));
-
-    expect(getAllByText("No weekly task linked")).toHaveLength(2);
-    await waitFor(() => expect(getByText("Loading weekly tasks...")).toBeTruthy());
-  });
-
-  test("shows the no-tasks message below the selector in muted red", async () => {
-    (supabase.from as jest.Mock).mockImplementation((table: string) => {
-      if (table === "yearly_goals") {
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              order: jest.fn().mockResolvedValue({
-                data: [{ id: "year-1", year_goal_color: "#5f9cff" }],
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-      if (table === "weekly_tasks") {
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              order: jest.fn().mockResolvedValue({
-                data: [],
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-      return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            order: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue({ data: [], error: null }),
-            }),
-          }),
-        }),
-      };
-    });
-
-    const { findByTestId, getByTestId } = render(
-      <I18nextProvider i18n={i18n}>
-        <Dashboard />
-      </I18nextProvider>,
-    );
-
-    fireEvent.press(getByTestId("dashboard-card-taskTimer"));
-
-    const noTasksMessage = await findByTestId("dashboard-task-timer-no-tasks-message");
-    expect(noTasksMessage).toHaveStyle({ color: "#F25F5C" });
-    expect(noTasksMessage).toHaveTextContent(
-      "No weekly tasks are set yet.\nYou can still use the task timer, but work time will not be recorded.",
-    );
   });
 });
