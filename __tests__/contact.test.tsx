@@ -6,6 +6,7 @@ import Contact from "../app/contact";
 import i18n from "../i18n";
 
 const mockInsert = jest.fn().mockResolvedValue({ error: null });
+const mockGetAccessStateForUser = jest.fn();
 
 jest.mock("../components/Footer", () => () => null);
 jest.mock("../components/LanguageSheet", () => () => null);
@@ -32,6 +33,9 @@ jest.mock("../lib/supabaseClient", () => ({
     }),
   },
 }));
+jest.mock("../lib/subscription", () => ({
+  getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
+}));
 jest.mock("../providers/FunPlanProvider", () => ({
   useFunPlan: () => ({ funPlanVisible: true, toggleFunPlan: jest.fn() }),
 }));
@@ -42,6 +46,10 @@ describe("Contact page", () => {
 
   beforeEach(() => {
     mockInsert.mockClear();
+    mockGetAccessStateForUser.mockReset();
+    mockGetAccessStateForUser.mockResolvedValue({
+      accessMode: "free",
+    });
     Object.keys(keyboardListeners).forEach((key) => {
       delete keyboardListeners[key];
     });
@@ -81,6 +89,43 @@ describe("Contact page", () => {
     fireEvent.press(getByRole("button", { name: /send message/i }));
 
     expect(await findByText(/we’ll review your submission shortly/i)).toBeTruthy();
+  });
+
+  test("saves paid user_plan for friend free users", async () => {
+    const mockGetSession = jest.requireMock("../lib/supabaseClient").supabase.auth
+      .getSession as jest.Mock;
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: "user-1" } } },
+    });
+    mockGetAccessStateForUser.mockResolvedValueOnce({
+      accessMode: "friend_free",
+    });
+
+    const { getByPlaceholderText, getByRole, findByText } = render(
+      <I18nextProvider i18n={i18n}>
+        <Contact />
+      </I18nextProvider>,
+    );
+
+    fireEvent.changeText(getByPlaceholderText("Your name"), "Alice");
+    fireEvent.changeText(getByPlaceholderText("you@example.com"), "alice@example.com");
+    fireEvent.press(getByRole("button", { name: /select a category/i }));
+    fireEvent.press(getByRole("button", { name: /bug/i }));
+    fireEvent.changeText(
+      getByPlaceholderText("Share as much detail as you can"),
+      "Found a visual glitch on the home screen.",
+    );
+
+    fireEvent.press(getByRole("button", { name: /send message/i }));
+
+    expect(await findByText(/we’ll review your submission shortly/i)).toBeTruthy();
+    expect(mockInsert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        user_id: "user-1",
+        user_plan: "paid",
+        is_login_user: true,
+      }),
+    ]);
   });
 
   test("blocks submission when the honeypot is filled", async () => {

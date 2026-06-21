@@ -27,6 +27,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { useKeyboardDismissAccessory } from "../hooks/useKeyboardDismissAccessory";
 import { signOutCurrentSession } from "../lib/logout";
 import { navigateToPaymentScreen } from "../lib/paymentNavigation";
+import { getAccessStateForUser } from "../lib/subscription";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { supabase } from "../lib/supabaseClient";
 import { useFunPlan } from "../providers/FunPlanProvider";
@@ -111,6 +112,13 @@ export default function Contact() {
 
       //OSがiOSかAndroidの時のみOSを取得
       const platform = Platform.OS === "ios" || Platform.OS === "android" ? Platform.OS : null;
+      const accessState = user ? await getAccessStateForUser(user.id) : null;
+      const userPlan =
+        accessState?.accessMode === "paid" || accessState?.accessMode === "friend_free"
+          ? "paid"
+          : accessState?.accessMode === "free"
+            ? "free"
+            : null;
 
       const payload = {
         user_id: user?.id ?? null,
@@ -118,6 +126,7 @@ export default function Contact() {
         user_email: validation.data.email.trim(),
         message: validation.data.message.trim(),
         category: validation.data.category,
+        user_plan: userPlan,
         is_login_user: Boolean(user),
         app_version: appVersion,
         platform,

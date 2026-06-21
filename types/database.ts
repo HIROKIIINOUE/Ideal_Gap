@@ -124,6 +124,7 @@ export type Database = {
           user_email: string | null;
           user_id: string | null;
           user_name: string | null;
+          user_plan: string | null;
         };
         Insert: {
           app_version?: string | null;
@@ -136,6 +137,7 @@ export type Database = {
           user_email?: string | null;
           user_id?: string | null;
           user_name?: string | null;
+          user_plan?: string | null;
         };
         Update: {
           app_version?: string | null;
@@ -148,6 +150,7 @@ export type Database = {
           user_email?: string | null;
           user_id?: string | null;
           user_name?: string | null;
+          user_plan?: string | null;
         };
         Relationships: [
           {

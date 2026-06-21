@@ -10,6 +10,7 @@ export type FeedbackRecord = {
   user_email: string | null;
   message: string;
   category: FeedbackCategory;
+  user_plan: "paid" | "free" | null;
   is_login_user: boolean;
   app_version: string | null;
   platform: FeedbackPlatform;
@@ -42,6 +43,7 @@ export const buildFeedbackSlackPayload = (record: FeedbackRecord) => {
   const lines = [
     "===========================",
     `カテゴリー: ${normalize(record.category)}`,
+    `プラン: ${normalize(record.user_plan === "paid" ? "Pro Plan 会員" : record.user_plan === "free" ? "無料ユーザ" : "ゲスト")}`,
     `ログイン済みかどうか: ${record.is_login_user ? "true" : "false"}`,
     `メールアドレス: ${normalize(record.user_email)}`,
     `メッセージ: ${normalize(record.message)}`,

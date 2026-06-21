@@ -17,6 +17,7 @@ describe("feedback slack payload", () => {
       user_email: "alice@example.com",
       message: "ホーム画面で表示崩れを見つけました",
       category: "bug",
+      user_plan: "paid",
       is_login_user: false,
       app_version: "1.0.0",
       platform: "ios",
@@ -24,19 +25,39 @@ describe("feedback slack payload", () => {
     });
 
     expect(payload.text).toContain("カテゴリー: bug");
+    expect(payload.text).toContain("プラン: Pro Plan 会員");
     expect(payload.text).toContain("ログイン済みかどうか: false");
     expect(payload.text).toContain("メールアドレス: alice@example.com");
     expect(payload.text).toContain("メッセージ: ホーム画面で表示崩れを見つけました");
   });
 
-  test("uses unknown fallbacks when optional values are missing", () => {
+  test("shows free plan label when user_plan is free", () => {
     const payload = buildFeedbackSlackPayload({
       id: "fb-2",
+      user_id: "user-1",
+      user_name: "Bob",
+      user_email: "bob@example.com",
+      message: "Need dark mode",
+      category: "feedback",
+      user_plan: "free",
+      is_login_user: true,
+      app_version: null,
+      platform: null,
+      created_at: null,
+    });
+
+    expect(payload.text).toContain("プラン: 無料ユーザ");
+  });
+
+  test("uses guest label and unknown fallbacks when optional values are missing", () => {
+    const payload = buildFeedbackSlackPayload({
+      id: "fb-3",
       user_id: "user-1",
       user_name: null,
       user_email: null,
       message: "Need dark mode",
       category: null,
+      user_plan: null,
       is_login_user: true,
       app_version: null,
       platform: null,
@@ -44,6 +65,7 @@ describe("feedback slack payload", () => {
     });
 
     expect(payload.text).toContain("カテゴリー: Unknown");
+    expect(payload.text).toContain("プラン: ゲスト");
     expect(payload.text).toContain("ログイン済みかどうか: true");
     expect(payload.text).toContain("メールアドレス: Unknown");
     expect(payload.text).toContain("メッセージ: Need dark mode");
