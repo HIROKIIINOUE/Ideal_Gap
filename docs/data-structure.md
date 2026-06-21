@@ -251,12 +251,15 @@
 - 1ユーザーにつき常に1行のみ保持する
 - `window_started_at` と `reset_at` により、ユーザーごとに異なる30日窓を表現する
 - `plan_snapshot` は、その行の最終更新時点で `free` / `paid` / `friend_free` のどれだったかを保持する
+- `free -> paid` または `free -> friend_free` に切り替わった時は、新しい30日窓を開始して `download_count = 0` にリセットする
+- `paid|friend_free -> free` に切り替わった時は、現在の `download_count` と `reset_at` を維持したまま `plan_snapshot` だけ free へ更新する
 - 無料ユーザーの月間上限は 5 件、有料ユーザーの月間上限は 30 件を想定する
 - 上限判定と加算はクライアントの read -> write で行わず、DB関数(RPC)で原子的に処理する
 
 ## 6. DB関数(RPC)方針
 
 - `increment_focus_music_download_quota(...)` を追加し、音楽DL成功直前に呼び出す
+- `sync_focus_music_download_quota_access(...)` を追加し、プラン変更時に `plan_snapshot` と必要なDL窓リセットを同期する
 - この関数は以下を1回で実行する
   - 行がなければ新しいDL窓を作成
   - `reset_at` を過ぎていたら `download_count` をリセットし、新しい窓を開始する
