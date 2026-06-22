@@ -89,7 +89,9 @@ describe("Purchases screen", () => {
     });
     mockFetchRevenueCatPackage.mockResolvedValue({
       package: { identifier: "monthly" },
+      price: 9.99,
       priceString: "$9.99",
+      currencyCode: "CAD",
       trialDuration: undefined,
     });
     mockWaitForActiveSubscription.mockResolvedValue({ status: "trial" });
@@ -145,7 +147,9 @@ describe("Purchases screen", () => {
       .mockRejectedValueOnce(new Error("load failed"))
       .mockResolvedValueOnce({
         package: { identifier: "monthly" },
+        price: 9.99,
         priceString: "$9.99",
+        currencyCode: "CAD",
         trialDuration: undefined,
       });
 

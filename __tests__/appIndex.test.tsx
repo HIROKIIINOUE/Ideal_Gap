@@ -53,7 +53,9 @@ describe("Index screen", () => {
     });
     mockFetchRevenueCatPackage.mockResolvedValue({
       package: { identifier: "monthly" },
+      price: 390,
       priceString: "390 円",
+      currencyCode: "JPY",
       trialDuration: undefined,
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
@@ -78,7 +80,7 @@ describe("Index screen", () => {
       </I18nextProvider>,
     );
 
-    const planPrice = await screen.findByText("Pro Planは月額390 円です。");
+    const planPrice = await screen.findByText("Pro Planは月額390 JPYです。");
     expect(planPrice).toBeOnTheScreen();
     expect(await screen.findByText("無料プラン")).toBeOnTheScreen();
     expect(await screen.findByText("有料プラン")).toBeOnTheScreen();

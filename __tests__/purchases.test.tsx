@@ -69,15 +69,19 @@ beforeEach(() => {
   });
   (supabase.auth.signOut as jest.Mock).mockResolvedValue({ error: null });
   mockFetchRevenueCatPackage.mockResolvedValue({
-    package: {
-      identifier: "monthly",
-      product: {
-        priceString: "$8.50",
-        introPrice: null,
+      package: {
+        identifier: "monthly",
+        product: {
+          price: 8.5,
+          priceString: "$8.50",
+          currencyCode: "CAD",
+          introPrice: null,
+        },
       },
-    },
-    priceString: "$8.50",
-  });
+      price: 8.5,
+      priceString: "$8.50",
+      currencyCode: "CAD",
+    });
   mockGetAccessStateForUser.mockResolvedValue({
     canAccessApp: true,
     accessMode: "free",
@@ -96,7 +100,7 @@ describe("Purchases screen", () => {
 
     expect(await findByText("Pro Plan")).toBeTruthy();
     expect(await findByText("Auto-renews every 30 days")).toBeTruthy();
-    expect(await findByText("$8.50/month")).toBeTruthy();
+    expect(await findByText("8.50 CAD / month")).toBeTruthy();
     expect(await findByText("Unlimited Ideal Self cards")).toBeTruthy();
     expect(await findByText("Privacy Policy")).toBeTruthy();
     expect(await findByText("Terms of Use")).toBeTruthy();
@@ -148,11 +152,15 @@ describe("Purchases screen", () => {
         package: {
           identifier: "monthly",
           product: {
+            price: 8.5,
             priceString: "$8.50",
+            currencyCode: "CAD",
             introPrice: null,
           },
         },
+        price: 8.5,
         priceString: "$8.50",
+        currencyCode: "CAD",
       });
     const { findByText, getByRole } = renderScreen();
 

@@ -25,6 +25,7 @@ import { colors, radius, shadows, spacing, typography } from "../constants/theme
 import { LandingSections } from "../content/landingTranslations";
 import { useRedirectAuthenticated } from "../hooks/useRedirectAuthenticated";
 import { signOutCurrentSession } from "../lib/logout";
+import { formatRevenueCatPrice } from "../lib/planCopy";
 import { fetchRevenueCatPackage } from "../lib/revenuecatOfferings";
 import {
   LANDING_SECTION_REVEAL_OFFSET,
@@ -250,7 +251,7 @@ export default function Index() {
       try {
         const plan = await fetchRevenueCatPackage();
         if (!active) return;
-        setMembershipPrice(plan?.priceString ?? null);
+        setMembershipPrice(formatRevenueCatPrice(plan) ?? null);
       } catch (error) {
         console.warn("Failed to load landing membership price", error);
         if (active) setMembershipPrice(null);

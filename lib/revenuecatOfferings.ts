@@ -45,7 +45,9 @@ const resolveTrialDuration = (
 // UI用のパッケージ情報の型
 export type RevenueCatPlan = {
   package: PurchasesPackage;
+  price: number;
   priceString: string;
+  currencyCode: string | null;
   trialLabel?: string;
   trialDuration?: TrialDuration;
 };
@@ -74,7 +76,9 @@ export const fetchRevenueCatPackage =
 
     return {
       package: selectedPackage,
+      price: selectedPackage.product.price,
       priceString: selectedPackage.product.priceString,
+      currencyCode: selectedPackage.product.currencyCode ?? null,
       trialDuration: trialDuration ?? undefined,
       trialLabel: formatTrialLabel(trialDuration),
     };

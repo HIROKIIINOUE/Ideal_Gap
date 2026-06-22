@@ -6,6 +6,13 @@ import ProfileUpdate from "../app/profile-update";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
+jest.mock("react-native-purchases", () => ({
+  getCustomerInfo: jest.fn(),
+  getOfferings: jest.fn(),
+  isConfigured: jest.fn(),
+  purchasePackage: jest.fn(),
+}));
+
 jest.mock("../lib/auth", () => ({
   buildRedirectUrl: () => "idealgap://profile-update?email=1",
 }));

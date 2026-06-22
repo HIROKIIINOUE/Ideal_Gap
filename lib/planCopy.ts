@@ -12,6 +12,21 @@ const unitKeyMap: Record<TrialUnit, string> = {
   YEAR: "trialLabelYear",
 };
 
+const formatDecimalPrice = (price: number) => {
+  if (Number.isInteger(price)) return String(price);
+  return price.toFixed(2);
+};
+
+export const formatRevenueCatPrice = (
+  plan: Pick<RevenueCatPlan, "price" | "priceString" | "currencyCode"> | null,
+) => {
+  if (!plan) return null;
+  if (typeof plan.price === "number" && plan.currencyCode) {
+    return `${formatDecimalPrice(plan.price)} ${plan.currencyCode}`;
+  }
+  return plan.priceString;
+};
+
 export const getTrialLabel = (plan: RevenueCatPlan | null, t: TFunction) => {
   if (!plan) return null;
   if (plan.trialDuration) {
@@ -24,7 +39,7 @@ export const getTrialLabel = (plan: RevenueCatPlan | null, t: TFunction) => {
 
 export const getPlanBillingCopy = (plan: RevenueCatPlan | null, t: TFunction) => {
   if (!plan) return t("planUnavailable");
-  return t("planRenewalPrice", { price: plan.priceString });
+  return t("planRenewalPrice", { price: formatRevenueCatPrice(plan) });
 };
 
 export const getPlanTrialCopy = (plan: RevenueCatPlan | null, t: TFunction) => {
@@ -33,7 +48,7 @@ export const getPlanTrialCopy = (plan: RevenueCatPlan | null, t: TFunction) => {
   if (trialLabel) {
     return t("trialInfo", {
       trial: trialLabel,
-      price: plan.priceString,
+      price: formatRevenueCatPrice(plan),
     });
   }
   return null;

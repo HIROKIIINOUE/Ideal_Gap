@@ -29,7 +29,9 @@ describe("fetchRevenueCatPackage", () => {
     const mockPackage = {
       identifier: REVENUECAT_PACKAGE_ID,
       product: {
+        price: 8.5,
         priceString: "$8.50",
+        currencyCode: "CAD",
         introPrice: {
           price: 0,
           periodUnit: "MONTH",
@@ -51,7 +53,9 @@ describe("fetchRevenueCatPackage", () => {
 
     expect(mockGetOfferings).toHaveBeenCalled();
     expect(plan?.package).toBe(mockPackage);
+    expect(plan?.price).toBe(8.5);
     expect(plan?.priceString).toBe("$8.50");
+    expect(plan?.currencyCode).toBe("CAD");
     expect(plan?.trialDuration).toEqual({ unit: "MONTH", value: 1 });
     expect(plan?.trialLabel).toBe("Free for 1 month");
   });
