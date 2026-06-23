@@ -2,7 +2,7 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
-import { Alert } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import { router } from "expo-router";
 import FocusMusicScreen from "../components/feature/FocusMusicScreen";
 import i18n from "../i18n";
@@ -257,6 +257,13 @@ describe("FocusMusicScreen", () => {
 
   afterEach(() => {
     (Alert.alert as jest.Mock).mockRestore();
+  });
+
+  test("wraps the screen in a vertical scroll view", async () => {
+    const { getByTestId, UNSAFE_getAllByType } = renderScreen();
+
+    await waitFor(() => expect(getByTestId("focus-music-scroll")).toBeTruthy());
+    expect(UNSAFE_getAllByType(ScrollView).length).toBeGreaterThan(0);
   });
 
   test("opens catalog and installs a track", async () => {

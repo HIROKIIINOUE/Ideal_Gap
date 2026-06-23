@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -15,8 +16,6 @@ import {
   View,
 } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
-import { router } from "expo-router";
-import UsageLimitUpgradeModal from "../UsageLimitUpgradeModal";
 import {
   colors,
   radius,
@@ -29,6 +28,7 @@ import { createFocusMusicSignedUrl } from "../../lib/focus-music/signedUrl";
 import { captureExpoAudioError } from "../../lib/sentry";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { FocusMusicCategory } from "../../types/focus-music";
+import UsageLimitUpgradeModal from "../UsageLimitUpgradeModal";
 
 const HEADER_CARD_GRADIENT = [
   "rgba(30,94,255,0.22)",
@@ -247,7 +247,12 @@ export default function FocusMusicScreen() {
   }, [catalogVisible, previewPlayer]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+      testID="focus-music-scroll"
+    >
       <LinearGradient
         colors={HEADER_CARD_GRADIENT}
         start={{ x: 0, y: 0 }}
@@ -363,6 +368,7 @@ export default function FocusMusicScreen() {
           <Text style={styles.limitMessage}>{t("limitMessage")}</Text>
         )}
       </View>
+
 
       <Modal
         visible={catalogVisible}
@@ -588,14 +594,17 @@ export default function FocusMusicScreen() {
           router.push("/purchases");
         }}
       />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollView: {
+    marginTop: spacing.md,
+  },
   container: {
     gap: spacing.md,
-    marginTop: spacing.md,
+    paddingBottom: spacing.xl,
   },
   card: {
     backgroundColor: colors.surface,
