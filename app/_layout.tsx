@@ -89,7 +89,7 @@ export default function RootLayout() {
     setAudioModeAsync({
       playsInSilentMode: true,
       shouldPlayInBackground: false, // 音楽再生時のみ再生処理の関数内でtrueに置き換えている
-      interruptionMode: "mixWithOthers",
+      interruptionMode: "doNotMix",
       allowsRecording: false,
       shouldRouteThroughEarpiece: false,
     }).catch((error) => {

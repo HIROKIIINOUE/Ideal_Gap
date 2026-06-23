@@ -2,6 +2,7 @@
 
 import NetInfo from "@react-native-community/netinfo";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
+import * as Notifications from "expo-notifications";
 import React, {
   createContext,
   useCallback,
@@ -11,7 +12,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 import { getUserId } from "../lib/api/supabase/common";
 import { fetchFocusMusicCatalog } from "../lib/focus-music/catalog";
 import { FOCUS_MUSIC_MAX_INSTALLED } from "../lib/focus-music/constants";
@@ -121,6 +122,7 @@ const reconcileInstalledEntries = async (
 };
 
 export function FocusMusicProvider({ children }: ProviderProps) {
+  // playerは音楽再生プレイヤーの本体。player.play(),player.pause()などで音楽をコントロールする
   const player = useAudioPlayer(null, {
     keepAudioSessionActive: true,
     downloadFirst: true,
@@ -171,7 +173,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       await setAudioModeAsync({
         playsInSilentMode: true,
         shouldPlayInBackground,
-        interruptionMode: "mixWithOthers",
+        interruptionMode: "doNotMix",
         allowsRecording: false,
         shouldRouteThroughEarpiece: false,
       });
@@ -665,6 +667,28 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     };
   }, [installedEntries, selectedTrack]);
 
+  // Androidのバックグラウンド音楽再生が安定するようにOSに「今このプレイヤーがバックグラウンド再生の主体です」と伝えている
+  const setLockScreenActive = useCallback(
+    async (active: boolean) => {
+      if (!selectedInstalledTrack) return;
+
+      if (active && Platform.OS === "android") {
+        await Notifications.requestPermissionsAsync().catch(() => null);
+      }
+
+      player.setActiveForLockScreen(
+        active,
+        active
+          ? {
+            title: selectedInstalledTrack.title,
+            artist: "Ideal Gap",
+          }
+          : undefined,
+      );
+    },
+    [player, selectedInstalledTrack],
+  );
+
   // 選択中の音楽が無効になった場合に手持ち音楽リストの１番目の音楽を選択中にするフォールバック
   useEffect(() => {
     const installedIds = installedEntries.map((entry) => entry.trackId);
@@ -692,6 +716,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       player.loop = true;
       player.volume = 1;
       player.replace(fileInfo.localPath);
+      // 音楽再生時にandroidでもバックグラウンド再生を安定させる処理
+      await setLockScreenActive(true);
       player.play();
       addSentryBreadcrumb("focus_music", "focus_music_play_started", {
         trackId: selectedInstalledTrack.id,
@@ -699,6 +725,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       });
       return true;
     } catch (error) {
+      // エラー時にandroidバックグラウンド安定化処理をストップ
+      await setLockScreenActive(false).catch(() => { });
       await setFocusPlaybackAudioMode(false).catch(() => { });
       captureExpoAudioError(error, "focus_music_play_selected");
       return false;
@@ -707,6 +735,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     installedEntries,
     persistInstalledEntries,
     player,
+    setLockScreenActive,
     selectedInstalledTrack,
     setFocusPlaybackAudioMode,
   ]);
@@ -714,6 +743,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   const pause = useCallback(() => {
     try {
       player.pause();
+      // 音楽停止時にandroidバックグラウンド安定化処理をストップ
+      void setLockScreenActive(false).catch(() => { });
       addSentryBreadcrumb("focus_music", "focus_music_paused", {
         trackId: selectedInstalledTrack?.id ?? null,
       });
@@ -723,11 +754,13 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     void setFocusPlaybackAudioMode(false).catch((error) => {
       captureExpoAudioError(error, "focus_music_pause_audio_mode");
     });
-  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode]);
+  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode, setLockScreenActive]);
 
   const stop = useCallback(async () => {
     try {
       player.pause();
+      // 音楽停止時にandroidバックグラウンド安定化処理をストップ
+      await setLockScreenActive(false);
       await player.seekTo(0);
       await setFocusPlaybackAudioMode(false);
       addSentryBreadcrumb("focus_music", "focus_music_stopped", {
@@ -736,7 +769,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     } catch (error) {
       captureExpoAudioError(error, "focus_music_stop");
     }
-  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode]);
+  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode, setLockScreenActive]);
 
   // useFocusMusicフックスとして返す値(グローバルに使用できる)
   const value = useMemo<FocusMusicContextValue>(

@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 import { FocusMusicProvider, useFocusMusic } from "../providers/FocusMusicProvider";
 import { FOCUS_MUSIC_INSTALLED_KEY } from "../lib/focus-music/constants";
 import { FocusMusicTrack, InstallResult } from "../types/focus-music";
@@ -83,10 +83,14 @@ const createMockPlayer = () => ({
   replace: jest.fn(),
   seekTo: jest.fn().mockResolvedValue(undefined),
   remove: jest.fn(),
+  setActiveForLockScreen: jest.fn(),
 });
 
 const mockPlayer = createMockPlayer();
 const mockSetAudioModeAsync = jest.fn().mockResolvedValue(undefined);
+const mockRequestNotificationPermissions = jest
+  .fn()
+  .mockResolvedValue({ granted: true, status: "granted" });
 let appStateChangeListener: ((nextState: AppStateStatus) => void) | null = null;
 const mockAppStateSubscriptionRemove = jest.fn();
 
@@ -162,6 +166,11 @@ jest.mock("expo-audio", () => ({
   setAudioModeAsync: (...args: unknown[]) => mockSetAudioModeAsync(...args),
 }));
 
+jest.mock("expo-notifications", () => ({
+  requestPermissionsAsync: (...args: unknown[]) =>
+    mockRequestNotificationPermissions(...args),
+}));
+
 describe("FocusMusicProvider", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
@@ -214,7 +223,9 @@ describe("FocusMusicProvider", () => {
     mockPlayer.pause.mockClear();
     mockPlayer.replace.mockClear();
     mockPlayer.seekTo.mockClear();
+    mockPlayer.setActiveForLockScreen.mockClear();
     mockSetAudioModeAsync.mockClear();
+    mockRequestNotificationPermissions.mockClear();
     (FileSystem.getInfoAsync as jest.Mock).mockReset();
     (FileSystem.getInfoAsync as jest.Mock).mockImplementation(
       async (uri: string) => ({
@@ -337,6 +348,12 @@ describe("FocusMusicProvider", () => {
   });
 
   test("playSelected uses rebuilt local uri from current document directory", async () => {
+    const originalPlatform = Platform.OS;
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+
     const installed = [
       {
         trackId: "track-1",
@@ -370,9 +387,14 @@ describe("FocusMusicProvider", () => {
     expect(mockSetAudioModeAsync).toHaveBeenCalledWith({
       shouldPlayInBackground: true,
       playsInSilentMode: true,
-      interruptionMode: "mixWithOthers",
+      interruptionMode: "doNotMix",
       allowsRecording: false,
       shouldRouteThroughEarpiece: false,
+    });
+    expect(mockRequestNotificationPermissions).toHaveBeenCalledTimes(1);
+    expect(mockPlayer.setActiveForLockScreen).toHaveBeenCalledWith(true, {
+      title: "Deep Focus",
+      artist: "Ideal Gap",
     });
     expect(mockPlayer.play).toHaveBeenCalled();
     expect(mockPlayer.loop).toBe(true);
@@ -385,9 +407,17 @@ describe("FocusMusicProvider", () => {
     expect(mockSetAudioModeAsync).toHaveBeenLastCalledWith({
       shouldPlayInBackground: false,
       playsInSilentMode: true,
-      interruptionMode: "mixWithOthers",
+      interruptionMode: "doNotMix",
       allowsRecording: false,
       shouldRouteThroughEarpiece: false,
+    });
+    expect(mockPlayer.setActiveForLockScreen).toHaveBeenCalledWith(
+      false,
+      undefined,
+    );
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: originalPlatform,
     });
   });
 
