@@ -10,14 +10,14 @@ export type PurchasesTranslations = {
   planTitle: string;
   planDuration: string;
   planDescription: string;
-    planBenefits: {
-      idealSelfUnlimited: string;
-      annualGoalsUnlimited: string;
-      weeklyTasksUnlimited: string;
-      focusMusicMonthly30: string;
-      funPlanUnlimited: string;
-      prioritySupport: string;
-    };
+  planBenefits: {
+    idealSelfUnlimited: string;
+    annualGoalsUnlimited: string;
+    weeklyTasksUnlimited: string;
+    focusMusicMonthly30: string;
+    funPlanUnlimited: string;
+    prioritySupport: string;
+  };
   planRenewalPrice: string;
   trialInfo: string;
   planUnavailable: string;
@@ -76,8 +76,7 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       trialLabelMonth: "{{count}}か月無料",
       trialLabelYear: "{{count}}年間無料",
       trialCancelNotice: "無料期間中にキャンセルすれば請求は発生しません。",
-      storeBillingNotice:
-        "支払い情報は {{storeName}} で安全に管理されます。",
+      storeBillingNotice: "支払い情報は {{storeName}} で安全に管理されます。",
       cardInfoPolicy:
         "このアプリがクレジットカード番号を保存することはありません。",
       privacyPolicyLabel: "プライバシーポリシー",
@@ -102,7 +101,7 @@ export const purchasesTranslations: Record<LanguageKey, PurchasesTranslations> =
       signupCompleteTitle: "Account ready",
       signupCompleteBody: "Your account is confirmed. Finish payment to start.",
       freePlanBody:
-        "Upgrade here whenever you hit a free-tier limit or want to switch to the paid plan.",
+        "Upgrade here whenever you hit a free plan limit or want to switch to the paid plan.",
       planTitle: "Pro Plan",
       planDuration: "Auto-renews every 30 days",
       planDescription: "Uses your {{storeName}} billing method.",
