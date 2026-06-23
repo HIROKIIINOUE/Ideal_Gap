@@ -44,6 +44,7 @@ app-example
 
 # For myself
 todo.txt
+/docs/requirements_for_myself/
 
 #environment
 .env
