@@ -38,7 +38,7 @@
 ## Webhook と Supabase 反映（Test Store/Preview 共通）
 
 1. RevenueCat → Supabase Edge Function（例: `/functions/v1/revenuecat-webhook`）へ Webhook を設定。HMAC 署名は `REVENUECAT_WEBHOOK_SECRET` で検証（要件 2-2-4）。  
-2. Payload の `app_user_id` を Supabase UID とみなし、`subscriptions.user_id` に紐づけて upsert。`plan` は `standard` 固定。  
+2. Payload の `app_user_id` を Supabase UID とみなし、`subscriptions.user_id` に紐づけて upsert。`plan` は `pro_monthly` に統一する。  
 3. イベント処理の目安（データ構造の status/trial_ends_at/current_period_end/cancel_at_period_end を更新）:
    - `INITIAL_PURCHASE` / `RENEWAL`: status=`trial`（trial_ends_at が未来）または `active`。`current_period_end` を更新し、`cancel_at_period_end=false`。初回は `users.had_account_before` を true に更新。
    - `CANCELLATION`: `cancel_at_period_end=true` にし、有効期限までは status=`active` を維持。
@@ -50,7 +50,7 @@
 
 - 新規ユーザ（had_account_before=false）: 購入後 status=`trial`、`trial_ends_at` が 30 日後。  
 - 再サインアップ（had_account_before=true）: 購入直後から status=`active`、trial なし。  
-- 解約予約: ストア側でキャンセル → `cancel_at_period_end=true`、期限後に `status=canceled/expired` へ遷移。  
+- 解約予約: ストア側でキャンセル → `cancel_at_period_end=true`、期限後に `status=expired` へ遷移。  
 - 課金失敗: `BILLING_ISSUE` 受信時に警告ログ、期限経過後に `expired`。復旧イベントで `active` に戻る。
 
 ## 運用メモ

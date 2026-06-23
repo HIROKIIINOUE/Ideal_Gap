@@ -210,7 +210,7 @@ export default function Dashboard() {
     }, [fetchNextFunPlan]),
   );
 
-  // ログイン済みユーザは free でも到達可能。paid相当は trial / active / canceled。
+  // ログイン済みユーザは free でも到達可能。paid相当は trial / active。
   // それ以外の場合はダッシュボードに辿り着けないようにここで制御
   useFocusEffect(
     useCallback(() => {

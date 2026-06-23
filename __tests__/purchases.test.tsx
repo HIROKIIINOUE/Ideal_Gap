@@ -39,9 +39,9 @@ jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
   waitForActiveSubscription: (...args: unknown[]) =>
     mockWaitForActiveSubscription(...args),
-  PAID_SUBSCRIPTION_STATUSES: ["trial", "active", "canceled"],
+  PAID_SUBSCRIPTION_STATUSES: ["trial", "active"],
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
-    status === "trial" || status === "active" || status === "canceled",
+    status === "trial" || status === "active",
 }));
 
 jest.mock("../lib/supabaseClient", () => ({

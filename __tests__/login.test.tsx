@@ -27,7 +27,7 @@ jest.mock("../components/Footer", () => () => null);
 jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
-    status === "trial" || status === "active" || status === "canceled",
+    status === "trial" || status === "active",
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
@@ -317,16 +317,16 @@ describe("Login screen", () => {
     expect(router.replace).toHaveBeenCalledWith("/dashboard");
   });
 
-  test("redirects authenticated users to dashboard on mount when subscription is canceled", async () => {
+  test("redirects authenticated users to dashboard on mount when subscription is active and set to cancel at period end", async () => {
     (supabase.auth.getSession as jest.Mock).mockReset();
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
       error: null,
     });
     mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: false,
-      accessMode: "none",
-      subscription: { status: "canceled" },
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active", cancel_at_period_end: true },
       accessOverride: null,
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({

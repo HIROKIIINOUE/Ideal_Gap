@@ -79,7 +79,7 @@ const nowIso = () => new Date().toISOString();
 // Supabase側のデータに変換した時の型
 type SubscriptionState =
   | {
-      status: "trial" | "active" | "canceled" | "expired";
+      status: "trial" | "active" | "expired";
       trialEndsAt: string | null;
       cancelAtPeriodEnd: boolean;
       currentPeriodEnd: string | null;
@@ -128,7 +128,7 @@ const mapStatus = (
       };
     case "EXPIRATION":
       return {
-        status: "canceled",
+        status: "expired",
         trialEndsAt: null,
         cancelAtPeriodEnd: true,
         currentPeriodEnd: expiration,
@@ -211,7 +211,6 @@ serve(async (req: Request) => {
       status: subscriptionState.status as
         | "trial"
         | "active"
-        | "canceled"
         | "expired",
       trial_ends_at: subscriptionState.trialEndsAt,
       current_period_end: currentPeriodEnd,

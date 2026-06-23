@@ -43,7 +43,7 @@ jest.mock("../lib/revenuecatOfferings", () => ({
 jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: jest.fn(),
   waitForActiveSubscription: jest.fn(),
-  PAID_SUBSCRIPTION_STATUSES: ["trial", "active", "canceled"],
+  PAID_SUBSCRIPTION_STATUSES: ["trial", "active"],
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
     status === "active" || status === "trial",
 }));

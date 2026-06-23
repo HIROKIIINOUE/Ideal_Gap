@@ -2,7 +2,7 @@
 // RevenueCatの「購読状態」をSupabase DBに反映する役目やユーザのアプリアクセス権情報をDBから取得し共有する役目。
 
 //=== アプリアクセス権(有料or無料ユーザ)のチェックは以下の順に行われる===
-// １、DB上のsubscription.statusがtrial / active / canceledである (通常課金ユーザ)
+// １、DB上のsubscription.statusがtrial / activeである (通常課金ユーザ)
 // ２、RevenueCatの最新キャッシュで有料権限が確認できる
 // ３、access_override.access_typeが"friend_free" かつ is_active=trueである(友人用の無料ユーザ)
 // ４、それ以外のログイン済みユーザは無料ユーザとして扱う
@@ -49,7 +49,6 @@ export type AccessState = {
 export const PAID_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
   "trial",
   "active",
-  "canceled",
 ];
 
 export const canAccessDashboardWithSubscriptionStatus = (
@@ -315,7 +314,7 @@ export const canAccessDashboardWithAccessOverride = (
 
 // 通常ユーザのアクセス権限情報を取得。
 // 各ページでimport実行され、以下の流れでアクセス権限情報を取得する。
-// １、subscription.statusがtrial / active / canceled ならpaidとして返す
+// １、subscription.statusがtrial / activeならpaidとして返す
 // ２、RevenueCatキャッシュに有料権限があればpaidとして返す
 // ３、access_overrideが有効ならfriend_freeとして返す
 // ４、それ以外はfreeとして返す
@@ -325,7 +324,7 @@ export const getAccessStateForUser = async (
   const subscriptionResult = await fetchSubscriptionForUser(userId);
   const subscription = subscriptionResult.data;
 
-  // paidサブスクが有効(trial, active, canceled)の場合
+  // paidサブスクが有効(trial, active)の場合
   if (canAccessDashboardWithSubscriptionStatus(subscription?.status)) {
     await writeLastKnownAccessState(userId, "paid"); // ローカルに最新のaccess status としてキャッシュ保存
     return {

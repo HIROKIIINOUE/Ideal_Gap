@@ -57,11 +57,11 @@ describe("Dashboard access guard", () => {
     await i18n.changeLanguage("ja");
   });
 
-  test("stays on dashboard when subscription status is canceled", async () => {
+  test("stays on dashboard when subscription is active and set to cancel at period end", async () => {
     mockGetAccessStateForUser.mockResolvedValue({
       canAccessApp: true,
       accessMode: "paid",
-      subscription: { status: "canceled" },
+      subscription: { status: "active", cancel_at_period_end: true },
       accessOverride: null,
     });
 
