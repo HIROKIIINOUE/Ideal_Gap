@@ -595,16 +595,16 @@ export default function FunPlanScreen() {
             style={styles.modalContainer}
             testID="fun-plan-modal-kav"
           >
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              testID="fun-plan-modal-scroll"
+            <Pressable
+              style={[styles.modalCard, shadows.card]}
+              onPress={(event) => event.stopPropagation()}
             >
-              <Pressable
-                style={[styles.modalCard, shadows.card]}
-                onPress={(event) => event.stopPropagation()}
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                testID="fun-plan-modal-scroll"
               >
                 <Text style={styles.modalTitle}>{modalTitle}</Text>
                 {editingMeta && (
@@ -732,8 +732,8 @@ export default function FunPlanScreen() {
                     </Pressable>
                   </View>
                 </View>
-              </Pressable>
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
           </KeyboardAvoidingView>
           {keyboardVisible ? (
             <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
@@ -965,16 +965,17 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   modalScrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
+    padding: spacing.xl,
+    gap: spacing.md,
   },
   modalCard: {
     backgroundColor: "#1b355c",
     borderRadius: radius.xl,
-    padding: spacing.xl,
-    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
+    width: "100%",
+    maxHeight: "100%",
+    overflow: "hidden",
   },
   modalTitle: {
     color: colors.textPrimary,

@@ -681,6 +681,26 @@ describe("TaskTimerScreen", () => {
     });
   });
 
+  test("keeps padding on the music selection modal card", async () => {
+    await AsyncStorage.setItem(
+      FOCUS_MUSIC_INSTALLED_KEY,
+      JSON.stringify([
+        {
+          trackId: "track-1",
+          localPath: "file://test/focus-music/track-1.mp3",
+          downloadedAt: new Date().toISOString(),
+        },
+      ]),
+    );
+
+    const { getByTestId } = renderScreen();
+
+    await waitFor(() => expect(getByTestId("music-select-button")).toBeTruthy());
+    fireEvent.press(getByTestId("music-select-button"));
+
+    expect(getByTestId("music-modal")).toHaveStyle({ padding: 28 });
+  });
+
   test("shows notification popup when notifications stay denied", async () => {
     const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockGetPermissionsAsync.mockResolvedValueOnce({
@@ -1358,6 +1378,60 @@ describe("TaskTimerScreen", () => {
     }
   });
 
+  test("keeps padding on the weekly task selection modal card", async () => {
+    const paramsSpy = jest
+      .spyOn(require("expo-router"), "useLocalSearchParams")
+      .mockReturnValue({ source: "dashboard" });
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: "user-1",
+          },
+        },
+      },
+    } as any);
+    mockSupabaseFrom.mockImplementation((table: string) => {
+      if (table === "weekly_tasks") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
+        } as any;
+      }
+      if (table === "yearly_goals") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
+        } as any;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    try {
+      const { getByTestId, findByTestId } = renderScreen();
+
+      fireEvent.press(getByTestId("task-timer-link-select"));
+
+      expect(await findByTestId("task-timer-link-modal-card")).toHaveStyle({
+        padding: 28,
+      });
+    } finally {
+      paramsSpy.mockRestore();
+    }
+  });
+
   test("shows a weekly-tasks action only when the modal has no weekly tasks", async () => {
     const router = require("expo-router").router;
     const pushSpy = jest.spyOn(router, "push");
@@ -2000,5 +2074,20 @@ describe("TaskTimerScreen", () => {
     fireEvent.press(getByText("Mark done"));
 
     expect(getByTestId("completion-modal-scroll")).toBeTruthy();
+  });
+
+  test("keeps the completion modal card scrollable within the keyboard-avoiding area", () => {
+    const { getByText, getByTestId } = renderScreen();
+
+    fireEvent.press(getByText("+5m"));
+    fireEvent.press(getByText("Mark done"));
+
+    expect(getByTestId("completion-modal")).toHaveStyle({
+      width: "100%",
+      maxHeight: "100%",
+      overflow: "hidden",
+      padding: 0,
+    });
+    expect(getByTestId("completion-modal-scroll")).toHaveProp("contentContainerStyle");
   });
 });

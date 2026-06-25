@@ -884,16 +884,16 @@ export default function WeeklyTasksScreen() {
             style={styles.modalContainer}
             testID="weekly-tasks-modal-kav"
           >
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              testID="weekly-tasks-modal-scroll"
+            <Pressable
+              style={[styles.modalCard, shadows.card]}
+              onPress={(event) => event.stopPropagation()}
             >
-              <Pressable
-                style={[styles.modalCard, shadows.card]}
-                onPress={(event) => event.stopPropagation()}
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                testID="weekly-tasks-modal-scroll"
               >
                 <Text style={styles.modalTitle}>{editingId ? t("modal.editTitle") : t("modal.addTitle")}</Text>
 
@@ -1034,8 +1034,8 @@ export default function WeeklyTasksScreen() {
                     </Pressable>
                   </View>
                 </View>
-              </Pressable>
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
           </KeyboardAvoidingView>
           {keyboardVisible ? (
             <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
@@ -1311,11 +1311,11 @@ const styles = StyleSheet.create({
   modalCard: {
     backgroundColor: "#1f3a63",
     borderRadius: radius.xl,
-    padding: spacing.xl,
-    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
     width: "100%",
+    maxHeight: "100%",
+    overflow: "hidden",
   },
   modalContainer: {
     width: "100%",
@@ -1325,8 +1325,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   modalScrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
+    padding: spacing.xl,
+    gap: spacing.md,
   },
   manualCard: {
     backgroundColor: "#1f3a63",

@@ -849,16 +849,16 @@ export default function AnnualGoalsScreen() {
             style={styles.modalContainer}
             testID="annual-goals-modal-kav"
           >
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              testID="annual-goals-modal-scroll"
+            <Pressable
+              style={[styles.modalCard, shadows.card]}
+              onPress={(event) => event.stopPropagation()}
             >
-              <Pressable
-                style={[styles.modalCard, shadows.card]}
-                onPress={(event) => event.stopPropagation()}
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                testID="annual-goals-modal-scroll"
               >
                 <Text style={styles.modalTitle}>{modalTitle}</Text>
 
@@ -943,8 +943,8 @@ export default function AnnualGoalsScreen() {
                     </Pressable>
                   </View>
                 </View>
-              </Pressable>
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
           </KeyboardAvoidingView>
           {keyboardVisible ? (
             <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
@@ -968,15 +968,15 @@ export default function AnnualGoalsScreen() {
             behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
           >
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
+            <Pressable
+              style={[styles.modalCard, shadows.card]}
+              onPress={(event) => event.stopPropagation()}
             >
-              <Pressable
-                style={[styles.modalCard, shadows.card]}
-                onPress={(event) => event.stopPropagation()}
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
               >
                 <Text style={styles.modalTitle} testID="annual-goals-detail-title">
                   {detailGoal?.description ?? t("detail.title")}
@@ -1026,8 +1026,8 @@ export default function AnnualGoalsScreen() {
                     </Pressable>
                   </View>
                 </View>
-              </Pressable>
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
           </KeyboardAvoidingView>
           {keyboardVisible ? (
             <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
@@ -1340,16 +1340,17 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   modalScrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
+    padding: spacing.xl,
+    gap: spacing.md,
   },
   modalCard: {
     backgroundColor: "#1f3a63",
     borderRadius: radius.xl,
-    padding: spacing.xl,
-    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
+    width: "100%",
+    maxHeight: "100%",
+    overflow: "hidden",
   },
   modalTitle: {
     color: colors.textPrimary,

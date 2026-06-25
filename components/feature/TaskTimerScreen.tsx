@@ -2379,6 +2379,7 @@ export default function TaskTimerScreen() {
           <Pressable
             style={[styles.modalCard, shadows.card]}
             onPress={(event) => event.stopPropagation()}
+            testID="task-timer-link-modal-card"
           >
             <Text style={styles.modalTitle}>{t("taskLinkCard.modalTitle")}</Text>
             <Text style={styles.modalDescription}>
@@ -2597,23 +2598,28 @@ export default function TaskTimerScreen() {
         animationType="fade"
         onRequestClose={handleDismissCompletion}
       >
-        <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.modalOverlay,
+            keyboardVisible && styles.modalOverlayKeyboardVisible,
+          ]}
+        >
           <KeyboardAvoidingView
             behavior={getKeyboardAvoidingBehavior()}
             style={styles.modalContainer}
             testID="completion-modal-keyboard-avoiding"
           >
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              testID="completion-modal-scroll"
+            <Pressable
+              style={[styles.modalCard, styles.completionCard, shadows.card]}
+              onPress={(event) => event.stopPropagation()}
+              testID="completion-modal"
             >
-              <Pressable
-                style={[styles.modalCard, styles.completionCard, shadows.card]}
-                onPress={(event) => event.stopPropagation()}
-                testID="completion-modal"
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.completionScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                testID="completion-modal-scroll"
               >
                 <Text style={styles.modalTitle}>
                   {canSaveCompletionToTask
@@ -2700,8 +2706,8 @@ export default function TaskTimerScreen() {
                     </Text>
                   </Pressable>
                 </View>
-              </Pressable>
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
           </KeyboardAvoidingView>
           {keyboardVisible ? (
             <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
@@ -3222,6 +3228,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing.xl,
   },
+  modalOverlayKeyboardVisible: {
+    justifyContent: "flex-start",
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
   modalCard: {
     width: "100%",
     backgroundColor: "#1f3a63",
@@ -3230,6 +3241,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
+    maxHeight: "100%",
+    overflow: "hidden",
   },
   modalContainer: {
     width: "100%",
@@ -3241,6 +3254,11 @@ const styles = StyleSheet.create({
   modalScrollContent: {
     flexGrow: 1,
     justifyContent: "center",
+  },
+  completionScrollContent: {
+    padding: spacing.lg,
+    gap: spacing.md,
+    justifyContent: "flex-start",
   },
   modalTitle: {
     color: colors.textPrimary,
@@ -3272,7 +3290,8 @@ const styles = StyleSheet.create({
     lineHeight: typography.sm * 1.4,
   },
   completionCard: {
-    gap: spacing.md,
+    padding: 0,
+    gap: 0,
   },
   manualCard: {
     gap: spacing.md,

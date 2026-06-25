@@ -45,7 +45,7 @@ const androidPackage = isProd
 export default (): ExpoConfig => ({
   name,
   slug: "Ideal_Gap",
-  version: "1.2.0",
+  version: "1.2.2",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: schemes,
