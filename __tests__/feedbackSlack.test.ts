@@ -25,7 +25,7 @@ describe("feedback slack payload", () => {
     });
 
     expect(payload.text).toContain("カテゴリー: bug");
-    expect(payload.text).toContain("プラン: Pro Plan 会員");
+    expect(payload.text).toContain("プラン: ProPlan会員");
     expect(payload.text).toContain("ログイン済みかどうか: false");
     expect(payload.text).toContain("メールアドレス: alice@example.com");
     expect(payload.text).toContain("メッセージ: ホーム画面で表示崩れを見つけました");
@@ -49,16 +49,16 @@ describe("feedback slack payload", () => {
     expect(payload.text).toContain("プラン: 無料ユーザ");
   });
 
-  test("uses guest label and unknown fallbacks when optional values are missing", () => {
+  test("uses guest label before login", () => {
     const payload = buildFeedbackSlackPayload({
       id: "fb-3",
-      user_id: "user-1",
+      user_id: null,
       user_name: null,
       user_email: null,
       message: "Need dark mode",
       category: null,
       user_plan: null,
-      is_login_user: true,
+      is_login_user: false,
       app_version: null,
       platform: null,
       created_at: null,
@@ -66,7 +66,7 @@ describe("feedback slack payload", () => {
 
     expect(payload.text).toContain("カテゴリー: Unknown");
     expect(payload.text).toContain("プラン: ゲスト");
-    expect(payload.text).toContain("ログイン済みかどうか: true");
+    expect(payload.text).toContain("ログイン済みかどうか: false");
     expect(payload.text).toContain("メールアドレス: Unknown");
     expect(payload.text).toContain("メッセージ: Need dark mode");
   });

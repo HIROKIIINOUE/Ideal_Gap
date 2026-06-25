@@ -38,12 +38,19 @@ export const categoryToLabel = (value: FeedbackCategory): string => {
   return CATEGORY_LABELS[value] ?? fallback;
 };
 
+const planToLabel = (record: FeedbackRecord): string => {
+  if (record.user_plan === "paid") return "ProPlan会員";
+  if (record.user_plan === "free") return "無料ユーザ";
+  if (!record.is_login_user) return "ゲスト";
+  return fallback;
+};
+
 // slackに送信されるメッセージの雛形、ここでフォーマットを変えられる
 export const buildFeedbackSlackPayload = (record: FeedbackRecord) => {
   const lines = [
     "===========================",
     `カテゴリー: ${normalize(record.category)}`,
-    `プラン: ${normalize(record.user_plan === "paid" ? "Pro Plan 会員" : record.user_plan === "free" ? "無料ユーザ" : "ゲスト")}`,
+    `プラン: ${planToLabel(record)}`,
     `ログイン済みかどうか: ${record.is_login_user ? "true" : "false"}`,
     `メールアドレス: ${normalize(record.user_email)}`,
     `メッセージ: ${normalize(record.message)}`,
