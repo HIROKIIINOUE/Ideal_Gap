@@ -128,6 +128,14 @@ describe("Login screen", () => {
     expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe("handled");
   });
 
+  test("does not show outdated free trial copy in the sign up prompt card", () => {
+    const { queryByText } = renderScreen();
+
+    expect(
+      queryByText("After your 14 days free trial, it renews at 3.99 CAD every month. You can cancel anytime."),
+    ).toBeNull();
+  });
+
   test("toggles password visibility", () => {
     const { getByPlaceholderText, getByRole } = renderScreen();
 

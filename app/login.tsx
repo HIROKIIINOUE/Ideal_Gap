@@ -296,7 +296,6 @@ export default function Login() {
               style={StyleSheet.absoluteFill}
             />
             <Text style={styles.cardHeading}>{t("firstTimeHeading")}</Text>
-            <Text style={styles.body}>{t("firstTimeBody")}</Text>
             <Link href="/signup" asChild>
               <Pressable
                 accessibilityRole="button"
