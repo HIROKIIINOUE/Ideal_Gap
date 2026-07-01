@@ -726,16 +726,16 @@ describe("FocusMusicProvider", () => {
         limit: 5,
         count: 3,
         remaining: 2,
-        resetAt: "2026-06-23T00:00:00.000Z",
-        windowStartedAt: "2026-05-24T00:00:00.000Z",
+        resetAt: "2099-06-23T00:00:00.000Z",
+        windowStartedAt: "2099-05-24T00:00:00.000Z",
       })
       .mockResolvedValueOnce({
         accessMode: "paid",
         limit: 30,
         count: 4,
         remaining: 26,
-        resetAt: "2026-06-21T00:00:00.000Z",
-        windowStartedAt: "2026-05-22T00:00:00.000Z",
+        resetAt: "2099-06-21T00:00:00.000Z",
+        windowStartedAt: "2099-05-22T00:00:00.000Z",
       });
 
     const { result } = renderHook(() => useFocusMusic(), {
