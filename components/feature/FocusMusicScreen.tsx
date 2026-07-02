@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -27,6 +28,7 @@ import { createFocusMusicSignedUrl } from "../../lib/focus-music/signedUrl";
 import { captureExpoAudioError } from "../../lib/sentry";
 import { useFocusMusic } from "../../providers/FocusMusicProvider";
 import { FocusMusicCategory } from "../../types/focus-music";
+import UsageLimitUpgradeModal from "../UsageLimitUpgradeModal";
 
 const HEADER_CARD_GRADIENT = [
   "rgba(30,94,255,0.22)",
@@ -53,6 +55,7 @@ export default function FocusMusicScreen() {
     selectedTrackId,
     monthlyDownloadLimit,
     monthlyDownloadRemaining,
+    monthlyDownloadAccessMode,
     downloadResetAt,
     canInstall,
     isInstalling,
@@ -71,6 +74,12 @@ export default function FocusMusicScreen() {
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [limitMessageVisible, setLimitMessageVisible] = useState(false);
+  const [monthlyUpgradeVisible, setMonthlyUpgradeVisible] = useState(false);
+  const [pendingMonthlyUpgradeVisible, setPendingMonthlyUpgradeVisible] =
+    useState(false);
+  const [pendingInstallTrackId, setPendingInstallTrackId] = useState<string | null>(
+    null,
+  );
   const [selectedCategories, setSelectedCategories] = useState<
     FocusMusicCategory[]
   >([]);
@@ -99,6 +108,13 @@ export default function FocusMusicScreen() {
       setLimitMessageVisible(false);
     }
   }, [canInstall]);
+
+  useEffect(() => {
+    if (!catalogVisible && pendingMonthlyUpgradeVisible) {
+      setPendingMonthlyUpgradeVisible(false);
+      setMonthlyUpgradeVisible(true);
+    }
+  }, [catalogVisible, pendingMonthlyUpgradeVisible]);
 
   useFocusEffect(
     useCallback(() => {
@@ -131,49 +147,62 @@ export default function FocusMusicScreen() {
 
   // タスク集中音楽のインストールロジック
   const handleInstall = async (trackId: string) => {
-    if (!canInstall) {
-      Alert.alert(t("installLimitTitle"), t("installLimitBody"));
+    if (pendingInstallTrackId) {
       return;
     }
-    const result = await installTrack(trackId); //ここでインストール。これ以降は結果に応じたユーザへのメッセージ出力。
-    if (result.ok) {
-      setLimitMessageVisible(false);
-      return;
-    }
-    if (result.reason === "cellular") {
-      Alert.alert(t("cellularConfirmTitle"), t("cellularConfirmBody"), [
-        { text: t("cellularConfirmNo"), style: "cancel" },
-        {
-          text: t("cellularConfirmYes"),
-          style: "default",
-          onPress: async () => {
-            const retry = await installTrack(trackId, { allowCellular: true });
-            if (!retry.ok) {
-              Alert.alert(t("downloadFailedTitle"), t("downloadFailedBody"));
-            }
+    setPendingInstallTrackId(trackId);
+    try {
+      if (!canInstall) {
+        Alert.alert(t("installLimitTitle"), t("installLimitBody"));
+        return;
+      }
+      const result = await installTrack(trackId); //ここでインストール。これ以降は結果に応じたユーザへのメッセージ出力。
+      if (result.ok) {
+        setLimitMessageVisible(false);
+        return;
+      }
+      if (result.reason === "cellular") {
+        Alert.alert(t("cellularConfirmTitle"), t("cellularConfirmBody"), [
+          { text: t("cellularConfirmNo"), style: "cancel" },
+          {
+            text: t("cellularConfirmYes"),
+            style: "default",
+            onPress: async () => {
+              const retry = await installTrack(trackId, { allowCellular: true });
+              if (!retry.ok) {
+                Alert.alert(t("downloadFailedTitle"), t("downloadFailedBody"));
+              }
+            },
           },
-        },
-      ]);
-      return;
-    }
-    if (result.reason === "offline") {
-      Alert.alert(t("offlineTitle"), t("offlineBody"));
-      return;
-    }
-    if (result.reason === "limit") {
-      Alert.alert(t("installLimitTitle"), t("installLimitBody"));
-      return;
-    }
-    if (result.reason === "download_failed") {
-      Alert.alert(t("downloadFailedTitle"), t("downloadFailedBody"));
-      return;
-    }
-    if (result.reason === "busy") {
-      Alert.alert(t("downloadBusyTitle"), t("downloadBusyBody"));
-      return;
-    }
-    if (result.reason === "monthly_limit") {
-      Alert.alert(t("monthlyLimitTitle"), t("monthlyLimitBody"));
+        ]);
+        return;
+      }
+      if (result.reason === "offline") {
+        Alert.alert(t("offlineTitle"), t("offlineBody"));
+        return;
+      }
+      if (result.reason === "limit") {
+        Alert.alert(t("installLimitTitle"), t("installLimitBody"));
+        return;
+      }
+      if (result.reason === "download_failed") {
+        Alert.alert(t("downloadFailedTitle"), t("downloadFailedBody"));
+        return;
+      }
+      if (result.reason === "busy") {
+        Alert.alert(t("downloadBusyTitle"), t("downloadBusyBody"));
+        return;
+      }
+      if (result.reason === "monthly_limit") {
+        if (monthlyDownloadAccessMode === "free") {
+          setCatalogVisible(false);
+          setPendingMonthlyUpgradeVisible(true);
+          return;
+        }
+        Alert.alert(t("monthlyLimitTitle"), t("monthlyLimitBody"));
+      }
+    } finally {
+      setPendingInstallTrackId(null);
     }
   };
 
@@ -218,7 +247,12 @@ export default function FocusMusicScreen() {
   }, [catalogVisible, previewPlayer]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+      testID="focus-music-scroll"
+    >
       <LinearGradient
         colors={HEADER_CARD_GRADIENT}
         start={{ x: 0, y: 0 }}
@@ -335,6 +369,7 @@ export default function FocusMusicScreen() {
         )}
       </View>
 
+
       <Modal
         visible={catalogVisible}
         transparent
@@ -403,6 +438,8 @@ export default function FocusMusicScreen() {
                   const isPreviewing = previewTrackId === track.id;
                   const isPreviewLoading = previewLoadingId === track.id;
                   const installing = isInstalling(track.id);
+                  const installLocked =
+                    pendingInstallTrackId !== null || isDownloadInProgress;
                   // 音楽ダウンロードに関する進捗データを取得
                   const installProgress = getInstallProgress(track.id);
                   // 進捗データをもとにパーセントを計算
@@ -469,14 +506,14 @@ export default function FocusMusicScreen() {
                             pressed && styles.installButtonPressed,
                             (installed || installing) &&
                             styles.installButtonDisabled,
-                            isDownloadInProgress &&
+                            installLocked &&
                             !installing &&
                             styles.installButtonDisabled,
                           ]}
                           disabled={
                             installed ||
                             installing ||
-                            (isDownloadInProgress && !installing)
+                            (installLocked && !installing)
                           }
                           testID={`focus-music-install-${track.id}`}
                         >
@@ -545,14 +582,29 @@ export default function FocusMusicScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      <UsageLimitUpgradeModal
+        visible={monthlyUpgradeVisible}
+        title={t("monthlyLimitAlert.title")}
+        message={t("monthlyLimitAlert.body")}
+        backLabel={t("monthlyLimitAlert.back")}
+        upgradeLabel={t("monthlyLimitAlert.upgrade")}
+        onClose={() => setMonthlyUpgradeVisible(false)}
+        onUpgrade={() => {
+          setMonthlyUpgradeVisible(false);
+          router.push("/purchases");
+        }}
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollView: {
+    marginTop: spacing.md,
+  },
   container: {
     gap: spacing.md,
-    marginTop: spacing.md,
+    paddingBottom: spacing.xl,
   },
   card: {
     backgroundColor: colors.surface,

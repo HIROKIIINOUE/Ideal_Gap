@@ -188,7 +188,11 @@ export const captureSupabaseAuthUnexpectedError = (
 };
 
 // タスク集中音楽のダウンロード失敗エラーをキャッチ
-export const captureMusicDownloadError = (error: unknown, trackId?: string) => {
+export const captureMusicDownloadError = (
+  error: unknown,
+  trackId?: string,
+  stage?: "signed_url" | "download" | "quota_consume" | "metadata_persist",
+) => {
   Sentry.captureException(error, {
     tags: {
       area: "focus_music",
@@ -196,6 +200,7 @@ export const captureMusicDownloadError = (error: unknown, trackId?: string) => {
     },
     extra: {
       trackId,
+      stage,
     },
     level: "error",
   });

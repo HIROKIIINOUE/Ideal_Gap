@@ -72,6 +72,18 @@ export type TaskTimerTranslations = {
     description: string;
     button: string;
   };
+  taskLinkCard: {
+    title: string;
+    description: string;
+    dismiss: string;
+    select: string;
+    modalTitle: string;
+    modalDescription: string;
+    loading: string;
+    empty: string;
+    emptyAction: string;
+    error: string;
+  };
   completionModal: {
     title: string;
     unlinkedTitle: string;
@@ -197,6 +209,21 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         description:
           "タイマーを使わなかった作業時間を、選択中の週間タスクへ直接加算できます。",
         button: "手動で作業時間を追加",
+      },
+      taskLinkCard: {
+        title: "週間タスクと紐づいていません",
+        description:
+          "週間タスクを紐づけると、このタイマーの作業時間を記録できます。",
+        dismiss: "紐付けない",
+        select: "選択する",
+        modalTitle: "週間タスクを選択",
+        modalDescription:
+          "紐づける週間タスクを選ぶと、このタイマーから作業時間を記録できます。",
+        loading: "週間タスクを読み込み中...",
+        empty:
+          "週間タスクがまだ設定されていません。\nこのままでもタイマーは使用できますが作業時間は記録されません。",
+        emptyAction: "週間タスクへ",
+        error: "週間タスクの読み込みに失敗しました。",
       },
       completionModal: {
         title: "実績を保存",
@@ -330,6 +357,21 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         description:
           "Add work time directly to the selected weekly task when you did not use the timer.",
         button: "Add work time manually",
+      },
+      taskLinkCard: {
+        title: "Not linked to a weekly task",
+        description:
+          "Link a weekly task if you want this timer session to save work time.",
+        dismiss: "Skip",
+        select: "Select",
+        modalTitle: "Choose a weekly task",
+        modalDescription:
+          "Select the weekly task you want to link to this timer.",
+        loading: "Loading weekly tasks...",
+        empty:
+          "No weekly tasks are set yet.\nYou can still use the timer, but work time will not be saved.",
+        emptyAction: "Go to weekly tasks",
+        error: "Failed to load weekly tasks.",
       },
       completionModal: {
         title: "Review before saving",
@@ -467,6 +509,21 @@ export const taskTimerTranslations: Record<LanguageKey, TaskTimerTranslations> =
         description:
           "Ajoutez directement du temps de travail à la tâche hebdomadaire sélectionnée si vous n'avez pas utilisé le minuteur.",
         button: "Ajouter du temps manuellement",
+      },
+      taskLinkCard: {
+        title: "Non lié à une tâche hebdomadaire",
+        description:
+          "Associez une tâche hebdomadaire si vous voulez enregistrer le temps de cette session.",
+        dismiss: "Ignorer",
+        select: "Choisir",
+        modalTitle: "Choisir une tâche hebdomadaire",
+        modalDescription:
+          "Sélectionnez la tâche hebdomadaire à associer à ce minuteur.",
+        loading: "Chargement des tâches hebdomadaires...",
+        empty:
+          "Aucune tâche hebdomadaire n'est définie.\nVous pouvez quand même utiliser le minuteur, mais le temps ne sera pas enregistré.",
+        emptyAction: "Aller aux tâches",
+        error: "Impossible de charger les tâches hebdomadaires.",
       },
       completionModal: {
         title: "Revoir avant d'enregistrer",

@@ -10,6 +10,14 @@ export type WeeklyTasksTranslations = {
     delete: string;
     deleteExit: string;
   };
+  limitHelper: string;
+  limitReached: string;
+  limitAlert: {
+    title: string;
+    body: string;
+    back: string;
+    upgrade: string;
+  };
   completion: {
     complete: string;
     undo: string;
@@ -101,6 +109,14 @@ export const weeklyTasksTranslations: Record<
       delete: "削除",
       deleteExit: "戻る",
     },
+    limitHelper: "無料プランでは最大10件まで追加できます",
+    limitReached: "上限に達しました。削除してから追加してください。",
+    limitAlert: {
+      title: "上限に達しました",
+      body: "無料プランは最大10件までです。10件を超える場合はプランをアップグレードしてください。",
+      back: "戻る",
+      upgrade: "Pro Planへアップグレード",
+    },
     completion: {
       complete: "完了",
       undo: "未完了に戻す",
@@ -188,6 +204,14 @@ export const weeklyTasksTranslations: Record<
       delete: "Delete",
       deleteExit: "Exit",
     },
+    limitHelper: "Free users can add up to 10 items",
+    limitReached: "You’ve reached the limit. Remove one to add another.",
+    limitAlert: {
+      title: "Limit reached",
+      body: "The free plan allows up to 10 items. Upgrade your plan to go beyond 10.",
+      back: "Back",
+      upgrade: "Upgrade to Pro Plan",
+    },
     completion: {
       complete: "Done",
       undo: "Mark as active",
@@ -274,6 +298,14 @@ export const weeklyTasksTranslations: Record<
       add: "Ajouter",
       delete: "Supprimer",
       deleteExit: "Quitter",
+    },
+    limitHelper: "Les utilisateurs gratuits peuvent en ajouter jusqu’à 10",
+    limitReached: "Limite atteinte. Supprimez-en un pour en ajouter un autre.",
+    limitAlert: {
+      title: "Limite atteinte",
+      body: "Le forfait gratuit permet jusqu’à 10 éléments. Passez au forfait Pro pour dépasser 10.",
+      back: "Retour",
+      upgrade: "Passer au forfait Pro",
     },
     completion: {
       complete: "Terminer",

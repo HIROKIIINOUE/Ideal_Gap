@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 // ControllerはTextInputとRHFを繋ぐタグ、FieldErrorsはhandleSubmitが失敗したときのエラー型
 import { Controller, FieldErrors } from "react-hook-form";
@@ -18,7 +19,6 @@ import {
 import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { z } from "zod";
-import KeyboardDismissButton from "../KeyboardDismissButton";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { useAppZodForm } from "../../hooks/useAppZodForm";
 import { useDeleteMode } from "../../hooks/useDeleteMode";
@@ -28,11 +28,15 @@ import { getUserId } from "../../lib/api/supabase/common";
 import { deleteIdeal, fetchIdealSelf, insertIdeal, updateIdeal, upsertIdeals } from "../../lib/api/supabase/idealSelf";
 import { closedModalState, createAddModalState, createEditModalState, ModalState } from "../../lib/common/modalState";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
+import { AccessMode, getAccessStateForUser } from "../../lib/subscription";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
+import { hasReachedUsageLimit } from "../../lib/usageLimits";
 import { useOffline } from "../../providers/OfflineProvider";
-import { compactFeatureSpacing } from "./compactFeatureSpacing";
+import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import UsageLimitUpgradeModal from "../UsageLimitUpgradeModal";
+import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 type IdealCard = {
   id: string;
@@ -89,10 +93,12 @@ export default function IdealSelfScreen() {
   const { t, i18n } = useTranslation("idealSelf");
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [ideals, setIdeals] = useState<IdealCard[]>([]);
+  const [accessMode, setAccessMode] = useState<AccessMode>("free");
   const { deleteMode, toggleDeleteMode, disableDeleteMode } = useDeleteMode();
   const [modalState, setModalState] = useState<ModalState>(closedModalState);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [limitModalVisible, setLimitModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [hasOfflineCache, setHasOfflineCache] = useState(false);
@@ -128,6 +134,13 @@ export default function IdealSelfScreen() {
 
       // ローカルキャッシュのキー名を生成
       const cacheKey = buildOfflineCacheKey("ideal-self", uid);
+
+      if (!offlineBlocked) {
+        const accessState = await getAccessStateForUser(uid);
+        if (active) {
+          setAccessMode(accessState.accessMode);
+        }
+      }
 
       // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
       if (offlineBlocked) {
@@ -169,9 +182,20 @@ export default function IdealSelfScreen() {
     };
   }, [offlineBlocked, t]);
 
+  // 無料ユーザならここでデータ数上限に達してるかどうかをbooleanで判定
+  const limitReached = hasReachedUsageLimit({
+    feature: "idealSelf",
+    accessMode,
+    currentCount: ideals.length,
+  });
+
   // 追加インプットモーダル表示ボタン
   const handleAddPress = () => {
     if (guardOfflineAction()) return;
+    if (limitReached) {
+      setLimitModalVisible(true);
+      return;
+    }
     setModalError(null);
     reset({ description: "" });
     setModalState(createAddModalState());
@@ -400,7 +424,12 @@ export default function IdealSelfScreen() {
             <Text style={[styles.heading, isFrench && styles.headingFrench, isAndroidJapanese && styles.headingAndroidJa]}>{t("pageTitle")}</Text>
 
             <View style={styles.actionRow}>
-              <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={handleAddPress} disabled={loading || offlineBlocked}>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.primaryButton}
+                onPress={handleAddPress}
+                disabled={loading || offlineBlocked}
+              >
                 <MaterialCommunityIcons name="plus" size={20} color={colors.textPrimary} />
                 <Text style={[styles.primaryButtonText, isFrench && styles.headerButtonTextFrench]}>{t("add")}</Text>
               </Pressable>
@@ -461,16 +490,16 @@ export default function IdealSelfScreen() {
             style={styles.modalContainer}
             testID="ideal-self-modal-kav"
           >
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              testID="ideal-self-modal-scroll"
+            <Pressable
+              style={[styles.modalCard, shadows.card]}
+              onPress={(event) => event.stopPropagation()}
             >
-              <Pressable
-                style={[styles.modalCard, shadows.card]}
-                onPress={(event) => event.stopPropagation()}
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                testID="ideal-self-modal-scroll"
               >
                 <Text style={styles.modalTitle}>{modalTitle}</Text>
                 {modalState.meta && (
@@ -520,14 +549,26 @@ export default function IdealSelfScreen() {
                     </Pressable>
                   </View>
                 </View>
-              </Pressable>
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
           </KeyboardAvoidingView>
           {keyboardVisible ? (
             <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
           ) : null}
         </Pressable>
       </Modal>
+      <UsageLimitUpgradeModal
+        visible={limitModalVisible}
+        title={t("limitAlert.title")}
+        message={t("limitAlert.body")}
+        backLabel={t("limitAlert.back")}
+        upgradeLabel={t("limitAlert.upgrade")}
+        onClose={() => setLimitModalVisible(false)}
+        onUpgrade={() => {
+          setLimitModalVisible(false);
+          router.push("/purchases");
+        }}
+      />
     </GestureHandlerRootView>
   );
 }
@@ -727,16 +768,17 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   modalScrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
+    padding: spacing.xl,
+    gap: spacing.md,
   },
   modalCard: {
     backgroundColor: "#1f3a63",
     borderRadius: radius.xl,
-    padding: spacing.xl,
-    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
+    width: "100%",
+    maxHeight: "100%",
+    overflow: "hidden",
   },
   modalTitle: {
     color: colors.textPrimary,

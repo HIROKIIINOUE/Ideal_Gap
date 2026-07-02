@@ -124,6 +124,7 @@ export type Database = {
           user_email: string | null;
           user_id: string | null;
           user_name: string | null;
+          user_plan: string | null;
         };
         Insert: {
           app_version?: string | null;
@@ -136,6 +137,7 @@ export type Database = {
           user_email?: string | null;
           user_id?: string | null;
           user_name?: string | null;
+          user_plan?: string | null;
         };
         Update: {
           app_version?: string | null;
@@ -148,6 +150,7 @@ export type Database = {
           user_email?: string | null;
           user_id?: string | null;
           user_name?: string | null;
+          user_plan?: string | null;
         };
         Relationships: [
           {
@@ -191,6 +194,43 @@ export type Database = {
         };
         Relationships: [];
       };
+      focus_music_download_quotas: {
+        Row: {
+          created_at: string;
+          download_count: number;
+          plan_snapshot: "free" | "paid" | "friend_free";
+          reset_at: string;
+          updated_at: string;
+          user_id: string;
+          window_started_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          download_count?: number;
+          plan_snapshot: "free" | "paid" | "friend_free";
+          reset_at: string;
+          updated_at?: string;
+          user_id: string;
+          window_started_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          download_count?: number;
+          plan_snapshot?: "free" | "paid" | "friend_free";
+          reset_at?: string;
+          updated_at?: string;
+          user_id?: string;
+          window_started_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "focus_music_download_quotas_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null;
@@ -203,7 +243,6 @@ export type Database = {
             | "active"
             | "canceled"
             | "expired"
-            | "signupAwait"
             | null;
           trial_ends_at: string | null;
           updated_at: string | null;
@@ -220,7 +259,6 @@ export type Database = {
             | "active"
             | "canceled"
             | "expired"
-            | "signupAwait"
             | null;
           trial_ends_at?: string | null;
           updated_at?: string | null;
@@ -237,7 +275,6 @@ export type Database = {
             | "active"
             | "canceled"
             | "expired"
-            | "signupAwait"
             | null;
           trial_ends_at?: string | null;
           updated_at?: string | null;
@@ -522,10 +559,44 @@ export type Database = {
         };
         Returns: boolean;
       };
+      increment_focus_music_download_quota: {
+        Args: {
+          p_increment?: number;
+          p_max_downloads?: number | null;
+          p_plan_snapshot: "free" | "paid" | "friend_free";
+          p_reset_interval_days?: number;
+          p_user_id: string;
+        };
+        Returns: {
+          created_at: string;
+          download_count: number;
+          plan_snapshot: "free" | "paid" | "friend_free";
+          reset_at: string;
+          updated_at: string;
+          user_id: string;
+          window_started_at: string;
+        }[];
+      };
+      sync_focus_music_download_quota_access: {
+        Args: {
+          p_plan_snapshot: "free" | "paid" | "friend_free";
+          p_reset_interval_days?: number;
+          p_user_id: string;
+        };
+        Returns: {
+          created_at: string;
+          download_count: number;
+          plan_snapshot: "free" | "paid" | "friend_free";
+          reset_at: string;
+          updated_at: string;
+          user_id: string;
+          window_started_at: string;
+        }[];
+      };
     };
     Enums: {
       language: "ja" | "en" | "fr";
-      status: "trial" | "active" | "canceled" | "expired" | "signupAwait";
+      status: "trial" | "active" | "canceled" | "expired";
       category: "bug" | "request" | "feedback" | "other";
       os_type: "ios" | "android";
     };

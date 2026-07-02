@@ -2,7 +2,8 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
-import { Alert } from "react-native";
+import { Alert, ScrollView } from "react-native";
+import { router } from "expo-router";
 import FocusMusicScreen from "../components/feature/FocusMusicScreen";
 import i18n from "../i18n";
 import { FocusMusicProvider } from "../providers/FocusMusicProvider";
@@ -63,8 +64,15 @@ const mockFetchCatalog = jest.fn(async () => mockCatalog);
 const mockSignedUrl = jest.fn(
   async (_trackId: string) => "https://example.com/focus.mp3",
 );
+const mockLoadFocusMusicDownloadQuota = jest.fn();
+const mockConsumeFocusMusicDownloadQuota = jest.fn();
 const mockNetInfoFetch = jest.fn();
 const mockGetUserId = jest.fn(async () => "user-1");
+const mockEnsureUserProfileForAuthUser = jest.fn();
+const mockSupabaseAuthGetUser = jest.fn(async () => ({
+  data: { user: { id: "user-1", email: "user@example.com" } },
+  error: null,
+}));
 const mockDownloadResumableDownloadAsync = jest.fn().mockResolvedValue({
   uri: "file://test/focus-music/track-1.mp3",
 });
@@ -92,6 +100,26 @@ jest.mock("../lib/focus-music/signedUrl", () => ({
   createFocusMusicSignedUrl: (trackId: string) => mockSignedUrl(trackId),
 }));
 
+jest.mock("../lib/focus-music/quota", () => ({
+  loadFocusMusicDownloadQuota: (...args: unknown[]) =>
+    mockLoadFocusMusicDownloadQuota(...args),
+  consumeFocusMusicDownloadQuota: (...args: unknown[]) =>
+    mockConsumeFocusMusicDownloadQuota(...args),
+}));
+
+jest.mock("../lib/subscription", () => ({
+  ensureUserProfileForAuthUser: (...args: unknown[]) =>
+    mockEnsureUserProfileForAuthUser(...args),
+}));
+
+jest.mock("../lib/supabaseClient", () => ({
+  supabase: {
+    auth: {
+      getUser: () => mockSupabaseAuthGetUser(),
+    },
+  },
+}));
+
 jest.mock("../lib/api/supabase/common", () => ({
   getUserId: () => mockGetUserId(),
 }));
@@ -106,6 +134,14 @@ jest.mock("@react-navigation/native", () => {
     useFocusEffect: (cb: () => void) => React.useEffect(cb, [cb]),
   };
 });
+
+jest.mock("expo-router", () => ({
+  router: {
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  },
+}));
 
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file://test/",
@@ -178,6 +214,34 @@ describe("FocusMusicScreen", () => {
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockFetchCatalog.mockClear();
     mockSignedUrl.mockClear();
+    mockLoadFocusMusicDownloadQuota.mockReset();
+    mockLoadFocusMusicDownloadQuota.mockResolvedValue({
+      accessMode: "free",
+      limit: 5,
+      count: 0,
+      remaining: 5,
+      resetAt: null,
+      windowStartedAt: null,
+    });
+    mockConsumeFocusMusicDownloadQuota.mockReset();
+    mockConsumeFocusMusicDownloadQuota.mockResolvedValue({
+      ok: true,
+      quota: {
+        accessMode: "free",
+        limit: 5,
+        count: 1,
+        remaining: 4,
+        resetAt: "2026-07-18T00:00:00.000Z",
+        windowStartedAt: "2026-06-18T00:00:00.000Z",
+      },
+    });
+    mockEnsureUserProfileForAuthUser.mockReset();
+    mockEnsureUserProfileForAuthUser.mockResolvedValue(undefined);
+    mockSupabaseAuthGetUser.mockReset();
+    mockSupabaseAuthGetUser.mockResolvedValue({
+      data: { user: { id: "user-1", email: "user@example.com" } },
+      error: null,
+    });
     mockNetInfoFetch.mockReset();
     mockDownloadResumableDownloadAsync.mockReset();
     mockDownloadResumableDownloadAsync.mockResolvedValue({
@@ -195,6 +259,13 @@ describe("FocusMusicScreen", () => {
     (Alert.alert as jest.Mock).mockRestore();
   });
 
+  test("wraps the screen in a vertical scroll view", async () => {
+    const { getByTestId, UNSAFE_getAllByType } = renderScreen();
+
+    await waitFor(() => expect(getByTestId("focus-music-scroll")).toBeTruthy());
+    expect(UNSAFE_getAllByType(ScrollView).length).toBeGreaterThan(0);
+  });
+
   test("opens catalog and installs a track", async () => {
     const { getByTestId, queryByTestId, getByText } = renderScreen();
 
@@ -207,6 +278,32 @@ describe("FocusMusicScreen", () => {
       fireEvent.press(getByTestId("focus-music-install-track-1"));
     });
     await waitFor(() => expect(getByTestId("focus-music-installed-track-1")).toBeTruthy());
+  });
+
+  test("disables install buttons immediately after tapping download", async () => {
+    let resolveDownload: ((value: { uri: string }) => void) | null = null;
+    mockDownloadResumableDownloadAsync.mockImplementationOnce(
+      () =>
+        new Promise<{ uri: string }>((resolve) => {
+          resolveDownload = resolve;
+        }),
+    );
+
+    const { getByTestId, getByText } = renderScreen();
+
+    fireEvent.press(getByTestId("focus-music-catalog-button"));
+    await waitFor(() => expect(getByText("Deep Focus")).toBeTruthy());
+
+    fireEvent.press(getByTestId("focus-music-install-track-1"));
+
+    await waitFor(() =>
+      expect(getByTestId("focus-music-install-track-1")).toBeDisabled(),
+    );
+    expect(getByTestId("focus-music-install-track-2")).toBeDisabled();
+
+    await act(async () => {
+      resolveDownload?.({ uri: "file://test/focus-music/track-1.mp3" });
+    });
   });
 
   test("asks for confirmation before removing a track", async () => {
@@ -262,6 +359,60 @@ describe("FocusMusicScreen", () => {
     expect(Alert.alert).toHaveBeenCalledWith(
       "download limit reached",
       "You can download up to 5 tracks. Remove a track from your list to download another one.",
+    );
+  });
+
+  test("shows upgrade modal for free users when monthly download limit is reached", async () => {
+    mockLoadFocusMusicDownloadQuota.mockResolvedValue({
+      accessMode: "free",
+      limit: 5,
+      count: 5,
+      remaining: 0,
+      resetAt: "2026-07-18T00:00:00.000Z",
+      windowStartedAt: "2026-06-18T00:00:00.000Z",
+    });
+
+    const { getByTestId, getByText, findByTestId, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByTestId("focus-music-catalog-button"));
+    await waitFor(() => expect(getByText("Deep Focus")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(getByTestId("focus-music-install-track-1"));
+    });
+
+    expect(await findByTestId("usage-limit-upgrade-modal")).toBeTruthy();
+    await waitFor(() =>
+      expect(queryByTestId("focus-music-catalog-modal")).toBeNull(),
+    );
+    expect(getByText("Monthly download limit reached")).toBeTruthy();
+    fireEvent.press(getByTestId("usage-limit-upgrade-modal-upgrade"));
+    expect(router.push).toHaveBeenCalledWith("/purchases");
+  });
+
+  test("keeps monthly limit as alert for paid users", async () => {
+    mockLoadFocusMusicDownloadQuota.mockResolvedValue({
+      accessMode: "paid",
+      limit: 30,
+      count: 30,
+      remaining: 0,
+      resetAt: "2026-07-18T00:00:00.000Z",
+      windowStartedAt: "2026-06-18T00:00:00.000Z",
+    });
+
+    const { getByTestId, getByText, queryByTestId } = renderScreen();
+
+    fireEvent.press(getByTestId("focus-music-catalog-button"));
+    await waitFor(() => expect(getByText("Deep Focus")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(getByTestId("focus-music-install-track-1"));
+    });
+
+    expect(queryByTestId("usage-limit-upgrade-modal")).toBeNull();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Monthly download limit",
+      "You've reached this month's download limit. Please try again next month.",
     );
   });
 

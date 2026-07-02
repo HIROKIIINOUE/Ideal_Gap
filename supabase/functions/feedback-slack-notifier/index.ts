@@ -23,6 +23,7 @@ const feedbackRecordSchema = z.object({
   user_email: z.string().nullable(),
   message: z.string().min(1),
   category: z.enum(["bug", "request", "feedback", "other"]).nullable(),
+  user_plan: z.enum(["paid", "free"]).nullable(),
   is_login_user: z.boolean(),
   app_version: z.string().nullable(),
   platform: z.string().nullable(),

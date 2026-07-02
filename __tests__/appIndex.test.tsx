@@ -8,6 +8,7 @@ import { supabase } from "../lib/supabaseClient";
 import { LanguageProvider } from "../providers/LanguageProvider";
 
 const mockGetAccessStateForUser = jest.fn();
+const mockFetchRevenueCatPackage = jest.fn();
 
 jest.mock("../lib/supabaseClient", () => ({
   supabase: {
@@ -21,6 +22,10 @@ jest.mock("../lib/supabaseClient", () => ({
 
 jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
+}));
+
+jest.mock("../lib/revenuecatOfferings", () => ({
+  fetchRevenueCatPackage: (...args: unknown[]) => mockFetchRevenueCatPackage(...args),
 }));
 
 describe("Index screen", () => {
@@ -46,6 +51,13 @@ describe("Index screen", () => {
       subscription: null,
       accessOverride: null,
     });
+    mockFetchRevenueCatPackage.mockResolvedValue({
+      package: { identifier: "monthly" },
+      price: 390,
+      priceString: "390 円",
+      currencyCode: "JPY",
+      trialDuration: undefined,
+    });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
       data: { subscription: { unsubscribe: jest.fn() } },
     });
@@ -59,7 +71,7 @@ describe("Index screen", () => {
     jest.restoreAllMocks();
   });
 
-  it("shows pricing and CTA buttons", async () => {
+  it("shows free and paid plan copy with CTA buttons", async () => {
     render(
       <I18nextProvider i18n={i18n}>
         <LanguageProvider>
@@ -68,11 +80,12 @@ describe("Index screen", () => {
       </I18nextProvider>,
     );
 
-    const planPrice = await screen.findByText("390 円/月");
+    const planPrice = await screen.findByText("Pro Planは月額390 JPYです。");
     expect(planPrice).toBeOnTheScreen();
-    const trialBanner = await screen.findByText("14日間無料トライアル付き");
-    expect(trialBanner).toBeOnTheScreen();
-    expect(trialBanner).toHaveStyle({ color: "#F25F5C" });
+    expect(await screen.findByText("無料プラン")).toBeOnTheScreen();
+    expect(await screen.findByText("有料プラン")).toBeOnTheScreen();
+    expect(await screen.findByText("音楽ダウンロードは月5曲まで")).toBeOnTheScreen();
+    expect(await screen.findByText("音楽ダウンロードは月30曲まで")).toBeOnTheScreen();
     const startButtonLabels = await screen.findAllByText("無料で始める");
     const startButtons = await screen.findAllByRole("button", { name: "無料で始める" });
     const signInButtons = await screen.findAllByRole("button", { name: "ログイン" });
@@ -123,11 +136,9 @@ describe("Index screen", () => {
     );
 
     const title = await screen.findByText("Premier pas vers votre idéal");
-    const membershipLabels = await screen.findAllByText("Abonnement");
     const ctaLabels = await screen.findAllByText("Essai gratuit");
 
     expect(title).toHaveStyle({ fontSize: 22.08 });
-    expect(membershipLabels[1]).toHaveStyle({ fontSize: 16 });
     expect(ctaLabels[0]).toHaveStyle({ fontSize: 13 });
   });
 
@@ -147,16 +158,12 @@ describe("Index screen", () => {
 
     const title = await screen.findByText("理想の自分への第一歩");
     const overviewBullet = await screen.findByTestId("landing-overview-bullet-0");
-    const membershipBullet = await screen.findByTestId("landing-membership-bullet-0");
     const overviewBulletMarker = await screen.findByTestId("landing-overview-bullet-marker-0");
-    const membershipBulletMarker = await screen.findByTestId("landing-membership-bullet-marker-0");
     const shimmerMasks = await screen.findAllByTestId("landing-cta-shimmer-mask");
 
     expect(title).toHaveStyle({ fontSize: 25.76 });
     expect(overviewBullet).toHaveStyle({ backgroundColor: "#6EA8FF" });
-    expect(membershipBullet).toHaveStyle({ backgroundColor: "#6EA8FF" });
     expect(overviewBulletMarker).toHaveStyle({ width: 12, alignItems: "center" });
-    expect(membershipBulletMarker).toHaveStyle({ width: 12, alignItems: "center" });
     expect(shimmerMasks).toHaveLength(4);
   });
 });

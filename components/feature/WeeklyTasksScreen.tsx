@@ -25,13 +25,16 @@ import { useOfflineActionGuard } from "../../hooks/useOfflineActionGuard";
 import { deleteWeeklyTasks } from "../../lib/api/supabase/goals/allItemDelete";
 import { buildOfflineCacheKey, readOfflineCache, writeOfflineCache } from "../../lib/offline/cache";
 import { decryptFieldValue, encryptFieldValue } from "../../lib/security/fieldEncryption";
+import { AccessMode, getAccessStateForUser } from "../../lib/subscription";
 import { supabase } from "../../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior, shouldUseAndroidJapaneseTypography } from "../../lib/ui/platform";
+import { hasReachedUsageLimit } from "../../lib/usageLimits";
 import { useOffline } from "../../providers/OfflineProvider";
 import { Database } from "../../types/database";
 import KeyboardDismissButton from "../KeyboardDismissButton";
 import Loading from "../Loading";
 import OfflineRequiredScreen from "../OfflineRequiredScreen";
+import UsageLimitUpgradeModal from "../UsageLimitUpgradeModal";
 import { compactFeatureSpacing } from "./compactFeatureSpacing";
 
 // 画面表示用データの型
@@ -97,6 +100,7 @@ export default function WeeklyTasksScreen() {
   const { t, i18n } = useTranslation("weeklyTasks");
   const { keyboardVisible, keyboardHeight, dismissKeyboard } = useKeyboardDismissAccessory();
   const [tasks, setTasks] = useState<WeeklyTask[]>([]);
+  const [accessMode, setAccessMode] = useState<AccessMode>("free");
   const [deleteMode, setDeleteMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -108,6 +112,7 @@ export default function WeeklyTasksScreen() {
   >([]);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [limitModalVisible, setLimitModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isGoalDropdownOpen, setGoalDropdownOpen] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -131,6 +136,12 @@ export default function WeeklyTasksScreen() {
 
   const hasLoadedRef = useRef(false);
   const hasYearlyGoals = yearlyGoalOptions.length > 0;
+  // 無料ユーザならここでデータ数上限に達してるかどうかをbooleanで判定
+  const limitReached = hasReachedUsageLimit({
+    feature: "weeklyTasks",
+    accessMode,
+    currentCount: tasks.length,
+  });
 
   // 以前使用した紐づく年間目標をAsyncStorageから取り出す(追加モーダルでデフォルト表示するため)
   // AsyncStorageに記録がない場合は先頭の年間目標を表示する。
@@ -271,6 +282,11 @@ export default function WeeklyTasksScreen() {
     const taskCacheKey = buildOfflineCacheKey("weekly-tasks", uid);
     const goalCacheKey = buildOfflineCacheKey("weekly-yearly-goals", uid);
 
+    if (!offlineBlocked) {
+      const accessState = await getAccessStateForUser(uid);
+      setAccessMode(accessState.accessMode);
+    }
+
     // オフラインの場合、生成したキー名を使ってローカルキャッシュデータを取りに行く(キャッシュデータがなければ後ほどオフラインページ表示へ遷移される)
     if (offlineBlocked) {
       const [cachedTasks, cachedGoals] = await Promise.all([
@@ -399,6 +415,10 @@ export default function WeeklyTasksScreen() {
   // 「追加ボタン」からモーダルを開いた時のロジック
   const handleOpenAdd = async () => {
     if (guardOfflineAction()) return;
+    if (limitReached) {
+      setLimitModalVisible(true);
+      return;
+    }
     const preferredYearlyGoalId = await getPreferredYearlyGoalId();
     setEditingId(null);
     setGoalDropdownOpen(false);
@@ -864,16 +884,16 @@ export default function WeeklyTasksScreen() {
             style={styles.modalContainer}
             testID="weekly-tasks-modal-kav"
           >
-            <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              testID="weekly-tasks-modal-scroll"
+            <Pressable
+              style={[styles.modalCard, shadows.card]}
+              onPress={(event) => event.stopPropagation()}
             >
-              <Pressable
-                style={[styles.modalCard, shadows.card]}
-                onPress={(event) => event.stopPropagation()}
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                testID="weekly-tasks-modal-scroll"
               >
                 <Text style={styles.modalTitle}>{editingId ? t("modal.editTitle") : t("modal.addTitle")}</Text>
 
@@ -1014,14 +1034,27 @@ export default function WeeklyTasksScreen() {
                     </Pressable>
                   </View>
                 </View>
-              </Pressable>
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
           </KeyboardAvoidingView>
           {keyboardVisible ? (
             <KeyboardDismissButton keyboardHeight={keyboardHeight} onPress={dismissKeyboard} />
           ) : null}
         </Pressable>
       </Modal>
+
+      <UsageLimitUpgradeModal
+        visible={limitModalVisible}
+        title={t("limitAlert.title")}
+        message={t("limitAlert.body")}
+        backLabel={t("limitAlert.back")}
+        upgradeLabel={t("limitAlert.upgrade")}
+        onClose={() => setLimitModalVisible(false)}
+        onUpgrade={() => {
+          setLimitModalVisible(false);
+          router.push("/purchases");
+        }}
+      />
 
     </GestureHandlerRootView>
   );
@@ -1278,11 +1311,11 @@ const styles = StyleSheet.create({
   modalCard: {
     backgroundColor: "#1f3a63",
     borderRadius: radius.xl,
-    padding: spacing.xl,
-    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.divider,
     width: "100%",
+    maxHeight: "100%",
+    overflow: "hidden",
   },
   modalContainer: {
     width: "100%",
@@ -1292,8 +1325,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   modalScrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
+    padding: spacing.xl,
+    gap: spacing.md,
   },
   manualCard: {
     backgroundColor: "#1f3a63",

@@ -11,6 +11,7 @@
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { z } from "zod";
+import { createR2PresignedGetUrl } from "../_shared/r2Presign.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,22 +29,30 @@ type RequestPayload = z.infer<typeof requestSchema>;
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const defaultBucket = Deno.env.get("FOCUS_MUSIC_BUCKET") ?? "focus_music";
-const appEnv = (Deno.env.get("APP_ENV") ?? "dev").toLowerCase();
-const allowUnpaid = appEnv !== "prod";
+const r2AccessKeyId = Deno.env.get("R2_ACCESS_KEY_ID");
+const r2SecretAccessKey = Deno.env.get("R2_SECRET_ACCESS_KEY");
+const r2AccountId = Deno.env.get("R2_ACCOUNT_ID");
+const r2AccountEndpoint =
+  Deno.env.get("R2_S3_ENDPOINT") ??
+  (r2AccountId
+    ? `https://${r2AccountId}.r2.cloudflarestorage.com`
+    : undefined);
 
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+if (
+  !supabaseUrl ||
+  !supabaseServiceRoleKey ||
+  !r2AccessKeyId ||
+  !r2SecretAccessKey ||
+  !r2AccountEndpoint
+) {
+  throw new Error(
+    "Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, or R2_ACCOUNT_ID/R2_S3_ENDPOINT",
+  );
 }
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
-
-const allowedStatuses = new Set([
-  "active",
-  "trial",
-  ...(allowUnpaid ? ["signupAwait"] : []),
-]);
 
 const normalizeStoragePath = (value: string) =>
   value.replace(/^(\.\/|\/)+/, "");
@@ -88,20 +97,6 @@ serve(async (req: Request) => {
     });
   }
 
-  const userId = authData.user.id;
-  const { data: subscription } = await supabaseAdmin
-    .from("subscriptions")
-    .select("status")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const status = subscription?.status ?? null;
-  if (!status || !allowedStatuses.has(status)) {
-    if (!allowUnpaid) {
-      return new Response("forbidden", { status: 403, headers: corsHeaders });
-    }
-  }
-
   const { data: track } = await supabaseAdmin
     .from("focus_music_tracks")
     .select("bucket, storage_path")
@@ -117,11 +112,18 @@ serve(async (req: Request) => {
   if (!storagePath) {
     return new Response("not found", { status: 404, headers: corsHeaders });
   }
-  const { data: signed, error } = await supabaseAdmin.storage
-    .from(bucket)
-    .createSignedUrl(storagePath, 60 * 30);
 
-  if (error || !signed?.signedUrl) {
+  let signedUrl: string;
+  try {
+    signedUrl = await createR2PresignedGetUrl({
+      accountEndpoint: r2AccountEndpoint,
+      bucket,
+      objectKey: storagePath,
+      accessKeyId: r2AccessKeyId,
+      secretAccessKey: r2SecretAccessKey,
+      expiresInSeconds: 60 * 30,
+    });
+  } catch (_error) {
     return new Response("failed to sign url", {
       status: 500,
       headers: corsHeaders,
@@ -129,7 +131,7 @@ serve(async (req: Request) => {
   }
 
   return new Response(
-    JSON.stringify({ url: signed.signedUrl, expiresIn: 60 * 30 }),
+    JSON.stringify({ url: signedUrl, expiresIn: 60 * 30 }),
     {
       headers: {
         ...corsHeaders,

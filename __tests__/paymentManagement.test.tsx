@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { Alert } from "react-native";
+import { router } from "expo-router";
 import PaymentManagement from "../app/payment-management";
 import i18n from "../i18n";
 
@@ -79,6 +80,44 @@ describe("PaymentManagement", () => {
     expect(await screen.findByText(/有効|サブスクリプション中/)).toBeTruthy();
   });
 
+  it("redirects free users to purchases", async () => {
+    mockGetAccessState.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: null,
+      accessOverride: null,
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <PaymentManagement />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/purchases");
+    });
+  });
+
+  it("redirects expired free users to purchases", async () => {
+    mockGetAccessState.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: { status: "expired" },
+      accessOverride: null,
+    });
+
+    const screen = render(
+      <I18nextProvider i18n={i18n}>
+        <PaymentManagement />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/purchases");
+    });
+  });
+
   it("opens management portal when tapping button", async () => {
     const screen = render(
       <I18nextProvider i18n={i18n}>
@@ -114,11 +153,11 @@ describe("PaymentManagement", () => {
     alertSpy.mockRestore();
   });
 
-  it("shows friend free status when override access is active", async () => {
+  it("allows friend free users to stay on payment management", async () => {
     mockGetAccessState.mockResolvedValue({
       canAccessApp: true,
       accessMode: "friend_free",
-      subscription: { status: "signupAwait" },
+      subscription: null,
       accessOverride: { access_type: "friend_free", is_active: true },
     });
 
@@ -129,6 +168,7 @@ describe("PaymentManagement", () => {
     );
 
     expect(await screen.findByText("友人向け無料アクセス")).toBeTruthy();
+    expect(router.replace).not.toHaveBeenCalledWith("/purchases");
   });
 
   it("shows a cancellation notice when an active subscription is set to cancel at period end", async () => {
@@ -147,7 +187,7 @@ describe("PaymentManagement", () => {
 
     expect(
       await screen.findByText(
-        "キャンセル済みです。次回のお支払いは発生しません。前回支払い分の期間中は引き続きアプリを使用できます。再開する場合は以下のボタンから支払い設定を開いてください。",
+        "キャンセル済みです。次回のお支払いは発生しません。前回支払い分の期間中は引き続き有料プランで使用できます。再開する場合は以下のボタンから支払い設定を開いてください。",
       ),
     ).toBeTruthy();
   });
@@ -168,7 +208,7 @@ describe("PaymentManagement", () => {
 
     expect(
       await screen.findByText(
-        "キャンセル済みです。次回のお支払いは発生しません。無料トライアル期間中は引き続きアプリを使用できます。再開する場合は以下のボタンから支払い設定を開いてください。",
+        "キャンセル済みです。次回のお支払いは発生しません。無料トライアル期間中は引き続き有料プランで使用できます。再開する場合は以下のボタンから支払い設定を開いてください。",
       ),
     ).toBeTruthy();
   });
@@ -190,7 +230,7 @@ describe("PaymentManagement", () => {
 
     expect(
       await englishScreen.findByText(
-        "Your subscription has been canceled. No further payments will be charged. You can continue using the app during the period covered by your last payment. To resume your subscription, open your billing settings with the button below.",
+        "Your subscription has been canceled. No further payments will be charged. You can continue using the paid plan during the period covered by your last payment. To resume your subscription, open your billing settings with the button below.",
       ),
     ).toBeTruthy();
 
@@ -205,7 +245,7 @@ describe("PaymentManagement", () => {
 
     expect(
       await frenchScreen.findByText(
-        "Votre abonnement a été annulé. Aucun autre paiement ne sera facturé. Vous pouvez continuer à utiliser l'application pendant la période couverte par votre dernier paiement. Pour reprendre votre abonnement, ouvrez les paramètres de paiement avec le bouton ci-dessous.",
+        "Votre abonnement a été annulé. Aucun autre paiement ne sera facturé. Vous pouvez continuer à utiliser le forfait payant pendant la période couverte par votre dernier paiement. Pour reprendre votre abonnement, ouvrez les paramètres de paiement avec le bouton ci-dessous.",
       ),
     ).toBeTruthy();
   });

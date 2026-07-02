@@ -52,17 +52,14 @@ const verifyLegacySignature = async (
   signature: string | null
 ): Promise<boolean> => {
   if (!signature) return false;
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(webhookSecret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
+  const digests = await computeSignatureDigests(body);
+  const normalizedSignature = normalizeSignature(signature);
+
+  return (
+    normalizedSignature === digests.base64 ||
+    normalizedSignature === digests.base64Url ||
+    normalizedSignature.toLowerCase() === digests.hex
   );
-  const digest = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  const computed = btoa(String.fromCharCode(...new Uint8Array(digest)));
-  return signature === computed;
 };
 
 // 現行方式: RevenueCatのAuthorizationヘッダー値（または Bearer 形式）を検証する
@@ -76,10 +73,48 @@ const verifyAuthorization = (authorization: string | null): boolean => {
 
 const nowIso = () => new Date().toISOString();
 
+const toHex = (bytes: Uint8Array): string =>
+  Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+
+const toBase64 = (bytes: Uint8Array): string =>
+  btoa(String.fromCharCode(...bytes));
+
+const toBase64Url = (base64: string): string =>
+  base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+
+const normalizeSignature = (signature: string): string => {
+  const trimmed = signature.trim();
+  if (trimmed.startsWith("sha256=")) {
+    return trimmed.slice("sha256=".length);
+  }
+  return trimmed;
+};
+
+const computeSignatureDigests = async (body: string) => {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(webhookSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const digest = new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, encoder.encode(body))
+  );
+  const base64 = toBase64(digest);
+
+  return {
+    base64,
+    base64Url: toBase64Url(base64),
+    hex: toHex(digest),
+  };
+};
+
 // Supabase側のデータに変換した時の型
 type SubscriptionState =
   | {
-      status: "trial" | "active" | "canceled" | "expired";
+      status: "trial" | "active" | "expired";
       trialEndsAt: string | null;
       cancelAtPeriodEnd: boolean;
       currentPeriodEnd: string | null;
@@ -128,7 +163,7 @@ const mapStatus = (
       };
     case "EXPIRATION":
       return {
-        status: "canceled",
+        status: "expired",
         trialEndsAt: null,
         cancelAtPeriodEnd: true,
         currentPeriodEnd: expiration,
@@ -207,11 +242,10 @@ serve(async (req: Request) => {
     {
       id: subscriptionId,
       user_id: appUserId,
-      plan: "standard",
+      plan: "pro_monthly",
       status: subscriptionState.status as
         | "trial"
         | "active"
-        | "canceled"
         | "expired",
       trial_ends_at: subscriptionState.trialEndsAt,
       current_period_end: currentPeriodEnd,

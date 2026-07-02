@@ -9,6 +9,7 @@ import i18n from "../i18n";
 import { decryptFieldValue, isEncryptedFieldValue } from "../lib/security/fieldEncryption";
 import { supabase } from "../lib/supabaseClient";
 import { deleteWeeklyTasks } from "../lib/api/supabase/goals/allItemDelete";
+import { getAccessStateForUser } from "../lib/subscription";
 
 jest.useFakeTimers().setSystemTime(new Date("2025-02-10T00:00:00Z"));
 
@@ -20,6 +21,12 @@ jest.mock("@expo/vector-icons", () => {
 
 jest.mock("@react-navigation/native", () => ({
   useFocusEffect: () => {},
+}));
+
+jest.mock("expo-router", () => ({
+  router: {
+    push: jest.fn(),
+  },
 }));
 
 jest.mock("expo-linear-gradient", () => {
@@ -45,6 +52,10 @@ jest.mock("../lib/supabaseClient", () => ({
 
 jest.mock("../lib/api/supabase/goals/allItemDelete", () => ({
   deleteWeeklyTasks: jest.fn(),
+}));
+
+jest.mock("../lib/subscription", () => ({
+  getAccessStateForUser: jest.fn(),
 }));
 
 const renderScreen = () =>
@@ -82,6 +93,12 @@ describe("WeeklyTasksScreen", () => {
 
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
+    });
+    (getAccessStateForUser as jest.Mock).mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active" },
+      accessOverride: null,
     });
 
     mockSelectWeekly.mockReturnValue({ eq: mockEqWeekly });
@@ -135,6 +152,47 @@ describe("WeeklyTasksScreen", () => {
     expect(await findByText("Weekly Tasks")).toBeTruthy();
     expect(await findByText("No tasks yet")).toBeTruthy();
     expect(await findByRole("button", { name: "Add your first task" })).toBeTruthy();
+  });
+
+  test("shows upgrade alert for free users when 10 weekly tasks already exist", async () => {
+    mockOrderYearly.mockResolvedValue({
+      data: [
+        { id: "y1", description: "Career growth", year_goal_color: "#1E5EFF" },
+      ],
+      error: null,
+    });
+    mockOrderWeekly.mockResolvedValue({
+      data: Array.from({ length: 10 }, (_, index) => ({
+        id: `w${index + 1}`,
+        description: `Task ${index + 1}`,
+        yearly_goal_id: "y1",
+        accumulated_time_week: 0,
+        order: index,
+        is_done: false,
+      })),
+      error: null,
+    });
+    (getAccessStateForUser as jest.Mock).mockResolvedValueOnce({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: null,
+      accessOverride: null,
+    });
+
+    const { findByRole, findByTestId, findByText } = renderScreen();
+
+    const addButton = await findByRole("button", { name: "Add" });
+    fireEvent.press(addButton);
+
+    expect(await findByText("Limit reached")).toBeTruthy();
+    expect(
+      await findByText(
+        "The free plan allows up to 10 items. Upgrade your plan to go beyond 10.",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.press(await findByTestId("usage-limit-upgrade-modal-upgrade"));
+    expect(require("expo-router").router.push).toHaveBeenCalledWith("/purchases");
   });
 
   test("shows a load error instead of the form validation message when the user session is missing", async () => {

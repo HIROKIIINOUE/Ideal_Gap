@@ -57,11 +57,11 @@ describe("Dashboard access guard", () => {
     await i18n.changeLanguage("ja");
   });
 
-  test("redirects to purchases when subscription status is canceled", async () => {
+  test("stays on dashboard when subscription is active and set to cancel at period end", async () => {
     mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: false,
-      accessMode: "none",
-      subscription: { status: "canceled" },
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active", cancel_at_period_end: true },
       accessOverride: null,
     });
 
@@ -72,8 +72,31 @@ describe("Dashboard access guard", () => {
     );
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/purchases");
+      expect(mockGetAccessStateForUser).toHaveBeenCalledWith("user-123");
     });
+
+    expect(mockReplace).not.toHaveBeenCalledWith("/purchases");
+  });
+
+  test("stays on dashboard when subscription status is expired", async () => {
+    mockGetAccessStateForUser.mockResolvedValue({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: { status: "expired" },
+      accessOverride: null,
+    });
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Dashboard />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockGetAccessStateForUser).toHaveBeenCalledWith("user-123");
+    });
+
+    expect(mockReplace).not.toHaveBeenCalledWith("/purchases");
   });
 
   test("stays on dashboard when friend free override is active", async () => {
@@ -81,7 +104,7 @@ describe("Dashboard access guard", () => {
       canAccessApp: true,
       accessMode: "friend_free",
       resolution: "entitled",
-      subscription: { status: "signupAwait" },
+      subscription: null,
       accessOverride: { access_type: "friend_free", is_active: true },
     });
 

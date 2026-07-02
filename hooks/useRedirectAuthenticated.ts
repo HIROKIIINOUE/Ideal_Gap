@@ -9,7 +9,7 @@ import { supabase } from "../lib/supabaseClient";
 import { loadPersistedTaskTimerSession } from "../lib/taskTimerSession";
 
 type RedirectSource = "focus_check" | "auth_event";
-type RedirectDestination = "/dashboard" | "/purchases" | "/task-timer";
+type RedirectDestination = "/dashboard" | "/task-timer";
 
 const shouldRedirectForAuthEvent = (event: AuthChangeEvent) => {
   return event === "SIGNED_IN";
@@ -28,14 +28,12 @@ export const useRedirectAuthenticated = () => {
         // ユーザのアプリへのアクセス権(課金、無料アクセス権の有無)を取得
         const accessState = await getAccessStateForUser(userId);
         let hasPersistedTaskTimer = false;
-        let destination: RedirectDestination = "/purchases";
+        let destination: RedirectDestination = "/dashboard";
 
         // アプリ起動時にタスクタイマーが作動中ならタスクタイマーへ遷移する
-        if (accessState.canAccessApp) {
-          const persistedTaskTimer = await loadPersistedTaskTimerSession();
-          hasPersistedTaskTimer = Boolean(persistedTaskTimer);
-          destination = hasPersistedTaskTimer ? "/task-timer" : "/dashboard";
-        }
+        const persistedTaskTimer = await loadPersistedTaskTimerSession();
+        hasPersistedTaskTimer = Boolean(persistedTaskTimer);
+        destination = hasPersistedTaskTimer ? "/task-timer" : "/dashboard";
 
         addSentryBreadcrumb("navigation.auth_redirect", "redirect_resolved", {
           accessMode: accessState.accessMode,

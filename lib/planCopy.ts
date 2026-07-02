@@ -1,9 +1,9 @@
 //　購入画面やサインアップ画面で見せる「料金表示の文言」を組み立てる
 //　プランの仕様変更(金額や期間など)をこのファイルで一元管理
 import { TFunction } from "i18next";
-import { TestStorePlan } from "./revenuecatOfferings";
+import { RevenueCatPlan } from "./revenuecatOfferings";
 
-type TrialUnit = NonNullable<TestStorePlan["trialDuration"]>["unit"];
+type TrialUnit = NonNullable<RevenueCatPlan["trialDuration"]>["unit"];
 
 const unitKeyMap: Record<TrialUnit, string> = {
   DAY: "trialLabelDay",
@@ -12,7 +12,22 @@ const unitKeyMap: Record<TrialUnit, string> = {
   YEAR: "trialLabelYear",
 };
 
-export const getTrialLabel = (plan: TestStorePlan | null, t: TFunction) => {
+const formatDecimalPrice = (price: number) => {
+  if (Number.isInteger(price)) return String(price);
+  return price.toFixed(2);
+};
+
+export const formatRevenueCatPrice = (
+  plan: Pick<RevenueCatPlan, "price" | "priceString" | "currencyCode"> | null,
+) => {
+  if (!plan) return null;
+  if (typeof plan.price === "number" && plan.currencyCode) {
+    return `${formatDecimalPrice(plan.price)} ${plan.currencyCode}`;
+  }
+  return plan.priceString;
+};
+
+export const getTrialLabel = (plan: RevenueCatPlan | null, t: TFunction) => {
   if (!plan) return null;
   if (plan.trialDuration) {
     const key = unitKeyMap[plan.trialDuration.unit];
@@ -22,22 +37,22 @@ export const getTrialLabel = (plan: TestStorePlan | null, t: TFunction) => {
   return null;
 };
 
-export const getPlanBillingCopy = (plan: TestStorePlan | null, t: TFunction) => {
+export const getPlanBillingCopy = (plan: RevenueCatPlan | null, t: TFunction) => {
   if (!plan) return t("planUnavailable");
-  return t("planRenewalPrice", { price: plan.priceString });
+  return t("planRenewalPrice", { price: formatRevenueCatPrice(plan) });
 };
 
-export const getPlanTrialCopy = (plan: TestStorePlan | null, t: TFunction) => {
+export const getPlanTrialCopy = (plan: RevenueCatPlan | null, t: TFunction) => {
   if (!plan) return null;
   const trialLabel = getTrialLabel(plan, t);
   if (trialLabel) {
     return t("trialInfo", {
       trial: trialLabel,
-      price: plan.priceString,
+      price: formatRevenueCatPrice(plan),
     });
   }
   return null;
 };
 
-export const getPlanPriceCopy = (plan: TestStorePlan | null, t: TFunction) =>
+export const getPlanPriceCopy = (plan: RevenueCatPlan | null, t: TFunction) =>
   getPlanBillingCopy(plan, t);

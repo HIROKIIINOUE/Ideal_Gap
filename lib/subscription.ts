@@ -1,16 +1,16 @@
 // Supabaseのsubscriptions/usersテーブルを操作し、ユーザーのサブスク状態を取得・初期化・更新するヘルパー集。
 // RevenueCatの「購読状態」をSupabase DBに反映する役目やユーザのアプリアクセス権情報をDBから取得し共有する役目。
 
-//=== アプリアクセス権のチェックは以下の順に行われる===
-// １、DB上のsubscription.statusがactive / trialである (通常課金ユーザ)
-// ２、DB上のaccess_override.access_typeが"friend_free" かつ is_active=trueである(友人用の無料ユーザ)
-// ３、アクセス権なし
+//=== アプリアクセス権(有料or無料ユーザ)のチェックは以下の順に行われる===
+// １、DB上のsubscription.statusがtrial / activeである (通常課金ユーザ)
+// ２、RevenueCatの最新キャッシュで有料権限が確認できる
+// ３、access_override.access_typeが"friend_free" かつ is_active=trueである(友人用の無料ユーザ)
+// ４、それ以外のログイン済みユーザは無料ユーザとして扱う
 
 import { User } from "@supabase/supabase-js";
 import { Database } from "../types/database";
 import { LanguageKey } from "../types/i18n";
 import {
-  clearLastKnownAccessState,
   readLastKnownAccessState,
   writeLastKnownAccessState,
 } from "./accessStateCache";
@@ -25,7 +25,7 @@ export type SubscriptionRow =
   };
 export type AccessOverrideRow =
   Database["public"]["Tables"]["access_overrides"]["Row"];
-export type AccessMode = "paid" | "friend_free" | "none";
+export type AccessMode = "paid" | "free" | "friend_free" | "none";
 export type AccessResolution = "entitled" | "not_entitled" | "unknown";
 export type AccessSource =
   | "subscription"
@@ -46,15 +46,14 @@ export type AccessState = {
   accessOverride: AccessOverrideRow | null;
 };
 
-export const DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] =
-  ["trial", "active"];
+export const PAID_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
+  "trial",
+  "active",
+];
 
 export const canAccessDashboardWithSubscriptionStatus = (
   status: SubscriptionStatus | null | undefined,
-): boolean =>
-  Boolean(
-    status && DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES.includes(status),
-  );
+): boolean => Boolean(status && PAID_SUBSCRIPTION_STATUSES.includes(status));
 
 type UserRow = Pick<
   Database["public"]["Tables"]["users"]["Row"],
@@ -65,16 +64,9 @@ type AuthUserProfileInput = Pick<
   User,
   "id" | "email" | "user_metadata" | "app_metadata"
 >;
-type EnsureSignupAwaitSubscriptionOptions = {
-  authUser?: AuthUserProfileInput | null;
-  language?: LanguageKey | null;
-};
-const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] =
-  DASHBOARD_ACCESSIBLE_SUBSCRIPTION_STATUSES;
+const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = ["trial", "active"];
 
 const nowIso = () => new Date().toISOString();
-// 同じuserIdで複数回同時にensureSignupAwaitSubscription が呼ばれたとき、DBに重複行を挿入しないためのデータ構造。進行中のプロミス処理も一つにまとめてくれる。
-const ensureInFlight = new Map<string, Promise<SubscriptionRow>>();
 
 type QueryResult<T> = {
   data: T | null;
@@ -322,18 +314,19 @@ export const canAccessDashboardWithAccessOverride = (
 
 // 通常ユーザのアクセス権限情報を取得。
 // 各ページでimport実行され、以下の流れでアクセス権限情報を取得する。
-// １、subscription.statusがactive / trial ならsubscriptionデータを返す
-// ２、subscription.statusがactive / trial 以外ならaccess_overrideデータを取得しにいく
-// ３、正常なaccess_overrideデータを保持していればそのデータを返す
+// １、subscription.statusがtrial / activeならpaidとして返す
+// ２、RevenueCatキャッシュに有料権限があればpaidとして返す
+// ３、access_overrideが有効ならfriend_freeとして返す
+// ４、それ以外はfreeとして返す
 export const getAccessStateForUser = async (
   userId: string,
 ): Promise<AccessState> => {
   const subscriptionResult = await fetchSubscriptionForUser(userId);
   const subscription = subscriptionResult.data;
 
-  // サブスクがステータスが正常(active, trial)の場合
+  // paidサブスクが有効(trial, active)の場合
   if (canAccessDashboardWithSubscriptionStatus(subscription?.status)) {
-    await writeLastKnownAccessState(userId, "paid");
+    await writeLastKnownAccessState(userId, "paid"); // ローカルに最新のaccess status としてキャッシュ保存
     return {
       canAccessApp: true,
       accessMode: "paid",
@@ -345,10 +338,12 @@ export const getAccessStateForUser = async (
     };
   }
 
+  // RevenueCat SDK は CustomerInfo を内部キャッシュするため、通信断時の即時 access 判定に使う。
+  // つまりアプリがオフライン時にローカル端末に保存された「直近の支払い状況データ」そ取得してアプリの遷移先の材料にしている
   const revenueCatAccess = await getRevenueCatEntitlementAccessState();
   // ローカル端末に保存された直近のRevenueCat購買情報が「権限あり」の場合
   if (revenueCatAccess.state === "entitled") {
-    await writeLastKnownAccessState(userId, "paid");
+    await writeLastKnownAccessState(userId, "paid"); // ローカルに最新のaccess status としてキャッシュ保存
     return {
       canAccessApp: true,
       accessMode: "paid",
@@ -362,10 +357,10 @@ export const getAccessStateForUser = async (
 
   // supabase DBからsubscriptionテーブル取得に失敗した場合
   if (subscriptionResult.error) {
-    const lastKnownAccessState = await readLastKnownAccessState(userId);
+    const lastKnownAccessState = await readLastKnownAccessState(userId); // ローカルに最新のaccess status としてキャッシュ保存
     return {
-      canAccessApp: Boolean(lastKnownAccessState),
-      accessMode: lastKnownAccessState?.accessMode ?? "none",
+      canAccessApp: true,
+      accessMode: lastKnownAccessState?.accessMode ?? "free",
       resolution: "unknown",
       source: lastKnownAccessState ? "last_known_cache" : "none",
       unknownReason: "subscription_fetch_failed",
@@ -381,7 +376,7 @@ export const getAccessStateForUser = async (
 
   // access_overrideが有効(友人無料枠)の場合
   if (canAccessWithOverride) {
-    await writeLastKnownAccessState(userId, "friend_free");
+    await writeLastKnownAccessState(userId, "friend_free"); // ローカルに最新のaccess status としてキャッシュ保存
     return {
       canAccessApp: true,
       accessMode: "friend_free",
@@ -397,8 +392,8 @@ export const getAccessStateForUser = async (
   if (accessOverrideResult.error) {
     const lastKnownAccessState = await readLastKnownAccessState(userId);
     return {
-      canAccessApp: Boolean(lastKnownAccessState),
-      accessMode: lastKnownAccessState?.accessMode ?? "none",
+      canAccessApp: true,
+      accessMode: lastKnownAccessState?.accessMode ?? "free",
       resolution: "unknown",
       source: lastKnownAccessState ? "last_known_cache" : "none",
       unknownReason: "access_override_fetch_failed",
@@ -407,12 +402,12 @@ export const getAccessStateForUser = async (
     };
   }
 
-  // subscriptions.status、ローカルに保存された直近のRevenueCat情報、access_overrideテーブルのどれでも権限が確認されなかった時
-  await clearLastKnownAccessState(userId);
+  // paid権限が無いログイン済みユーザは無料ユーザとして扱う
+  await writeLastKnownAccessState(userId, "free");
   return {
-    canAccessApp: false,
-    accessMode: "none",
-    resolution: "not_entitled",
+    canAccessApp: true,
+    accessMode: "free",
+    resolution: "entitled",
     source: "none",
     unknownReason: null,
     subscription,
@@ -444,74 +439,14 @@ export const waitForActiveSubscription = async (
   return null;
 };
 
-// ユーザのサブスクリプションデータが存在していなかった場合、ユーザに紐づくサブスクリプションデータを新規作成するロジック
-export const ensureSignupAwaitSubscription = async (
-  userId: string,
-  options?: EnsureSignupAwaitSubscriptionOptions,
-): Promise<SubscriptionRow> => {
-  // 既に同じuserIdの非同期処理が進行中ならそれに相乗りする新しい処理を発生させないためのロジック。複数非同期処理の制御
-  const inFlight = ensureInFlight.get(userId);
-  if (inFlight) return inFlight;
-
-  // ユーザ情報からそのユーザのサブスクリプション情報を取得、取得できた場合は新規作成はさせないためのロジック。
-  // １ユーザにつき複数サブスクリプションデータが生成されるのを防止。
-  const existing = await getSubscriptionForUser(userId);
-  if (existing) return existing;
-
-  const promise = (async () => {
-    // ユーザ情報がDBに存在するか確認し、なければsubscriptionデータ処理の前に作成
-    const authUser =
-      options?.authUser ?? (await getCurrentAuthUserForId(userId));
-    if (authUser) {
-      await ensureUserProfileForAuthUser(authUser, options?.language);
-    }
-    const timestamp = nowIso();
-
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .insert({
-        user_id: userId,
-        status: "signupAwait",
-        plan: "standard",
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .select("*")
-      .single();
-
-    // Supabase側から一意制約エラーが返ってきたら、userIdで既存のデータを再取得しにいく
-    if (error?.code === "23505") {
-      const fallback = await getSubscriptionForUser(userId);
-      if (fallback) return fallback;
-    }
-
-    if (error || !data) {
-      throw new Error(
-        error?.message ?? "Failed to ensure signupAwait subscription",
-      );
-    }
-
-    return data as SubscriptionRow;
-  })();
-
-  // 非同期処理promise()を走らせる前にensureFlightに値をセットすることでisFlightがtrueになり、現行のensureSignupAwaitSubscriptionが走り切るまで重複したensureSignupAwaitSubscriptionが走ることのないように制御。
-  ensureInFlight.set(userId, promise);
-
-  // 非同期処理が終わったら成功・失敗関係なく非同期処理制御を停止する
-  // これがないと一度終わった前回の非同期処理がMapに残り続けて次回以降の呼び出しをブロックしてしまう
-  const result = await promise.finally(() => ensureInFlight.delete(userId));
-  return result;
-};
-
-// 購入処理後にサブスクstatusをtrialもしくはactiveに更新・挿入
+// 購入処理後にサブスクstatusをactiveに更新・挿入
 // 成功後、初回ユーザーなら users.had_account_before をtrueに更新
 export const updateSubscriptionAfterPurchase = async (
   userId: string,
   hadAccountBefore: boolean,
 ): Promise<SubscriptionRow> => {
   const timestamp = nowIso();
-  // ここで初期ユーザか再サインアップかを判定
-  const status: SubscriptionStatus = hadAccountBefore ? "active" : "trial";
+  const status: SubscriptionStatus = "active";
 
   const existing = await getSubscriptionForUser(userId);
 
@@ -521,14 +456,14 @@ export const updateSubscriptionAfterPurchase = async (
         .from("subscriptions")
         .update({
           status,
-          plan: "standard",
+          plan: "pro_monthly",
           updated_at: timestamp,
         })
         .eq("user_id", userId)
     : supabase.from("subscriptions").insert({
         user_id: userId,
         status,
-        plan: "standard",
+        plan: "pro_monthly",
         created_at: timestamp,
         updated_at: timestamp,
       });

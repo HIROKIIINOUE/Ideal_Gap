@@ -159,7 +159,7 @@ describe("FunPlanScreen interactions", () => {
     expect(options).toEqual({ onConflict: "id" });
   });
 
-  test("disables add when five plans already exist", async () => {
+  test("shows upgrade alert when a free user already has five plans", async () => {
     mockOrder.mockResolvedValueOnce({
       data: [
         { id: "plan-1", description: "Plan 1", order: 0 },
@@ -170,12 +170,27 @@ describe("FunPlanScreen interactions", () => {
       ],
       error: null,
     });
+    mockGetAccessStateForUser.mockResolvedValueOnce({
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: null,
+      accessOverride: null,
+    });
 
-    const { findByRole, findByText } = renderScreen();
+    const { findByRole, findByTestId, findByText } = renderScreen();
 
     const addButton = await findByRole("button", { name: "Add" });
-    expect(addButton.props.accessibilityState?.disabled).toBe(true);
-    expect(await findByText("Up to 5 plans can be added")).toBeTruthy();
+    fireEvent.press(addButton);
+
+    expect(await findByText("Limit reached")).toBeTruthy();
+    expect(
+      await findByText(
+        "The free plan allows up to 5 items. Upgrade your plan to go beyond 5.",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.press(await findByTestId("usage-limit-upgrade-modal-upgrade"));
+    expect(require("expo-router").router.push).toHaveBeenCalledWith("/purchases");
   });
 
   test("shows page subtitle only in the empty state between title and CTA", async () => {

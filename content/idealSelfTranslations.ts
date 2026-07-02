@@ -6,6 +6,14 @@ export type IdealSelfTranslations = {
   add: string;
   delete: string;
   deleteExit: string;
+  limitHelper: string;
+  limitReached: string;
+  limitAlert: {
+    title: string;
+    body: string;
+    back: string;
+    upgrade: string;
+  };
   loading: string;
   emptyTitle: string;
   emptyBody: string;
@@ -41,6 +49,14 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       add: "追加",
       delete: "削除",
       deleteExit: "戻る",
+      limitHelper: "無料プランでは最大10件まで追加できます",
+      limitReached: "上限に達しました。削除してから追加してください。",
+      limitAlert: {
+        title: "上限に達しました",
+        body: "無料プランは最大10件までです。10件を超える場合はプランをアップグレードしてください。",
+        back: "戻る",
+        upgrade: "Pro Planへアップグレード",
+      },
       loading: "読み込み中...",
       emptyTitle: "まだ理想が登録されていません",
       emptyBody: "最初の理想を追加して、軸を固定しましょう。",
@@ -73,6 +89,14 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       add: "Add",
       delete: "Delete",
       deleteExit: "Exit",
+      limitHelper: "Free users can add up to 10 items",
+      limitReached: "You’ve reached the limit. Remove one to add another.",
+      limitAlert: {
+        title: "Limit reached",
+        body: "The free plan allows up to 10 items. Upgrade your plan to go beyond 10.",
+        back: "Back",
+        upgrade: "Upgrade to Pro Plan",
+      },
       loading: "Loading...",
       emptyTitle: "No ideals yet",
       emptyBody: "Add your first ideal to anchor your direction.",
@@ -105,6 +129,14 @@ export const idealSelfTranslations: Record<LanguageKey, IdealSelfTranslations> =
       add: "Ajouter",
       delete: "Supprimer",
       deleteExit: "Quitter",
+      limitHelper: "Les utilisateurs gratuits peuvent en ajouter jusqu’à 10",
+      limitReached: "Limite atteinte. Supprimez-en un pour en ajouter un autre.",
+      limitAlert: {
+        title: "Limite atteinte",
+        body: "Le forfait gratuit permet jusqu’à 10 éléments. Passez au forfait Pro pour dépasser 10.",
+        back: "Retour",
+        upgrade: "Passer au forfait Pro",
+      },
       loading: "Chargement...",
       emptyTitle: "Aucun objectif d'idéal pour le moment",
       emptyBody:

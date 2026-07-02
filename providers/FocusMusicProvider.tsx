@@ -2,6 +2,7 @@
 
 import NetInfo from "@react-native-community/netinfo";
 import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
+import * as Notifications from "expo-notifications";
 import React, {
   createContext,
   useCallback,
@@ -11,13 +12,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 import { getUserId } from "../lib/api/supabase/common";
 import { fetchFocusMusicCatalog } from "../lib/focus-music/catalog";
-import {
-  FOCUS_MUSIC_MAX_INSTALLED,
-  FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT,
-} from "../lib/focus-music/constants";
+import { FOCUS_MUSIC_MAX_INSTALLED } from "../lib/focus-music/constants";
 import {
   deleteTrackFile,
   downloadTrackFile,
@@ -25,18 +23,22 @@ import {
   getFocusMusicFileName,
   getFocusMusicLocalUri,
 } from "../lib/focus-music/file";
-import { createFocusMusicSignedUrl } from "../lib/focus-music/signedUrl";
 import {
-  incrementMonthlyDownloadQuota,
-  loadInstalledTracks,
-  loadMonthlyDownloadQuota,
-  saveInstalledTracks,
-} from "../lib/focus-music/storage";
+  type FocusMusicDownloadQuota,
+  type FocusMusicDownloadQuotaAccessMode,
+  consumeFocusMusicDownloadQuota,
+  loadFocusMusicDownloadQuota,
+} from "../lib/focus-music/quota";
+import { createFocusMusicSignedUrl } from "../lib/focus-music/signedUrl";
+import { loadInstalledTracks, saveInstalledTracks } from "../lib/focus-music/storage";
 import {
   addSentryBreadcrumb,
   captureExpoAudioError,
   captureMusicDownloadError,
 } from "../lib/sentry";
+import { ensureUserProfileForAuthUser } from "../lib/subscription";
+import { supabase } from "../lib/supabaseClient";
+import { getUsageLimit } from "../lib/usageLimits";
 import {
   FocusMusicTrack,
   InstalledFocusTrack,
@@ -56,6 +58,7 @@ type FocusMusicContextValue = {
   monthlyDownloadLimit: number;
   monthlyDownloadRemaining: number | null;
   downloadResetAt: string | null;
+  monthlyDownloadAccessMode: FocusMusicDownloadQuotaAccessMode;
   canInstall: boolean;
   isInstalling: (id: string) => boolean;
   isDownloadInProgress: boolean;
@@ -119,6 +122,7 @@ const reconcileInstalledEntries = async (
 };
 
 export function FocusMusicProvider({ children }: ProviderProps) {
+  // playerは音楽再生プレイヤーの本体。player.play(),player.pause()などで音楽をコントロールする
   const player = useAudioPlayer(null, {
     keepAudioSessionActive: true,
     downloadFirst: true,
@@ -132,9 +136,14 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     Record<string, InstallProgress>
   >({});
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
-  // 書くユーザの1ヶ月のDL数を制御
+  // 各ユーザの1ヶ月のDL数を制御
+  const [monthlyDownloadLimit, setMonthlyDownloadLimit] = useState(
+    getUsageLimit("focusMusicDownloads", "free") ?? 0,
+  );
   const [monthlyDownloadRemaining, setMonthlyDownloadRemaining] = useState<number | null>(null);
   const [downloadResetAt, setDownloadResetAt] = useState<string | null>(null);
+  const [monthlyDownloadAccessMode, setMonthlyDownloadAccessMode] =
+    useState<FocusMusicDownloadQuotaAccessMode>("free");
   // 選択中の音楽(タスクタイマーで再生される)
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
 
@@ -164,13 +173,22 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       await setAudioModeAsync({
         playsInSilentMode: true,
         shouldPlayInBackground,
-        interruptionMode: "mixWithOthers",
+        interruptionMode: "doNotMix",
         allowsRecording: false,
         shouldRouteThroughEarpiece: false,
       });
     },
     [],
   );
+
+  // DLの上限、残りDL可能数、リセット日が更新される
+  const applyQuotaState = useCallback((quota: FocusMusicDownloadQuota) => {
+    if (!isMountedRef.current) return;
+    setMonthlyDownloadAccessMode(quota.accessMode);
+    setMonthlyDownloadLimit(quota.limit);
+    setMonthlyDownloadRemaining(quota.remaining);
+    setDownloadResetAt(quota.resetAt);
+  }, []);
 
 
   // 月間ダウンロード枠の状態を読み直して、次のリセット時刻に合わせて自動更新を予約する
@@ -185,22 +203,23 @@ export function FocusMusicProvider({ children }: ProviderProps) {
 
       if (!userId) {
         if (isMountedRef.current) {
+          setMonthlyDownloadAccessMode("free");
+          setMonthlyDownloadLimit(
+            getUsageLimit("focusMusicDownloads", "free") ?? 0,
+          );
           setMonthlyDownloadRemaining(null);
           setDownloadResetAt(null);
         }
         return;
       }
 
-      // // Async StorageからdownloadQuotaを取得。(ここには該当ユーザの今月の曲のDL数と制限リセット日がオブジェクトで格納されている)
-      const quota = await loadMonthlyDownloadQuota(userId);
+      // userIDと現在時刻を投げ、そのユーザに紐付くfocus_music_download_quotasが存在するかどうかを確かめ、存在する場合はそのデータを用いて表示・事前判定用の現在状態をquotaに格納。focus_music_download_quotasが存在しない場合は「DLをまだしていないもの」として初期値をquotaに格納
+      const quota = await loadFocusMusicDownloadQuota(userId);
       if (!isMountedRef.current) return;
 
-      setMonthlyDownloadRemaining(
-        Math.max(FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT - quota.count, 0),
-      );
-      setDownloadResetAt(quota.resetAt);
+      applyQuotaState(quota);
 
-      const resetAtTime = Date.parse(quota.resetAt);
+      const resetAtTime = quota.resetAt ? Date.parse(quota.resetAt) : Number.NaN;
       if (Number.isNaN(resetAtTime)) return;
 
       const scheduleDelay = Math.max(resetAtTime - Date.now(), 0);
@@ -208,7 +227,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
         void refreshDownloadQuota(userId);
       }, Math.min(scheduleDelay, MAX_TIMEOUT_MS));
     },
-    [],
+    [applyQuotaState],
   );
 
   // download quota (今月の曲のDL数と制限リセット日)を取得し、状態関数を更新
@@ -338,6 +357,50 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     await saveInstalledTracks(next);
   }, []);
 
+
+  // ダウンロードされた音楽ファイルをローカルから削除する処理
+  const rollbackInstalledTrackFile = useCallback(
+    async (track: Pick<InstalledTrack, "fileName" | "trackId">) => {
+      try {
+        await deleteTrackFile(track.fileName);
+      } catch (error) {
+        console.warn("Failed to rollback focus music file", error);
+        captureMusicDownloadError(error, track.trackId, "download");
+      }
+    },
+    [],
+  );
+
+  // OAuthで認証したユーザが確実にDBにもユーザデータを持つための処理
+  const ensureAuthenticatedUserProfile = useCallback(
+    async (userId: string) => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user || data.user.id !== userId) {
+        throw new Error(error?.message ?? "Authenticated user was not found");
+      }
+      // Google/Apple認証完了後にDBに該当ユーザが存在するか確認、しなければ作成する
+      await ensureUserProfileForAuthUser(data.user);
+    },
+    [],
+  );
+
+  // ユーザがダウンロード可能な状態か(上限に達してないか等)を確認。その処理中にエラーが起きればOAuthでDBにユーザ情報がない可能性をensureAuthenticatedUserProfile()で潰してから再確認。
+  const consumeQuotaWithProfileRecovery = useCallback(
+    async (userId: string) => {
+      try {
+        // DB側(rpc)でfocus_music_download_quotasと連携し「ユーザの月間DLの上限に達していないか」「達成していたらNG,DL可能ならOKを返す」「ダウンロード可能なら最新のfocus_music_download_quotas(月間DL数を+1する)を返す
+        return await consumeFocusMusicDownloadQuota(userId);
+      } catch (error) {
+        addSentryBreadcrumb("focus_music", "focus_music_quota_profile_recovery_started", {
+          userId,
+        });
+        await ensureAuthenticatedUserProfile(userId);
+        return await consumeFocusMusicDownloadQuota(userId);
+      }
+    },
+    [ensureAuthenticatedUserProfile],
+  );
+
   // タスク集中音楽ダウンロード処理、引数としてタスク集中音楽のid１つを受け取る
   const installTrack = useCallback(
     async (
@@ -359,14 +422,10 @@ export function FocusMusicProvider({ children }: ProviderProps) {
         return { ok: false, reason: "download_failed" };
       }
 
-      // 月間最大DL数を上回っていたらダウンロードを却下
-      // // Async StorageからdownloadQuotaを取得。(ここには該当ユーザの今月の曲のDL数と制限リセット日がオブジェクトで格納されている)
-      const quota = await loadMonthlyDownloadQuota(userId);
-      setMonthlyDownloadRemaining(
-        Math.max(FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT - quota.count, 0),
-      );
-      setDownloadResetAt(quota.resetAt);
-      if (quota.count >= FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT) {
+      // ダウンロード開始前に再度最新のユーザ月間DL数、DL上限、リセット日などのデータを取得し、フロント側も最新のデータに更新する
+      const quota = await loadFocusMusicDownloadQuota(userId);
+      applyQuotaState(quota);
+      if (quota.remaining <= 0) {
         return { ok: false, reason: "monthly_limit" };
       }
 
@@ -400,11 +459,19 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       }));
 
       // ダウンロード開始
+      let localPath: string;
       try {
+        addSentryBreadcrumb("focus_music", "focus_music_signed_url_requested", {
+          trackId: id,
+        });
         // signedUrl発行
         const signedUrl = await createFocusMusicSignedUrl(id);
+        addSentryBreadcrumb("focus_music", "focus_music_download_started", {
+          trackId: id,
+        });
+
         // ローカルファイルへダウンロード。resultとしてローカルの格納先を返却してる。
-        const localPath = await downloadTrackFile(
+        localPath = await downloadTrackFile(
           signedUrl,
           track,
           // 進捗情報を繰り返し更新するコールバック
@@ -435,25 +502,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
             });
           },
         );
-        // 今回ダウンロードしたタスク集中音楽の保存情報データ
-        const nextEntry: InstalledTrack = {
-          trackId: id,
-          fileName: getFocusMusicFileName(track),
-          downloadedAt: new Date().toISOString(),
-        };
-        const nextEntries = [...installedEntries, nextEntry];
-
-        // 最新の手持ちの音楽リスト保存情報(メタ情報)をプロジェクト内(状態変数)と端末内(Async Storage)の両方で更新する
-        await persistInstalledEntries(nextEntries);
-        // 今月のダウンロード数の値(download quota)を更新
-        await incrementMonthlyDownloadQuota(userId);
-        await refreshDownloadQuota(userId);
-        if (!selectedTrackId) {
-          setSelectedTrackId(id);
-        }
-        return { ok: true, track: { ...track, ...nextEntry, localPath } };
       } catch (error) {
-        captureMusicDownloadError(error, id);
+        captureMusicDownloadError(error, id, "download");
         return { ok: false, reason: "download_failed" };
       } finally {
         // ダウンロードが成功しても失敗してもダウンロード完了待ちリストから実行終了データを削除する
@@ -466,8 +516,64 @@ export function FocusMusicProvider({ children }: ProviderProps) {
         });
         isDownloadingRef.current = false;
       }
+
+      // ===以降はダウンロード(DL)後の処理、DL完了音楽データをリストに格納。また、ユーザの音楽DL数が上限に達しているかどうか確認し達していれば今回DLした音楽はrollbackInstalledTrackFileで削除される。上限に達していなければDBのDL数カウントを+1させる===
+      // 今回ダウンロードしたタスク集中音楽の保存情報データ
+      const nextEntry: InstalledTrack = {
+        trackId: id,
+        fileName: getFocusMusicFileName(track),
+        downloadedAt: new Date().toISOString(),
+      };
+
+      let quotaConsumeResult: Awaited<
+        ReturnType<typeof consumeFocusMusicDownloadQuota>
+      >;
+      try {
+        addSentryBreadcrumb("focus_music", "focus_music_quota_consumption_started", {
+          trackId: id,
+          userId,
+        });
+        // ユーザがダウンロード可能な状態か(上限に達してないか等)を確認。「ユーザの月間DLの上限に達していないか」「達成していたらNG,DL可能ならOKを返す」「ダウンロード可能なら最新のfocus_music_download_quotas(月間DL数を+1する)を返す
+        quotaConsumeResult = await consumeQuotaWithProfileRecovery(userId);
+      } catch (error) {
+        // エラーが出たら今回DLした音楽を削除する
+        await rollbackInstalledTrackFile(nextEntry);
+        captureMusicDownloadError(error, id, "quota_consume");
+        return { ok: false, reason: "download_failed" };
+      }
+
+      // ユーザが音楽DLを許されていない状況(月間DL上限突破など)の時は今回DLした音楽を削除する
+      if (!quotaConsumeResult.ok) {
+        await rollbackInstalledTrackFile(nextEntry);
+        await refreshDownloadQuota(userId);
+        return { ok: false, reason: "monthly_limit" };
+      }
+
+      // DB上でもユーザのDL権限に問題がないときは今回DLした音楽を含めた新しい音楽情報リストをアプリで保持する
+      const nextEntries = [...installedEntries, nextEntry];
+      setInstalledEntries(nextEntries);
+      try {
+        await saveInstalledTracks(nextEntries);
+      } catch (error) {
+        console.warn("Failed to persist installed focus music metadata", error);
+        captureMusicDownloadError(error, id, "metadata_persist");
+      }
+
+      applyQuotaState(quotaConsumeResult.quota);
+      if (!selectedTrackId) {
+        setSelectedTrackId(id);
+      }
+      return { ok: true, track: { ...track, ...nextEntry, localPath } };
     },
-    [catalog, installedEntries, persistInstalledEntries, refreshDownloadQuota, selectedTrackId],
+    [
+      applyQuotaState,
+      catalog,
+      consumeQuotaWithProfileRecovery,
+      installedEntries,
+      refreshDownloadQuota,
+      rollbackInstalledTrackFile,
+      selectedTrackId,
+    ],
   );
 
   // タスク集中音楽の削除、引数としてタスク集中音楽のid１つを受け取る
@@ -561,6 +667,28 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     };
   }, [installedEntries, selectedTrack]);
 
+  // Androidのバックグラウンド音楽再生が安定するようにOSに「今このプレイヤーがバックグラウンド再生の主体です」と伝えている
+  const setLockScreenActive = useCallback(
+    async (active: boolean) => {
+      if (!selectedInstalledTrack) return;
+
+      if (active && Platform.OS === "android") {
+        await Notifications.requestPermissionsAsync().catch(() => null);
+      }
+
+      player.setActiveForLockScreen(
+        active,
+        active
+          ? {
+            title: selectedInstalledTrack.title,
+            artist: "Ideal Gap",
+          }
+          : undefined,
+      );
+    },
+    [player, selectedInstalledTrack],
+  );
+
   // 選択中の音楽が無効になった場合に手持ち音楽リストの１番目の音楽を選択中にするフォールバック
   useEffect(() => {
     const installedIds = installedEntries.map((entry) => entry.trackId);
@@ -588,6 +716,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       player.loop = true;
       player.volume = 1;
       player.replace(fileInfo.localPath);
+      // 音楽再生時にandroidでもバックグラウンド再生を安定させる処理
+      await setLockScreenActive(true);
       player.play();
       addSentryBreadcrumb("focus_music", "focus_music_play_started", {
         trackId: selectedInstalledTrack.id,
@@ -595,6 +725,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       });
       return true;
     } catch (error) {
+      // エラー時にandroidバックグラウンド安定化処理をストップ
+      await setLockScreenActive(false).catch(() => { });
       await setFocusPlaybackAudioMode(false).catch(() => { });
       captureExpoAudioError(error, "focus_music_play_selected");
       return false;
@@ -603,6 +735,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     installedEntries,
     persistInstalledEntries,
     player,
+    setLockScreenActive,
     selectedInstalledTrack,
     setFocusPlaybackAudioMode,
   ]);
@@ -610,6 +743,8 @@ export function FocusMusicProvider({ children }: ProviderProps) {
   const pause = useCallback(() => {
     try {
       player.pause();
+      // 音楽停止時にandroidバックグラウンド安定化処理をストップ
+      void setLockScreenActive(false).catch(() => { });
       addSentryBreadcrumb("focus_music", "focus_music_paused", {
         trackId: selectedInstalledTrack?.id ?? null,
       });
@@ -619,11 +754,13 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     void setFocusPlaybackAudioMode(false).catch((error) => {
       captureExpoAudioError(error, "focus_music_pause_audio_mode");
     });
-  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode]);
+  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode, setLockScreenActive]);
 
   const stop = useCallback(async () => {
     try {
       player.pause();
+      // 音楽停止時にandroidバックグラウンド安定化処理をストップ
+      await setLockScreenActive(false);
       await player.seekTo(0);
       await setFocusPlaybackAudioMode(false);
       addSentryBreadcrumb("focus_music", "focus_music_stopped", {
@@ -632,7 +769,7 @@ export function FocusMusicProvider({ children }: ProviderProps) {
     } catch (error) {
       captureExpoAudioError(error, "focus_music_stop");
     }
-  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode]);
+  }, [player, selectedInstalledTrack?.id, setFocusPlaybackAudioMode, setLockScreenActive]);
 
   // useFocusMusicフックスとして返す値(グローバルに使用できる)
   const value = useMemo<FocusMusicContextValue>(
@@ -643,9 +780,10 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       selectedTrackId,
       selectedTrack: selectedInstalledTrack,
       maxInstalled: FOCUS_MUSIC_MAX_INSTALLED,
-      monthlyDownloadLimit: FOCUS_MUSIC_MONTHLY_DOWNLOAD_LIMIT,
+      monthlyDownloadLimit,
       monthlyDownloadRemaining,
       downloadResetAt,
+      monthlyDownloadAccessMode,
       canInstall: installedEntries.length < FOCUS_MUSIC_MAX_INSTALLED,
       isInstalling,
       isDownloadInProgress,
@@ -669,8 +807,10 @@ export function FocusMusicProvider({ children }: ProviderProps) {
       isDownloadInProgress,
       isLoadingCatalog,
       getInstallProgress,
+      monthlyDownloadLimit,
       monthlyDownloadRemaining,
       downloadResetAt,
+      monthlyDownloadAccessMode,
       installTrack,
       isInstalled,
       removeTrack,

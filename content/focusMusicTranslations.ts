@@ -34,6 +34,12 @@ export type FocusMusicTranslations = {
   downloadBusyBody: string;
   monthlyLimitTitle: string;
   monthlyLimitBody: string;
+  monthlyLimitAlert: {
+    title: string;
+    body: string;
+    back: string;
+    upgrade: string;
+  };
   catalogTitle: string;
   catalogSubtitle: string;
   categoryFilterTitle: string;
@@ -64,7 +70,7 @@ export const focusMusicTranslations: Record<
     title: "タスク集中音楽",
     description: "集中を途切れさせないための音楽を5曲まで管理できます。",
     subDescription:
-      "最大ダウンロード数は30日につき20回までです。{{resetAt}}にリセットされます。(残り{{count}}回)",
+      "現在のプランでは30日につき最大{{max}}回ダウンロードできます。{{resetAt}}にリセットされます。(残り{{count}}回)",
     installedTitle: "手持ちのタスク集中音楽",
     installedTitleWithCount: "手持ちのタスク集中音楽 ({{count}} / {{max}})",
     installedSubtitle: "タスクタイマーで使う曲を選択できます。",
@@ -91,12 +97,20 @@ export const focusMusicTranslations: Record<
     cellularConfirmYes: "ダウンロードする",
     cellularConfirmNo: "キャンセル",
     downloadFailedTitle: "ダウンロードに失敗しました",
-    downloadFailedBody: "回線状況を確認して、もう一度お試しください。",
+    downloadFailedBody:
+      "ダウンロード処理を完了できませんでした。通信環境または設定を確認して、もう一度お試しください。",
     downloadBusyTitle: "ダウンロード中です",
     downloadBusyBody: "他の曲のダウンロードが完了するまでお待ちください。",
     monthlyLimitTitle: "月間ダウンロード上限",
     monthlyLimitBody:
       "今月のダウンロード上限に達しました。翌月に再度お試しください。",
+    monthlyLimitAlert: {
+      title: "月間ダウンロード上限に達しました",
+      body:
+        "無料プランでは30日ごとに最大5曲までです。さらにダウンロードする場合はプランをアップグレードしてください。",
+      back: "戻る",
+      upgrade: "Pro Planへアップグレード",
+    },
     catalogTitle: "タスク集中音楽カタログ",
     catalogSubtitle: "試聴、追加できます。",
     categoryFilterTitle: "カテゴリで絞り込み",
@@ -122,7 +136,7 @@ export const focusMusicTranslations: Record<
     title: "Focus Music",
     description: "Manage up to five tracks that keep you in flow.",
     subDescription:
-      "You can download up to 20 tracks every 30 days. Resets on {{resetAt}}. (Remaining {{count}})",
+      "Your current plan allows up to {{max}} downloads every 30 days. Resets on {{resetAt}}. (Remaining {{count}})",
     installedTitle: "downloaded focus music",
     installedTitleWithCount: "downloaded focus music ({{count}} / {{max}})",
     installedSubtitle: "Choose which track to use in the timer.",
@@ -150,12 +164,20 @@ export const focusMusicTranslations: Record<
     cellularConfirmYes: "Download",
     cellularConfirmNo: "Cancel",
     downloadFailedTitle: "Download failed",
-    downloadFailedBody: "Check your connection and try again.",
+    downloadFailedBody:
+      "The download could not be completed. Check your connection or app setup and try again.",
     downloadBusyTitle: "Download in progress",
     downloadBusyBody: "Please wait until the current download finishes.",
     monthlyLimitTitle: "Monthly download limit",
     monthlyLimitBody:
       "You've reached this month's download limit. Please try again next month.",
+    monthlyLimitAlert: {
+      title: "Monthly download limit reached",
+      body:
+        "The free plan allows up to 5 music downloads every 30 days. Upgrade your plan to download more.",
+      back: "Back",
+      upgrade: "Upgrade to Pro Plan",
+    },
     catalogTitle: "Focus music catalog",
     catalogSubtitle: "Preview and add your favorites.",
     categoryFilterTitle: "Filter by category",
@@ -181,7 +203,7 @@ export const focusMusicTranslations: Record<
     title: "Musique de Concentration",
     description: "Gérez jusqu’à cinq morceaux pour rester concentré-e.",
     subDescription:
-      "La limite est de 20 téléchargements tous les 30 jours. Réinitialisation le {{resetAt}}. ({{count}} restants)",
+      "Votre formule actuelle permet jusqu’à {{max}} téléchargements tous les 30 jours. Réinitialisation le {{resetAt}}. ({{count}} restants)",
     installedTitle: "Musiques installées",
     installedTitleWithCount: "Musiques installées ({{count}} / {{max}})",
     installedSubtitle: "Sélectionnez le morceau utilisé durant le minuteur.",
@@ -209,12 +231,20 @@ export const focusMusicTranslations: Record<
     cellularConfirmYes: "Télécharger",
     cellularConfirmNo: "Annuler",
     downloadFailedTitle: "Échec du téléchargement",
-    downloadFailedBody: "Vérifiez la connexion et réessayez.",
+    downloadFailedBody:
+      "Le téléchargement n’a pas pu être finalisé. Vérifiez la connexion ou la configuration, puis réessayez.",
     downloadBusyTitle: "Téléchargement en cours",
     downloadBusyBody: "Veuillez attendre la fin du téléchargement en cours.",
     monthlyLimitTitle: "Limite mensuelle",
     monthlyLimitBody:
       "Vous avez atteint la limite mensuelle. Réessayez le mois prochain.",
+    monthlyLimitAlert: {
+      title: "Limite mensuelle atteinte",
+      body:
+        "Le forfait gratuit permet jusqu’à 5 téléchargements audio tous les 30 jours. Passez au forfait Pro pour en télécharger davantage.",
+      back: "Retour",
+      upgrade: "Passer au forfait Pro",
+    },
     catalogTitle: "Catalogue de musiques",
     catalogSubtitle: "Écoutez un extrait et ajoutez vos favoris.",
     categoryFilterTitle: "Filtrer par catégorie",

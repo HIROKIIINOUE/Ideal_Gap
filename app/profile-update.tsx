@@ -32,6 +32,7 @@ import {
   hasAppleOrGoogleProvider,
 } from "../lib/authProviders";
 import { signOutCurrentSession } from "../lib/logout";
+import { navigateToPaymentScreen } from "../lib/paymentNavigation";
 import { supabase } from "../lib/supabaseClient";
 import { getKeyboardAvoidingBehavior } from "../lib/ui/platform";
 import { useFunPlan } from "../providers/FunPlanProvider";
@@ -323,7 +324,7 @@ export default function ProfileUpdate() {
       router.push("/contact");
     }
     if (key === "payment") {
-      router.push("/payment-management");
+      await navigateToPaymentScreen(router);
     }
   };
 

@@ -3,15 +3,13 @@ import React from "react";
 import { I18nextProvider } from "react-i18next";
 import { Platform, ScrollView } from "react-native";
 import Signup from "../app/signup";
-import { typography } from "../constants/theme";
 import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
 let mockLanguage: "ja" | "en" | "fr" = "en";
 
-const mockFetchTestStorePackage = jest.fn();
+const mockFetchRevenueCatPackage = jest.fn();
 const mockGetAccessStateForUser = jest.fn();
-const mockEnsureSignupAwaitSubscription = jest.fn();
 
 jest.mock("expo-router", () => {
   const React = require("react");
@@ -30,13 +28,11 @@ const mockContinueWithOAuthProvider = jest.fn();
 const mockResolveAuthenticatedEntryDestination = jest.fn();
 
 jest.mock("../lib/revenuecatOfferings", () => ({
-  fetchTestStorePackage: (...args: unknown[]) => mockFetchTestStorePackage(...args),
+  fetchRevenueCatPackage: (...args: unknown[]) => mockFetchRevenueCatPackage(...args),
 }));
 
 jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
-  ensureSignupAwaitSubscription: (...args: unknown[]) =>
-    mockEnsureSignupAwaitSubscription(...args),
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
@@ -80,16 +76,12 @@ describe("Signup screen", () => {
       data: { subscription: { unsubscribe: jest.fn() } },
     });
     mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: false,
-      accessMode: "none",
+      canAccessApp: true,
+      accessMode: "free",
       subscription: null,
       accessOverride: null,
     });
-    mockEnsureSignupAwaitSubscription.mockResolvedValue({
-      user_id: "user-123",
-      status: "signupAwait",
-    });
-    mockFetchTestStorePackage.mockResolvedValue({
+    mockFetchRevenueCatPackage.mockResolvedValue({
       package: {
         identifier: "monthly",
         product: {
@@ -110,7 +102,7 @@ describe("Signup screen", () => {
       ok: true,
       user: { id: "user-123" },
     });
-    mockResolveAuthenticatedEntryDestination.mockResolvedValue("/purchases?from=signup");
+    mockResolveAuthenticatedEntryDestination.mockResolvedValue("/dashboard");
   });
 
   afterEach(() => {
@@ -238,7 +230,7 @@ describe("Signup screen", () => {
       }),
     );
     expect(require("expo-router").router.replace).toHaveBeenCalledWith(
-      "/purchases?from=signup",
+      "/dashboard",
     );
   });
 
@@ -286,36 +278,40 @@ describe("Signup screen", () => {
     expect(queryByText("Continue to sign up")).toBeTruthy();
   });
 
-  test("renders plan price and trial copy from RevenueCat offering", async () => {
-    const { findAllByText } = renderScreen();
+  test("shows the free-plan guidance copy in English", async () => {
+    const { findByText } = renderScreen();
 
-    const trialTexts = await findAllByText(/Free for 14 day/i);
-    expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/^3\.99CAD\/month$/i);
-    expect(priceTexts.length).toBeGreaterThan(0);
-    expect(priceTexts[0]).toHaveStyle({ fontSize: typography.xl });
-    expect(trialTexts[0]).toHaveStyle({ color: "#F2C94C" });
+    expect(await findByText("Start free")).toBeTruthy();
+    expect(
+      await findByText(
+        "You are signing up as a free user. If you want to upgrade to Pro Plan, change your plan from the More Options button in the dashboard.",
+      ),
+    ).toBeTruthy();
   });
 
-  test("shows fixed Japanese subscription copy", async () => {
+  test("shows fixed Japanese free-plan copy", async () => {
     mockLanguage = "ja";
     await i18n.changeLanguage("ja");
-    const { findAllByText } = renderScreen();
+    const { findByText } = renderScreen();
 
-    const trialTexts = await findAllByText(/14日間無料/);
-    expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/^390円\/月$/);
-    expect(priceTexts.length).toBeGreaterThan(0);
+    expect(await findByText("無料で始める")).toBeTruthy();
+    expect(
+      await findByText(
+        "無料ユーザーとしてサインアップします。Proプランへアップデートする場合はダッシュボード内のその他オプションボタンより料金プランを変更してください。",
+      ),
+    ).toBeTruthy();
   });
 
-  test("shows fixed French subscription copy", async () => {
+  test("shows fixed French free-plan copy", async () => {
     mockLanguage = "fr";
     await i18n.changeLanguage("fr");
-    const { findAllByText } = renderScreen();
+    const { findByText } = renderScreen();
 
-    const trialTexts = await findAllByText(/14 jours? gratuit/i);
-    expect(trialTexts.length).toBeGreaterThan(0);
-    const priceTexts = await findAllByText(/^3\.99CAD\/mois$/i);
-    expect(priceTexts.length).toBeGreaterThan(0);
+    expect(await findByText("Commencer gratuitement")).toBeTruthy();
+    expect(
+      await findByText(
+        "Vous vous inscrivez en tant qu’utilisateur gratuit. Si vous souhaitez passer au Pro Plan, modifiez votre formule depuis le bouton Autres options du tableau de bord.",
+      ),
+    ).toBeTruthy();
   });
 });

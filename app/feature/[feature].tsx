@@ -18,6 +18,7 @@ import LanguageSheet from "../../components/LanguageSheet";
 import MoreSheet from "../../components/MoreSheet";
 import { colors, radius, shadows, spacing, typography } from "../../constants/theme";
 import { signOutCurrentSession } from "../../lib/logout";
+import { navigateToPaymentScreen } from "../../lib/paymentNavigation";
 import { useFunPlan } from "../../providers/FunPlanProvider";
 
 type FeatureId =
@@ -92,7 +93,7 @@ export default function FeatureScreen() {
       router.push("/contact");
     }
     if (key === "payment") {
-      router.push("/payment-management");
+      await navigateToPaymentScreen(router);
     }
   };
 

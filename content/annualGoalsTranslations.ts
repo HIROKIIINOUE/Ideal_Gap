@@ -7,6 +7,14 @@ export type AnnualGoalsTranslations = {
   add: string;
   delete: string;
   deleteExit: string;
+  limitHelper: string;
+  limitReached: string;
+  limitAlert: {
+    title: string;
+    body: string;
+    back: string;
+    upgrade: string;
+  };
   reorderHint: string;
   completion: {
     complete: string;
@@ -78,6 +86,14 @@ export const annualGoalsTranslations: Record<
     add: "追加",
     delete: "削除",
     deleteExit: "戻る",
+    limitHelper: "無料プランでは最大10件まで追加できます",
+    limitReached: "上限に達しました。削除してから追加してください。",
+    limitAlert: {
+      title: "上限に達しました",
+      body: "無料プランは最大10件までです。10件を超える場合はプランをアップグレードしてください。",
+      back: "戻る",
+      upgrade: "Pro Planへアップグレード",
+    },
     reorderHint: "カードを長押し＋ドラッグで順番を変えられます",
     completion: {
       complete: "完了",
@@ -146,6 +162,14 @@ export const annualGoalsTranslations: Record<
     add: "Add",
     delete: "Delete",
     deleteExit: "Exit",
+    limitHelper: "Free users can add up to 10 items",
+    limitReached: "You’ve reached the limit. Remove one to add another.",
+    limitAlert: {
+      title: "Limit reached",
+      body: "The free plan allows up to 10 items. Upgrade your plan to go beyond 10.",
+      back: "Back",
+      upgrade: "Upgrade to Pro Plan",
+    },
     reorderHint: "Long-press and drag cards to reorder.",
     completion: {
       complete: "Done",
@@ -216,6 +240,14 @@ export const annualGoalsTranslations: Record<
     add: "Ajouter",
     delete: "Supprimer",
     deleteExit: "Quitter",
+    limitHelper: "Les utilisateurs gratuits peuvent en ajouter jusqu’à 10",
+    limitReached: "Limite atteinte. Supprimez-en un pour en ajouter un autre.",
+    limitAlert: {
+      title: "Limite atteinte",
+      body: "Le forfait gratuit permet jusqu’à 10 éléments. Passez au forfait Pro pour dépasser 10.",
+      back: "Retour",
+      upgrade: "Passer au forfait Pro",
+    },
     reorderHint: "Appui long puis glisser pour réordonner les cartes.",
     completion: {
       complete: "Terminer",

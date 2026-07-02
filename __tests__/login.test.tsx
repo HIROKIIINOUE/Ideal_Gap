@@ -8,7 +8,6 @@ import i18n from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
 const mockGetAccessStateForUser = jest.fn();
-const mockEnsureSignupAwaitSubscription = jest.fn();
 
 jest.mock("expo-router", () => {
   const React = require("react");
@@ -27,10 +26,8 @@ jest.mock("../components/Footer", () => () => null);
 
 jest.mock("../lib/subscription", () => ({
   getAccessStateForUser: (...args: unknown[]) => mockGetAccessStateForUser(...args),
-  ensureSignupAwaitSubscription: (...args: unknown[]) =>
-    mockEnsureSignupAwaitSubscription(...args),
   canAccessDashboardWithSubscriptionStatus: (status: string | null | undefined) =>
-    status === "active" || status === "trial",
+    status === "trial" || status === "active",
 }));
 
 jest.mock("../lib/supabaseClient", () => ({
@@ -74,20 +71,16 @@ describe("Login screen", () => {
       data: { subscription: { unsubscribe: jest.fn() } },
     });
     mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: false,
-      accessMode: "none",
-      subscription: { status: "signupAwait" },
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: null,
       accessOverride: null,
-    });
-    mockEnsureSignupAwaitSubscription.mockResolvedValue({
-      user_id: "user-123",
-      status: "signupAwait",
     });
     mockContinueWithOAuthProvider.mockResolvedValue({
       ok: true,
       user: { id: "user-123" },
     });
-    mockResolveAuthenticatedEntryDestination.mockResolvedValue("/purchases?from=login");
+    mockResolveAuthenticatedEntryDestination.mockResolvedValue("/dashboard");
   });
 
   afterEach(() => {
@@ -133,6 +126,14 @@ describe("Login screen", () => {
     const { UNSAFE_getByType } = renderScreen();
 
     expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe("handled");
+  });
+
+  test("does not show outdated free trial copy in the sign up prompt card", () => {
+    const { queryByText } = renderScreen();
+
+    expect(
+      queryByText("After your 14 days free trial, it renews at 3.99 CAD every month. You can cancel anytime."),
+    ).toBeNull();
   });
 
   test("toggles password visibility", () => {
@@ -207,12 +208,12 @@ describe("Login screen", () => {
     ).toBeTruthy();
   });
 
-  test("redirects to purchases when subscription is pending signup", async () => {
+  test("redirects to dashboard when the logged-in user is on the free plan", async () => {
     mockSignInWithEmailPassword.mockResolvedValue({ ok: true });
     mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: false,
-      accessMode: "none",
-      subscription: { status: "signupAwait" },
+      canAccessApp: true,
+      accessMode: "free",
+      subscription: null,
       accessOverride: null,
     });
     const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
@@ -224,7 +225,7 @@ describe("Login screen", () => {
     fireEvent.press(getByRole("button", { name: "Log In" }));
 
     await waitFor(() => expect(mockSignInWithEmailPassword).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/purchases?from=login"));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard"));
     expect(alertSpy).toHaveBeenCalledWith("Logged in successfully");
 
     alertSpy.mockRestore();
@@ -275,8 +276,6 @@ describe("Login screen", () => {
     await waitFor(() => expect(mockSignInWithEmailPassword).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard"));
     expect(router.replace).not.toHaveBeenCalledWith("/purchases?from=login");
-    expect(mockEnsureSignupAwaitSubscription).not.toHaveBeenCalled();
-
     alertSpy.mockRestore();
   });
 
@@ -294,7 +293,7 @@ describe("Login screen", () => {
         language: "en",
       }),
     );
-    expect(router.replace).toHaveBeenCalledWith("/purchases?from=login");
+    expect(router.replace).toHaveBeenCalledWith("/dashboard");
     expect(alertSpy).toHaveBeenCalledWith("Logged in successfully");
 
     alertSpy.mockRestore();
@@ -326,16 +325,16 @@ describe("Login screen", () => {
     expect(router.replace).toHaveBeenCalledWith("/dashboard");
   });
 
-  test("redirects authenticated users to purchases on mount when subscription is canceled", async () => {
+  test("redirects authenticated users to dashboard on mount when subscription is active and set to cancel at period end", async () => {
     (supabase.auth.getSession as jest.Mock).mockReset();
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { user: { id: "user-123" } } },
       error: null,
     });
     mockGetAccessStateForUser.mockResolvedValue({
-      canAccessApp: false,
-      accessMode: "none",
-      subscription: { status: "canceled" },
+      canAccessApp: true,
+      accessMode: "paid",
+      subscription: { status: "active", cancel_at_period_end: true },
       accessOverride: null,
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
@@ -349,7 +348,7 @@ describe("Login screen", () => {
     );
 
     await waitFor(() => expect(supabase.auth.getSession).toHaveBeenCalled());
-    expect(router.replace).toHaveBeenCalledWith("/purchases");
+    expect(router.replace).toHaveBeenCalledWith("/dashboard");
   });
 
   test("redirects to dashboard when friend free override is active", async () => {
@@ -357,7 +356,7 @@ describe("Login screen", () => {
     mockGetAccessStateForUser.mockResolvedValue({
       canAccessApp: true,
       accessMode: "friend_free",
-      subscription: { status: "signupAwait" },
+      subscription: null,
       accessOverride: { access_type: "friend_free", is_active: true },
     });
     const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});

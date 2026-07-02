@@ -72,9 +72,6 @@ beforeAll(() => {
   jest.useFakeTimers();
 });
 afterEach(() => {
-  act(() => {
-    jest.runOnlyPendingTimers();
-  });
   jest.clearAllTimers();
 });
 afterAll(() => {

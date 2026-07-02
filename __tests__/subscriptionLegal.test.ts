@@ -6,6 +6,7 @@ import {
   getTermsOfUseUrl,
 } from "../lib/subscriptionLegal";
 import {
+  formatRevenueCatPrice,
   getPlanBillingCopy,
   getPlanTrialCopy,
   getTrialLabel,
@@ -17,9 +18,9 @@ const createTranslator = () =>
       case "trialLabelDay":
         return `${options?.count} days free`;
       case "planRenewalPrice":
-        return `${options?.price}/month`;
+        return `${options?.price} / month`;
       case "trialInfo":
-        return `${options?.trial}, then renews at ${options?.price}/month`;
+        return `${options?.trial}, then renews at ${options?.price} / month`;
       case "planUnavailable":
         return "Plan unavailable";
       default:
@@ -57,33 +58,39 @@ describe("planCopy", () => {
     expect(
       getPlanBillingCopy(
         {
+          price: 3.99,
           priceString: "$3.99",
+          currencyCode: "CAD",
           package: {} as any,
           trialDuration: { unit: "DAY", value: 14 },
         },
         t,
       ),
-    ).toBe("$3.99/month");
+    ).toBe("3.99 CAD / month");
   });
 
   it("builds the trial copy as subordinate copy", () => {
     expect(
       getPlanTrialCopy(
         {
+          price: 3.99,
           priceString: "$3.99",
+          currencyCode: "CAD",
           package: {} as any,
           trialDuration: { unit: "DAY", value: 14 },
         },
         t,
       ),
-    ).toBe("14 days free, then renews at $3.99/month");
+    ).toBe("14 days free, then renews at 3.99 CAD / month");
   });
 
   it("omits the trial copy when no trial exists", () => {
     expect(
       getPlanTrialCopy(
         {
+          price: 3.99,
           priceString: "$3.99",
+          currencyCode: "CAD",
           package: {} as any,
         },
         t,
@@ -95,12 +102,24 @@ describe("planCopy", () => {
     expect(
       getTrialLabel(
         {
+          price: 3.99,
           priceString: "$3.99",
+          currencyCode: "CAD",
           package: {} as any,
           trialDuration: { unit: "DAY", value: 14 },
         },
         t,
       ),
     ).toBe("14 days free");
+  });
+
+  it("formats integer prices with a currency code for zero-decimal currencies", () => {
+    expect(
+      formatRevenueCatPrice({
+        price: 390,
+        priceString: "¥390",
+        currencyCode: "JPY",
+      }),
+    ).toBe("390 JPY");
   });
 });

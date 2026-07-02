@@ -7,7 +7,10 @@ Bridge the gap to your ideal self.
 </p>
 <p align="center">
   <a href="https://apps.apple.com/app/id6759301711">
-    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="50" alt="Download on the App Store"/>
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="50" style="vertical-align: middle;" />
+  </a>
+  <a href="https://play.google.com/store/apps/details?id=com.idealgap.app">
+    <img src="./assets/for_readme/google-play-badge.png" alt="Get it on Google Play" height="75" style="vertical-align: middle;" />
   </a>
 </p>
 
@@ -49,9 +52,12 @@ Bridge the gap to your ideal self.
  </ul>
 
 <h2>Project Status</h2>
-<p>Available on the App Store. Android release coming soon on Google Play.</p>
+<p>Available on the App Store and Google Play.</p>
 <p align="center">
   <a href="https://apps.apple.com/app/id6759301711">
-    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" height="50" alt="Download on the App Store"/>
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="50" style="vertical-align: middle;" />
+  </a>
+  <a href="https://play.google.com/store/apps/details?id=com.idealgap.app">
+    <img src="./assets/for_readme/google-play-badge.png" alt="Get it on Google Play" height="75" style="vertical-align: middle;" />
   </a>
 </p>
